@@ -1,0 +1,13 @@
+# AI / Agent configurations
+.agents/
+.agent/
+AGENTS.md
+agent.md
+
+# IDE & OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
