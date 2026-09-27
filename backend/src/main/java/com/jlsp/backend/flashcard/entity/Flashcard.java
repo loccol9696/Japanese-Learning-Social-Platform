@@ -21,16 +21,16 @@ public class Flashcard {
     @Column(name = "lesson_id")
     private Long lessonId;
 
-    @Column(name = "front_text", nullable = false, columnDefinition = "NTEXT")
+    @Column(name = "front_text", nullable = false, columnDefinition = "TEXT")
     private String frontText;
 
-    @Column(name = "back_text", nullable = false, columnDefinition = "NTEXT")
+    @Column(name = "back_text", nullable = false, columnDefinition = "TEXT")
     private String backText;
 
-    @Column(columnDefinition = "NVARCHAR(255)")
+    @Column(length = 255)
     private String reading;
 
-    @Column(columnDefinition = "NTEXT")
+    @Column(columnDefinition = "TEXT")
     private String example;
 
     @Column(name = "created_at", nullable = false, updatable = false)
