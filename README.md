@@ -6,5 +6,5 @@ Nền tảng mạng xã hội kết hợp học tiếng Nhật: Video ngắn tư
 - **Mô hình Repository:** Monorepo (`frontend/`, `backend/`, `docs/`)
 - **Frontend:** Flutter (Mobile App - Android/iOS)
 - **Backend:** Spring Boot (Java 17, Spring Data JPA, Maven)
-- **Database:** Microsoft SQL Server
+- **Database:** PostgreSQL 
 
