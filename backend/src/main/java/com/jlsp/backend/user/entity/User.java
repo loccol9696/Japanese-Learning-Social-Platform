@@ -37,7 +37,7 @@ public class User {
     @Column(name = "jlpt_level", length = 10)
     private JLPTLevel jlptLevel;
 
-    @Column(columnDefinition = "NTEXT")
+    @Column(columnDefinition = "TEXT")
     private String bio;
 
     @Enumerated(EnumType.STRING)

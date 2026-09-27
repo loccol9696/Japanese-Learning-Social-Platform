@@ -22,7 +22,7 @@ public class Lesson {
     @Column(nullable = false, length = 200)
     private String title;
 
-    @Column(columnDefinition = "NTEXT")
+    @Column(columnDefinition = "TEXT")
     private String content;
 
     @Enumerated(EnumType.STRING)
