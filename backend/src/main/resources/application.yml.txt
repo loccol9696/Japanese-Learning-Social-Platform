@@ -9,6 +9,22 @@ spring:
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}        # Đặt trong .env (ví dụ: your_email@gmail.com)
+    password: ${MAIL_PASSWORD}        # App Password 16 ký tự từ Google
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
 server:
   port: 8080
 

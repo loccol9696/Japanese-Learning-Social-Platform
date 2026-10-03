@@ -7,6 +7,10 @@ import com.jlsp.backend.auth.service.AuthService;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.security.CustomUserDetails;
 import com.jlsp.backend.common.security.jwt.JwtUtils;
+import com.jlsp.backend.otp.dto.ResendOtpRequest;
+import com.jlsp.backend.otp.dto.VerifyOtpRequest;
+import com.jlsp.backend.otp.service.EmailService;
+import com.jlsp.backend.otp.service.OtpRedisService;
 import com.jlsp.backend.user.mapper.UserMapper;
 import com.jlsp.backend.user.repository.UserRepository;
 
@@ -39,6 +43,10 @@ public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
 
+    private final EmailService emailService;
+
+    private final OtpRedisService otpRedisService;
+
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -60,16 +68,17 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(encodedPassword)
                 .displayName(request.getDisplayName() != null ? request.getDisplayName() : request.getUsername())
                 .role(UserRole.USER)
-                .isActive(true)
+                .isActive(false)
                 .build();
         User savedUser = userRepository.save(user);
 
-        CustomUserDetails userDetails = new CustomUserDetails(savedUser);
-        String accessToken = jwtUtils.generateToken(userDetails);
+        String otp = emailService.generateOtp();
+        otpRedisService.saveOtp(request.getEmail(), otp);
+        emailService.sendOtpEmail(request.getEmail(), otp);
+
         UserResponse userResponse = userMapper.toResponse(savedUser);
 
         return AuthResponse.builder()
-                .accessToken(accessToken)
                 .user(userResponse)
                 .build();
     }
@@ -81,6 +90,9 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByUsername(request.getUsernameOrEmail())
                 .orElseGet(() -> userRepository.findByEmail(request.getUsernameOrEmail())
                         .orElseThrow(() -> new AppException(404, "Username/email not found")));
+
+        if (!user.getIsActive())
+            throw new AppException("This user is inactive. Please activate your account.");
 
         authenticationManager
                 .authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), request.getPassword()));
@@ -94,5 +106,34 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(accessToken)
                 .user(userResponse)
                 .build();
+    }
+
+    @Transactional
+    public void verifyOtp(VerifyOtpRequest request) {
+        boolean isValid = otpRedisService.validateOtp(request.getEmail(), request.getOtp());
+        if (!isValid) {
+            throw new AppException(400, "OTP is wrong or expired. Try again");
+        }
+
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new AppException(404, "This user is not found"));
+
+        user.setIsActive(true);
+        userRepository.save(user);
+        otpRedisService.deleteOtp(request.getEmail());
+    }
+
+    @Transactional
+    public void resendOtp(ResendOtpRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new AppException(404, "This user is not found"));
+
+        if (user.getIsActive()) {
+            throw new AppException("This user is already activated before");
+        }
+
+        String newOtp = emailService.generateOtp();
+        otpRedisService.saveOtp(request.getEmail(), newOtp);
+        emailService.sendOtpEmail(request.getEmail(), newOtp);
     }
 }
