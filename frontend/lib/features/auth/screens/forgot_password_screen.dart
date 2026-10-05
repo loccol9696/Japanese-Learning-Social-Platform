@@ -55,6 +55,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(
+                  color: Color(0xFF0D1B3E),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+                cursorColor: const Color(0xFF0D1B3E),
                 decoration: InputDecoration(
                   hintText: 'name@example.com',
                   hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),

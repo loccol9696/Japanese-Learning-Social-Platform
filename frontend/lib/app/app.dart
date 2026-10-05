@@ -16,7 +16,7 @@ class App extends StatelessWidget {
           title: AppConstants.appName,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.darkTheme,
-          initialRoute: AppRoutes.home,
+          initialRoute: AppRoutes.login,
           routes: AppRoutes.routes,
         );
       },
