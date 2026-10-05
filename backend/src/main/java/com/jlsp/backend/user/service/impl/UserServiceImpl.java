@@ -1,13 +1,9 @@
 package com.jlsp.backend.user.service.impl;
 
-import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.user.dto.request.CreateUserRequest;
 import com.jlsp.backend.user.dto.request.UpdateUserRequest;
 import com.jlsp.backend.user.dto.response.UserResponse;
-import com.jlsp.backend.user.entity.User;
-import com.jlsp.backend.user.mapper.UserMapper;
-import com.jlsp.backend.user.repository.UserRepository;
 import com.jlsp.backend.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +15,6 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class UserServiceImpl implements UserService {
 
-    private final UserRepository userRepository;
-
-    private final UserMapper userMapper;
-
     @Override
     public UserResponse createUser(CreateUserRequest request) {
         return null;
@@ -30,12 +22,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse getUserById(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new AppException(404, "This user doesn't exist"));
-
-        UserResponse userResponse = userMapper.toResponse(user);
-
-        return userResponse;
+        return null;
     }
 
     @Override
