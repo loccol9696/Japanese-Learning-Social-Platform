@@ -7,6 +7,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,7 +21,23 @@ public class UpdateUserRequest {
 
     private String avatarUrl;
 
+    private JLPTLevel currentLevel;
+
     private JLPTLevel jlptLevel;
 
+    @Size(max = 500, message = "Bio must not exceed 500 characters")
     private String bio;
+
+    @Builder.Default
+    private Set<Long> topicIds = new HashSet<>();
+
+    @Builder.Default
+    private Set<String> interests = new HashSet<>();
+
+    public JLPTLevel getEffectiveLevel() {
+        if (currentLevel != null) {
+            return currentLevel;
+        }
+        return jlptLevel;
+    }
 }

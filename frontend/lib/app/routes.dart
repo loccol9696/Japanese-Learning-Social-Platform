@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../features/home/presentation/screens/home_screen.dart';
+import '../features/profile/presentation/screens/profile_update_screen.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -12,5 +13,6 @@ class AppRoutes {
 
   static Map<String, WidgetBuilder> get routes => {
         home: (context) => const HomeScreen(),
+        profile: (context) => const ProfileUpdateScreen(),
       };
 }

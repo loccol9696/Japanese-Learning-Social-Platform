@@ -19,4 +19,8 @@ public interface UserService {
     UserResponse updateUser(Long id, UpdateUserRequest request);
 
     void deactivateUser(Long id);
+
+    UserResponse getProfile(Long userId);
+
+    UserResponse updateProfile(Long userId, UpdateUserRequest request);
 }
