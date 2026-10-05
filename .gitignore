@@ -13,7 +13,3 @@ agent.md
 *.swo
 .DS_Store
 Thumbs.db
-
-#Resource file
-backend/src/main/resources/application.yml
-
