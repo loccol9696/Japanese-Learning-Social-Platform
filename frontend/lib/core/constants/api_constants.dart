@@ -25,6 +25,18 @@ class ApiConstants {
   static String get verifyOtpUrl => '$baseUrl/auth/verify-otp';
   static String get resendOtpUrl => '$baseUrl/auth/resend-otp';
 
+  // Flashcard endpoints
+  static String get flashcardSetsUrl => '$baseUrl/flashcards/sets';
+  static String flashcardSetDetailUrl(int id) => '$baseUrl/flashcards/sets/$id';
+  static String flashcardCardsUrl(int setId) => '$baseUrl/flashcards/sets/$setId/cards';
+  static String flashcardQuizUrl(int setId) => '$baseUrl/flashcards/sets/$setId/quiz';
+  static String flashcardMatchingUrl(int setId) => '$baseUrl/flashcards/sets/$setId/matching';
+  static String flashcardResetUrl(int setId) => '$baseUrl/flashcards/sets/$setId/reset';
+  static String flashcardStarUrl(int cardId) => '$baseUrl/flashcards/cards/$cardId/star';
+  static String get flashcardAnswerUrl => '$baseUrl/flashcards/study/answer';
+  static String get flashcardSaveVideoUrl => '$baseUrl/flashcards/video/save';
+  static String get flashcardSaveVideoVocabUrl => '$baseUrl/flashcards/video/save';
+
   // Timeouts
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 15);
