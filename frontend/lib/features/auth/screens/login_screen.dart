@@ -53,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     if (identifier.isEmpty) {
-      _showSnackBar('Vui lòng nhập Email', isError: true);
+      _showSnackBar('Vui lòng nhập Email hoặc Tên đăng nhập', isError: true);
       return;
     }
 
@@ -227,7 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 cursorColor: const Color(0xFF0D1B3E),
                 decoration: InputDecoration(
-                  hintText: 'name@example.com',
+                  hintText: 'name@example.com hoặc username',
                   hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
                   prefixIcon: const Icon(Icons.mail_outline, size: 20, color: Colors.grey),
                   filled: true,
