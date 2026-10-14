@@ -15,3 +15,9 @@ Thumbs.db
 #Resource file
 backend/src/main/resources/application.yml
 
+#python file
+vocal-service/.venv
+
+#env
+.env
+
