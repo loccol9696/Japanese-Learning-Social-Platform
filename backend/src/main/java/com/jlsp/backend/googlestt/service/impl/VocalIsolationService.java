@@ -1,4 +1,4 @@
-package com.jlsp.backend.googlestt.service;
+package com.jlsp.backend.googlestt.service.impl;
 
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
@@ -7,8 +7,10 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import com.jlsp.backend.googlestt.service.VocalIsolationServiceIntf;
+
 @Service
-public class VocalIsolationService {
+public class VocalIsolationService implements VocalIsolationServiceIntf {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private static final String PYTHON_SERVICE_URL = "http://localhost:8000/api/v1/separate-vocal";

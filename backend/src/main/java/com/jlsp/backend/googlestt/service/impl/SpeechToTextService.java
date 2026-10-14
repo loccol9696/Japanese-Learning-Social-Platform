@@ -22,8 +22,10 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
+import com.jlsp.backend.googlestt.service.interface.SpeechToTextServiceIntf;
+
 @Service
-public class SpeechToTextService {
+public class SpeechToTextService implements SpeechToTextServiceIntf {
 
     private final VocalIsolationService vocalIsolationService;
     private final SpeechClient speechClient;
