@@ -28,7 +28,7 @@ spring:
   ai:
   vocal-service:
     # Điền link từ Cloudflare / Ngrok của máy bạn
-    url: https://player-awarded-developing-diet.trycloudflare.com/api/v1/separate-vocal
+    url: untraitorous-huong-conversably.ngrok-free.dev/api/v1/separate-vocal
     enabled: true
 
 

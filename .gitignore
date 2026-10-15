@@ -16,6 +16,7 @@ Thumbs.db
 
 #Resource file
 backend/src/main/resources/application.yml
+backend/src/main/resources/credentials/
 
 #python file
 vocal-service/.venv

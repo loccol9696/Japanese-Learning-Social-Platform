@@ -8,7 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.jlsp.backend.googlestt.dto.response.ScriptSegment;
 import com.jlsp.backend.googlestt.dto.response.TranscriptionStatusResponse;
 import com.jlsp.backend.googlestt.dto.response.TranscriptionSubmitResponse;
-import com.jlsp.backend.googlestt.service.SpeechToTextService;
+import com.jlsp.backend.googlestt.service.impl.SpeechToTextService;
 
 import java.time.LocalDateTime;
 import java.util.List;

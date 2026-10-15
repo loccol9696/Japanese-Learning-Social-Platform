@@ -1,4 +1,4 @@
-package com.jlsp.backend.googlestt.service;
+package com.jlsp.backend.googlestt.service.impl;
 
 import com.google.api.gax.longrunning.OperationFuture;
 import com.google.auth.oauth2.GoogleCredentials;
@@ -9,6 +9,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.google.protobuf.Duration;
 import com.jlsp.backend.googlestt.dto.response.ScriptSegment;
+import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ResourceLoader;
@@ -21,8 +22,6 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-
-import com.jlsp.backend.googlestt.service.interface.SpeechToTextServiceIntf;
 
 @Service
 public class SpeechToTextService implements SpeechToTextServiceIntf {
