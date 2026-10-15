@@ -63,6 +63,33 @@ class FlashcardService {
     return FlashcardSetModel.fromJson(res as Map<String, dynamic>);
   }
 
+  /// Cập nhật tên và mô tả bộ thẻ
+  Future<FlashcardSetModel> updateSet(
+    int setId, {
+    required String title,
+    String? description,
+    bool? isPublic,
+  }) async {
+    final res = await _api.put(
+      ApiConstants.flashcardSetDetailUrl(setId),
+      body: {
+        'title': title,
+        if (description != null) 'description': description,
+        if (isPublic != null) 'isPublic': isPublic,
+      },
+      withAuth: true,
+    );
+    return FlashcardSetModel.fromJson(res as Map<String, dynamic>);
+  }
+
+  /// Xóa bộ thẻ
+  Future<void> deleteSet(int setId) async {
+    await _api.delete(
+      ApiConstants.flashcardSetDetailUrl(setId),
+      withAuth: true,
+    );
+  }
+
   /// Lấy danh sách thẻ trong bộ để học
   Future<List<FlashcardItemModel>> getCardsInSet(
     int setId, {
@@ -101,6 +128,37 @@ class FlashcardService {
       withAuth: true,
     );
     return FlashcardItemModel.fromJson(res as Map<String, dynamic>);
+  }
+
+  /// Cập nhật nội dung thẻ
+  Future<FlashcardItemModel> updateCard(
+    int cardId, {
+    required String term,
+    String? reading,
+    String? sinoVietnamese,
+    required String meaning,
+    String? example,
+  }) async {
+    final res = await _api.put(
+      '${ApiConstants.baseUrl}/flashcards/cards/$cardId',
+      body: {
+        'term': term,
+        'reading': reading ?? '',
+        if (sinoVietnamese != null) 'sinoVietnamese': sinoVietnamese,
+        'meaning': meaning,
+        if (example != null) 'example': example,
+      },
+      withAuth: true,
+    );
+    return FlashcardItemModel.fromJson(res as Map<String, dynamic>);
+  }
+
+  /// Xóa thẻ khỏi bộ
+  Future<void> deleteCard(int cardId) async {
+    await _api.delete(
+      '${ApiConstants.baseUrl}/flashcards/cards/$cardId',
+      withAuth: true,
+    );
   }
 
   /// Đánh dấu hoặc bỏ gắn sao thẻ

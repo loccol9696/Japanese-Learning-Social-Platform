@@ -2,6 +2,7 @@ import 'flashcard_item_model.dart';
 
 class FlashcardSetModel {
   final int setId;
+  int get id => setId;
   final String title;
   final String? description;
   final bool isPublic;
@@ -69,4 +70,36 @@ class FlashcardSetModel {
         'progressPercentage': progressPercentage,
         'previewCards': previewCards.map((e) => e.toJson()).toList(),
       };
+
+  FlashcardSetModel copyWith({
+    int? setId,
+    String? title,
+    String? description,
+    bool? isPublic,
+    bool? isVideoSaved,
+    int? authorId,
+    String? authorName,
+    String? authorAvatarUrl,
+    bool? isAuthorPro,
+    int? totalCards,
+    int learnedCards = -1,
+    double? progressPercentage,
+    List<FlashcardItemModel>? previewCards,
+  }) {
+    return FlashcardSetModel(
+      setId: setId ?? this.setId,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      isPublic: isPublic ?? this.isPublic,
+      isVideoSaved: isVideoSaved ?? this.isVideoSaved,
+      authorId: authorId ?? this.authorId,
+      authorName: authorName ?? this.authorName,
+      authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
+      isAuthorPro: isAuthorPro ?? this.isAuthorPro,
+      totalCards: totalCards ?? this.totalCards,
+      learnedCards: learnedCards >= 0 ? learnedCards : this.learnedCards,
+      progressPercentage: progressPercentage ?? this.progressPercentage,
+      previewCards: previewCards ?? this.previewCards,
+    );
+  }
 }

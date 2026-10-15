@@ -96,6 +96,75 @@ class ApiClient {
     }
   }
 
+  Future<dynamic> put(
+    String url, {
+    Map<String, dynamic>? body,
+    bool withAuth = true,
+  }) async {
+    try {
+      final uri = Uri.parse(url);
+      final headers = await _getHeaders(withAuth: withAuth);
+      final response = await _httpClient
+          .put(
+            uri,
+            headers: headers,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(ApiConstants.connectTimeout);
+
+      return _handleResponse(response);
+    } on TimeoutException {
+      throw ApiException(
+        statusCode: 408,
+        message: 'Kết nối mạng quá hạn. Vui lòng kiểm tra lại.',
+      );
+    } on SocketException {
+      throw ApiException(
+        statusCode: 503,
+        message: 'Không thể kết nối đến máy chủ backend.',
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        statusCode: 500,
+        message: 'Đã xảy ra lỗi: ${e.toString()}',
+      );
+    }
+  }
+
+  Future<dynamic> delete(
+    String url, {
+    bool withAuth = true,
+  }) async {
+    try {
+      final uri = Uri.parse(url);
+      final headers = await _getHeaders(withAuth: withAuth);
+      final response = await _httpClient
+          .delete(uri, headers: headers)
+          .timeout(ApiConstants.connectTimeout);
+
+      return _handleResponse(response);
+    } on TimeoutException {
+      throw ApiException(
+        statusCode: 408,
+        message: 'Kết nối mạng quá hạn. Vui lòng kiểm tra lại.',
+      );
+    } on SocketException {
+      throw ApiException(
+        statusCode: 503,
+        message: 'Không thể kết nối đến máy chủ backend.',
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        statusCode: 500,
+        message: 'Đã xảy ra lỗi: ${e.toString()}',
+      );
+    }
+  }
+
   dynamic _handleResponse(http.Response response) {
     dynamic jsonBody;
     try {

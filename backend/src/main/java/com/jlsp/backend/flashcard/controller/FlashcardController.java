@@ -27,7 +27,8 @@ public class FlashcardController {
     private final UserRepository userRepository;
 
     private Long resolveUserId(Authentication authentication) {
-        if (authentication == null || authentication.getName() == null || "anonymousUser".equals(authentication.getName())) {
+        if (authentication == null || authentication.getName() == null
+                || "anonymousUser".equals(authentication.getName())) {
             return userRepository.findAll().stream().findFirst().map(User::getId).orElse(1L);
         }
         return userRepository.findByUsername(authentication.getName())
@@ -65,6 +66,17 @@ public class FlashcardController {
         Long userId = resolveUserId(authentication);
         FlashcardSetResponse response = flashcardService.getSetById(userId, setId);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    // 3b. Cập nhật thông tin bộ thẻ
+    @PutMapping("/sets/{setId}")
+    public ResponseEntity<ApiResponse<FlashcardSetResponse>> updateSet(
+            @PathVariable Long setId,
+            @Valid @RequestBody CreateFlashcardSetRequest request,
+            Authentication authentication) {
+        Long userId = resolveUserId(authentication);
+        FlashcardSetResponse response = flashcardService.updateSet(userId, setId, request);
+        return ResponseEntity.ok(ApiResponse.success(200, "Set updated successfully", response));
     }
 
     // 4. Xóa bộ thẻ
@@ -109,6 +121,17 @@ public class FlashcardController {
         Long userId = resolveUserId(authentication);
         flashcardService.deleteCard(userId, cardId);
         return ResponseEntity.ok(ApiResponse.success(200, "Card deleted successfully", null));
+    }
+
+    // 7b. Cập nhật thẻ
+    @PutMapping("/cards/{cardId}")
+    public ResponseEntity<ApiResponse<FlashcardResponse>> updateCard(
+            @PathVariable Long cardId,
+            @Valid @RequestBody CreateFlashcardRequest request,
+            Authentication authentication) {
+        Long userId = resolveUserId(authentication);
+        FlashcardResponse response = flashcardService.updateCard(userId, cardId, request);
+        return ResponseEntity.ok(ApiResponse.success(200, "Card updated successfully", response));
     }
 
     // 8. Đánh dấu sao / Bỏ sao (Favorite / Starred)

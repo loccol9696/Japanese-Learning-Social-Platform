@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/models/matching_game_model.dart';
 import '../../data/services/flashcard_service.dart';
-import '../widgets/segmented_progress_bar.dart';
+import '../widgets/learning_header.dart';
 
 class FlashcardMatchingScreen extends StatefulWidget {
   final FlashcardSetModel deck;
@@ -144,31 +144,12 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Top Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: SegmentedProgressBar(
-                        currentIndex: _pairsFound,
-                        totalCount: _game?.totalPairs ?? 5,
-                        segmentCount: 5,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.settings, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
+            // Top Bar & Continuous Progress Bar
+            LearningHeader(
+              currentIndex: _pairsFound,
+              totalItems: _game?.totalPairs ?? 5,
+              onClose: () => Navigator.pop(context),
+              onSettingsClick: () {},
             ),
 
             const SizedBox(height: 16),
