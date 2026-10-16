@@ -13,3 +13,10 @@ agent.md
 *.swo
 .DS_Store
 Thumbs.db
+
+# Database & Diagram files
+docs/database_erd.drawio
+*.drawio
+*.db
+*.sqlite
+*.sqlite3
