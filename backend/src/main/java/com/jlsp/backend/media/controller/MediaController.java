@@ -1,17 +1,19 @@
 package com.jlsp.backend.media.controller;
 
 import com.jlsp.backend.common.response.ApiResponse;
-import com.jlsp.backend.media.dto.ImageKitAuthResponse;
+import com.jlsp.backend.media.dto.CloudinarySignatureResponse;
+import com.jlsp.backend.media.dto.CloudinaryUploadResponse;
 import com.jlsp.backend.media.service.MediaService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
- * REST Controller cung cấp tham số xác thực cho các thao tác tải lên Media (ImageKit).
+ * REST Controller cung cấp các endpoint cho thao tác Media qua Cloudinary:
+ * 1. Sinh chữ ký xác thực cho Frontend tải file trực tiếp.
+ * 2. Tải file multipart trực tiếp thông qua Backend.
  */
 @RestController
 @RequestMapping("/api/v1/media")
@@ -21,30 +23,29 @@ public class MediaController {
     private final MediaService mediaService;
 
     /**
-     * Cung cấp token, expire và signature để Frontend (Flutter/Web) tải file trực tiếp lên ImageKit.
-     * Mặc định trả về chuẩn ApiResponse<ImageKitAuthResponse>.
-     * Có thể truyền ?raw=true để trả về JSON thô cho ImageKit Client SDK.
+     * Cung cấp chữ ký Cloudinary (signature, timestamp, apiKey, cloudName)
+     * để Frontend (Flutter/Web) tải file trực tiếp lên Cloudinary.
      *
-     * GET /api/v1/media/imagekit-auth
+     * GET /api/v1/media/cloudinary-sign?folder=jlsp/videos
      */
-    @GetMapping("/imagekit-auth")
-    public ResponseEntity<?> getImageKitAuth(
-            @RequestParam(value = "raw", defaultValue = "false") boolean raw) {
-        ImageKitAuthResponse auth = mediaService.getImageKitAuth();
-        if (raw) {
-            return ResponseEntity.ok(auth);
-        }
-        return ResponseEntity.ok(ApiResponse.success(auth));
+    @GetMapping("/cloudinary-sign")
+    public ResponseEntity<ApiResponse<CloudinarySignatureResponse>> getCloudinarySignature(
+            @RequestParam(value = "folder", required = false, defaultValue = "jlsp") String folder) {
+        CloudinarySignatureResponse response = mediaService.getUploadSignature(folder);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     /**
-     * Endpoint trả về JSON thô không bọc ApiResponse, dùng trực tiếp làm authenticationEndpoint
-     * cho ImageKit SDK chính thức trên Flutter hoặc Web.
+     * Tải file trực tiếp từ Client lên Cloudinary thông qua Backend.
+     * Hỗ trợ ảnh, video, âm thanh với kích thước và định dạng tự động nhận diện.
      *
-     * GET /api/v1/media/imagekit-auth/raw
+     * POST /api/v1/media/upload
      */
-    @GetMapping("/imagekit-auth/raw")
-    public ResponseEntity<ImageKitAuthResponse> getImageKitAuthRaw() {
-        return ResponseEntity.ok(mediaService.getImageKitAuth());
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<CloudinaryUploadResponse>> uploadMedia(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "folder", required = false, defaultValue = "jlsp") String folder) {
+        CloudinaryUploadResponse response = mediaService.uploadMedia(file, folder);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

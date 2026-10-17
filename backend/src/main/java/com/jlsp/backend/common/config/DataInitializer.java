@@ -7,19 +7,23 @@ import com.jlsp.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Khởi tạo dữ liệu mẫu người dùng (Admin, Creators, Learner) khi ứng dụng chạy lần đầu.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+
+    // BCrypt hash của mật khẩu "password123"
+    private static final String DEFAULT_PASSWORD_HASH = "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi";
 
     @Override
     public void run(String... args) {
@@ -35,9 +39,9 @@ public class DataInitializer implements CommandLineRunner {
         User admin = User.builder()
                 .username("admin")
                 .email("admin@jlsp.com")
-                .passwordHash("$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi") // password123
+                .passwordHash(DEFAULT_PASSWORD_HASH) // password123
                 .displayName("Hệ thống Quản trị (Admin)")
-                .avatarUrl("https://ik.imagekit.io/jlsp_demo/avatars/admin.png")
+                .avatarUrl("https://picsum.photos/seed/admin88/200/200")
                 .role(UserRole.ADMIN)
                 .jlptLevel(JLPTLevel.N1)
                 .bio("Tài khoản quản trị viên hệ thống JLSP")
@@ -49,9 +53,9 @@ public class DataInitializer implements CommandLineRunner {
         User creatorTanaka = User.builder()
                 .username("tanaka_sensei")
                 .email("tanaka@jlsp.com")
-                .passwordHash("$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi") // password123
+                .passwordHash(DEFAULT_PASSWORD_HASH) // password123
                 .displayName("Tanaka Sensei")
-                .avatarUrl("https://ik.imagekit.io/jlsp_demo/avatars/tanaka.png")
+                .avatarUrl("https://picsum.photos/seed/tanaka/200/200")
                 .role(UserRole.USER)
                 .jlptLevel(JLPTLevel.N1)
                 .bio("Giáo viên tiếng Nhật Tokyo, 10 năm kinh nghiệm luyện thi JLPT N2 - N1")
@@ -63,9 +67,9 @@ public class DataInitializer implements CommandLineRunner {
         User creatorYamada = User.builder()
                 .username("yamada_kaiwa")
                 .email("yamada@jlsp.com")
-                .passwordHash("$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi") // password123
+                .passwordHash(DEFAULT_PASSWORD_HASH) // password123
                 .displayName("Yamada Kaiwa")
-                .avatarUrl("https://ik.imagekit.io/jlsp_demo/avatars/yamada.png")
+                .avatarUrl("https://picsum.photos/seed/yamada/200/200")
                 .role(UserRole.USER)
                 .jlptLevel(JLPTLevel.N2)
                 .bio("Chia sẻ hội thoại tiếng Nhật giao tiếp đời sống thực tế hàng ngày")
@@ -77,9 +81,9 @@ public class DataInitializer implements CommandLineRunner {
         User learnerSakura = User.builder()
                 .username("sakura_learner")
                 .email("sakura@jlsp.com")
-                .passwordHash("$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi") // password123
+                .passwordHash(DEFAULT_PASSWORD_HASH) // password123
                 .displayName("Sakura Chan")
-                .avatarUrl("https://ik.imagekit.io/jlsp_demo/avatars/sakura.png")
+                .avatarUrl("https://picsum.photos/seed/sakura/200/200")
                 .role(UserRole.USER)
                 .jlptLevel(JLPTLevel.N5)
                 .bio("Người mới bắt đầu học tiếng Nhật! Mục tiêu đỗ JLPT N4 năm nay")
@@ -89,36 +93,12 @@ public class DataInitializer implements CommandLineRunner {
                 .build();
 
         userRepository.saveAll(List.of(admin, creatorTanaka, creatorYamada, learnerSakura));
-        log.info("Đã khởi tạo thành công 4 tài khoản mẫu: 1 Admin và 3 Users.");
-
-        final String adminUsername = "admin";
-        final String adminEmail = "admin@jlsp.edu.vn";
-        final String defaultPassword = "AdminPassword123@";
-
-        if (userRepository.existsByUsername(adminUsername)) {
-            log.info("Admin account '{}' already exists in the database.", adminUsername);
-            return;
-        }
-
-        User adminUser = User.builder()
-                .username(adminUsername)
-                .email(adminEmail)
-                .passwordHash(passwordEncoder.encode(defaultPassword))
-                .displayName("System Administrator")
-                .role(UserRole.ADMIN)
-                .jlptLevel(JLPTLevel.N1)
-                .isActive(true)
-                .bio("Quản trị viên hệ thống JLSP")
-                .avatarUrl("https://picsum.photos/seed/admin88/200/200")
-                .build();
-
-        userRepository.save(adminUser);
-        log.info("======================================================");
-        log.info("Successfully seeded ADMIN account into database!");
-        log.info("Username: {}", adminUsername);
-        log.info("Password: {}", defaultPassword);
-        log.info("Email:    {}", adminEmail);
-        log.info("Role:     {}", UserRole.ADMIN);
-        log.info("======================================================");
+        log.info("==================================================================");
+        log.info("Đã khởi tạo thành công 4 tài khoản mẫu vào database (Mật khẩu: password123):");
+        log.info("  1. Admin:   admin          / password123 (Role: ADMIN)");
+        log.info("  2. Creator: tanaka_sensei  / password123 (Role: USER)");
+        log.info("  3. Creator: yamada_kaiwa   / password123 (Role: USER)");
+        log.info("  4. Learner: sakura_learner / password123 (Role: USER)");
+        log.info("==================================================================");
     }
 }
