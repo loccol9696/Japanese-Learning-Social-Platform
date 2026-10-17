@@ -13,14 +13,18 @@ import com.google.protobuf.Duration;
 import com.jlsp.backend.googlestt.dto.response.ScriptSegment;
 import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +42,8 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
     @Value("${gcp.storage.bucket-name}")
     private String bucketName;
 
+    private static final Logger log = LoggerFactory.getLogger(SpeechToTextService.class);
+
     // Lưu trạng thái và kết quả task trong RAM
     private final Map<String, String> taskStatusMap = new ConcurrentHashMap<>();
     private final Map<String, List<ScriptSegment>> taskResultMap = new ConcurrentHashMap<>();
@@ -47,27 +53,16 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
 
     public SpeechToTextService(
             VocalIsolationService vocalIsolationService,
-            org.springframework.beans.factory.ObjectProvider<SpeechClient> speechClientProvider,
-            ResourceLoader resourceLoader,
-            @Value("${gcp.speech.credentials-path}") String credentialsPath) {
+            ObjectProvider<SpeechClient> speechClientProvider,
+            ObjectProvider<Storage> storageProvider) {
+
         this.vocalIsolationService = vocalIsolationService;
         this.speechClient = speechClientProvider.getIfAvailable();
+        this.storage = storageProvider.getIfAvailable();
 
-        Storage storageInstance = null;
-        try {
-            org.springframework.core.io.Resource res = resourceLoader.getResource(credentialsPath);
-            if (res.exists()) {
-                try (InputStream credentialsStream = res.getInputStream()) {
-                    GoogleCredentials credentials = GoogleCredentials.fromStream(credentialsStream);
-                    storageInstance = StorageOptions.newBuilder()
-                            .setCredentials(credentials)
-                            .build()
-                            .getService();
-                }
-            }
-        } catch (Exception ignored) {
+        if (this.speechClient == null || this.storage == null) {
+            log.warn("Google Cloud SpeechClient/Storage is not initialized. STT features might be disabled.");
         }
-        this.storage = storageInstance;
     }
 
     @Async
@@ -92,6 +87,10 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
 
     public List<ScriptSegment> transcribeAudioWithTimestamps(MultipartFile file)
             throws IOException, ExecutionException, InterruptedException, Exception {
+
+        if (this.speechClient == null || this.storage == null) {
+            throw new IllegalStateException("GCP Speech/Storage service is not available. Please check credentials.");
+        }
         // Đổi đuôi file sang .mp3 và contentType sang audio/mpeg
         byte[] cleanVocalBytes = vocalIsolationService.separateVocals(file.getBytes());
 
