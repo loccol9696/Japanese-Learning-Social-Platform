@@ -3,9 +3,9 @@ import shutil
 import uuid
 import torch
 import asyncio
+import subprocess
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
-import subprocess
 
 app = FastAPI(title="Demucs Vocal Isolator Service")
 
@@ -30,7 +30,6 @@ async def separate_vocal(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, f)
 
     # 2. Dùng FFmpeg bóc tách âm thanh sang WAV (chạy mất chưa tới 1 giây)
-    # Lệnh trích xuất stream audio (-vn: bỏ video, -ac 2: stereo, -ar 44100: tần số chuẩn)
     ffmpeg_cmd = [
         "ffmpeg", "-y", "-i", raw_video_path,
         "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2",
@@ -41,13 +40,13 @@ async def separate_vocal(file: UploadFile = File(...)):
     # Nếu file gửi lên vốn dĩ là audio (không cần trích xuất), dùng luôn file đó
     target_input = audio_extracted_path if os.path.exists(audio_extracted_path) else raw_video_path
 
-    # 3. Tiếp tục đưa target_input vào Demucs như bình thường...
+    # 3. Tiếp tục đưa target_input vào Demucs
     async with gpu_lock:
         try:
             device = "cuda" if torch.cuda.is_available() else "cpu"
             cmd = (
                 f"demucs -n htdemucs --two-stems vocals "
-                f"--device {device} "
+                f"--segment 7 --shifts 2 --device {device} "
                 f"-o \"{output_dir}\" \"{target_input}\""
             )
 
@@ -65,11 +64,17 @@ async def separate_vocal(file: UploadFile = File(...)):
                     detail=f"Demucs failed: {stderr.decode()}"
                 )
 
-            # File vocal xuất ra nằm tại: output/htdemucs/{tên_file_không_đuôi}/vocals.mp3
-            file_stem = os.path.splitext(file.filename)[0]
-            vocal_path = os.path.join(output_dir, "htdemucs", file_stem, "vocals.wav")
+            # 4. Tự động tìm file vocals trong output_dir (không lo lệch tên thư mục)
+            vocal_path = None
+            for root, dirs, files in os.walk(output_dir):
+                for f in files:
+                    if f.startswith("vocals"):
+                        vocal_path = os.path.join(root, f)
+                        break
+                if vocal_path:
+                    break
 
-            if not os.path.exists(vocal_path):
+            if not vocal_path or not os.path.exists(vocal_path):
                 raise HTTPException(status_code=500, detail="Không tìm thấy file vocal xuất ra.")
 
             # Trả file vocal về cho Spring Boot
@@ -91,5 +96,4 @@ def cleanup_temp():
 
 if __name__ == "__main__":
     import uvicorn
-    # Chạy trên port 8000
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=False)

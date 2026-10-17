@@ -3,20 +3,20 @@ package com.jlsp.backend.googlestt.service.impl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.gax.longrunning.OperationFuture;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.speech.v1.*;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.StorageOptions;
 import com.google.protobuf.Duration;
 import com.jlsp.backend.googlestt.dto.response.ScriptSegment;
 import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ResourceLoader;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -27,7 +27,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -175,31 +177,25 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
         if (japaneseText == null || japaneseText.isBlank()) {
             return "";
         }
-
         try {
-            UriComponentsBuilder url = UriComponentsBuilder
-                    .fromUriString("https://translate.googleapis.com/translate_a/single")
-                    .queryParam("client", "gtx")
-                    .queryParam("sl", "ja")
-                    .queryParam("tl", "vi")
-                    .queryParam("dt", "t") // chỉ trả về text
-                    .queryParam("q", japaneseText);
+            URI uri = UriComponentsBuilder.fromUriString("https://api.mymemory.translated.net/get")
+                    .queryParam("q", japaneseText)
+                    .queryParam("langpair", "ja|vi")
+                    .build()
+                    .toUri();
 
-            String rawResponse = restTemplate.getForObject(url.toUriString(), String.class);
-            JsonNode root = objectMapper.readTree(rawResponse);
-
-            StringBuilder translated = new StringBuilder();
-
-            if (root.isArray() && root.size() > 0 && root.get(0).isArray()) {
-                for (JsonNode item : root.get(0)) {
-                    if (item.isArray() && item.size() > 0) {
-                        translated.append(item.get(0).asText());
-                    }
-                }
+            String rawResponse = restTemplate.getForObject(uri, String.class);
+            if (rawResponse == null || rawResponse.isBlank()) {
+                return "";
             }
-            return translated.toString().trim();
+
+            JsonNode root = objectMapper.readTree(rawResponse);
+            if (root.has("responseData") && root.get("responseData").has("translatedText")) {
+                return root.get("responseData").get("translatedText").asText().trim();
+            }
+            return "";
         } catch (Exception e) {
-            System.err.println("Lỗi dịch câu: " + japaneseText + " -> " + e.getMessage());
+            System.err.println("Lỗi dịch MyMemory: [" + japaneseText + "] -> " + e.getMessage());
             return "";
         }
     }
