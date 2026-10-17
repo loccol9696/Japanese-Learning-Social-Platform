@@ -15,6 +15,24 @@ class QuizQuestionModel {
     required this.options,
   });
 
+  QuizQuestionModel copyWith({
+    int? cardId,
+    String? term,
+    String? sinoVietnamese,
+    String? meaning,
+    String? correctAnswer,
+    List<String>? options,
+  }) {
+    return QuizQuestionModel(
+      cardId: cardId ?? this.cardId,
+      term: term ?? this.term,
+      sinoVietnamese: sinoVietnamese ?? this.sinoVietnamese,
+      meaning: meaning ?? this.meaning,
+      correctAnswer: correctAnswer ?? this.correctAnswer,
+      options: options ?? this.options,
+    );
+  }
+
   factory QuizQuestionModel.fromJson(Map<String, dynamic> json) {
     return QuizQuestionModel(
       cardId: json['cardId'] as int? ?? 0,

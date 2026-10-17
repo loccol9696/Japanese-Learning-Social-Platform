@@ -11,6 +11,8 @@ public interface FlashcardService {
 
     FlashcardSetResponse createSet(Long userId, CreateFlashcardSetRequest request);
 
+    FlashcardSetResponse updateSet(Long userId, Long setId, CreateFlashcardSetRequest request);
+
     PageResponse<FlashcardSetResponse> getSets(Long userId, String keyword, Pageable pageable);
 
     FlashcardSetResponse getSetById(Long userId, Long setId);
@@ -22,6 +24,8 @@ public interface FlashcardService {
     FlashcardResponse addCardToSet(Long userId, Long setId, CreateFlashcardRequest request);
 
     void deleteCard(Long userId, Long cardId);
+
+    FlashcardResponse updateCard(Long userId, Long cardId, CreateFlashcardRequest request);
 
     FlashcardResponse updateCardStar(Long userId, Long cardId, Boolean isStarred);
 

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
+import '../../data/services/flashcard_store.dart';
 import '../widgets/deck_card_item.dart';
+import 'deck_editor_screen.dart';
 import 'deck_overview_screen.dart';
 
 class DeckLibraryScreen extends StatefulWidget {
@@ -14,19 +15,61 @@ class DeckLibraryScreen extends StatefulWidget {
 
 class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final FlashcardStore _store = FlashcardStore.instance;
   final FlashcardService _service = FlashcardService.instance;
   List<FlashcardSetModel> _decks = [];
-  bool _isLoading = true;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    // Cache-First: Lấy ngay từ RAM hiển thị trong 0ms nếu đã có dữ liệu
+    _decks = _store.cachedSets ?? [];
+    _isLoading = !_store.hasCachedSets();
+
+    _store.addListener(_onStoreUpdated);
     _loadDecks();
   }
 
-  Future<void> _loadDecks({String? query}) async {
-    setState(() => _isLoading = true);
-    final sets = await _service.getSets(search: query);
+  @override
+  void dispose() {
+    _store.removeListener(_onStoreUpdated);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onStoreUpdated() {
+    if (mounted && _searchController.text.trim().isEmpty) {
+      setState(() {
+        _decks = _store.cachedSets ?? [];
+        if (_store.hasCachedSets()) {
+          _isLoading = false;
+        }
+      });
+    }
+  }
+
+  /// Lấy danh sách bộ thẻ với Stale-While-Revalidate:
+  /// - Không bao giờ set _isLoading = true nếu màn hình đã có dữ liệu
+  /// - Tự động đồng bộ ngầm và cập nhật êm dịu nếu backend có thay đổi
+  Future<void> _loadDecks({String? query, bool forceRefresh = false}) async {
+    if (!_store.hasCachedSets() && _decks.isEmpty) {
+      setState(() => _isLoading = true);
+    }
+
+    final sets = await _store.getSets(
+      search: query,
+      forceRefresh: forceRefresh,
+      onBackgroundUpdated: (updatedList) {
+        if (mounted && (_searchController.text.trim().isEmpty || query != null)) {
+          setState(() {
+            _decks = updatedList;
+            _isLoading = false;
+          });
+        }
+      },
+    );
+
     if (mounted) {
       setState(() {
         _decks = sets;
@@ -35,22 +78,161 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
     }
   }
 
+  /// Mở màn hình Chỉnh sửa bộ thẻ (Deck Editor)
+  void _openDeckEditor(FlashcardSetModel deck) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DeckEditorScreen(deck: deck),
+      ),
+    );
+  }
+
+  /// Mở màn hình Tạo bộ thẻ mới (Deck Editor)
+  void _openCreateDeck() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const DeckEditorScreen(),
+      ),
+    );
+  }
+
+  /// Dialog xác nhận xóa bộ thẻ (Confirm Delete Dialog)
+  void _showDeleteDeckConfirmDialog(FlashcardSetModel deck) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1F28),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(
+            color: Color(0xFF323344),
+            width: 1,
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF5A5F).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: Color(0xFFFF5A5F),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Xác nhận xóa',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa bộ từ vựng "${deck.title}" không?\n\nToàn bộ từ vựng và tiến trình học bên trong sẽ bị xóa vĩnh viễn và không thể khôi phục.',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.75),
+            fontSize: 14.5,
+            height: 1.45,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Hủy',
+              style: TextStyle(color: Colors.white.withOpacity(0.65)),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF5A5F),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+
+              // Optimistic Delete: Xóa ngay lập tức trên UI (0ms)
+              _store.optimisticDeleteSet(
+                deck.setId,
+                onError: (err) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Không thể xóa bộ thẻ: $err'),
+                        backgroundColor: const Color(0xFFFF5A5F),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+              );
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Đã xóa bộ thẻ thành công'),
+                  backgroundColor: Color(0xFF252632),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text(
+              'Xóa bộ thẻ',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showCreateDeckDialog() {
     final titleController = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161922),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Tạo bộ từ vựng mới', style: TextStyle(color: Colors.white, fontSize: 18)),
+        backgroundColor: const Color(0xFF1E1F28),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(
+            color: Color(0xFF323344),
+            width: 1,
+          ),
+        ),
+        title: const Text(
+          'Tạo bộ từ vựng mới',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         content: TextField(
           controller: titleController,
+          autofocus: true,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: 'Nhập tên bộ thẻ...',
             hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
             filled: true,
-            fillColor: const Color(0xFF222632),
+            fillColor: const Color(0xFF252632),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -60,12 +242,18 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Hủy', style: TextStyle(color: Colors.white.withOpacity(0.6))),
+            child: Text(
+              'Hủy',
+              style: TextStyle(color: Colors.white.withOpacity(0.6)),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFF2D55),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () async {
               final title = titleController.text.trim();
@@ -85,7 +273,13 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                 }
               }
             },
-            child: const Text('Tạo', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Tạo',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -95,7 +289,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0E14),
+      backgroundColor: const Color(0xFF121212),
       body: SafeArea(
         child: Column(
           children: [
@@ -117,13 +311,17 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF1F2432),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1F28),
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.08),
+                        width: 1,
+                      ),
                     ),
                     child: IconButton(
                       icon: const Icon(Icons.add, color: Colors.white, size: 22),
-                      onPressed: _showCreateDeckDialog,
+                      onPressed: _openCreateDeck,
                       splashRadius: 20,
                     ),
                   ),
@@ -136,10 +334,10 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF161922),
+                  color: const Color(0xFF1E1F28),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.05),
+                    color: Colors.white.withOpacity(0.06),
                   ),
                 ),
                 child: TextField(
@@ -158,7 +356,8 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                       size: 22,
                     ),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
                 ),
               ),
@@ -203,12 +402,14 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                         )
                       : RefreshIndicator(
                           color: const Color(0xFFFF2D55),
-                          backgroundColor: const Color(0xFF161922),
-                          onRefresh: () => _loadDecks(query: _searchController.text),
+                          backgroundColor: const Color(0xFF1E1F28),
+                          onRefresh: () =>
+                              _loadDecks(query: _searchController.text, forceRefresh: true),
                           child: ListView.separated(
                             padding: const EdgeInsets.fromLTRB(20, 8, 20, 90),
                             itemCount: _decks.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 12),
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: 12),
                             itemBuilder: (context, index) {
                               final deck = _decks[index];
                               return DeckCardItem(
@@ -217,10 +418,14 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => DeckOverviewScreen(deck: deck),
+                                      builder: (context) =>
+                                          DeckOverviewScreen(deck: deck),
                                     ),
-                                  ).then((_) => _loadDecks(query: _searchController.text));
+                                  );
                                 },
+                                onEdit: () => _openDeckEditor(deck),
+                                onDelete: () =>
+                                  _showDeleteDeckConfirmDialog(deck),
                               );
                             },
                           ),

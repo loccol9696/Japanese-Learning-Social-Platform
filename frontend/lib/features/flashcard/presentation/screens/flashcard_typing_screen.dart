@@ -2,12 +2,21 @@ import 'package:flutter/material.dart';
 import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
-import '../widgets/segmented_progress_bar.dart';
+import '../widgets/learning_header.dart';
+import '../widgets/simple_empty_state.dart';
+import '../widgets/study_options_bottom_sheet.dart';
 
 class FlashcardTypingScreen extends StatefulWidget {
   final FlashcardSetModel deck;
+  final String? targetLanguage; // 'ja' (default) or 'vi'
+  final StudyOptions? options;
 
-  const FlashcardTypingScreen({super.key, required this.deck});
+  const FlashcardTypingScreen({
+    super.key,
+    required this.deck,
+    this.targetLanguage,
+    this.options,
+  });
 
   @override
   State<FlashcardTypingScreen> createState() => _FlashcardTypingScreenState();
@@ -24,9 +33,16 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
   String? _feedbackMessage;
   bool? _isCorrect;
 
+  late String _targetLanguage;
+  late StudyOptions _options;
+
   @override
   void initState() {
     super.initState();
+    _targetLanguage = widget.targetLanguage ?? 'ja';
+    _options = widget.options?.copyWith(
+      displayFrontFace: _targetLanguage == 'ja' ? 'definition' : 'term',
+    ) ?? StudyOptions(displayFrontFace: _targetLanguage == 'ja' ? 'definition' : 'term');
     _loadCards();
   }
 
@@ -38,15 +54,47 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
   }
 
   Future<void> _loadCards() async {
-    final list = await _service.getCardsInSet(widget.deck.setId);
+    setState(() => _isLoading = true);
+    final list = await _service.getCardsInSet(
+      widget.deck.setId,
+      starredOnly: _options.starredOnly,
+      shuffle: _options.shuffle,
+    );
     if (mounted) {
       setState(() {
         _cards = list;
         _currentIndex = 0;
+        _inputController.clear();
+        _isCorrect = null;
+        _feedbackMessage = null;
         _isLoading = false;
       });
       _focusNode.requestFocus();
     }
+  }
+
+  void _openSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => StudyOptionsBottomSheet(
+        options: _options,
+        onOptionsChanged: (newOptions) {
+          setState(() {
+            _options = newOptions;
+            // displayFrontFace == 'definition' -> Question is definition (VI), Target Input is Japanese ('ja')
+            // displayFrontFace == 'term' -> Question is term (JA), Target Input is definition ('vi')
+            _targetLanguage = newOptions.displayFrontFace == 'definition' ? 'ja' : 'vi';
+          });
+          _loadCards();
+        },
+        onResetProgress: () async {
+          await _service.resetProgress(widget.deck.setId);
+          _loadCards();
+        },
+      ),
+    );
   }
 
   void _checkAnswer() {
@@ -54,16 +102,37 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
 
     final card = _cards[_currentIndex];
     final userInput = _inputController.text.trim().toLowerCase();
-    final correctReading = (card.reading ?? '').trim().toLowerCase();
-    final correctTerm = card.term.trim().toLowerCase();
+    final isInputJapanese = _targetLanguage == 'ja';
 
-    final isMatch = userInput == correctReading || userInput == correctTerm;
+    bool isMatch;
+    String correctAnswerDisplay;
+
+    if (isInputJapanese) {
+      final correctReading = (card.reading ?? '').trim().toLowerCase();
+      final correctTerm = card.term.trim().toLowerCase();
+      isMatch = userInput == correctTerm ||
+          (correctReading.isNotEmpty && userInput == correctReading);
+
+      final hasReading = card.reading != null &&
+          card.reading!.trim().isNotEmpty &&
+          card.reading!.trim().toLowerCase() != card.term.trim().toLowerCase();
+      correctAnswerDisplay =
+          hasReading ? '${card.term} (${card.reading})' : card.term;
+    } else {
+      final correctMeaning = card.meaning.trim().toLowerCase();
+      final synonyms = card.meaning
+          .split(RegExp(r'[,;/]'))
+          .map((s) => s.trim().toLowerCase())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      isMatch = userInput == correctMeaning || synonyms.contains(userInput);
+      correctAnswerDisplay = card.meaning;
+    }
 
     setState(() {
       _isCorrect = isMatch;
-      _feedbackMessage = isMatch
-          ? 'Chính xác!'
-          : 'Đáp án đúng: ${card.reading ?? card.term}';
+      _feedbackMessage =
+          isMatch ? 'Chính xác!' : 'Đáp án đúng: $correctAnswerDisplay';
     });
 
     _service.submitAnswer(card.cardId, isMatch);
@@ -87,9 +156,22 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
   void _onSkip() {
     if (_cards.isEmpty) return;
     final card = _cards[_currentIndex];
+    final isInputJapanese = _targetLanguage == 'ja';
+
+    String correctAnswerDisplay;
+    if (isInputJapanese) {
+      final hasReading = card.reading != null &&
+          card.reading!.trim().isNotEmpty &&
+          card.reading!.trim().toLowerCase() != card.term.trim().toLowerCase();
+      correctAnswerDisplay =
+          hasReading ? '${card.term} (${card.reading})' : card.term;
+    } else {
+      correctAnswerDisplay = card.meaning;
+    }
+
     setState(() {
       _isCorrect = false;
-      _feedbackMessage = 'Đáp án đúng: ${card.reading ?? card.term}';
+      _feedbackMessage = 'Đáp án đúng: $correctAnswerDisplay';
     });
     _service.submitAnswer(card.cardId, false);
 
@@ -143,94 +225,75 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     if (_cards.isEmpty) {
       return Scaffold(
         backgroundColor: const Color(0xFF0C0E14),
-        body: Center(
-          child: TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Không có từ vựng. Quay lại', style: TextStyle(color: Colors.white)),
+        body: SafeArea(
+          child: Column(
+            children: [
+              LearningHeader(
+                currentIndex: 0,
+                totalItems: 0,
+                onClose: () => Navigator.pop(context),
+                onSettingsClick: _openSettings,
+              ),
+              Expanded(
+                child: SimpleEmptyState(
+                  message: _options.starredOnly
+                      ? 'Không có từ vựng nào được gắn sao.'
+                      : 'Không có từ vựng nào trong danh sách.',
+                  onBack: () => Navigator.pop(context),
+                ),
+              ),
+            ],
           ),
         ),
       );
     }
 
     final card = _cards[_currentIndex];
+    final isInputTerm = _options.displayFrontFace == 'definition';
+    // Nếu mặt trước (câu hỏi) là Định nghĩa -> Yêu cầu nhập Thuật ngữ
+    // Nếu mặt trước (câu hỏi) là Thuật ngữ -> Yêu cầu nhập Định nghĩa
+    final questionText = isInputTerm ? card.meaning : card.term;
+    final hintLabel = isInputTerm ? 'NHẬP THUẬT NGỮ' : 'NHẬP ĐỊNH NGHĨA';
 
     return Scaffold(
       backgroundColor: const Color(0xFF0C0E14),
       body: SafeArea(
         child: Column(
           children: [
-            // Top Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: SegmentedProgressBar(
-                        currentIndex: _currentIndex + 1,
-                        totalCount: _cards.length,
-                        segmentCount: 5,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.settings, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
+            // Top Bar & Continuous Progress Bar
+            LearningHeader(
+              currentIndex: _currentIndex + 1,
+              totalItems: _cards.length,
+              onClose: () => Navigator.pop(context),
+              onSettingsClick: _openSettings,
             ),
 
             const SizedBox(height: 12),
 
-            // Question Card (Screenshot 210625)
+            // Question Card: Căn giữa hoàn toàn cả chiều dọc lẫn chiều ngang, ẩn hoàn toàn đáp án
             Container(
               width: double.infinity,
+              constraints: const BoxConstraints(minHeight: 190),
               margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
               decoration: BoxDecoration(
                 color: const Color(0xFF1B1E2B),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    card.term,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 48,
-                      fontWeight: FontWeight.w800,
-                    ),
+              alignment: Alignment.center,
+              child: Center(
+                child: Text(
+                  questionText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isInputTerm ? 32 : 46,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                    letterSpacing: isInputTerm ? 0.3 : 1.5,
                   ),
-                  if (card.sinoVietnamese != null && card.sinoVietnamese!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      card.sinoVietnamese!,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Text(
-                    card.meaning,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
 
@@ -283,9 +346,9 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _checkAnswer(),
                 decoration: InputDecoration(
-                  hintText: 'NHẬP BẰNG TIẾNG NHẬT',
+                  hintText: hintLabel,
                   hintStyle: TextStyle(
-                    color: Colors.white.withOpacity(0.35),
+                    color: Colors.white.withValues(alpha: 0.35),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,

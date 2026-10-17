@@ -65,6 +65,27 @@ public class FlashcardServiceImpl implements FlashcardService {
     }
 
     @Override
+    @Transactional
+    public FlashcardSetResponse updateSet(Long userId, Long setId, CreateFlashcardSetRequest request) {
+        FlashcardSet set = setRepository.findById(setId)
+                .orElseThrow(() -> new ResourceNotFoundException("FlashcardSet", "id", setId));
+        if (set.getUser() != null && userId != null && !set.getUser().getId().equals(userId)) {
+            throw new AppException(403, "You do not have permission to update this set");
+        }
+        if (request.getTitle() != null && !request.getTitle().trim().isEmpty()) {
+            set.setTitle(request.getTitle().trim());
+        }
+        if (request.getDescription() != null) {
+            set.setDescription(request.getDescription().trim());
+        }
+        if (request.getIsPublic() != null) {
+            set.setIsPublic(request.getIsPublic());
+        }
+        FlashcardSet saved = setRepository.save(set);
+        return mapToSetResponse(saved, userId, 0);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public PageResponse<FlashcardSetResponse> getSets(Long userId, String keyword, Pageable pageable) {
         Page<FlashcardSet> page;
@@ -100,7 +121,7 @@ public class FlashcardServiceImpl implements FlashcardService {
     public void deleteSet(Long userId, Long setId) {
         FlashcardSet set = setRepository.findById(setId)
                 .orElseThrow(() -> new ResourceNotFoundException("FlashcardSet", "id", setId));
-        if (!set.getUser().getId().equals(userId)) {
+        if (set.getUser() != null && userId != null && !set.getUser().getId().equals(userId)) {
             throw new AppException(403, "You do not have permission to delete this set");
         }
         progressRepository.deleteByUserIdAndSetId(userId, setId);
@@ -136,7 +157,7 @@ public class FlashcardServiceImpl implements FlashcardService {
     public FlashcardResponse addCardToSet(Long userId, Long setId, CreateFlashcardRequest request) {
         FlashcardSet set = setRepository.findById(setId)
                 .orElseThrow(() -> new ResourceNotFoundException("FlashcardSet", "id", setId));
-        if (!set.getUser().getId().equals(userId)) {
+        if (set.getUser() != null && userId != null && !set.getUser().getId().equals(userId)) {
             throw new AppException(403, "You do not have permission to add cards to this set");
         }
 
@@ -159,10 +180,29 @@ public class FlashcardServiceImpl implements FlashcardService {
     public void deleteCard(Long userId, Long cardId) {
         Flashcard card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Flashcard", "id", cardId));
-        if (!card.getFlashcardSet().getUser().getId().equals(userId)) {
+        if (card.getFlashcardSet() != null && card.getFlashcardSet().getUser() != null && userId != null
+                && !card.getFlashcardSet().getUser().getId().equals(userId)) {
             throw new AppException(403, "You do not have permission to delete this card");
         }
         cardRepository.delete(card);
+    }
+
+    @Override
+    @Transactional
+    public FlashcardResponse updateCard(Long userId, Long cardId, CreateFlashcardRequest request) {
+        Flashcard card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Flashcard", "id", cardId));
+        if (card.getFlashcardSet() != null && card.getFlashcardSet().getUser() != null && userId != null
+                && !card.getFlashcardSet().getUser().getId().equals(userId)) {
+            throw new AppException(403, "You do not have permission to update this card");
+        }
+        if (request.getTerm() != null) card.setTerm(request.getTerm().trim());
+        if (request.getReading() != null) card.setReading(request.getReading().trim());
+        if (request.getMeaning() != null) card.setMeaning(request.getMeaning().trim());
+        if (request.getSinoVietnamese() != null) card.setSinoVietnamese(request.getSinoVietnamese().trim());
+        if (request.getExample() != null) card.setExample(request.getExample().trim());
+        Flashcard saved = cardRepository.save(card);
+        return mapToCardResponse(saved, null);
     }
 
     @Override
@@ -240,33 +280,34 @@ public class FlashcardServiceImpl implements FlashcardService {
         List<QuizQuestionResponse> questions = new ArrayList<>();
         Random random = new Random();
 
+        int optionCount = Math.min(4, allCards.size());
+
         for (Flashcard card : selectedCards) {
-            String correctAnswer = (card.getReading() != null && !card.getReading().isBlank()) 
-                    ? card.getReading() 
+            String correctAnswer = (card.getReading() != null && !card.getReading().isBlank())
+                    ? card.getReading()
                     : card.getTerm();
 
             Set<String> optionSet = new LinkedHashSet<>();
             optionSet.add(correctAnswer);
 
-            // Tìm 3 đáp án nhiễu từ các thẻ khác
-            List<Flashcard> otherCards = allCards.stream()
-                    .filter(c -> !c.getCardId().equals(card.getCardId()))
-                    .collect(Collectors.toList());
-            Collections.shuffle(otherCards);
+            // Tìm các đáp án nhiễu từ các thẻ khác
+            if (optionCount > 1) {
+                List<Flashcard> otherCards = allCards.stream()
+                        .filter(c -> !c.getCardId().equals(card.getCardId()))
+                        .collect(Collectors.toList());
+                Collections.shuffle(otherCards);
 
-            for (Flashcard other : otherCards) {
-                String distractor = (other.getReading() != null && !other.getReading().isBlank()) 
-                        ? other.getReading() 
-                        : other.getTerm();
-                if (!distractor.equalsIgnoreCase(correctAnswer)) {
-                    optionSet.add(distractor);
+                for (Flashcard other : otherCards) {
+                    String distractor = (other.getReading() != null && !other.getReading().isBlank())
+                            ? other.getReading()
+                            : other.getTerm();
+                    if (!distractor.equalsIgnoreCase(correctAnswer)) {
+                        optionSet.add(distractor);
+                    }
+                    if (optionSet.size() >= optionCount) {
+                        break;
+                    }
                 }
-                if (optionSet.size() == 4) break;
-            }
-
-            // Fallback nếu trong bộ có ít thẻ
-            while (optionSet.size() < 4) {
-                optionSet.add(correctAnswer + " (" + (optionSet.size() + 1) + ")");
             }
 
             List<String> options = new ArrayList<>(optionSet);
@@ -291,7 +332,8 @@ public class FlashcardServiceImpl implements FlashcardService {
         List<Flashcard> cards = cardRepository.findByFlashcardSetSetId(setId);
         Collections.shuffle(cards);
 
-        int count = (pairCount != null && pairCount > 0) ? Math.min(pairCount, cards.size()) : Math.min(5, cards.size());
+        int count = (pairCount != null && pairCount > 0) ? Math.min(pairCount, cards.size())
+                : Math.min(5, cards.size());
         List<Flashcard> selected = cards.subList(0, count);
 
         List<MatchingGameResponse.MatchingTile> tiles = new ArrayList<>();
@@ -300,7 +342,8 @@ public class FlashcardServiceImpl implements FlashcardService {
             tiles.add(MatchingGameResponse.MatchingTile.builder()
                     .tileId("term_" + card.getCardId() + "_" + (++index))
                     .cardId(card.getCardId())
-                    .text((card.getReading() != null && !card.getReading().isBlank()) ? card.getReading() : card.getTerm())
+                    .text((card.getReading() != null && !card.getReading().isBlank()) ? card.getReading()
+                            : card.getTerm())
                     .type("TERM")
                     .build());
 

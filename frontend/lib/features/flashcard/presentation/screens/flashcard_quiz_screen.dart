@@ -1,13 +1,76 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/models/quiz_question_model.dart';
 import '../../data/services/flashcard_service.dart';
-import '../widgets/segmented_progress_bar.dart';
+import '../widgets/learning_header.dart';
+import '../widgets/simple_empty_state.dart';
+import '../widgets/study_options_bottom_sheet.dart';
+
+/// Thuật toán tạo danh sách đáp án (options) cho câu hỏi Trắc nghiệm
+List<String> generateQuizOptions(
+  FlashcardItemModel currentCard,
+  List<FlashcardItemModel> allCards, {
+  bool optionsInJapanese = true,
+}) {
+  // 1. Xác định số lượng đáp án hiển thị (Option Count) = Math.min(4, allCards.length)
+  final optionCount = math.min(4, allCards.length);
+  final correctAnswer = optionsInJapanese
+      ? ((currentCard.reading != null && currentCard.reading!.trim().isNotEmpty)
+          ? currentCard.reading!.trim()
+          : currentCard.term.trim())
+      : currentCard.meaning.trim();
+
+  if (optionCount <= 1) {
+    return [correctAnswer];
+  }
+
+  // Bước 1: Đưa đáp án đúng (Correct Answer) vào mảng options
+  final List<String> options = [correctAnswer];
+
+  // Bước 2: Lọc ra danh sách các thẻ CÒN LẠI (bỏ thẻ hiện tại đi) để làm nguồn lấy đáp án sai
+  final otherCards = allCards
+      .where((card) => card.cardId != currentCard.cardId)
+      .toList();
+
+  // Bước 3: Trộn ngẫu nhiên (Shuffle) danh sách còn lại đó
+  otherCards.shuffle();
+
+  // Bước 4: Lấy số lượng đáp án sai cần thiết (bằng Option Count - 1)
+  final neededDistractors = optionCount - 1;
+  final Set<String> chosenDistractors = {};
+
+  for (final other in otherCards) {
+    final distractor = optionsInJapanese
+        ? ((other.reading != null && other.reading!.trim().isNotEmpty)
+            ? other.reading!.trim()
+            : other.term.trim())
+        : other.meaning.trim();
+
+    if (distractor.toLowerCase() != correctAnswer.toLowerCase() &&
+        !chosenDistractors.contains(distractor)) {
+      chosenDistractors.add(distractor);
+      if (chosenDistractors.length >= neededDistractors) {
+        break;
+      }
+    }
+  }
+
+  // Bước 5: Đưa các đáp án sai đã lấy vào mảng options
+  options.addAll(chosenDistractors);
+
+  // Bước 6: Trộn ngẫu nhiên lại toàn bộ mảng options một lần cuối trước khi render ra UI
+  options.shuffle();
+
+  return options;
+}
 
 class FlashcardQuizScreen extends StatefulWidget {
   final FlashcardSetModel deck;
+  final StudyOptions? options;
 
-  const FlashcardQuizScreen({super.key, required this.deck});
+  const FlashcardQuizScreen({super.key, required this.deck, this.options});
 
   @override
   State<FlashcardQuizScreen> createState() => _FlashcardQuizScreenState();
@@ -19,23 +82,101 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
   int _currentIndex = 0;
   bool _isLoading = true;
   String? _selectedOption;
+  late StudyOptions _options;
 
   @override
   void initState() {
     super.initState();
+    _options = widget.options ?? StudyOptions();
     _loadQuiz();
   }
 
+
   Future<void> _loadQuiz() async {
-    final list = await _service.getQuizQuestions(widget.deck.setId);
+    setState(() => _isLoading = true);
+
+    // 1. Tải tất cả các thẻ trong bộ để dùng làm nguồn đáp án sai (distractors)
+    final allCardsInDeck = await _service.getCardsInSet(
+      widget.deck.setId,
+      starredOnly: false,
+    );
+
+    // 2. Lọc danh sách thẻ mục tiêu dựa trên tùy chọn học (starredOnly & shuffle)
+    List<FlashcardItemModel> targetCards = allCardsInDeck;
+    if (_options.starredOnly) {
+      targetCards = targetCards.where((c) => c.isStarred).toList();
+    }
+    if (_options.shuffle) {
+      targetCards = List.of(targetCards)..shuffle();
+    }
+
+    if (targetCards.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _questions = [];
+          _currentIndex = 0;
+          _selectedOption = null;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    // 3. Xác định hướng câu hỏi & đáp án theo "Mặt thẻ hiển thị trước":
+    // - Thuật ngữ (displayFrontFace == 'term'): Câu hỏi là Thuật ngữ (JA) -> Options là Định nghĩa (VI)
+    // - Định nghĩa (displayFrontFace == 'definition'): Câu hỏi là Định nghĩa (VI) -> Options là Thuật ngữ (JA)
+    final bool optionsInJapanese = _options.displayFrontFace == 'definition';
+
+    final List<QuizQuestionModel> generatedQuestions = targetCards.map((card) {
+      final cleanOptions = generateQuizOptions(
+        card,
+        allCardsInDeck,
+        optionsInJapanese: optionsInJapanese,
+      );
+
+      final correctAnswer = optionsInJapanese
+          ? ((card.reading != null && card.reading!.trim().isNotEmpty)
+              ? card.reading!.trim()
+              : card.term.trim())
+          : card.meaning.trim();
+
+      return QuizQuestionModel(
+        cardId: card.cardId,
+        term: card.term,
+        sinoVietnamese: card.sinoVietnamese,
+        meaning: card.meaning,
+        correctAnswer: correctAnswer,
+        options: cleanOptions,
+      );
+    }).toList();
+
     if (mounted) {
       setState(() {
-        _questions = list;
+        _questions = generatedQuestions;
         _currentIndex = 0;
         _selectedOption = null;
         _isLoading = false;
       });
     }
+  }
+
+  void _openSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => StudyOptionsBottomSheet(
+        options: _options,
+        onOptionsChanged: (newOptions) {
+          setState(() => _options = newOptions);
+          _loadQuiz();
+        },
+        onResetProgress: () async {
+          await _service.resetProgress(widget.deck.setId);
+          _loadQuiz();
+        },
+      ),
+    );
   }
 
   void _onSelectOption(String option) {
@@ -119,102 +260,73 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
       return Scaffold(
         backgroundColor: const Color(0xFF0C0E14),
         body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Không có câu hỏi trắc nghiệm', style: TextStyle(color: Colors.white70)),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Quay lại'),
+          child: Column(
+            children: [
+              LearningHeader(
+                currentIndex: 0,
+                totalItems: 0,
+                onClose: () => Navigator.pop(context),
+                onSettingsClick: _openSettings,
+              ),
+              Expanded(
+                child: SimpleEmptyState(
+                  message: _options.starredOnly
+                      ? 'Không có từ vựng nào được gắn sao.'
+                      : 'Không có câu hỏi trắc nghiệm.',
+                  onBack: () => Navigator.pop(context),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       );
     }
 
     final q = _questions[_currentIndex];
+    final bool isOptionsJapanese = _options.displayFrontFace == 'definition';
+    // displayFrontFace == 'term': Thẻ câu hỏi hiển thị Thuật ngữ (q.term), Options hiển thị Định nghĩa
+    // displayFrontFace == 'definition': Thẻ câu hỏi hiển thị Định nghĩa (q.meaning), Options hiển thị Thuật ngữ
+    final questionText = isOptionsJapanese ? q.meaning : q.term;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0C0E14),
       body: SafeArea(
         child: Column(
           children: [
-            // Top Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: SegmentedProgressBar(
-                        currentIndex: _currentIndex + 1,
-                        totalCount: _questions.length,
-                        segmentCount: 5,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.settings, color: Colors.white),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
+            // Top Bar & Continuous Progress Bar
+            LearningHeader(
+              currentIndex: _currentIndex + 1,
+              totalItems: _questions.length,
+              onClose: () => Navigator.pop(context),
+              onSettingsClick: _openSettings,
             ),
 
             const SizedBox(height: 12),
 
-            // Question Card (Screenshot 210607)
+            // Question Card: Căn giữa hoàn toàn cả chiều dọc lẫn chiều ngang, ẩn hoàn toàn đáp án
             Container(
               width: double.infinity,
+              constraints: const BoxConstraints(minHeight: 180),
               margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
               decoration: BoxDecoration(
                 color: const Color(0xFF1B1E2B),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    q.term,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 48,
-                      fontWeight: FontWeight.w800,
-                    ),
+              alignment: Alignment.center,
+              child: Center(
+                child: Text(
+                  questionText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isOptionsJapanese ? 32 : 46,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                    letterSpacing: isOptionsJapanese ? 0.3 : 1.5,
                   ),
-                  if (q.sinoVietnamese != null && q.sinoVietnamese!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      q.sinoVietnamese!,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Text(
-                    q.meaning,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
 
@@ -228,7 +340,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
                 child: Text(
                   'Chọn câu trả lời',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.55),
+                    color: Colors.white.withValues(alpha: 0.55),
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -237,7 +349,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
             ),
             const SizedBox(height: 12),
 
-            // 4 Option Buttons
+            // Option Buttons
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -247,7 +359,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
                 itemBuilder: (context, index) {
                   final opt = q.options[index];
                   Color btnBg = const Color(0xFF161922);
-                  Color borderColor = Colors.white.withOpacity(0.08);
+                  Color borderColor = Colors.white.withValues(alpha: 0.08);
 
                   if (_selectedOption != null) {
                     if (opt == q.correctAnswer) {
@@ -294,7 +406,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
                   child: Text(
                     'Bạn không biết?',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.45),
+                      color: Colors.white.withValues(alpha: 0.45),
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
