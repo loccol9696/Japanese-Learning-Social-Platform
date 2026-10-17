@@ -77,6 +77,11 @@ public class VideoDetailResponse {
     private VideoStatus status;
 
     /**
+     * Trạng thái kiểm duyệt của Moderator
+     */
+    private com.jlsp.backend.video.entity.VideoModStatus modStatus;
+
+    /**
      * Thông tin người đăng (Creator)
      */
     private Long creatorId;
@@ -89,6 +94,21 @@ public class VideoDetailResponse {
      */
     private Boolean isLiked;
     private Boolean isSaved;
+
+    /**
+     * Lý do từ chối kiểm duyệt (nếu vi phạm)
+     */
+    private String rejectionReason;
+
+    /**
+     * ID người duyệt / từ chối
+     */
+    private Long moderatedBy;
+
+    /**
+     * Thời điểm kiểm duyệt
+     */
+    private LocalDateTime moderatedAt;
 
     /**
      * Thời điểm đăng tải và cập nhật

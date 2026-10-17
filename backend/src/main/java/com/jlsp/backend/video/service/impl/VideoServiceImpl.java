@@ -23,6 +23,7 @@ import com.jlsp.backend.video.repository.VideoSaveRepository;
 import com.jlsp.backend.video.service.VideoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -160,11 +161,11 @@ public class VideoServiceImpl implements VideoService {
         Page<Video> page;
 
         if (jlptLevel != null) {
-            // Lọc video theo cấp độ JLPT chỉ định
-            page = videoRepository.findByStatusAndJlptLevel(VideoStatus.PUBLIC, jlptLevel, pageable);
+            // Lọc video theo cấp độ JLPT chỉ định đã được duyệt
+            page = videoRepository.findByStatusAndModStatusAndJlptLevel(VideoStatus.PUBLIC, com.jlsp.backend.video.entity.VideoModStatus.APPROVED, jlptLevel, pageable);
         } else {
-            // Lấy tất cả video công khai
-            page = videoRepository.findByStatus(VideoStatus.PUBLIC, pageable);
+            // Lấy tất cả video công khai đã được duyệt
+            page = videoRepository.findByStatusAndModStatus(VideoStatus.PUBLIC, com.jlsp.backend.video.entity.VideoModStatus.APPROVED, pageable);
         }
 
         List<VideoResponse> responseList = page.getContent().stream()
@@ -207,8 +208,8 @@ public class VideoServiceImpl implements VideoService {
                     .build();
         }
 
-        // 2. Truy vấn video công khai của các creator đó
-        Page<Video> page = videoRepository.findByUserIdInAndStatus(followingIds, VideoStatus.PUBLIC, pageable);
+        // 2. Truy vấn video công khai của các creator đó đã được duyệt
+        Page<Video> page = videoRepository.findByUserIdInAndStatusAndModStatus(followingIds, VideoStatus.PUBLIC, com.jlsp.backend.video.entity.VideoModStatus.APPROVED, pageable);
 
         List<VideoResponse> responseList = page.getContent().stream()
                 .map(v -> {
@@ -543,5 +544,77 @@ public class VideoServiceImpl implements VideoService {
         if (!isOwner && !isAdmin) {
             throw new AppException(403, "Bạn không có quyền thao tác trên video này");
         }
+    }
+
+    @Override
+    @Transactional
+    public VideoDetailResponse approveVideo(Long videoId, Long moderatorId) {
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Video", "id", videoId));
+
+        video.setModStatus(com.jlsp.backend.video.entity.VideoModStatus.APPROVED);
+        video.setStatus(VideoStatus.PUBLIC);
+        video.setModeratedBy(moderatorId);
+        video.setModeratedAt(LocalDateTime.now());
+        video.setRejectionReason(null);
+
+        Video saved = videoRepository.save(video);
+        log.info("Moderator ID {} đã DUYỆT video ID {}", moderatorId, videoId);
+        return videoMapper.toVideoDetailResponse(saved, false, false);
+    }
+
+    @Override
+    @Transactional
+    public VideoDetailResponse rejectVideo(Long videoId, Long moderatorId, String rejectionReason) {
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Video", "id", videoId));
+
+        video.setModStatus(com.jlsp.backend.video.entity.VideoModStatus.REJECTED);
+        video.setModeratedBy(moderatorId);
+        video.setModeratedAt(LocalDateTime.now());
+        video.setRejectionReason(rejectionReason != null && !rejectionReason.isBlank() 
+                ? rejectionReason 
+                : "Vi phạm tiêu chuẩn cộng đồng hoặc chất lượng nội dung");
+
+        Video saved = videoRepository.save(video);
+        log.info("Moderator ID {} đã TỪ CHỐI video ID {} với lý do: {}", moderatorId, videoId, video.getRejectionReason());
+        return videoMapper.toVideoDetailResponse(saved, false, false);
+    }
+
+    @Override
+    public PageResponse<VideoResponse> getModerationVideos(com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable) {
+        com.jlsp.backend.video.entity.VideoModStatus targetStatus = modStatus != null ? modStatus : com.jlsp.backend.video.entity.VideoModStatus.PENDING;
+        Page<Video> page = videoRepository.findByModStatus(targetStatus, pageable);
+
+        List<VideoResponse> responseList = page.getContent().stream()
+                .map(v -> videoMapper.toVideoResponse(v, false, false))
+                .collect(Collectors.toList());
+
+        return PageResponse.<VideoResponse>builder()
+                .content(responseList)
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
+                .build();
+    }
+
+    @Override
+    public PageResponse<VideoResponse> getMyVideosStatus(Long userId, Pageable pageable) {
+        Page<Video> page = videoRepository.findByUserId(userId, pageable);
+
+        List<VideoResponse> responseList = page.getContent().stream()
+                .map(v -> videoMapper.toVideoResponse(v, false, false))
+                .collect(Collectors.toList());
+
+        return PageResponse.<VideoResponse>builder()
+                .content(responseList)
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
+                .build();
     }
 }

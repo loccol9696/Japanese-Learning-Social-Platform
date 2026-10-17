@@ -202,4 +202,41 @@ public interface VideoService {
      * @return Chuỗi JSON phụ đề
      */
     String getSubtitles(Long videoId);
+
+    /**
+     * Duyệt video bài học (Chuyển sang trạng thái PUBLIC).
+     *
+     * @param videoId      ID video cần duyệt
+     * @param moderatorId  ID của Admin/Moderator duyệt
+     * @return Thông tin video đã duyệt
+     */
+    VideoDetailResponse approveVideo(Long videoId, Long moderatorId);
+
+    /**
+     * Từ chối video bài học do vi phạm tiêu chuẩn (Chuyển sang trạng thái REJECTED).
+     *
+     * @param videoId         ID video cần từ chối
+     * @param moderatorId     ID của Admin/Moderator từ chối
+     * @param rejectionReason Lý do vi phạm
+     * @return Thông tin video bị từ chối
+     */
+    VideoDetailResponse rejectVideo(Long videoId, Long moderatorId, String rejectionReason);
+
+    /**
+     * Lấy danh sách video phục vụ kiểm duyệt cho Moderator.
+     *
+     * @param modStatus Trạng thái kiểm duyệt (mặc định PENDING nếu null)
+     * @param pageable  Phân trang
+     * @return Danh sách video theo phân trang
+     */
+    PageResponse<VideoResponse> getModerationVideos(com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable);
+
+    /**
+     * Lấy danh sách video của người dùng hiện tại kèm theo trạng thái duyệt và lý do nếu bị từ chối.
+     *
+     * @param userId   ID người dùng
+     * @param pageable Phân trang
+     * @return Danh sách video của chính mình
+     */
+    PageResponse<VideoResponse> getMyVideosStatus(Long userId, Pageable pageable);
 }
