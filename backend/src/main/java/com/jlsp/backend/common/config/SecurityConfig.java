@@ -54,7 +54,7 @@ public class SecurityConfig {
             // Môi trường PROD: Áp dụng phân quyền chuẩn
             http
                     .authorizeHttpRequests(auth -> auth
-                            .requestMatchers("/api/auth/**", "/api/v1/auth/**", "/api/v1/users/**").permitAll()
+                            .requestMatchers("/api/auth/**", "/api/v1/auth/**", "/api/v1/users/**", "/api/v1/media/**").permitAll()
                             .requestMatchers("/api/admin/**").hasRole("ADMIN")
                             .requestMatchers("/api/moderator/**").hasRole("MODERATOR")
                             .anyRequest().authenticated())

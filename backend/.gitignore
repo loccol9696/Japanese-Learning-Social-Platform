@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Config & Secret files ###
+src/main/resources/application.yml
+src/main/resources/credentials/
+*.env
+

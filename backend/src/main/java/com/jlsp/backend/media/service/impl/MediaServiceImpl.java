@@ -1,77 +1,111 @@
 package com.jlsp.backend.media.service.impl;
 
+import com.cloudinary.Cloudinary;
 import com.jlsp.backend.common.exception.AppException;
-import com.jlsp.backend.media.dto.ImageKitAuthResponse;
+import com.jlsp.backend.media.dto.CloudinarySignatureResponse;
+import com.jlsp.backend.media.dto.CloudinaryUploadResponse;
 import com.jlsp.backend.media.service.MediaService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * Cài đặt nghiệp vụ sinh thông số xác thực ImageKit sử dụng thuật toán HMAC-SHA1 thuần Java.
+ * Cài đặt nghiệp vụ xử lý tải lên và sinh chữ ký Cloudinary.
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class MediaServiceImpl implements MediaService {
 
-    private static final String HMAC_SHA1 = "HmacSHA1";
+    private final Cloudinary cloudinary;
 
-    @Value("${imagekit.private-key:}")
-    private String privateKey;
+    @Value("${cloudinary.cloud-name:}")
+    private String cloudName;
 
-    /**
-     * Sinh token, expire (30 phút) và signature HMAC-SHA1.
-     */
+    @Value("${cloudinary.api-key:}")
+    private String apiKey;
+
+    @Value("${cloudinary.api-secret:}")
+    private String apiSecret;
+
     @Override
-    public ImageKitAuthResponse getImageKitAuth() {
-        if (privateKey == null || privateKey.isBlank()) {
-            log.error("ImageKit private key chưa được cấu hình!");
-            throw new AppException(500, "ImageKit private key chưa được cấu hình trên hệ thống");
+    public CloudinarySignatureResponse getUploadSignature(String folder) {
+        validateCloudinaryConfig();
+
+        long timestamp = System.currentTimeMillis() / 1000L;
+        Map<String, Object> paramsToSign = new HashMap<>();
+        paramsToSign.put("timestamp", timestamp);
+
+        if (folder != null && !folder.isBlank()) {
+            paramsToSign.put("folder", folder.trim());
         }
 
-        String token = UUID.randomUUID().toString();
-        // Thời hạn 30 phút tính bằng giây
-        long expire = (System.currentTimeMillis() / 1000L) + 1800L;
+        String signature = cloudinary.apiSignRequest(paramsToSign, apiSecret.trim());
 
-        String dataToSign = token + expire;
-        String signature = calculateHmacSha1(dataToSign, privateKey.trim());
+        log.debug("Sinh chữ ký Cloudinary thành công: timestamp={}, folder={}", timestamp, folder);
 
-        log.debug("Đã sinh ImageKit auth params thành công: token={}, expire={}", token, expire);
-
-        return ImageKitAuthResponse.builder()
-                .token(token)
-                .expire(expire)
+        return CloudinarySignatureResponse.builder()
                 .signature(signature)
+                .timestamp(timestamp)
+                .apiKey(apiKey.trim())
+                .cloudName(cloudName.trim())
+                .folder(folder != null ? folder.trim() : null)
                 .build();
     }
 
-    /**
-     * Tính mã băm HMAC-SHA1 theo chuẩn của ImageKit.
-     */
-    private String calculateHmacSha1(String data, String key) {
-        try {
-            SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), HMAC_SHA1);
-            Mac mac = Mac.getInstance(HMAC_SHA1);
-            mac.init(secretKeySpec);
-            byte[] hashBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+    @Override
+    public CloudinaryUploadResponse uploadMedia(MultipartFile file, String folder) {
+        validateCloudinaryConfig();
 
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hashBytes) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) {
-                    hexString.append('0');
-                }
-                hexString.append(hex);
+        if (file == null || file.isEmpty()) {
+            throw new AppException(400, "File tải lên không được để trống");
+        }
+
+        try {
+            Map<String, Object> uploadParams = new HashMap<>();
+            uploadParams.put("resource_type", "auto");
+            if (folder != null && !folder.isBlank()) {
+                uploadParams.put("folder", folder.trim());
             }
-            return hexString.toString();
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(), uploadParams);
+
+            log.info("Upload file lên Cloudinary thành công: public_id={}, url={}",
+                    uploadResult.get("public_id"), uploadResult.get("secure_url"));
+
+            return CloudinaryUploadResponse.builder()
+                    .url((String) uploadResult.get("url"))
+                    .secureUrl((String) uploadResult.get("secure_url"))
+                    .publicId((String) uploadResult.get("public_id"))
+                    .resourceType((String) uploadResult.get("resource_type"))
+                    .format((String) uploadResult.get("format"))
+                    .bytes(uploadResult.get("bytes") instanceof Number ? ((Number) uploadResult.get("bytes")).longValue() : null)
+                    .width(uploadResult.get("width") instanceof Number ? ((Number) uploadResult.get("width")).intValue() : null)
+                    .height(uploadResult.get("height") instanceof Number ? ((Number) uploadResult.get("height")).intValue() : null)
+                    .duration(uploadResult.get("duration") instanceof Number ? ((Number) uploadResult.get("duration")).doubleValue() : null)
+                    .build();
+        } catch (IOException e) {
+            log.error("Lỗi khi đọc file để tải lên Cloudinary", e);
+            throw new AppException(500, "Lỗi đọc dữ liệu file: " + e.getMessage());
         } catch (Exception e) {
-            log.error("Lỗi khi sinh chữ ký HMAC-SHA1 cho ImageKit", e);
-            throw new AppException(500, "Không thể sinh chữ ký xác thực ImageKit: " + e.getMessage());
+            log.error("Lỗi khi tải file lên Cloudinary", e);
+            throw new AppException(500, "Không thể tải file lên Cloudinary: " + e.getMessage());
+        }
+    }
+
+    private void validateCloudinaryConfig() {
+        if (cloudName == null || cloudName.isBlank()
+                || apiKey == null || apiKey.isBlank()
+                || apiSecret == null || apiSecret.isBlank()) {
+            log.error("Cloudinary chưa được cấu hình đầy đủ (cloudName, apiKey, apiSecret)!");
+            throw new AppException(500, "Cloudinary chưa được cấu hình đầy đủ trên hệ thống");
         }
     }
 }
