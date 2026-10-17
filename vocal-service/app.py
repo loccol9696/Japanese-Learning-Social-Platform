@@ -5,6 +5,7 @@ import torch
 import asyncio
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
+import subprocess
 
 app = FastAPI(title="Demucs Vocal Isolator Service")
 
@@ -20,26 +21,34 @@ async def separate_vocal(file: UploadFile = File(...)):
     task_dir = os.path.join(BASE_TEMP_DIR, task_id)
     os.makedirs(task_dir, exist_ok=True)
 
-    input_path = os.path.join(task_dir, file.filename)
+    raw_video_path = os.path.join(task_dir, file.filename)
+    audio_extracted_path = os.path.join(task_dir, "input.wav")
     output_dir = os.path.join(task_dir, "output")
 
-    # Lưu file gửi từ Spring Boot
-    with open(input_path, "wb") as f:
+    # 1. Lưu file video tải lên từ Spring Boot
+    with open(raw_video_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    # Chờ GPU rảnh để xử lý
+    # 2. Dùng FFmpeg bóc tách âm thanh sang WAV (chạy mất chưa tới 1 giây)
+    # Lệnh trích xuất stream audio (-vn: bỏ video, -ac 2: stereo, -ar 44100: tần số chuẩn)
+    ffmpeg_cmd = [
+        "ffmpeg", "-y", "-i", raw_video_path,
+        "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2",
+        audio_extracted_path
+    ]
+    subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    # Nếu file gửi lên vốn dĩ là audio (không cần trích xuất), dùng luôn file đó
+    target_input = audio_extracted_path if os.path.exists(audio_extracted_path) else raw_video_path
+
+    # 3. Tiếp tục đưa target_input vào Demucs như bình thường...
     async with gpu_lock:
         try:
-            # Lệnh chạy Demucs tối ưu cho GPU 4GB
-            # -n htdemucs: Model nhẹ, chất lượng cao
-            # --two-stems vocals: Chỉ bóc tách vocal (tiết kiệm 50% thời gian)
-            # --segment 10: Chia nhỏ audio để VRAM chỉ tốn ~1.5 - 2GB
-            # --mp3: Xuất file mp3 nhẹ
             device = "cuda" if torch.cuda.is_available() else "cpu"
             cmd = (
                 f"demucs -n htdemucs --two-stems vocals "
-                f"--shifts 2 --segment 7 --device {device} "
-                f"-o \"{output_dir}\" \"{input_path}\""
+                f"--device {device} "
+                f"-o \"{output_dir}\" \"{target_input}\""
             )
 
             # Chạy subprocess bất đồng bộ
