@@ -65,12 +65,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse getUserById(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new AppException(404, "This user doesn't exist"));
-
-        UserResponse userResponse = userMapper.toResponse(user);
-
-        return userResponse;
+        return null;
     }
 
     @Override

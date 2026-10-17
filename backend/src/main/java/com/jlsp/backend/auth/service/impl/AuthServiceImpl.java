@@ -7,10 +7,10 @@ import com.jlsp.backend.auth.service.AuthService;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.security.CustomUserDetails;
 import com.jlsp.backend.common.security.jwt.JwtUtils;
-import com.jlsp.backend.otp.dto.ResendOtpRequest;
-import com.jlsp.backend.otp.dto.VerifyOtpRequest;
 import com.jlsp.backend.otp.service.EmailService;
 import com.jlsp.backend.otp.service.OtpRedisService;
+import com.jlsp.backend.otp.dto.ResendOtpRequest;
+import com.jlsp.backend.otp.dto.VerifyOtpRequest;
 import com.jlsp.backend.user.mapper.UserMapper;
 import com.jlsp.backend.user.repository.UserRepository;
 

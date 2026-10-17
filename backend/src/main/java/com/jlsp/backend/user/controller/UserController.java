@@ -12,7 +12,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final com.jlsp.backend.video.service.VideoService videoService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody CreateUserRequest request) {
@@ -50,7 +50,6 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PreAuthorize("#username == authentication.name or hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<UserResponse>> updateUser(
             @PathVariable Long id,
@@ -63,5 +62,21 @@ public class UserController {
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Long id) {
         userService.deactivateUser(id);
         return ResponseEntity.ok(ApiResponse.success(200, "User deactivated successfully", null));
+    }
+
+    /**
+     * GET /api/v1/users/{id}/videos
+     */
+    @GetMapping("/{id}/videos")
+    public ResponseEntity<ApiResponse<PageResponse<com.jlsp.backend.video.dto.response.VideoResponse>>> getVideosByUserId(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
+            @PageableDefault(size = 10, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+
+        Long viewerId = headerUserId != null ? headerUserId : paramUserId;
+        PageResponse<com.jlsp.backend.video.dto.response.VideoResponse> response = videoService.getVideosByUserId(id,
+                viewerId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
