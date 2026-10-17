@@ -47,22 +47,27 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
 
     public SpeechToTextService(
             VocalIsolationService vocalIsolationService,
-            SpeechClient speechClient,
+            org.springframework.beans.factory.ObjectProvider<SpeechClient> speechClientProvider,
             ResourceLoader resourceLoader,
-            @Value("${gcp.speech.credentials-path}") String credentialsPath) throws IOException {
+            @Value("${gcp.speech.credentials-path}") String credentialsPath) {
         this.vocalIsolationService = vocalIsolationService;
-        this.speechClient = speechClient;
+        this.speechClient = speechClientProvider.getIfAvailable();
 
-        // Đọc file credentials từ path trong application.properties (hỗ trợ cả
-        // classpath: lẫn file path tuyệt đối)
-        InputStream credentialsStream = resourceLoader.getResource(credentialsPath).getInputStream();
-        GoogleCredentials credentials = GoogleCredentials.fromStream(credentialsStream);
-
-        // Khởi tạo Storage với đúng credentials đó
-        this.storage = StorageOptions.newBuilder()
-                .setCredentials(credentials)
-                .build()
-                .getService();
+        Storage storageInstance = null;
+        try {
+            org.springframework.core.io.Resource res = resourceLoader.getResource(credentialsPath);
+            if (res.exists()) {
+                try (InputStream credentialsStream = res.getInputStream()) {
+                    GoogleCredentials credentials = GoogleCredentials.fromStream(credentialsStream);
+                    storageInstance = StorageOptions.newBuilder()
+                            .setCredentials(credentials)
+                            .build()
+                            .getService();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        this.storage = storageInstance;
     }
 
     @Async

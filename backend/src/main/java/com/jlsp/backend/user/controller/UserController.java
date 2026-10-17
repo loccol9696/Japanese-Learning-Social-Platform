@@ -29,6 +29,14 @@ public class UserController {
                 .body(ApiResponse.success(HttpStatus.CREATED.value(), "User created successfully", response));
     }
 
+    @PostMapping("/admin-create")
+    public ResponseEntity<ApiResponse<UserResponse>> createPrivilegedUser(
+            @Valid @RequestBody com.jlsp.backend.user.dto.request.AdminCreateUserRequest request) {
+        UserResponse response = userService.createPrivilegedUser(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED.value(), "Account created successfully", response));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable Long id) {
         UserResponse response = userService.getUserById(id);

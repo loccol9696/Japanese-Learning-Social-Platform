@@ -19,4 +19,6 @@ public interface UserService {
     UserResponse updateUser(Long id, UpdateUserRequest request);
 
     void deactivateUser(Long id);
+
+    UserResponse createPrivilegedUser(com.jlsp.backend.user.dto.request.AdminCreateUserRequest request);
 }
