@@ -1,5 +1,7 @@
 package com.jlsp.backend.googlestt.service.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.gax.longrunning.OperationFuture;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.speech.v1.*;
@@ -15,7 +17,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.util.UriComponents;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,6 +41,9 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
     // Lưu trạng thái và kết quả task trong RAM
     private final Map<String, String> taskStatusMap = new ConcurrentHashMap<>();
     private final Map<String, List<ScriptSegment>> taskResultMap = new ConcurrentHashMap<>();
+
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SpeechToTextService(
             VocalIsolationService vocalIsolationService,
@@ -110,8 +118,8 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
             LongRunningRecognizeResponse response = responseFuture.get();
             List<ScriptSegment> segments = new ArrayList<>();
 
-            System.out.println("========== BẮT ĐẦU DUYỆT KẾT QUẢ GOOGLE ==========");
-            System.out.println("Tổng số results: " + response.getResultsList().size());
+            // System.out.println("========== BẮT ĐẦU DUYỆT KẾT QUẢ GOOGLE ==========");
+            // System.out.println("Tổng số results: " + response.getResultsList().size());
 
             for (SpeechRecognitionResult result : response.getResultsList()) {
                 if (result.getAlternativesCount() == 0)
@@ -120,10 +128,8 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
                 SpeechRecognitionAlternative alternative = result.getAlternatives(0);
                 List<WordInfo> words = alternative.getWordsList();
 
-                System.out.println("-> Text: " + alternative.getTranscript());
-                System.out.println("-> Words count: " + words.size());
-
-                // CÁCH LẤY TRỰC TIẾP KHÔNG SỢ BỊ LỌC MẤT:
+                // System.out.println("-> Text: " + alternative.getTranscript());
+                // System.out.println("-> Words count: " + words.size());
                 if (!words.isEmpty()) {
                     WordInfo firstWord = words.get(0);
                     WordInfo lastWord = words.get(words.size() - 1);
@@ -131,27 +137,22 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
                     double start = toSeconds(firstWord.getStartTime());
                     double end = toSeconds(lastWord.getEndTime());
 
+                    String japaneseText = alternative.getTranscript().trim();
+                    String vietnameseText = translateToVi(alternative.getTranscript().trim());
+
                     ScriptSegment seg = ScriptSegment.builder()
                             .startTime(start)
                             .endTime(end)
-                            .text(alternative.getTranscript().trim())
+                            .text(japaneseText)
+                            .translatedText(vietnameseText)
                             .build();
 
                     segments.add(seg);
-                    System.out.println("   + ĐÃ THÊM SEGMENT: [" + start + "s -> " + end + "s] " + seg.getText());
-                } else if (!alternative.getTranscript().isBlank()) {
-                    ScriptSegment seg = ScriptSegment.builder()
-                            .startTime(0.0)
-                            .endTime(0.0)
-                            .text(alternative.getTranscript().trim())
-                            .build();
-                    segments.add(seg);
-                    System.out.println("   + ĐÃ THÊM SEGMENT (FALLBACK): " + seg.getText());
                 }
             }
 
-            System.out.println("TỔNG SỐ SEGMENTS TẠO RA: " + segments.size());
-            System.out.println("==================================================");
+            // System.out.println("TỔNG SỐ SEGMENTS TẠO RA: " + segments.size());
+            // System.out.println("==================================================");
 
             return segments;
         } finally {
@@ -164,5 +165,38 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
 
     private double toSeconds(Duration duration) {
         return duration.getSeconds() + (duration.getNanos() / 1_000_000_000.0);
+    }
+
+    private String translateToVi(String japaneseText) {
+        if (japaneseText == null || japaneseText.isBlank()) {
+            return "";
+        }
+
+        try {
+            UriComponentsBuilder url = UriComponentsBuilder
+                    .fromUriString("https://translate.googleapis.com/translate_a/single")
+                    .queryParam("client", "gtx")
+                    .queryParam("sl", "ja")
+                    .queryParam("tl", "vi")
+                    .queryParam("dt", "t") // chỉ trả về text
+                    .queryParam("q", japaneseText);
+
+            String rawResponse = restTemplate.getForObject(url.toUriString(), String.class);
+            JsonNode root = objectMapper.readTree(rawResponse);
+
+            StringBuilder translated = new StringBuilder();
+
+            if (root.isArray() && root.size() > 0 && root.get(0).isArray()) {
+                for (JsonNode item : root.get(0)) {
+                    if (item.isArray() && item.size() > 0) {
+                        translated.append(item.get(0).asText());
+                    }
+                }
+            }
+            return translated.toString().trim();
+        } catch (Exception e) {
+            System.err.println("Lỗi dịch câu: " + japaneseText + " -> " + e.getMessage());
+            return "";
+        }
     }
 }

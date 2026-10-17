@@ -127,6 +127,13 @@
 			<version>2.75.0</version>
 			<scope>compile</scope>
 		</dependency>
+		<!-- Source: https://mvnrepository.com/artifact/com.google.cloud/google-cloud-translate -->
+		<dependency>
+			<groupId>com.google.cloud</groupId>
+			<artifactId>google-cloud-translate</artifactId>
+			<version>2.99.0</version>
+			<scope>compile</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
