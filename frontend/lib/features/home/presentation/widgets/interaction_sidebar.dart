@@ -37,9 +37,7 @@ class InteractionSidebar extends StatefulWidget {
 
 class _InteractionSidebarState extends State<InteractionSidebar>
     with TickerProviderStateMixin {
-  late final AnimationController _discController;
   late final AnimationController _likeScaleController;
-  late final AnimationController _noteBounceController;
 
   late bool _isLiked;
   late bool _isFollowing;
@@ -52,22 +50,12 @@ class _InteractionSidebarState extends State<InteractionSidebar>
     _isFollowing = widget.post.isFollowing;
     _likeCount = widget.post.likeCount;
 
-    _discController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat();
-
     _likeScaleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
       lowerBound: 1.0,
       upperBound: 1.3,
     );
-
-    _noteBounceController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
   }
 
   @override
@@ -82,9 +70,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
 
   @override
   void dispose() {
-    _discController.dispose();
     _likeScaleController.dispose();
-    _noteBounceController.dispose();
     super.dispose();
   }
 
@@ -153,10 +139,6 @@ class _InteractionSidebarState extends State<InteractionSidebar>
 
         // 5. Subtitle Toggle Button
         _buildSubtitleToggleButton(activeTheme),
-        const SizedBox(height: 16.0),
-
-        // 6. Rotating Vinyl Disc
-        _buildRotatingDisc(activeTheme),
       ],
     );
   }
@@ -363,76 +345,6 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             fontWeight: FontWeight.w600,
             color: theme.isLight ? theme.primaryAdaptive : Colors.white,
             shadows: theme.textShadows,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRotatingDisc(AdaptiveVideoTheme theme) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        RotationTransition(
-          turns: _discController,
-          child: Container(
-            width: 42.0,
-            height: 42.0,
-            padding: const EdgeInsets.all(4.0),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: theme.isLight ? Colors.white : AppColors.surfaceDim,
-              border: Border.all(
-                color: theme.isLight
-                    ? const Color(0xFF1E212D).withValues(alpha: 0.3)
-                    : AppColors.lavender,
-                width: 2.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.isLight
-                      ? Colors.black.withValues(alpha: 0.1)
-                      : AppColors.lavender.withValues(alpha: 0.5),
-                  blurRadius: 12.0,
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: Image.network(
-                widget.post.audioDiscImageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: AppColors.surfaceContainerHighest,
-                  child: Icon(
-                    Icons.album_rounded,
-                    size: 16.0,
-                    color: theme.isLight
-                        ? const Color(0xFF1E212D)
-                        : AppColors.lavender,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        // Animated bouncing music note
-        Positioned(
-          top: -6.0,
-          right: -4.0,
-          child: AnimatedBuilder(
-            animation: _noteBounceController,
-            builder: (context, child) {
-              return Transform.translate(
-                offset: Offset(0, -4.0 * _noteBounceController.value),
-                child: child,
-              );
-            },
-            child: const Icon(
-              Icons.music_note_rounded,
-              size: 16.0,
-              color: AppColors.sakuraPink,
-              shadows: [Shadow(color: AppColors.sakuraPink, blurRadius: 8.0)],
-            ),
           ),
         ),
       ],

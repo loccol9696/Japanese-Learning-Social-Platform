@@ -10,8 +10,6 @@ class VideoPost {
   final String accentInfo;
   final String jlptLevel;
   final String topicTag;
-  final String audioTitle;
-  final String audioDiscImageUrl;
   final List<RubySegment> rubySegments;
   final List<SubtitleCue> subtitleCues;
   final String translation;
@@ -37,8 +35,6 @@ class VideoPost {
     required this.accentInfo,
     required this.jlptLevel,
     required this.topicTag,
-    required this.audioTitle,
-    required this.audioDiscImageUrl,
     required this.rubySegments,
     this.subtitleCues = const [],
     required this.translation,
@@ -64,8 +60,6 @@ class VideoPost {
     String? accentInfo,
     String? jlptLevel,
     String? topicTag,
-    String? audioTitle,
-    String? audioDiscImageUrl,
     List<RubySegment>? rubySegments,
     List<SubtitleCue>? subtitleCues,
     String? translation,
@@ -90,8 +84,6 @@ class VideoPost {
       accentInfo: accentInfo ?? this.accentInfo,
       jlptLevel: jlptLevel ?? this.jlptLevel,
       topicTag: topicTag ?? this.topicTag,
-      audioTitle: audioTitle ?? this.audioTitle,
-      audioDiscImageUrl: audioDiscImageUrl ?? this.audioDiscImageUrl,
       rubySegments: rubySegments ?? this.rubySegments,
       subtitleCues: subtitleCues ?? this.subtitleCues,
       translation: translation ?? this.translation,
@@ -119,8 +111,6 @@ class VideoPost {
       accentInfo: json['accentInfo'] as String? ?? '',
       jlptLevel: json['jlptLevel'] as String? ?? '',
       topicTag: json['topicTag'] as String? ?? '',
-      audioTitle: json['audioTitle'] as String? ?? '',
-      audioDiscImageUrl: json['audioDiscImageUrl'] as String? ?? '',
       rubySegments:
           (json['rubySegments'] as List<dynamic>?)
               ?.map((e) => RubySegment.fromJson(e as Map<String, dynamic>))
@@ -151,8 +141,6 @@ class VideoPost {
       'accentInfo': accentInfo,
       'jlptLevel': jlptLevel,
       'topicTag': topicTag,
-      'audioTitle': audioTitle,
-      'audioDiscImageUrl': audioDiscImageUrl,
       'rubySegments': rubySegments.map((e) => e.toJson()).toList(),
       'translation': translation,
       'likeCount': likeCount,

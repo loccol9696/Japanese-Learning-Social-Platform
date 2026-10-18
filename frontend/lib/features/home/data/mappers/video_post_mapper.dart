@@ -33,10 +33,6 @@ VideoPost videoPostFromJson(Map<String, dynamic> json) {
     accentInfo: '',
     jlptLevel: jlpt.startsWith('JLPT') ? jlpt : 'JLPT $jlpt',
     topicTag: title,
-    audioTitle: creatorName, // UI ghép thành "Âm thanh gốc - <người đăng>"
-    audioDiscImageUrl: creatorAvatarUrl.isNotEmpty
-        ? creatorAvatarUrl
-        : thumbnailUrl,
     rubySegments: subtitleCues.isNotEmpty
         ? [_toRubySegment(subtitleCues.first)]
         : const [],

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/count_format.dart';
 import '../../domain/models/video_post.dart';
 
-/// Thông tin video ở góc dưới: người đăng + trình độ, tiêu đề, lượt xem + âm thanh.
+/// Thông tin video ở góc dưới: người đăng + trình độ, tiêu đề, lượt xem.
 class VideoInfoOverlay extends StatelessWidget {
   final VideoPost post;
   final AdaptiveVideoTheme? theme;
@@ -83,7 +82,7 @@ class VideoInfoOverlay extends StatelessWidget {
         ],
         const SizedBox(height: 8.0),
 
-        // 3. Lượt xem + âm thanh gốc
+        // 3. Lượt xem
         Row(
           children: [
             Icon(
@@ -94,21 +93,6 @@ class VideoInfoOverlay extends StatelessWidget {
             ),
             const SizedBox(width: 2.0),
             Text(appStrings.homeViews(formatCount(post.viewCount)), style: secondaryStyle),
-            const SizedBox(width: 12.0),
-            Icon(
-              Icons.music_note_rounded,
-              size: 14.0,
-              color: activeTheme.isLight ? const Color(0xFF7C3AED) : AppColors.lavender,
-            ),
-            const SizedBox(width: 3.0),
-            Expanded(
-              child: Text(
-                appStrings.homeOriginalSound(post.audioTitle),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: secondaryStyle,
-              ),
-            ),
           ],
         ),
       ],
