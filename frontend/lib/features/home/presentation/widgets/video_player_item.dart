@@ -259,18 +259,18 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
 
           // 4. Streak & XP Badge Pill (Top-left) — chỉ khi có dữ liệu thật
           if (widget.post.streakDays != null && widget.post.xp != null)
-          Positioned(
-            top: 60.0,
-            left: 16.0,
-            child: SafeArea(
-              bottom: false,
-              child: StreakXpBadge(
-                streakDays: widget.post.streakDays!,
-                xp: widget.post.xp!,
-                theme: theme,
+            Positioned(
+              top: 60.0,
+              left: 16.0,
+              child: SafeArea(
+                bottom: false,
+                child: StreakXpBadge(
+                  streakDays: widget.post.streakDays!,
+                  xp: widget.post.xp!,
+                  theme: theme,
+                ),
               ),
             ),
-          ),
 
           // 4b. Gợi ý bật tiếng khi trình duyệt buộc phát không tiếng
           if (_isMuted && _videoController?.value.isInitialized == true)
@@ -282,7 +282,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                 bottom: false,
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14.0,
+                      vertical: 8.0,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(20.0),
@@ -290,7 +293,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.volume_off_rounded, color: Colors.white, size: 18.0),
+                        const Icon(
+                          Icons.volume_off_rounded,
+                          color: Colors.white,
+                          size: 18.0,
+                        ),
                         const SizedBox(width: 6.0),
                         Text(
                           appStrings.homeTapToUnmute,
@@ -343,21 +350,24 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
               ),
             ),
 
-          // 6. Right Side Interaction Sidebar
+          // 6. Right Side Interaction Sidebar — căn giữa theo chiều dọc
           Positioned(
             right: 12.0,
-            bottom: 20.0,
-            child: InteractionSidebar(
-              post: widget.post,
-              theme: theme,
-              isSubtitlesVisible: _showSubtitles,
-              onToggleSubtitles: () {
-                setState(() {
-                  _showSubtitles = !_showSubtitles;
-                });
-              },
-              onLikeChanged: widget.onLikeChanged,
-              onFollowToggle: widget.onFollowToggle,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: InteractionSidebar(
+                post: widget.post,
+                theme: theme,
+                isSubtitlesVisible: _showSubtitles,
+                onToggleSubtitles: () {
+                  setState(() {
+                    _showSubtitles = !_showSubtitles;
+                  });
+                },
+                onLikeChanged: widget.onLikeChanged,
+                onFollowToggle: widget.onFollowToggle,
+              ),
             ),
           ),
 
@@ -502,7 +512,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       children: [
         // Nền mờ từ khung hình video (kiểu TikTok/Reels) thay cho ảnh phóng to sắc nét.
         ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 28, sigmaY: 28, tileMode: TileMode.decal),
+          imageFilter: ImageFilter.blur(
+            sigmaX: 28,
+            sigmaY: 28,
+            tileMode: TileMode.decal,
+          ),
           child: Image.network(
             thumbnailUrl,
             fit: BoxFit.cover,
