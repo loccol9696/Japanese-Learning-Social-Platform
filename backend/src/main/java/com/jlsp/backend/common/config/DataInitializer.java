@@ -7,6 +7,8 @@ import com.jlsp.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -24,6 +26,12 @@ public class DataInitializer implements CommandLineRunner {
     private final com.jlsp.backend.subscription.repository.SubscriptionPlanRepository subscriptionPlanRepository;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final Environment environment;
+
+    // Admin mẫu chỉ dành cho profile dev (trùng gợi ý "Nạp mẫu" trên màn đăng nhập web admin)
+    private static final String DEV_ADMIN_USERNAME = "admin";
+    private static final String DEV_ADMIN_EMAIL = "admin@jlsp.com";
+    private static final String DEV_ADMIN_PASSWORD = "AdminPassword123@";
 
     // BCrypt hash của mật khẩu "password123"
     private static final String DEFAULT_PASSWORD_HASH = "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi";
@@ -229,40 +237,37 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
+    /**
+     * Tài khoản admin mẫu cho môi trường dev (đăng nhập web admin): chỉ tạo khi chưa có,
+     * không ghi đè mật khẩu/role của tài khoản đã tồn tại, không chạy ở prod.
+     */
     private void ensureAdminAccount() {
+        if (!environment.acceptsProfiles(Profiles.of("dev"))) {
+            return;
+        }
         try {
-            User admin = userRepository.findByUsername("admin")
-                    .orElseGet(() -> userRepository.findByEmail("admin@jlsp.com").orElse(null));
-
-            String encodedPassword = passwordEncoder.encode("AdminPassword123@");
-
-            if (admin != null) {
-                admin.setUsername("admin");
-                admin.setEmail("admin@jlsp.com");
-                admin.setPasswordHash(encodedPassword);
-                admin.setRole(UserRole.ADMIN);
-                admin.setIsActive(true);
-                userRepository.save(admin);
-                log.info("==> [SUCCESS] Đã đồng bộ tài khoản admin: username='admin', role=ADMIN, password=AdminPassword123@");
-            } else {
-                admin = User.builder()
-                        .username("admin")
-                        .email("admin@jlsp.com")
-                        .passwordHash(encodedPassword)
-                        .displayName("Hệ thống Quản trị (Admin)")
-                        .avatarUrl("https://picsum.photos/seed/admin88/200/200")
-                        .role(UserRole.ADMIN)
-                        .jlptLevel(JLPTLevel.N1)
-                        .bio("Tài khoản quản trị viên hệ thống JLSP")
-                        .isActive(true)
-                        .createdAt(LocalDateTime.now())
-                        .updatedAt(LocalDateTime.now())
-                        .build();
-                userRepository.save(admin);
-                log.info("==> [SUCCESS] Đã tạo mới tài khoản admin: username='admin', role=ADMIN, password=AdminPassword123@");
+            boolean exists = userRepository.findByUsername(DEV_ADMIN_USERNAME).isPresent()
+                    || userRepository.findByEmail(DEV_ADMIN_EMAIL).isPresent();
+            if (exists) {
+                return;
             }
+            User admin = User.builder()
+                    .username(DEV_ADMIN_USERNAME)
+                    .email(DEV_ADMIN_EMAIL)
+                    .passwordHash(passwordEncoder.encode(DEV_ADMIN_PASSWORD))
+                    .displayName("Hệ thống Quản trị (Admin)")
+                    .avatarUrl("https://picsum.photos/seed/admin88/200/200")
+                    .role(UserRole.ADMIN)
+                    .jlptLevel(JLPTLevel.N1)
+                    .bio("Tài khoản quản trị viên hệ thống JLSP")
+                    .isActive(true)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+            userRepository.save(admin);
+            log.info("==> [DEV] Đã tạo tài khoản admin mẫu: username='{}'", DEV_ADMIN_USERNAME);
         } catch (Exception e) {
-            log.error("Lỗi khi đồng bộ tài khoản admin: {}", e.getMessage(), e);
+            log.error("Lỗi khi tạo tài khoản admin mẫu: {}", e.getMessage(), e);
         }
     }
 }
