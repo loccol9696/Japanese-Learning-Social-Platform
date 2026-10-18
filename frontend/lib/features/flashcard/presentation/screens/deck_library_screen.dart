@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../data/models/flashcard_set_model.dart';
-import '../../data/services/flashcard_service.dart';
 import '../../data/services/flashcard_store.dart';
 import '../widgets/deck_card_item.dart';
 import 'deck_editor_screen.dart';
@@ -16,7 +15,6 @@ class DeckLibraryScreen extends StatefulWidget {
 class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FlashcardStore _store = FlashcardStore.instance;
-  final FlashcardService _service = FlashcardService.instance;
   List<FlashcardSetModel> _decks = [];
   bool _isLoading = false;
 
