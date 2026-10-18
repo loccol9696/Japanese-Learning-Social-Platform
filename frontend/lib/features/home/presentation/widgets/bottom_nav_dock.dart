@@ -5,11 +5,13 @@ import '../../../../core/theme/app_colors.dart';
 class BottomNavDock extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
+  final bool isModerator;
 
   const BottomNavDock({
     super.key,
     required this.selectedIndex,
     required this.onTabSelected,
+    this.isModerator = false,
   });
 
   static const List<_TabItemData> _tabs = [
@@ -45,7 +47,7 @@ class BottomNavDock extends StatelessWidget {
     return switch (index) {
       0 => appStrings.navHome,
       1 => appStrings.navFlashcards,
-      2 => appStrings.navAddVideo,
+      2 => isModerator ? appStrings.navApproveVideo : appStrings.navAddVideo,
       3 => appStrings.navMessages,
       4 => appStrings.navProfile,
       _ => '',
@@ -139,8 +141,12 @@ class BottomNavDock extends StatelessWidget {
                                       children: [
                                         Icon(
                                           isSelected
-                                              ? tab.activeIcon
-                                              : tab.inactiveIcon,
+                                              ? (index == 2 && isModerator
+                                                  ? Icons.fact_check_rounded
+                                                  : tab.activeIcon)
+                                              : (index == 2 && isModerator
+                                                  ? Icons.fact_check_outlined
+                                                  : tab.inactiveIcon),
                                           size: 22.0,
                                           color: isSelected
                                               ? AppColors.periwinkle

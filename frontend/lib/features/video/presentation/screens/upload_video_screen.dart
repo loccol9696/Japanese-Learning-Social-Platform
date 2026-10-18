@@ -435,6 +435,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   bool _isPublic = true;
   bool _isSubmitting = false;
   bool _isTranscribing = false;
+  bool _isManualSubtitleMode = false;
 
   @override
   void initState() {
@@ -442,9 +443,6 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     final name = widget.fileName.replaceFirst(RegExp(r'\.[^.]+$'), '');
     _titleController.text = name;
     _thumbnailController.text = widget.thumbnailUrl;
-    if (widget.aiTaskId != null && widget.aiTaskId!.isNotEmpty) {
-      _loadAiSubtitles(widget.aiTaskId!);
-    }
   }
 
   @override
@@ -508,6 +506,29 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         _showMessage(error.toString().replaceFirst('Exception: ', ''));
       }
     }
+  }
+
+  void _addManualSubtitle() {
+    setState(() {
+      _isManualSubtitleMode = true;
+      _subtitles.add(
+        _SubtitleDraft(
+          start: '00:00',
+          end: _formatTimestamp(widget.duration.clamp(1, 5).toDouble()),
+        ),
+      );
+    });
+  }
+
+  void _startAiSubtitleGeneration() {
+    final taskId = widget.aiTaskId;
+    if (taskId == null || taskId.isEmpty) {
+      _showMessage('Video chưa có tác vụ AI để tạo phụ đề.');
+      return;
+    }
+
+    setState(() => _isManualSubtitleMode = false);
+    _loadAiSubtitles(taskId);
   }
 
   _SubtitleDraft _subtitleFromAi(Map<String, dynamic> segment) {
@@ -644,16 +665,18 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           const SizedBox(height: 22),
           _buildSectionTitle('Phụ đề & Lời thoại'),
           const SizedBox(height: 10),
+          _buildSubtitleModeSelector(),
+          const SizedBox(height: 12),
           if (_isTranscribing)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: LinearProgressIndicator(color: Color(0xFFFF2D55)),
             ),
-          if (!_isTranscribing && _subtitles.isEmpty)
+          if (!_isTranscribing && _subtitles.isEmpty && !_isManualSubtitleMode)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: Text(
-                'Chưa có phụ đề AI. Bạn có thể nhập thủ công bằng nút chỉnh sửa.',
+                'Bạn có thể tạo phụ đề bằng AI hoặc tự nhập lời thoại cho video.',
                 style: TextStyle(color: Colors.white60),
               ),
             ),
@@ -663,6 +686,15 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               child: _buildSubtitleCard(entry.key, entry.value),
             ),
           ),
+          if (_isManualSubtitleMode && !_isTranscribing)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _addManualSubtitle,
+                icon: const Icon(Icons.add),
+                label: const Text('Thêm đoạn phụ đề'),
+              ),
+            ),
           const SizedBox(height: 12),
           _buildSectionTitle('Quyền riêng tư'),
           const SizedBox(height: 10),
@@ -826,6 +858,85 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildSubtitleModeSelector() {
+    final aiAvailable = widget.aiTaskId?.isNotEmpty == true;
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF19181D),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _subtitleModeButton(
+              icon: Icons.auto_awesome_rounded,
+              label: 'Tạo bằng AI',
+              selected: !_isManualSubtitleMode,
+              enabled: aiAvailable && !_isTranscribing,
+              onTap: _startAiSubtitleGeneration,
+            ),
+          ),
+          Expanded(
+            child: _subtitleModeButton(
+              icon: Icons.edit_note_rounded,
+              label: 'Tự nhập',
+              selected: _isManualSubtitleMode,
+              enabled: !_isTranscribing,
+              onTap: _addManualSubtitle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _subtitleModeButton({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF48202D) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: enabled
+                  ? (selected ? const Color(0xFFFF2D55) : Colors.white60)
+                  : Colors.white24,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: enabled
+                      ? (selected ? Colors.white : Colors.white60)
+                      : Colors.white24,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
