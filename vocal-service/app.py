@@ -4,16 +4,26 @@ import uuid
 import torch
 import asyncio
 import subprocess
+import sys
+from contextlib import asynccontextmanager  # 1. Thêm import này
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 
-app = FastAPI(title="Demucs Vocal Isolator Service")
-
-# Lock để đảm bảo card 4GB VRAM chỉ chạy 1 task một lúc (tránh OOM)
-gpu_lock = asyncio.Lock()
-
 BASE_TEMP_DIR = "temp_processing"
 os.makedirs(BASE_TEMP_DIR, exist_ok=True)
+gpu_lock = asyncio.Lock()
+
+# 2. Định nghĩa hàm lifespan thay thế cho @app.on_event
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Phần code chạy trước khi server nhận request (nếu cần)
+    yield
+    # Phần code chạy khi server tắt (tương đương với @app.on_event("shutdown"))
+    if os.path.exists(BASE_TEMP_DIR):
+        shutil.rmtree(BASE_TEMP_DIR, ignore_errors=True)
+
+# 3. Gắn lifespan vào khởi tạo FastAPI
+app = FastAPI(title="Demucs Vocal Isolator Service", lifespan=lifespan)
 
 @app.post("/api/v1/separate-vocal")
 async def separate_vocal(file: UploadFile = File(...)):
@@ -35,7 +45,17 @@ async def separate_vocal(file: UploadFile = File(...)):
         "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2",
         audio_extracted_path
     ]
-    subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ffmpeg_result = subprocess.run(
+        ffmpeg_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if ffmpeg_result.returncode != 0:
+        raise HTTPException(
+            status_code=422,
+            detail=f"FFmpeg could not extract audio: {ffmpeg_result.stderr[-4000:]}",
+        )
 
     # Nếu file gửi lên vốn dĩ là audio (không cần trích xuất), dùng luôn file đó
     target_input = audio_extracted_path if os.path.exists(audio_extracted_path) else raw_video_path
@@ -43,25 +63,56 @@ async def separate_vocal(file: UploadFile = File(...)):
     # 3. Tiếp tục đưa target_input vào Demucs
     async with gpu_lock:
         try:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            cmd = (
-                f"demucs -n htdemucs --two-stems vocals "
-                f"--segment 7 --shifts 2 --device {device} "
-                f"-o \"{output_dir}\" \"{target_input}\""
+            preferred_device = "cuda" if torch.cuda.is_available() else "cpu"
+
+            async def run_demucs(device: str, shifts: int, segment: int):
+                cmd = [
+                    sys.executable,
+                    "-m",
+                    "demucs.separate",
+                    "-n",
+                    "htdemucs",
+                    "--two-stems",
+                    "vocals",
+                    "--segment",
+                    str(segment),
+                    "--shifts",
+                    str(shifts),
+                    "--jobs",
+                    "1",
+                    "--device",
+                    device,
+                    "-o",
+                    output_dir,
+                    target_input,
+                ]
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await process.communicate()
+                output = "\n".join(
+                    part.decode("utf-8", errors="replace")
+                    for part in (stdout, stderr)
+                    if part
+                )
+                return process.returncode, output
+
+            return_code, output = await run_demucs(
+                preferred_device,
+                shifts=2 if preferred_device == "cuda" else 1,
+                segment=7,
             )
 
-            # Chạy subprocess bất đồng bộ
-            process = await asyncio.create_subprocess_shell(
-                cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await process.communicate()
+            # CUDA/PyTorch native crashes on Windows can return 0xC0000409.
+            if return_code != 0 and preferred_device == "cuda":
+                return_code, output = await run_demucs("cpu", shifts=0, segment=4)
 
-            if process.returncode != 0:
+            if return_code != 0:
                 raise HTTPException(
-                    status_code=500, 
-                    detail=f"Demucs failed: {stderr.decode()}"
+                    status_code=500,
+                    detail=f"Demucs failed with exit code {return_code}: {output[-8000:]}",
                 )
 
             # 4. Tự động tìm file vocals trong output_dir (không lo lệch tên thư mục)
@@ -88,11 +139,6 @@ async def separate_vocal(file: UploadFile = File(...)):
             # Thu hồi VRAM tạm sau khi chạy xong
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-
-@app.on_event("shutdown")
-def cleanup_temp():
-    if os.path.exists(BASE_TEMP_DIR):
-        shutil.rmtree(BASE_TEMP_DIR, ignore_errors=True)
 
 if __name__ == "__main__":
     import uvicorn

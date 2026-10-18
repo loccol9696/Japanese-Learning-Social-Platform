@@ -854,6 +854,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   const [plans, setPlans] = useState<SubscriptionPlanItem[]>([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlanItem | null>(null);
+  const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState<number>(0);
   const [editDuration, setEditDuration] = useState<number>(30);
   const [editDailyTokenLimit, setEditDailyTokenLimit] = useState<number>(500);
@@ -910,6 +911,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
   const handleOpenEditPlan = (plan: SubscriptionPlanItem) => {
     setEditingPlan(plan);
+    setEditName(plan.name);
     setEditPrice(plan.price);
     setEditDuration(plan.durationDays);
     setEditDailyTokenLimit(plan.dailyTokenLimit);
@@ -923,7 +925,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     setIsSubmittingPlan(true);
     try {
       await updatePlan(editingPlan.id, {
-        name: editingPlan.name,
+        name: editName.trim() || editingPlan.name,
         code: editingPlan.code,
         price: editPrice,
         durationDays: editDuration,
@@ -932,7 +934,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
         features: editFeatures,
         isActive: editingPlan.isActive,
       });
-      showToast(`Đã cập nhật biểu phí và hạn mức Token cho gói ${editingPlan.name}!`);
+      showToast(`Đã cập nhật biểu phí và hạn mức Token cho gói ${editName || editingPlan.name}!`);
       setEditingPlan(null);
       loadPlans();
     } catch (err: any) {
@@ -1653,6 +1655,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
           {/* ==================== TAB 1: DUYỆT VIDEO (MODERATOR ONLY) ==================== */}
           {activeTab === 'videos' && isModerator && (
             <>
+              <div style={{
+                backgroundColor: 'var(--admin-bg-surface)',
+                border: '1px solid var(--admin-border)',
+                padding: '0.85rem 1.25rem',
+                borderRadius: 'var(--radius-sharp)',
+                fontSize: '0.84rem',
+                color: 'var(--admin-text-main)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                marginBottom: '1rem'
+              }}>
+                <Shield size={18} style={{ color: 'var(--admin-primary)', flexShrink: 0 }} />
+                <div>
+                  <strong>Quy chuẩn Kiểm duyệt:</strong> Moderator chỉ tiếp nhận và kiểm duyệt các video ở chế độ <strong>Công khai (PUBLIC)</strong> trước khi phát hành lên Bảng tin cộng đồng (For-You Feed). Các video riêng tư (PRIVATE) của học viên sẽ không đưa vào hàng đợi kiểm duyệt.
+                </div>
+              </div>
+
               <div className="toolbar-row">
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                   <button
@@ -1721,6 +1741,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                           <th>Cấp độ</th>
                           <th>Thời lượng</th>
                           <th>Người đăng</th>
+                          <th>Chế độ</th>
                           <th>Ngày gửi</th>
                           <th>Trạng thái</th>
                           <th style={{ textAlign: 'right', minWidth: '180px' }}>Thao tác</th>
@@ -1786,6 +1807,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                                   @{v.creatorUsername || v.user?.username || 'creator'}
                                 </span>
                               </div>
+                            </td>
+                            <td>
+                              <span className="status-pill info" style={{ fontWeight: 700, fontSize: '0.72rem' }}>
+                                🌐 {v.status || 'PUBLIC'}
+                              </span>
                             </td>
                             <td>
                               <span style={{ fontSize: '0.78rem', color: 'var(--admin-text-dim)', whiteSpace: 'nowrap' }}>
@@ -2291,16 +2317,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               ) : (
                 <div className="pricing-cards-grid">
                   {plans.map(p => (
-                  <div key={p.id} className={`pricing-plan-card ${p.code === 'PRO_MONTHLY' ? 'highlight' : ''}`}>
+                  <div key={p.id} className={`pricing-plan-card ${p.code === 'PRO_MONTHLY' ? 'highlight' : p.code === 'FREE' ? 'free-plan-card' : ''}`}>
                     <div className="plan-header-row">
-                      <h3 className="plan-name-title">{p.name}</h3>
-                      <span className={`status-pill ${p.isActive ? 'success' : 'danger'}`}>
-                        {p.isActive ? 'Active' : 'Disabled'}
+                      <h3 className="plan-name-title">
+                        {p.code === 'FREE' ? `🌱 ${p.name}` : p.name}
+                      </h3>
+                      <span className={`status-pill ${p.code === 'FREE' ? 'info' : p.isActive ? 'success' : 'danger'}`}>
+                        {p.code === 'FREE' ? 'Mặc định Free' : p.isActive ? 'Active' : 'Disabled'}
                       </span>
                     </div>
 
                     <div className="plan-price-tag">
-                      {p.price?.toLocaleString('vi-VN')} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>đ / {p.durationDays} ngày</span>
+                      {p.price === 0 || p.code === 'FREE' ? (
+                        <>0 đ <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600 }}>(Gói Miễn Phí Mặc Định)</span></>
+                      ) : (
+                        <>{p.price?.toLocaleString('vi-VN')} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>đ / {p.durationDays} ngày</span></>
+                      )}
                     </div>
 
                     {/* Token Limit Highlight */}
@@ -2864,6 +2896,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                 </div>
 
                 <div>
+                  <span style={{ color: 'var(--admin-text-dim)', display: 'block', fontSize: '0.75rem' }}>Chế độ hiển thị:</span>
+                  <span className="status-pill info" style={{ fontWeight: 700, fontSize: '0.75rem', display: 'inline-block', marginTop: '0.2rem' }}>
+                    🌐 {selectedDetailVideo.status || 'PUBLIC'}
+                  </span>
+                </div>
+
+                <div>
                   <span style={{ color: 'var(--admin-text-dim)', display: 'block', fontSize: '0.75rem' }}>Tương tác:</span>
                   <span style={{ color: 'var(--admin-text-main)' }}>
                     {selectedDetailVideo.viewCount || 0} xem • {selectedDetailVideo.likeCount || 0} like • {selectedDetailVideo.saveCount || 0} save
@@ -3119,6 +3158,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             <form onSubmit={handleSavePlan}>
               <div className="modal-sharp-body">
                 <div className="form-group-sharp">
+                  <label className="form-label-sharp">Tên gói dịch vụ</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-input-sharp"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    placeholder="e.g. Gói Miễn Phí (Mặc định)"
+                  />
+                </div>
+
+                <div className="form-group-sharp">
                   <label className="form-label-sharp">Giá dịch vụ (VND)</label>
                   <input
                     type="number"
@@ -3129,6 +3180,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                     value={editPrice}
                     onChange={e => setEditPrice(parseInt(e.target.value) || 0)}
                   />
+                  {editingPlan.code === 'FREE' && (
+                    <span className="form-input-help" style={{ color: '#38bdf8' }}>
+                      Gói miễn phí mặc định có giá 0 đ.
+                    </span>
+                  )}
                 </div>
 
                 <div className="form-group-sharp">
@@ -3150,13 +3206,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                   </label>
                   <input
                     type="number"
-                    min={0}
+                    min={10}
                     step={10}
                     required
                     className="form-input-sharp"
                     value={editDailyTokenLimit}
                     onChange={e => setEditDailyTokenLimit(parseInt(e.target.value) || 0)}
                   />
+                  <span className="form-input-help" style={{ color: editingPlan.code === 'FREE' ? '#38bdf8' : undefined }}>
+                    {editingPlan.code === 'FREE' 
+                      ? '⚡ Học viên mới và người dùng chưa mua VIP sẽ tự động nhận hạn mức Token này mỗi ngày từ Database (100% không còn fallback gán cứng).'
+                      : 'Hạn mức số lượng Token AI (Speech-to-Text) học viên sở hữu gói này được dùng trong 1 ngày.'}
+                  </span>
                 </div>
 
                 <div className="form-group-sharp">

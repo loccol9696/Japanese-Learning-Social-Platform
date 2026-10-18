@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../../app/routes.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -17,10 +19,7 @@ import '../../../profile/presentation/screens/profile_screen.dart';
 class HomeScreen extends StatefulWidget {
   final HomeRepository? repository;
 
-  const HomeScreen({
-    super.key,
-    this.repository,
-  });
+  const HomeScreen({super.key, this.repository});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -39,7 +38,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _repository = widget.repository ??
+    _repository =
+        widget.repository ??
         HomeRepositoryImpl(remoteDataSource: HomeRemoteDataSourceImpl());
     _pageController = PageController();
     _loadFeed();
@@ -79,6 +79,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onNavTabSelected(int index) {
+    if (index == 2) {
+      Navigator.of(context).pushNamed(AppRoutes.upload);
+      return;
+    }
     setState(() {
       _currentNavIndex = index;
     });
@@ -154,9 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildVideoFeed() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.periwinkle,
-        ),
+        child: CircularProgressIndicator(color: AppColors.periwinkle),
       );
     }
 

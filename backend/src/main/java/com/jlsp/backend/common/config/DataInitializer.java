@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -188,6 +187,14 @@ public class DataInitializer implements CommandLineRunner {
             jdbcTemplate.execute("UPDATE subscription_plans SET code = 'PRO_MONTHLY' WHERE id = 2 AND code IS NULL");
             jdbcTemplate.execute("UPDATE subscription_plans SET code = 'PRO_YEARLY' WHERE id = 3 AND code IS NULL");
             jdbcTemplate.execute("UPDATE subscription_plans SET code = 'VIP_SPECIAL' WHERE id = 4 AND code IS NULL");
+
+            // Đảm bảo luôn tồn tại gói FREE trong database để Admin cấu hình Token limit cho học viên miễn phí
+            Integer freeCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM subscription_plans WHERE code = 'FREE'", Integer.class);
+            if (freeCount == null || freeCount == 0) {
+                jdbcTemplate.execute("INSERT INTO subscription_plans (name, code, price, duration_days, daily_token_limit, description, features, is_active, created_at, updated_at) " +
+                        "VALUES ('Gói Miễn Phí (Mặc định)', 'FREE', 0, 99999, 50, 'Gói mặc định cho học viên mới, trích xuất lời và học tập cơ bản', 'Hạn mức 50 Token AI/ngày\nXem video bài học cơ bản\nFlashcard từ vựng N5', true, NOW(), NOW())");
+                log.info("Đã khởi tạo gói 'FREE' mặc định trong database thành công!");
+            }
 
             // Cột cho bảng videos (Video moderation)
             jdbcTemplate.execute("ALTER TABLE videos ADD COLUMN IF NOT EXISTS mod_status VARCHAR(20) DEFAULT 'APPROVED'");
