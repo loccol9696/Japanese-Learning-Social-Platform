@@ -18,6 +18,7 @@ class VideoPost {
   final int likeCount;
   final int commentCount;
   final int shareCount;
+  final int viewCount;
   // Chuỗi ngày học / XP của người xem: null khi backend chưa cung cấp (ẩn huy hiệu)
   final int? streakDays;
   final int? xp;
@@ -44,6 +45,7 @@ class VideoPost {
     required this.likeCount,
     required this.commentCount,
     required this.shareCount,
+    this.viewCount = 0,
     this.streakDays,
     this.xp,
     this.isLiked = false,
@@ -70,6 +72,7 @@ class VideoPost {
     int? likeCount,
     int? commentCount,
     int? shareCount,
+    int? viewCount,
     int? streakDays,
     int? xp,
     bool? isLiked,
@@ -95,6 +98,7 @@ class VideoPost {
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
       shareCount: shareCount ?? this.shareCount,
+      viewCount: viewCount ?? this.viewCount,
       streakDays: streakDays ?? this.streakDays,
       xp: xp ?? this.xp,
       isLiked: isLiked ?? this.isLiked,
@@ -126,6 +130,7 @@ class VideoPost {
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       shareCount: json['shareCount'] as int? ?? 0,
+      viewCount: json['viewCount'] as int? ?? 0,
       streakDays: json['streakDays'] as int?,
       xp: json['xp'] as int?,
       isLiked: json['isLiked'] as bool? ?? false,
@@ -153,6 +158,7 @@ class VideoPost {
       'likeCount': likeCount,
       'commentCount': commentCount,
       'shareCount': shareCount,
+      'viewCount': viewCount,
       'streakDays': streakDays,
       'xp': xp,
       'isLiked': isLiked,

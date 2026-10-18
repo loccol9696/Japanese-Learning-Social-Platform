@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -426,7 +428,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
         fit: StackFit.expand,
         children: [
           _buildLandscapeBackdrop(theme),
-          Center(
+          // Hơi lệch lên trên để cân với khối phụ đề/thông tin phía dưới.
+          Align(
+            alignment: const Alignment(0, -0.15),
             child: AspectRatio(
               aspectRatio: aspectRatio,
               child: VideoPlayer(controller),
@@ -455,13 +459,17 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.network(
-          thumbnailUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) =>
-              Container(color: AppColors.surfaceContainerHighest),
+        // Nền mờ từ khung hình video (kiểu TikTok/Reels) thay cho ảnh phóng to sắc nét.
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 28, sigmaY: 28, tileMode: TileMode.decal),
+          child: Image.network(
+            thumbnailUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) =>
+                Container(color: AppColors.surfaceContainerHighest),
+          ),
         ),
-        Container(color: Colors.black.withValues(alpha: 0.62)),
+        Container(color: Colors.black.withValues(alpha: 0.45)),
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(

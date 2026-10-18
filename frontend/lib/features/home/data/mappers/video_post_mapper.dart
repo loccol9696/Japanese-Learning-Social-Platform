@@ -30,10 +30,10 @@ VideoPost videoPostFromJson(Map<String, dynamic> json) {
     creatorName: creatorName,
     creatorTag: creatorTag,
     creatorAvatarUrl: creatorAvatarUrl,
-    accentInfo: 'Japanese Learning',
+    accentInfo: '',
     jlptLevel: jlpt.startsWith('JLPT') ? jlpt : 'JLPT $jlpt',
     topicTag: title,
-    audioTitle: title,
+    audioTitle: creatorName, // UI ghép thành "Âm thanh gốc - <người đăng>"
     audioDiscImageUrl: creatorAvatarUrl.isNotEmpty
         ? creatorAvatarUrl
         : thumbnailUrl,
@@ -46,7 +46,8 @@ VideoPost videoPostFromJson(Map<String, dynamic> json) {
         : json['description']?.toString() ?? '',
     likeCount: likes,
     commentCount: 0,
-    shareCount: views,
+    shareCount: 0, // backend chưa đếm lượt chia sẻ
+    viewCount: views,
     isLiked: json['isLiked'] == true,
     progress: 0,
     isLightBackground: false,

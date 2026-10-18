@@ -90,6 +90,8 @@ abstract class AppStrings {
   String get profileStatusRejected;
   String get profileLoadFailed;
   String get profileRetry;
+  String homeOriginalSound(String creator);
+  String homeViews(String count);
 }
 
 class ViStrings implements AppStrings {
@@ -258,6 +260,10 @@ class ViStrings implements AppStrings {
   String get profileLoadFailed => 'Không tải được dữ liệu';
   @override
   String get profileRetry => 'Thử lại';
+  @override
+  String homeOriginalSound(String creator) => 'Âm thanh gốc - $creator';
+  @override
+  String homeViews(String count) => '$count lượt xem';
 }
 
 class EnStrings implements AppStrings {
@@ -426,6 +432,10 @@ class EnStrings implements AppStrings {
   String get profileLoadFailed => 'Could not load data';
   @override
   String get profileRetry => 'Retry';
+  @override
+  String homeOriginalSound(String creator) => 'Original sound - $creator';
+  @override
+  String homeViews(String count) => '$count views';
 }
 
 class JaStrings implements AppStrings {
@@ -594,4 +604,8 @@ class JaStrings implements AppStrings {
   String get profileLoadFailed => 'データを読み込めませんでした';
   @override
   String get profileRetry => '再試行';
+  @override
+  String homeOriginalSound(String creator) => 'オリジナル音声 - $creator';
+  @override
+  String homeViews(String count) => '$count回視聴';
 }

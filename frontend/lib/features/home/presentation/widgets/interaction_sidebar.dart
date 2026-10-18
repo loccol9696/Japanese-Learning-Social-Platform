@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/count_format.dart';
 import '../../domain/models/video_post.dart';
 
 class InteractionSidebar extends StatefulWidget {
@@ -111,14 +112,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
     widget.onFollowToggle?.call();
   }
 
-  String _formatCount(int count) {
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(1)}M';
-    } else if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(1)}K';
-    }
-    return count.toString();
-  }
+  String _formatCount(int count) => formatCount(count);
+
+  String _countOrLabel(int count, String label) => count > 0 ? formatCount(count) : label;
 
   @override
   Widget build(BuildContext context) {
@@ -129,37 +125,37 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 0. Subtitle Toggle Button (placed directly above user avatar)
-        _buildSubtitleToggleButton(activeTheme),
-        const SizedBox(height: 14.0),
-
         // 1. Creator Avatar & Follow Button
         _buildCreatorAvatar(activeTheme),
-        const SizedBox(height: 16.0),
+        const SizedBox(height: 18.0),
 
         // 2. Like / Heart Button
         _buildLikeButton(activeTheme),
-        const SizedBox(height: 14.0),
+        const SizedBox(height: 12.0),
 
-        // 3. Comments Button
+        // 3. Comments Button (chưa có số liệu -> hiện nhãn thay cho "0")
         _buildActionButton(
           theme: activeTheme,
           icon: Icons.chat_bubble_rounded,
-          countText: _formatCount(widget.post.commentCount),
+          countText: _countOrLabel(widget.post.commentCount, appStrings.comments),
           onTap: widget.onCommentTap,
         ),
-        const SizedBox(height: 14.0),
+        const SizedBox(height: 12.0),
 
         // 4. Share Button
         _buildActionButton(
           theme: activeTheme,
           icon: Icons.reply_rounded,
-          countText: _formatCount(widget.post.shareCount),
+          countText: _countOrLabel(widget.post.shareCount, appStrings.share),
           onTap: widget.onShareTap,
         ),
+        const SizedBox(height: 12.0),
+
+        // 5. Subtitle Toggle Button
+        _buildSubtitleToggleButton(activeTheme),
         const SizedBox(height: 16.0),
 
-        // 5. Rotating Vinyl Disc
+        // 6. Rotating Vinyl Disc
         _buildRotatingDisc(activeTheme),
       ],
     );
