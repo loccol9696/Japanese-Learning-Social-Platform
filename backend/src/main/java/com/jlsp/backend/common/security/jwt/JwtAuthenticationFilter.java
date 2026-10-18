@@ -1,12 +1,14 @@
 package com.jlsp.backend.common.security.jwt;
 
+import com.jlsp.backend.common.security.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -17,10 +19,12 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
+    private final CustomUserDetailsService userDetailsService;
 
     // Đã xóa SecurityFilterChain khỏi constructor để tránh Circular Dependency
-    public JwtAuthenticationFilter(JwtUtils jwtUtils) {
+    public JwtAuthenticationFilter(JwtUtils jwtUtils, CustomUserDetailsService userDetailsService) {
         this.jwtUtils = jwtUtils;
+        this.userDetailsService = userDetailsService;
     }
 
     @Override
@@ -32,17 +36,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             if (jwtUtils.validateToken(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
-                String username = jwtUtils.extractUsername(token);
-                var authorities = jwtUtils.extractRoles(token).stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .toList();
-
-                var authToken = new UsernamePasswordAuthenticationToken(username, null, authorities);
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(req));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                authenticate(jwtUtils.extractUsername(token), req);
             }
         }
 
         filterChain.doFilter(req, resp);
+    }
+
+    /**
+     * Nạp lại user từ DB để principal là CustomUserDetails (dùng được với CurrentUser /
+     * @AuthenticationPrincipal), role luôn mới nhất và tài khoản bị khóa không đăng nhập được.
+     */
+    private void authenticate(String username, HttpServletRequest req) {
+        UserDetails userDetails;
+        try {
+            userDetails = userDetailsService.loadUserByUsername(username);
+        } catch (UsernameNotFoundException e) {
+            return;
+        }
+        if (!userDetails.isEnabled()) {
+            return;
+        }
+
+        var authToken = new UsernamePasswordAuthenticationToken(
+                userDetails, null, userDetails.getAuthorities());
+        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(req));
+        SecurityContextHolder.getContext().setAuthentication(authToken);
     }
 }

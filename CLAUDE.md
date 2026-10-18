@@ -23,10 +23,12 @@ Japanese Learning Social Platform — mạng xã hội video ngắn kết hợp 
 - Mỗi module: `controller/`, `dto/request/`, `dto/response/`, `entity/`, `repository/`, `service/` (interface) + `service/impl/`, `mapper/`.
 - Dùng chung trong `common/`: `config/` (Security, CORS, Cloudinary…), `security/jwt/`, `response/ApiResponse<T>` & `PageResponse`, `exception/` (`AppException` + `ErrorCode`, `GlobalExceptionHandler`), `constant/`.
 - Endpoint REST prefix `/api/v1/...`; controller luôn trả `ResponseEntity<ApiResponse<T>>` qua `ApiResponse.success(...)`.
+- **Danh tính người dùng chỉ lấy từ JWT** qua `common/security/CurrentUser`: `requireId()` cho endpoint ghi (401 nếu chưa đăng nhập), `idOrNull()` cho endpoint đọc công khai. **Không** nhận user id từ header (`X-User-Id`), query param hay body, không fallback về user mặc định.
+- `JwtAuthenticationFilter` chạy ở mọi profile; principal là `CustomUserDetails` (nạp từ DB, tài khoản bị khóa không xác thực được). `app.security.enabled=false` (dev) chỉ tắt chặn theo URL; phân quyền theo URL/role nằm trong `SecurityConfig` (prod). Test phân quyền: `src/test/.../common/security/*Test` (`@WebMvcTest`, không cần DB).
 - Lỗi nghiệp vụ: ném `AppException(status, message)` / `ResourceNotFoundException`, để `GlobalExceptionHandler` map ra `ApiResponse`; không tự build response lỗi trong controller.
 - Seed data: `src/main/resources/data.sql` + `common/config/DataInitializer`.
 - `application.yml` nằm trong `backend/.gitignore` nhưng **vẫn đang được git track** → đừng `git add` thay đổi local của nó; mẫu cấu hình ở `application.yml.txt`.
-- Test BE hiện chỉ có `BackendApplicationTests` (context load) → cần PostgreSQL + Redis chạy sẵn.
+- `BackendApplicationTests` (context load) cần PostgreSQL + Redis chạy sẵn; chạy riêng test không cần DB: `./mvnw test -Dtest="SecurityRulesTest,DevModeIdentityTest"`.
 
 ## Frontend (`frontend/lib/`)
 

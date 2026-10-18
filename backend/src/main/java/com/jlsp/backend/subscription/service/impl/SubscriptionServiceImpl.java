@@ -143,7 +143,10 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                     .orElseThrow(() -> new AppException(404, "Không tìm thấy gói thành viên tương ứng"));
         }
 
-        Long userId = request.getUserId() != null ? request.getUserId() : 1L;
+        Long userId = request.getUserId();
+        if (userId == null) {
+            throw new AppException(401, "Vui lòng đăng nhập để tạo đơn hàng");
+        }
         User user = userRepository.findById(userId)
                 .orElseGet(() -> userRepository.findAll().stream().findFirst().orElse(null));
 

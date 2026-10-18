@@ -56,18 +56,11 @@ public class AuthController {
 
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
-            @org.springframework.security.core.annotation.AuthenticationPrincipal com.jlsp.backend.common.security.CustomUserDetails userDetails,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
             @Valid @RequestBody com.jlsp.backend.auth.dto.request.ChangePasswordRequest request) {
 
-        String username = null;
-        if (userDetails != null) {
-            username = userDetails.getUsername();
-        } else if (request.getUsername() != null && !request.getUsername().isBlank()) {
-            username = request.getUsername();
-        }
-
-        authService.changePassword(username, headerUserId, request);
+        // Chỉ đổi mật khẩu của chính tài khoản đang đăng nhập (bỏ qua username trong body)
+        com.jlsp.backend.user.entity.User current = com.jlsp.backend.common.security.CurrentUser.require();
+        authService.changePassword(current.getUsername(), current.getId(), request);
         return ResponseEntity.ok(ApiResponse.success(200, "Đổi mật khẩu thành công", null));
     }
 }

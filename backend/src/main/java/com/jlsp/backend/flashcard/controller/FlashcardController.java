@@ -2,18 +2,16 @@ package com.jlsp.backend.flashcard.controller;
 
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.response.PageResponse;
+import com.jlsp.backend.common.security.CurrentUser;
 import com.jlsp.backend.flashcard.dto.request.*;
 import com.jlsp.backend.flashcard.dto.response.*;
 import com.jlsp.backend.flashcard.service.FlashcardService;
-import com.jlsp.backend.user.entity.User;
-import com.jlsp.backend.user.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,30 +21,17 @@ import java.util.List;
 public class FlashcardController {
 
     private final FlashcardService flashcardService;
-    private final UserRepository userRepository;
 
-    public FlashcardController(FlashcardService flashcardService, UserRepository userRepository) {
+    public FlashcardController(FlashcardService flashcardService) {
         this.flashcardService = flashcardService;
-        this.userRepository = userRepository;
-    }
-
-    private Long resolveUserId(Authentication authentication) {
-        if (authentication == null || authentication.getName() == null
-                || "anonymousUser".equals(authentication.getName())) {
-            return userRepository.findAll().stream().findFirst().map(User::getId).orElse(1L);
-        }
-        return userRepository.findByUsername(authentication.getName())
-                .map(User::getId)
-                .orElseGet(() -> userRepository.findAll().stream().findFirst().map(User::getId).orElse(1L));
     }
 
     // 1. Lấy danh sách bộ thẻ (Thư viện thẻ)
     @GetMapping("/sets")
     public ResponseEntity<ApiResponse<PageResponse<FlashcardSetResponse>>> getSets(
             @RequestParam(required = false) String search,
-            @PageableDefault(size = 20) Pageable pageable,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @PageableDefault(size = 20) Pageable pageable) {
+        Long userId = CurrentUser.requireId();
         PageResponse<FlashcardSetResponse> response = flashcardService.getSets(userId, search, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -54,9 +39,8 @@ public class FlashcardController {
     // 2. Tạo bộ thẻ mới (nút +)
     @PostMapping("/sets")
     public ResponseEntity<ApiResponse<FlashcardSetResponse>> createSet(
-            @Valid @RequestBody CreateFlashcardSetRequest request,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @Valid @RequestBody CreateFlashcardSetRequest request) {
+        Long userId = CurrentUser.requireId();
         FlashcardSetResponse response = flashcardService.createSet(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED.value(), "Set created successfully", response));
@@ -65,9 +49,8 @@ public class FlashcardController {
     // 3. Chi tiết bộ thẻ (Flashcard Overview)
     @GetMapping("/sets/{setId}")
     public ResponseEntity<ApiResponse<FlashcardSetResponse>> getSetById(
-            @PathVariable Long setId,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @PathVariable Long setId) {
+        Long userId = CurrentUser.requireId();
         FlashcardSetResponse response = flashcardService.getSetById(userId, setId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -76,9 +59,8 @@ public class FlashcardController {
     @PutMapping("/sets/{setId}")
     public ResponseEntity<ApiResponse<FlashcardSetResponse>> updateSet(
             @PathVariable Long setId,
-            @Valid @RequestBody CreateFlashcardSetRequest request,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @Valid @RequestBody CreateFlashcardSetRequest request) {
+        Long userId = CurrentUser.requireId();
         FlashcardSetResponse response = flashcardService.updateSet(userId, setId, request);
         return ResponseEntity.ok(ApiResponse.success(200, "Set updated successfully", response));
     }
@@ -86,9 +68,8 @@ public class FlashcardController {
     // 4. Xóa bộ thẻ
     @DeleteMapping("/sets/{setId}")
     public ResponseEntity<ApiResponse<Void>> deleteSet(
-            @PathVariable Long setId,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @PathVariable Long setId) {
+        Long userId = CurrentUser.requireId();
         flashcardService.deleteSet(userId, setId);
         return ResponseEntity.ok(ApiResponse.success(200, "Set deleted successfully", null));
     }
@@ -98,9 +79,8 @@ public class FlashcardController {
     public ResponseEntity<ApiResponse<List<FlashcardResponse>>> getCardsInSet(
             @PathVariable Long setId,
             @RequestParam(required = false, defaultValue = "false") Boolean starredOnly,
-            @RequestParam(required = false, defaultValue = "false") Boolean shuffle,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @RequestParam(required = false, defaultValue = "false") Boolean shuffle) {
+        Long userId = CurrentUser.requireId();
         List<FlashcardResponse> response = flashcardService.getCardsInSet(userId, setId, starredOnly, shuffle);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -109,9 +89,8 @@ public class FlashcardController {
     @PostMapping("/sets/{setId}/cards")
     public ResponseEntity<ApiResponse<FlashcardResponse>> addCard(
             @PathVariable Long setId,
-            @Valid @RequestBody CreateFlashcardRequest request,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @Valid @RequestBody CreateFlashcardRequest request) {
+        Long userId = CurrentUser.requireId();
         FlashcardResponse response = flashcardService.addCardToSet(userId, setId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED.value(), "Card added successfully", response));
@@ -120,9 +99,8 @@ public class FlashcardController {
     // 7. Xóa thẻ
     @DeleteMapping("/cards/{cardId}")
     public ResponseEntity<ApiResponse<Void>> deleteCard(
-            @PathVariable Long cardId,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @PathVariable Long cardId) {
+        Long userId = CurrentUser.requireId();
         flashcardService.deleteCard(userId, cardId);
         return ResponseEntity.ok(ApiResponse.success(200, "Card deleted successfully", null));
     }
@@ -131,9 +109,8 @@ public class FlashcardController {
     @PutMapping("/cards/{cardId}")
     public ResponseEntity<ApiResponse<FlashcardResponse>> updateCard(
             @PathVariable Long cardId,
-            @Valid @RequestBody CreateFlashcardRequest request,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @Valid @RequestBody CreateFlashcardRequest request) {
+        Long userId = CurrentUser.requireId();
         FlashcardResponse response = flashcardService.updateCard(userId, cardId, request);
         return ResponseEntity.ok(ApiResponse.success(200, "Card updated successfully", response));
     }
@@ -142,9 +119,8 @@ public class FlashcardController {
     @PostMapping("/cards/{cardId}/star")
     public ResponseEntity<ApiResponse<FlashcardResponse>> updateCardStar(
             @PathVariable Long cardId,
-            @Valid @RequestBody UpdateCardStarRequest request,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @Valid @RequestBody UpdateCardStarRequest request) {
+        Long userId = CurrentUser.requireId();
         FlashcardResponse response = flashcardService.updateCardStar(userId, cardId, request.getIsStarred());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -152,9 +128,8 @@ public class FlashcardController {
     // 9. Nộp kết quả ôn tập (Spaced Repetition / Leitner box level)
     @PostMapping("/study/answer")
     public ResponseEntity<ApiResponse<Void>> submitCardAnswer(
-            @Valid @RequestBody SubmitCardAnswerRequest request,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @Valid @RequestBody SubmitCardAnswerRequest request) {
+        Long userId = CurrentUser.requireId();
         flashcardService.submitCardAnswer(userId, request);
         return ResponseEntity.ok(ApiResponse.success(200, "Answer recorded successfully", null));
     }
@@ -163,9 +138,8 @@ public class FlashcardController {
     @GetMapping("/sets/{setId}/quiz")
     public ResponseEntity<ApiResponse<List<QuizQuestionResponse>>> generateQuiz(
             @PathVariable Long setId,
-            @RequestParam(required = false, defaultValue = "32") Integer limit,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @RequestParam(required = false, defaultValue = "32") Integer limit) {
+        Long userId = CurrentUser.requireId();
         List<QuizQuestionResponse> response = flashcardService.generateQuiz(userId, setId, limit);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -182,9 +156,8 @@ public class FlashcardController {
     // 12. Đặt lại tiến trình thẻ (Reset Progress)
     @PostMapping("/sets/{setId}/reset")
     public ResponseEntity<ApiResponse<Void>> resetProgress(
-            @PathVariable Long setId,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @PathVariable Long setId) {
+        Long userId = CurrentUser.requireId();
         flashcardService.resetSetProgress(userId, setId);
         return ResponseEntity.ok(ApiResponse.success(200, "Progress reset successfully", null));
     }
@@ -192,9 +165,8 @@ public class FlashcardController {
     // 13. Lưu từ vựng từ Video vào bộ "Từ vựng đã lưu từ Video"
     @PostMapping("/video/save")
     public ResponseEntity<ApiResponse<FlashcardResponse>> saveVideoVocab(
-            @Valid @RequestBody SaveVideoVocabRequest request,
-            Authentication authentication) {
-        Long userId = resolveUserId(authentication);
+            @Valid @RequestBody SaveVideoVocabRequest request) {
+        Long userId = CurrentUser.requireId();
         FlashcardResponse response = flashcardService.saveVideoVocab(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED.value(), "Vocab saved from video successfully", response));

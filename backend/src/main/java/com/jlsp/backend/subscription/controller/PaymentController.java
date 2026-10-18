@@ -2,6 +2,7 @@ package com.jlsp.backend.subscription.controller;
 
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.response.PageResponse;
+import com.jlsp.backend.common.security.CurrentUser;
 import com.jlsp.backend.subscription.dto.request.ConfirmPaymentRequest;
 import com.jlsp.backend.subscription.dto.request.CreateQrOrderRequest;
 import com.jlsp.backend.subscription.dto.response.SubscriptionOrderResponse;
@@ -27,6 +28,8 @@ public class PaymentController {
     @PostMapping({"/create-order", "/create-qr-order"})
     public ResponseEntity<ApiResponse<SubscriptionOrderResponse>> createQrOrder(
             @Valid @RequestBody CreateQrOrderRequest request) {
+        // Đơn hàng luôn thuộc về người đang đăng nhập, bỏ qua userId client gửi lên
+        request.setUserId(CurrentUser.requireId());
         SubscriptionOrderResponse response = subscriptionService.createQrOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED.value(), "Tạo đơn hàng thanh toán QR thành công", response));
@@ -55,11 +58,8 @@ public class PaymentController {
     }
 
     @GetMapping({"/my-quota", "/token-quota"})
-    public ResponseEntity<ApiResponse<TokenQuotaResponse>> getTokenQuota(
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "userId", required = false) Long paramUserId) {
-        Long userId = headerUserId != null ? headerUserId : (paramUserId != null ? paramUserId : 1L);
-        TokenQuotaResponse response = subscriptionService.checkTokenQuota(userId);
+    public ResponseEntity<ApiResponse<TokenQuotaResponse>> getTokenQuota() {
+        TokenQuotaResponse response = subscriptionService.checkTokenQuota(CurrentUser.requireId());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
