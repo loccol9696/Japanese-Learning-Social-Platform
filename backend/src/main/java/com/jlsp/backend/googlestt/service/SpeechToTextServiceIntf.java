@@ -13,6 +13,8 @@ public interface SpeechToTextServiceIntf {
     @Async
     void processAudioAsync(String taskId, MultipartFile file);
 
+    void processAudioAsync(String taskId, byte[] fileBytes, String filename);
+
     String getStatus(String taskId);
 
     List<ScriptSegment> getResult(String taskId);

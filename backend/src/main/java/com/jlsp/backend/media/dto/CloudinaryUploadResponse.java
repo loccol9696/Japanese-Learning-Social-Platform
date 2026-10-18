@@ -22,4 +22,6 @@ public class CloudinaryUploadResponse {
     private Integer width;
     private Integer height;
     private Double duration;
+    private String aiTaskId;
+    private String aiStatus;
 }

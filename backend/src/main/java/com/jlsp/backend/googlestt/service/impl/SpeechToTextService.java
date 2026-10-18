@@ -13,10 +13,6 @@ import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -30,6 +26,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -79,6 +76,20 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
         }
     }
 
+    @Async
+    @Override
+    public void processAudioAsync(String taskId, byte[] fileBytes, String filename) {
+        try {
+            taskStatusMap.put(taskId, "PROCESSING");
+            List<ScriptSegment> segments = transcribeAudioWithTimestamps(fileBytes);
+            taskResultMap.put(taskId, segments);
+            taskStatusMap.put(taskId, "COMPLETED");
+        } catch (Exception e) {
+            log.error("AI transcription thất bại cho task {}", taskId, e);
+            taskStatusMap.put(taskId, "FAILED: " + e.getMessage());
+        }
+    }
+
     public String getStatus(String taskId) {
         return taskStatusMap.getOrDefault(taskId, "NOT_FOUND");
     }
@@ -89,12 +100,17 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
 
     public List<ScriptSegment> transcribeAudioWithTimestamps(MultipartFile file)
             throws IOException, ExecutionException, InterruptedException, Exception {
+        return transcribeAudioWithTimestamps(file.getBytes());
+    }
+
+    private List<ScriptSegment> transcribeAudioWithTimestamps(byte[] fileBytes)
+            throws IOException, ExecutionException, InterruptedException, Exception {
 
         if (this.speechClient == null || this.storage == null) {
             throw new IllegalStateException("GCP Speech/Storage service is not available. Please check credentials.");
         }
         // Đổi đuôi file sang .mp3 và contentType sang audio/mpeg
-        byte[] cleanVocalBytes = vocalIsolationService.separateVocals(file.getBytes());
+        byte[] cleanVocalBytes = vocalIsolationService.separateVocals(fileBytes);
 
         // 2. Upload file vocal mp3 sạch lên GCS
         String fileName = "audio-transcribe/" + UUID.randomUUID() + ".wav";
@@ -181,6 +197,8 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
             URI uri = UriComponentsBuilder.fromUriString("https://api.mymemory.translated.net/get")
                     .queryParam("q", japaneseText)
                     .queryParam("langpair", "ja|vi")
+                    .queryParam("de", "minedung2005@gmail.com") // Đổi thành email hợp lệ để tăng hạn mức
+                    .encode(StandardCharsets.UTF_8)
                     .build()
                     .toUri();
 
@@ -190,12 +208,17 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
             }
 
             JsonNode root = objectMapper.readTree(rawResponse);
-            if (root.has("responseData") && root.get("responseData").has("translatedText")) {
-                return root.get("responseData").get("translatedText").asText().trim();
+            int status = root.path("responseStatus").asInt(0);
+
+            // 200 là thành công, 429/403 là hết quota
+            if (status == 200 && root.has("responseData")) {
+                return root.get("responseData").path("translatedText").asText("").trim();
+            } else {
+                log.warn("MyMemory lỗi phản hồi mã {}: {}", status, rawResponse);
+                return "";
             }
-            return "";
         } catch (Exception e) {
-            System.err.println("Lỗi dịch MyMemory: [" + japaneseText + "] -> " + e.getMessage());
+            log.error("Lỗi khi dịch tiếng Nhật sang tiếng Việt: [{}] - {}", japaneseText, e.getMessage());
             return "";
         }
     }

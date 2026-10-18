@@ -26,4 +26,12 @@ public interface MediaService {
      * @return CloudinaryUploadResponse
      */
     CloudinaryUploadResponse uploadMedia(MultipartFile file, String folder);
+
+    /**
+     * Tải file đã lưu trên Cloudinary về backend để chạy xử lý AI.
+     *
+     * @param secureUrl URL HTTPS do Cloudinary trả về
+     * @return nội dung file
+     */
+    byte[] downloadFromCloudinary(String secureUrl);
 }

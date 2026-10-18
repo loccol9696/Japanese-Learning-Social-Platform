@@ -97,13 +97,28 @@ public class DataInitializer implements CommandLineRunner {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        userRepository.saveAll(List.of(admin, creatorTanaka, creatorYamada, learnerSakura));
+        User modernLearner = User.builder()
+                .username("modern_learner")
+                .email("minedungytb@gmail.com")
+                .passwordHash(DEFAULT_PASSWORD_HASH) // password123
+                .displayName("Modern Learner")
+                .avatarUrl("https://picsum.photos/seed/modern/200/200")
+                .role(UserRole.USER)
+                .jlptLevel(JLPTLevel.N4)
+                .bio("Học viên hiện đại, yêu thích học tiếng Nhật theo phong cách hiện đại")
+                .isActive(true)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        userRepository.saveAll(List.of(admin, creatorTanaka, creatorYamada, learnerSakura, modernLearner));
         log.info("==================================================================");
-        log.info("Đã khởi tạo thành công 4 tài khoản mẫu vào database (Mật khẩu: password123):");
+        log.info("Đã khởi tạo thành công 5 tài khoản mẫu vào database (Mật khẩu: password123):");
         log.info("  1. Admin:   admin          / password123 (Role: ADMIN)");
         log.info("  2. Creator: tanaka_sensei  / password123 (Role: USER)");
         log.info("  3. Creator: yamada_kaiwa   / password123 (Role: USER)");
         log.info("  4. Learner: sakura_learner / password123 (Role: USER)");
+        log.info("  5. Learner: modern_learner / password123 (Role: USER)");
         log.info("==================================================================");
     }
 
