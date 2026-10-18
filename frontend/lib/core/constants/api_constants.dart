@@ -5,19 +5,29 @@ class ApiConstants {
   ApiConstants._();
 
   /// Automatically pick host based on runtime platform
-  static String get baseUrl {
+  static String get serverUrl {
     if (kIsWeb) {
-      return 'http://localhost:8080/api/v1';
+      return 'http://localhost:8080';
     }
     try {
       if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8080/api/v1';
+        return 'http://10.0.2.2:8080';
       }
     } catch (_) {
       // Fallback
     }
-    return 'http://localhost:8080/api/v1';
+    return 'http://localhost:8080';
   }
+
+  static String get baseUrl => '$serverUrl/api/v1';
+
+  // Video & media endpoints
+  static String get videosUrl => '$baseUrl/videos';
+  static String mediaUploadUrl({String folder = 'jlsp'}) =>
+      '$baseUrl/media/upload?folder=${Uri.encodeQueryComponent(folder)}';
+
+  // Speech-to-Text (AI phụ đề) - nằm ngoài /api/v1 ở backend
+  static String speechStatusUrl(String taskId) => '$serverUrl/api/speech/status/$taskId';
 
   // Auth endpoints matching Spring Boot backend
   static String get loginUrl => '$baseUrl/auth/login';

@@ -5,6 +5,7 @@ import '../features/auth/screens/register_screen.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import '../features/flashcard/presentation/screens/deck_library_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
+import '../features/video/presentation/screens/upload_video_screen.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -25,5 +26,6 @@ class AppRoutes {
         forgotPassword: (context) => const ForgotPasswordScreen(),
         flashcards: (context) => const DeckLibraryScreen(),
         profile: (context) => const ProfileScreen(),
+        upload: (context) => const UploadVideoScreen(),
       };
 }

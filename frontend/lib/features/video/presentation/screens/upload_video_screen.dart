@@ -7,6 +7,14 @@ import 'package:http/http.dart' as http;
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/storage/token_storage.dart';
 
+/// Header xác thực dùng chung cho các request upload/đăng bài (backend chỉ tin JWT).
+Future<Map<String, String>> _authHeaders() async {
+  final token = await TokenStorage.instance.getAccessToken();
+  return {
+    if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+  };
+}
+
 class UploadVideoScreen extends StatefulWidget {
   const UploadVideoScreen({super.key});
 
@@ -27,34 +35,35 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
   }
 
   Future<void> _pickVideo() async {
-    final result = await FilePicker.platform.pickFiles(
+    final file = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['mp4', 'mov'],
-      withData: true,
     );
 
-    if (!mounted || result == null || result.files.single.bytes == null) {
+    if (!mounted || file == null) {
       return;
     }
 
-    setState(() => _selectedFile = result.files.single);
+    setState(() => _selectedFile = file);
   }
 
   Future<void> _uploadVideo() async {
     final file = _selectedFile;
-    if (file?.bytes == null) {
+    if (file == null) {
       _showMessage('Vui lòng chọn tệp video trước khi tải lên.');
       return;
     }
 
     setState(() => _isUploading = true);
     try {
+      final bytes = await file.readAsBytes();
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('${ApiConstants.baseUrl}/media/upload?folder=jlsp/videos'),
+        Uri.parse(ApiConstants.mediaUploadUrl(folder: 'jlsp/videos')),
       );
+      request.headers.addAll(await _authHeaders());
       request.files.add(
-        http.MultipartFile.fromBytes('file', file!.bytes!, filename: file.name),
+        http.MultipartFile.fromBytes('file', bytes, filename: file.name),
       );
 
       final response = await request.send();
@@ -468,13 +477,17 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
       for (var attempt = 0; attempt < 60; attempt++) {
         final response = await http.get(
           Uri.parse(ApiConstants.speechStatusUrl(taskId)),
+          headers: await _authHeaders(),
         );
-        if (response.statusCode < 200 || response.statusCode >= 300) {
+        // FAILED (500) / NOT_FOUND (404) vẫn có body kèm errorMessage -> đọc body trước
+        final decoded = response.bodyBytes.isEmpty
+            ? null
+            : jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is! Map<String, dynamic>) {
           throw Exception('Không thể kiểm tra kết quả AI.');
         }
 
-        final body =
-            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final body = decoded;
         final status = body['status']?.toString();
         if (status == 'COMPLETED') {
           final segments = body['segments'];
@@ -499,6 +512,9 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         }
         if (status == 'FAILED' || status == 'NOT_FOUND') {
           throw Exception(body['errorMessage'] ?? 'AI không thể tạo phụ đề.');
+        }
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw Exception(body['message'] ?? 'Không thể kiểm tra kết quả AI.');
         }
         await Future<void>.delayed(const Duration(seconds: 2));
       }
@@ -541,12 +557,11 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final token = await TokenStorage.instance.getAccessToken();
       final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/videos'),
+        Uri.parse(ApiConstants.videosUrl),
         headers: {
           'Content-Type': 'application/json',
-          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+          ...await _authHeaders(),
         },
         body: jsonEncode({
           'title': _titleController.text.trim(),
