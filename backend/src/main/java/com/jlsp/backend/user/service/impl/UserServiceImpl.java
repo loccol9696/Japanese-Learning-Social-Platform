@@ -2,8 +2,6 @@ package com.jlsp.backend.user.service.impl;
 
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.response.PageResponse;
-import com.jlsp.backend.topic.entity.Topic;
-import com.jlsp.backend.topic.repository.TopicRepository;
 import com.jlsp.backend.user.dto.request.CreateUserRequest;
 import com.jlsp.backend.user.dto.request.UpdateUserRequest;
 import com.jlsp.backend.user.dto.response.UserResponse;
@@ -13,15 +11,8 @@ import com.jlsp.backend.user.repository.UserRepository;
 import com.jlsp.backend.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.jlsp.backend.user.dto.request.AdminCreateUserRequest;
@@ -36,18 +27,8 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Override
-    @Transactional
     public UserResponse createUser(CreateUserRequest request) {
-        Role defaultRole = roleRepository.findByRoleName("ROLE_USER")
-                .orElseGet(() -> roleRepository.save(Role.builder().roleName("ROLE_USER").build()));
-
-        User user = userMapper.toEntity(request, "DEFAULT_HASH");
-        user.setRole(defaultRole);
-        user.setRoleEnum(UserRole.USER);
-        user.setCurrentLevel(request.getJlptLevel() != null ? request.getJlptLevel() : JLPTLevel.N5);
-
-        User saved = userRepository.save(user);
-        return userMapper.toResponse(saved);
+        return null;
     }
 
     @Override
@@ -90,7 +71,6 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public UserResponse getUserByUsername(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(404, "User not found with username: " + username));
@@ -98,7 +78,6 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public PageResponse<UserResponse> getAllUsers(Pageable pageable) {
         org.springframework.data.domain.Page<User> page = userRepository.findAll(pageable);
         return PageResponse.<UserResponse>builder()
@@ -240,7 +219,6 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional
     public void deactivateUser(Long id) {
         toggleUserStatus(id);
     }
