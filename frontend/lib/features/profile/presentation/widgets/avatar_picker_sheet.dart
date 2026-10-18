@@ -12,7 +12,7 @@ class AvatarPickerSheet extends StatefulWidget {
     required this.onAvatarSelected,
   });
 
-  static const List<_PresetAvatar> presets = [
+  static const List<_PresetAvatar> _presets = [
     _PresetAvatar(
       id: 'sakura',
       name: 'Sakura Girl',
@@ -148,9 +148,9 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
                 mainAxisSpacing: 12.0,
                 childAspectRatio: 0.9,
               ),
-              itemCount: AvatarPickerSheet.presets.length,
+              itemCount: AvatarPickerSheet._presets.length,
               itemBuilder: (context, index) {
-                final preset = AvatarPickerSheet.presets[index];
+                final preset = AvatarPickerSheet._presets[index];
                 final isSelected = _selectedUrl == preset.url;
 
                 return GestureDetector(
@@ -181,7 +181,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
                           radius: 26.0,
                           backgroundColor: AppColors.surfaceCardSubtle,
                           backgroundImage: NetworkImage(preset.url),
-                          onBackgroundImageError: (_, __) {},
+                          onBackgroundImageError: (_, _) {},
                           child: isSelected
                               ? Container(
                                   decoration: BoxDecoration(

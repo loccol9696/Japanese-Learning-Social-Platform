@@ -404,7 +404,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                 radius: 52.0,
                 backgroundColor: AppColors.surfaceCardSubtle,
                 backgroundImage: NetworkImage(avatarUrl),
-                onBackgroundImageError: (_, __) {},
+                onBackgroundImageError: (_, _) {},
                 child: const Icon(
                   Icons.person_rounded,
                   size: 42.0,

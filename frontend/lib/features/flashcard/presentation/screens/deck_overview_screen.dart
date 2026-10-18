@@ -373,7 +373,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF161922),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -406,7 +406,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 ),
                 Icon(
                   Icons.chevron_right,
-                  color: Colors.white.withOpacity(0.35),
+                  color: Colors.white.withValues(alpha: 0.35),
                   size: 20,
                 ),
               ],
@@ -477,7 +477,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFF161924),
                                 borderRadius: BorderRadius.circular(24),
-                                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                               ),
                               alignment: Alignment.center,
                               child: Text(
@@ -515,7 +515,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                             size: 18,
                             color: _currentPage > 0
                                 ? Colors.white
-                                : Colors.white.withOpacity(0.2),
+                                : Colors.white.withValues(alpha: 0.2),
                           ),
                           onPressed: _currentPage > 0
                               ? () {
@@ -534,7 +534,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFF161822),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.06)),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                           ),
                           child: Text(
                             '${_currentPage + 1} / ${_cards.length}',
@@ -554,7 +554,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                             size: 18,
                             color: _currentPage < _cards.length - 1
                                 ? Colors.white
-                                : Colors.white.withOpacity(0.2),
+                                : Colors.white.withValues(alpha: 0.2),
                           ),
                           onPressed: _currentPage < _cards.length - 1
                               ? () {
@@ -704,10 +704,9 @@ class _PreviewFlashcard extends StatefulWidget {
 
   const _PreviewFlashcard({
     required this.card,
-    this.frontLanguage = 'ja',
     this.displayFrontFace = 'term',
     required this.onToggleStar,
-  });
+  }) : frontLanguage = 'ja';
 
   String get effectiveFrontFace =>
       displayFrontFace != 'term' ? displayFrontFace : (frontLanguage == 'vi' ? 'definition' : 'term');

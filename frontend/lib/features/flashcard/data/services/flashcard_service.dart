@@ -55,7 +55,7 @@ class FlashcardService {
       ApiConstants.flashcardSetsUrl,
       body: {
         'title': title,
-        if (description != null) 'description': description,
+        'description': ?description,
         'isPublic': isPublic,
       },
       withAuth: true,
@@ -74,8 +74,8 @@ class FlashcardService {
       ApiConstants.flashcardSetDetailUrl(setId),
       body: {
         'title': title,
-        if (description != null) 'description': description,
-        if (isPublic != null) 'isPublic': isPublic,
+        'description': ?description,
+        'isPublic': ?isPublic,
       },
       withAuth: true,
     );
@@ -121,9 +121,9 @@ class FlashcardService {
       body: {
         'term': term,
         'reading': reading,
-        if (sinoVietnamese != null) 'sinoVietnamese': sinoVietnamese,
+        'sinoVietnamese': ?sinoVietnamese,
         'meaning': meaning,
-        if (example != null) 'example': example,
+        'example': ?example,
       },
       withAuth: true,
     );
@@ -144,9 +144,9 @@ class FlashcardService {
       body: {
         'term': term,
         'reading': reading ?? '',
-        if (sinoVietnamese != null) 'sinoVietnamese': sinoVietnamese,
+        'sinoVietnamese': ?sinoVietnamese,
         'meaning': meaning,
-        if (example != null) 'example': example,
+        'example': ?example,
       },
       withAuth: true,
     );
@@ -227,10 +227,10 @@ class FlashcardService {
       body: {
         'term': term,
         'reading': reading,
-        if (sinoVietnamese != null) 'sinoVietnamese': sinoVietnamese,
+        'sinoVietnamese': ?sinoVietnamese,
         'meaning': meaning,
-        if (example != null) 'example': example,
-        if (videoUrl != null) 'videoUrl': videoUrl,
+        'example': ?example,
+        'videoUrl': ?videoUrl,
       },
       withAuth: true,
     );

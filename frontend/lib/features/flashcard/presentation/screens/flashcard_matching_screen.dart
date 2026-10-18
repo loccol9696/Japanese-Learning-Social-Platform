@@ -178,7 +178,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
                     }
 
                     Color bgColor = const Color(0xFF161922);
-                    Color borderColor = Colors.white.withOpacity(0.08);
+                    Color borderColor = Colors.white.withValues(alpha: 0.08);
 
                     if (isSelected) {
                       borderColor = const Color(0xFFFF2D55);
@@ -204,7 +204,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFFFF2D55).withOpacity(0.3),
+                                      color: const Color(0xFFFF2D55).withValues(alpha: 0.3),
                                       blurRadius: 10,
                                       spreadRadius: 1,
                                     )
@@ -236,7 +236,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
               child: Text(
                 'Chạm 2 thẻ tương ứng để ghép đôi',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.4),
+                  color: Colors.white.withValues(alpha: 0.4),
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),

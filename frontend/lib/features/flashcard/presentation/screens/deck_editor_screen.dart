@@ -285,7 +285,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFF5A5F),
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFFFF5A5F).withOpacity(0.5),
+                  disabledBackgroundColor: const Color(0xFFFF5A5F).withValues(alpha: 0.5),
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                   minimumSize: const Size(60, 36),
@@ -329,7 +329,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                     color: const Color(0xFF1E1F28),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.04),
+                      color: Colors.white.withValues(alpha: 0.04),
                     ),
                   ),
                   child: Column(
@@ -443,7 +443,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                         color: const Color(0xFF1E1F28),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.04),
+                          color: Colors.white.withValues(alpha: 0.04),
                         ),
                       ),
                       child: Column(
@@ -598,7 +598,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                       color: const Color(0xFF1E1F28),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.06),
+                        color: Colors.white.withValues(alpha: 0.06),
                       ),
                     ),
                     alignment: Alignment.center,

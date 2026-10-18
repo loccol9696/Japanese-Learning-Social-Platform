@@ -116,7 +116,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF5A5F).withOpacity(0.15),
+                color: const Color(0xFFFF5A5F).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
@@ -141,7 +141,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
         content: Text(
           'Bạn có chắc chắn muốn xóa bộ từ vựng "${deck.title}" không?\n\nToàn bộ từ vựng và tiến trình học bên trong sẽ bị xóa vĩnh viễn và không thể khôi phục.',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.75),
+            color: Colors.white.withValues(alpha: 0.75),
             fontSize: 14.5,
             height: 1.45,
           ),
@@ -151,7 +151,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               'Hủy',
-              style: TextStyle(color: Colors.white.withOpacity(0.65)),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
             ),
           ),
           ElevatedButton(
@@ -203,89 +203,6 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
     );
   }
 
-  void _showCreateDeckDialog() {
-    final titleController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1F28),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(
-            color: Color(0xFF323344),
-            width: 1,
-          ),
-        ),
-        title: const Text(
-          'Tạo bộ từ vựng mới',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: TextField(
-          controller: titleController,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: 'Nhập tên bộ thẻ...',
-            hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-            filled: true,
-            fillColor: const Color(0xFF252632),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Hủy',
-              style: TextStyle(color: Colors.white.withOpacity(0.6)),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF2D55),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () async {
-              final title = titleController.text.trim();
-              if (title.isNotEmpty) {
-                Navigator.pop(ctx);
-                setState(() => _isLoading = true);
-                try {
-                  await _service.createSet(title: title);
-                  await _loadDecks(query: _searchController.text);
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Không thể tạo bộ thẻ: $e')),
-                    );
-                    setState(() => _isLoading = false);
-                  }
-                }
-              }
-            },
-            child: const Text(
-              'Tạo',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -315,7 +232,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                       color: const Color(0xFF1E1F28),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.08),
+                        color: Colors.white.withValues(alpha: 0.08),
                         width: 1,
                       ),
                     ),
@@ -337,7 +254,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                   color: const Color(0xFF1E1F28),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.06),
+                    color: Colors.white.withValues(alpha: 0.06),
                   ),
                 ),
                 child: TextField(
@@ -347,12 +264,12 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                   decoration: InputDecoration(
                     hintText: 'Tìm bộ từ vựng...',
                     hintStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.35),
+                      color: Colors.white.withValues(alpha: 0.35),
                       fontSize: 15,
                     ),
                     prefixIcon: Icon(
                       Icons.search,
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withValues(alpha: 0.4),
                       size: 22,
                     ),
                     border: InputBorder.none,
@@ -378,7 +295,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                               Icon(
                                 Icons.folder_open_outlined,
                                 size: 64,
-                                color: Colors.white.withOpacity(0.3),
+                                color: Colors.white.withValues(alpha: 0.3),
                               ),
                               const SizedBox(height: 16),
                               const Text(
@@ -393,7 +310,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                               Text(
                                 'Bấm nút + ở góc phải trên để tạo bộ thẻ đầu tiên',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: Colors.white.withValues(alpha: 0.5),
                                   fontSize: 14,
                                 ),
                               ),

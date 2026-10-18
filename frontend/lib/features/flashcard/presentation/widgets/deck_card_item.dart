@@ -28,7 +28,7 @@ class DeckCardItem extends StatelessWidget {
             color: const Color(0xFF1E1F28),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.06),
+              color: Colors.white.withValues(alpha: 0.06),
               width: 1,
             ),
           ),
@@ -136,7 +136,7 @@ class _DeckMoreMenuButtonState extends State<_DeckMoreMenuButton> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.45),
+                          color: Colors.black.withValues(alpha: 0.45),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),

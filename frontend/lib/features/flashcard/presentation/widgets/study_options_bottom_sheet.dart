@@ -79,7 +79,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF5A5F).withOpacity(0.15),
+                color: const Color(0xFFFF5A5F).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
@@ -104,7 +104,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
         content: Text(
           'Bạn có chắc chắn muốn đặt lại toàn bộ tiến trình học của bộ thẻ này về 0 không?',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.75),
+            color: Colors.white.withValues(alpha: 0.75),
             fontSize: 14.5,
             height: 1.45,
           ),
@@ -114,7 +114,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               'Hủy',
-              style: TextStyle(color: Colors.white.withOpacity(0.65)),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
             ),
           ),
           ElevatedButton(
@@ -165,7 +165,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 14),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -209,7 +209,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
               decoration: BoxDecoration(
                 color: const Color(0xFF151620),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.04)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
               ),
               child: Column(
                 children: [
@@ -219,20 +219,20 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
                       style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
                     ),
                     value: _shuffle,
-                    activeColor: const Color(0xFFFF5A5F),
+                    activeThumbColor: const Color(0xFFFF5A5F),
                     onChanged: (val) {
                       setState(() => _shuffle = val);
                       _notifyChange();
                     },
                   ),
-                  Divider(height: 1, color: Colors.white.withOpacity(0.05)),
+                  Divider(height: 1, color: Colors.white.withValues(alpha: 0.05)),
                   SwitchListTile(
                     title: const Text(
                       'Chỉ học từ gắn sao',
                       style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
                     ),
                     value: _starredOnly,
-                    activeColor: const Color(0xFFFF5A5F),
+                    activeThumbColor: const Color(0xFFFF5A5F),
                     onChanged: (val) {
                       setState(() => _starredOnly = val);
                       _notifyChange();
@@ -259,7 +259,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
               decoration: BoxDecoration(
                 color: const Color(0xFF151620),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.04)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,7 +369,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF151620),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withOpacity(0.04)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
