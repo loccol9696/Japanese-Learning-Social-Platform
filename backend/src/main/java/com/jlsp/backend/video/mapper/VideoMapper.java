@@ -38,7 +38,9 @@ public class VideoMapper {
                 .videoUrl(request.getVideoUrl())
                 .subtitles(request.getSubtitles())
                 .status(request.getStatus() != null ? request.getStatus() : VideoStatus.PUBLIC)
-                .modStatus(com.jlsp.backend.video.entity.VideoModStatus.PENDING)
+                .modStatus((request.getStatus() == VideoStatus.PRIVATE) 
+                        ? com.jlsp.backend.video.entity.VideoModStatus.APPROVED 
+                        : com.jlsp.backend.video.entity.VideoModStatus.PENDING)
                 .viewCount(0L)
                 .likeCount(0)
                 .saveCount(0)

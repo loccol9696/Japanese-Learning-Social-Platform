@@ -4,7 +4,7 @@ spring:
   profiles:
     active: dev # <-- Đổi từ prod sang dev ở đây làm mặc định khi test
   datasource:
-    url: jdbc:postgresql://aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?user=postgres.uefwrxqatjyszdrburkr&password=ToiYeuNaritaTopRoad26
+    url: jdbc:postgresql://aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?user=postgres.cqonrpjxxluuukjujzbo&password=NaritaTopRoad2027
     driver-class-name: org.postgresql.Driver
   
   mail:
@@ -73,7 +73,7 @@ spring:
 gcp:
   project-id: ${GCP_PROJECT_ID:swp391-478004}
   speech:
-    credentials-path: ${GCP_CREDENTIALS_PATH:classpath:credentials.json}
+    credentials-path: ${GCP_CREDENTIALS_PATH:classpath:credentials/credentials.json}
   storage:
     bucket-name: ${GCP_BUCKET_NAME:sptote_bucket_1}
 

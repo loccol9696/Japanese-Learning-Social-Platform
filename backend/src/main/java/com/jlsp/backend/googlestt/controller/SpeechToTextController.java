@@ -8,7 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.jlsp.backend.googlestt.dto.response.ScriptSegment;
 import com.jlsp.backend.googlestt.dto.response.TranscriptionStatusResponse;
 import com.jlsp.backend.googlestt.dto.response.TranscriptionSubmitResponse;
-import com.jlsp.backend.googlestt.service.impl.SpeechToTextService;
+import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,12 +18,12 @@ import java.util.UUID;
 @RequestMapping("/api/speech")
 public class SpeechToTextController {
 
-    private final SpeechToTextService speechToTextService;
+    private final SpeechToTextServiceIntf speechToTextService;
     private final com.jlsp.backend.subscription.service.SubscriptionService subscriptionService;
     private final com.jlsp.backend.subscription.service.SystemSettingService systemSettingService;
 
     public SpeechToTextController(
-            SpeechToTextService speechToTextService,
+            SpeechToTextServiceIntf speechToTextService,
             com.jlsp.backend.subscription.service.SubscriptionService subscriptionService,
             com.jlsp.backend.subscription.service.SystemSettingService systemSettingService) {
         this.speechToTextService = speechToTextService;
