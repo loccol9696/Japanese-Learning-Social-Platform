@@ -17,6 +17,10 @@ class ApiClient {
   @visibleForTesting
   ApiClient.withClient(this._httpClient, {this._tokenProvider});
 
+  /// Thay [instance] trong widget test (truyền `null` để khôi phục mặc định).
+  @visibleForTesting
+  static set instanceForTest(ApiClient? client) => _instance = client;
+
   final http.Client _httpClient;
   final Future<String?> Function()? _tokenProvider;
 

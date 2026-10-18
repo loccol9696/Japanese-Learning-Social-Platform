@@ -61,13 +61,24 @@ class AppColors {
   static const Color socialTextMuted = Color(0xFF8E8E93);
   static const Color socialDivider = Color(0xFF424242);
 
+  // Hồng nhấn chính của các màn dark (nút chính, tab đang chọn)
+  static const Color brandPink = Color(0xFFFF2D55);
+
+  // Studio Palette (tải lên & đăng video bài học)
+  static const Color studioBackground = Color(0xFF0F0E12);
+  static const Color studioSurface = Color(0xFF19181D); // Ô nhập, thẻ, nút chọn
+  static const Color studioPanel = Color(0xFF151419); // Khối thông tin/lưu ý
+  static const Color studioRaised = Color(0xFF29272D); // Nền icon, tab đang chọn
+  static const Color studioBadge = Color(0xFF481D2B);
+  static const Color studioBadgeText = Color(0xFFFF6A88);
+
   // Flashcard Palette (màn bộ thẻ & các chế độ học; dùng chung socialSurface/socialTextMuted)
   static const Color flashBackground = Color(0xFF0C0E14);
   static const Color flashCardSurface = Color(0xFF161922);
   static const Color flashPanel = Color(0xFF151620); // Nhóm tùy chọn trong sheet
   static const Color flashInset = Color(0xFF111219); // Nền nút chọn chìm
   static const Color flashBorder = Color(0xFF323344);
-  static const Color flashAccent = Color(0xFFFF2D55);
+  static const Color flashAccent = brandPink;
   static const Color flashCoral = Color(0xFFFF5A5F); // Lỗi / đang phát âm
   static const Color flashSnackBar = Color(0xFF252632);
   static const Color flashStar = Color(0xFFFFCC00);
