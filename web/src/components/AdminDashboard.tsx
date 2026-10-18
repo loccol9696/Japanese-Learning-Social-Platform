@@ -1653,6 +1653,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
           {/* ==================== TAB 1: DUYỆT VIDEO (MODERATOR ONLY) ==================== */}
           {activeTab === 'videos' && isModerator && (
             <>
+              <div style={{
+                backgroundColor: 'var(--admin-bg-surface)',
+                border: '1px solid var(--admin-border)',
+                padding: '0.85rem 1.25rem',
+                borderRadius: 'var(--radius-sharp)',
+                fontSize: '0.84rem',
+                color: 'var(--admin-text-main)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                marginBottom: '1rem'
+              }}>
+                <Shield size={18} style={{ color: 'var(--admin-primary)', flexShrink: 0 }} />
+                <div>
+                  <strong>Quy chuẩn Kiểm duyệt:</strong> Moderator chỉ tiếp nhận và kiểm duyệt các video ở chế độ <strong>Công khai (PUBLIC)</strong> trước khi phát hành lên Bảng tin cộng đồng (For-You Feed). Các video riêng tư (PRIVATE) của học viên sẽ không đưa vào hàng đợi kiểm duyệt.
+                </div>
+              </div>
+
               <div className="toolbar-row">
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                   <button
@@ -1721,6 +1739,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                           <th>Cấp độ</th>
                           <th>Thời lượng</th>
                           <th>Người đăng</th>
+                          <th>Chế độ</th>
                           <th>Ngày gửi</th>
                           <th>Trạng thái</th>
                           <th style={{ textAlign: 'right', minWidth: '180px' }}>Thao tác</th>
@@ -1786,6 +1805,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                                   @{v.creatorUsername || v.user?.username || 'creator'}
                                 </span>
                               </div>
+                            </td>
+                            <td>
+                              <span className="status-pill info" style={{ fontWeight: 700, fontSize: '0.72rem' }}>
+                                🌐 {v.status || 'PUBLIC'}
+                              </span>
                             </td>
                             <td>
                               <span style={{ fontSize: '0.78rem', color: 'var(--admin-text-dim)', whiteSpace: 'nowrap' }}>
@@ -2861,6 +2885,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                   <strong style={{ color: 'var(--admin-text-main)' }}>
                     {selectedDetailVideo.createdAt ? new Date(selectedDetailVideo.createdAt).toLocaleString('vi-VN') : '—'}
                   </strong>
+                </div>
+
+                <div>
+                  <span style={{ color: 'var(--admin-text-dim)', display: 'block', fontSize: '0.75rem' }}>Chế độ hiển thị:</span>
+                  <span className="status-pill info" style={{ fontWeight: 700, fontSize: '0.75rem', display: 'inline-block', marginTop: '0.2rem' }}>
+                    🌐 {selectedDetailVideo.status || 'PUBLIC'}
+                  </span>
                 </div>
 
                 <div>
