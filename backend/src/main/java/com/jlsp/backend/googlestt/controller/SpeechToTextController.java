@@ -19,16 +19,37 @@ import java.util.UUID;
 public class SpeechToTextController {
 
     private final SpeechToTextService speechToTextService;
+    private final com.jlsp.backend.subscription.service.SubscriptionService subscriptionService;
+    private final com.jlsp.backend.subscription.service.SystemSettingService systemSettingService;
 
-    public SpeechToTextController(SpeechToTextService speechToTextService) {
+    public SpeechToTextController(
+            SpeechToTextService speechToTextService,
+            com.jlsp.backend.subscription.service.SubscriptionService subscriptionService,
+            com.jlsp.backend.subscription.service.SystemSettingService systemSettingService) {
         this.speechToTextService = speechToTextService;
+        this.subscriptionService = subscriptionService;
+        this.systemSettingService = systemSettingService;
     }
 
     @PostMapping("/transcribe")
-    public ResponseEntity<TranscriptionSubmitResponse> submitTranscription(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<TranscriptionSubmitResponse> submitTranscription(
+            @RequestParam("file") MultipartFile file,
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "userId", required = false) Long paramUserId,
+            @RequestParam(value = "duration", required = false) Integer durationSeconds) {
+
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
+
+        Long userId = headerUserId != null ? headerUserId : (paramUserId != null ? paramUserId : 1L);
+
+        // Tính toán số token theo thời lượng video (mặc định 60s / 1 token, có thể tùy chỉnh trong Admin)
+        int duration = (durationSeconds != null && durationSeconds > 0) ? durationSeconds : 60;
+        int tokensRequired = systemSettingService.calculateTokensRequired(duration);
+
+        // Kiểm tra và trừ Token hạn mức theo ngày
+        subscriptionService.validateAndDeductTokens(userId, tokensRequired);
 
         String taskId = UUID.randomUUID().toString();
         speechToTextService.processAudioAsync(taskId, file);

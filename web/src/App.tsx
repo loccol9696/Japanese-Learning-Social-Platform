@@ -35,9 +35,13 @@ export const App: React.FC = () => {
 
   return (
     <>
-      {/* Dynamic Background Atmosphere */}
-      <div className="ambient-bg" />
-      <div className="noise-layer" />
+      {/* Dynamic Background Atmosphere (Only for Login view) */}
+      {!currentUser && (
+        <>
+          <div className="ambient-bg" />
+          <div className="noise-layer" />
+        </>
+      )}
 
       {/* Conditional Routing: Guest -> Login, Admin/Mod -> AdminDashboard, User -> DashboardView */}
       {!currentUser && (
@@ -45,7 +49,14 @@ export const App: React.FC = () => {
       )}
 
       {currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'MODERATOR') ? (
-        <AdminDashboard user={currentUser} onLogout={handleLogout} />
+        <AdminDashboard
+          user={currentUser}
+          onLogout={handleLogout}
+          onUpdateUser={(updated) => {
+            setCurrentUser(updated);
+            localStorage.setItem('jlsp_user', JSON.stringify(updated));
+          }}
+        />
       ) : currentUser ? (
         <DashboardView user={currentUser} onLogout={handleLogout} />
       ) : null}

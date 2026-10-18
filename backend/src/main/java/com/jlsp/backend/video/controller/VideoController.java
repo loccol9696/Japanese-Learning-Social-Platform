@@ -423,4 +423,77 @@ public class VideoController {
         PageResponse<VideoResponse> response = videoService.getVideosByUserId(userId, viewerId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    /**
+     * Lấy danh sách video chờ duyệt hoặc theo trạng thái dành cho Admin / Moderator.
+     * GET /api/v1/videos/moderation
+     */
+    @GetMapping("/moderation")
+    public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getModerationVideos(
+            @RequestParam(value = "status", required = false) com.jlsp.backend.video.entity.VideoModStatus status,
+            @RequestParam(value = "modStatus", required = false) com.jlsp.backend.video.entity.VideoModStatus modStatus,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        com.jlsp.backend.video.entity.VideoModStatus targetStatus = status != null ? status : (modStatus != null ? modStatus : com.jlsp.backend.video.entity.VideoModStatus.PENDING);
+        PageResponse<VideoResponse> response = videoService.getModerationVideos(targetStatus, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * Admin / Moderator duyệt video công khai lên feed.
+     * POST /api/v1/videos/{id}/approve
+     */
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<ApiResponse<VideoDetailResponse>> approveVideo(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
+
+        Long moderatorId = resolveUserId(headerUserId, paramUserId);
+        if (moderatorId == null) {
+            moderatorId = 1L;
+        }
+
+        VideoDetailResponse response = videoService.approveVideo(id, moderatorId);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã phê duyệt video thành công", response));
+    }
+
+    /**
+     * Admin / Moderator từ chối video kèm lý do vi phạm.
+     * POST /api/v1/videos/{id}/reject
+     */
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<ApiResponse<VideoDetailResponse>> rejectVideo(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
+            @Valid @RequestBody com.jlsp.backend.video.dto.request.RejectVideoRequest request) {
+
+        Long moderatorId = resolveUserId(headerUserId, paramUserId);
+        if (moderatorId == null) {
+            moderatorId = 1L;
+        }
+
+        VideoDetailResponse response = videoService.rejectVideo(id, moderatorId, request.getReason());
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã từ chối video do vi phạm", response));
+    }
+
+    /**
+     * Creator kiểm tra trạng thái các video mình đã đăng (kèm lý do nếu bị từ chối).
+     * GET /api/v1/videos/my-status
+     */
+    @GetMapping("/my-status")
+    public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getMyVideosStatus(
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        Long userId = resolveUserId(headerUserId, paramUserId);
+        if (userId == null) {
+            userId = 1L;
+        }
+
+        PageResponse<VideoResponse> response = videoService.getMyVideosStatus(userId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }

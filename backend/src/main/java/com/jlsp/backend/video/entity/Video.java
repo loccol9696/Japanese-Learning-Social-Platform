@@ -106,6 +106,32 @@ public class Video {
     private VideoStatus status = VideoStatus.PUBLIC;
 
     /**
+     * Trạng thái kiểm duyệt của Moderator (PENDING, APPROVED, REJECTED)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mod_status", nullable = false, length = 20)
+    @Builder.Default
+    private VideoModStatus modStatus = VideoModStatus.PENDING;
+
+    /**
+     * Lý do từ chối kiểm duyệt (nếu vi phạm)
+     */
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    /**
+     * ID của Moderator thực hiện duyệt hoặc từ chối
+     */
+    @Column(name = "moderated_by")
+    private Long moderatedBy;
+
+    /**
+     * Thời điểm kiểm duyệt
+     */
+    @Column(name = "moderated_at")
+    private LocalDateTime moderatedAt;
+
+    /**
      * Thời điểm đăng tải
      */
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -132,6 +158,9 @@ public class Video {
         }
         if (this.status == null) {
             this.status = VideoStatus.PUBLIC;
+        }
+        if (this.modStatus == null) {
+            this.modStatus = VideoModStatus.PENDING;
         }
     }
 

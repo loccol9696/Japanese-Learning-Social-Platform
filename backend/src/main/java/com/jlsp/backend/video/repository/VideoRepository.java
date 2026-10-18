@@ -24,6 +24,18 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
      */
     Page<Video> findByStatus(VideoStatus status, Pageable pageable);
 
+    long countByStatus(VideoStatus status);
+
+    Page<Video> findByModStatus(com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable);
+
+    long countByModStatus(com.jlsp.backend.video.entity.VideoModStatus modStatus);
+
+    Page<Video> findByStatusAndModStatus(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable);
+
+    Page<Video> findByStatusAndModStatusAndJlptLevel(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, JLPTLevel jlptLevel, Pageable pageable);
+
+    Page<Video> findByUserIdInAndStatusAndModStatus(List<Long> userIds, VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable);
+
     /**
      * Lấy danh sách video công khai theo cấp độ JLPT chỉ định (Dành cho Feed đề xuất theo trình độ).
      */

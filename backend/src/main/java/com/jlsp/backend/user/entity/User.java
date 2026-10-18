@@ -49,6 +49,13 @@ public class User {
     @Builder.Default
     private Boolean isActive = true;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subscription_plan_id")
+    private com.jlsp.backend.subscription.entity.SubscriptionPlan subscriptionPlan;
+
+    @Column(name = "vip_expires_at")
+    private LocalDateTime vipExpiresAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

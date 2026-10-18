@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -21,12 +22,16 @@ import java.util.List;
 public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
+    private final com.jlsp.backend.subscription.repository.SubscriptionPlanRepository subscriptionPlanRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     // BCrypt hash của mật khẩu "password123"
     private static final String DEFAULT_PASSWORD_HASH = "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi";
 
     @Override
     public void run(String... args) {
+        migrateDatabaseColumns();
+        seedSubscriptionPlans();
 
         if (userRepository.count() > 0) {
             log.info("Dữ liệu người dùng đã tồn tại trong database (tổng cộng {} users), bỏ qua bước khởi tạo.",
@@ -100,5 +105,103 @@ public class DataInitializer implements CommandLineRunner {
         log.info("  3. Creator: yamada_kaiwa   / password123 (Role: USER)");
         log.info("  4. Learner: sakura_learner / password123 (Role: USER)");
         log.info("==================================================================");
+    }
+
+    private void seedSubscriptionPlans() {
+        if (subscriptionPlanRepository.count() > 0) {
+            return;
+        }
+
+        log.info("Khởi tạo danh sách các gói VIP & Token Limit mặc định...");
+
+        com.jlsp.backend.subscription.entity.SubscriptionPlan freePlan = com.jlsp.backend.subscription.entity.SubscriptionPlan.builder()
+                .name("Gói Cơ Bản (Free)")
+                .code("FREE")
+                .price(java.math.BigDecimal.ZERO)
+                .durationDays(9999)
+                .dailyTokenLimit(50)
+                .description("Dành cho người mới làm quen JLSP, giới hạn tính năng nâng cao")
+                .features("Xem video giới hạn, 50 token AI/ngày, Flashcard cơ bản N5")
+                .isActive(true)
+                .build();
+
+        com.jlsp.backend.subscription.entity.SubscriptionPlan proMonth = com.jlsp.backend.subscription.entity.SubscriptionPlan.builder()
+                .name("JLSP Pro (1 Tháng)")
+                .code("PRO_MONTHLY")
+                .price(java.math.BigDecimal.valueOf(99000))
+                .durationDays(30)
+                .dailyTokenLimit(500)
+                .description("Gói luyện tập chuyên sâu hàng tháng với AI Shadowing")
+                .features("Trích xuất lời video không giới hạn, 500 token AI/ngày, Đầy đủ Flashcard N5-N1")
+                .isActive(true)
+                .build();
+
+        com.jlsp.backend.subscription.entity.SubscriptionPlan proYear = com.jlsp.backend.subscription.entity.SubscriptionPlan.builder()
+                .name("JLSP Mastery (1 Năm)")
+                .code("PRO_YEARLY")
+                .price(java.math.BigDecimal.valueOf(890000))
+                .durationDays(365)
+                .dailyTokenLimit(2000)
+                .description("Tiết kiệm 25%, học tập toàn diện cùng cố vấn AI")
+                .features("Tất cả quyền lợi Pro, 2,000 token AI/ngày, Ưu tiên hỗ trợ giáo viên 1-1")
+                .isActive(true)
+                .build();
+
+        com.jlsp.backend.subscription.entity.SubscriptionPlan specialVip = com.jlsp.backend.subscription.entity.SubscriptionPlan.builder()
+                .name("JLSP VIP Đặc Biệt (Lifetime Sensei)")
+                .code("VIP_SPECIAL")
+                .price(java.math.BigDecimal.valueOf(1990000))
+                .durationDays(3650)
+                .dailyTokenLimit(5000)
+                .description("Gói đặc quyền cao cấp nhất dành cho Sensei và học viên chuyên sâu")
+                .features("Không giới hạn trích xuất, 5,000 token AI/ngày, Huy hiệu VIP Hoàng Gia")
+                .isActive(true)
+                .build();
+
+        subscriptionPlanRepository.saveAll(List.of(freePlan, proMonth, proYear, specialVip));
+        log.info("Đã khởi tạo thành công 4 gói dịch vụ thành viên với cấu hình Token Limit!");
+    }
+
+    private void migrateDatabaseColumns() {
+        try {
+            log.info("Kiểm tra và thực hiện migration các cột database cần thiết...");
+
+            // Cột cho bảng subscription_plans
+            jdbcTemplate.execute("ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS code VARCHAR(50)");
+            jdbcTemplate.execute("ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS daily_token_limit INTEGER DEFAULT 50");
+            jdbcTemplate.execute("UPDATE subscription_plans SET code = 'FREE' WHERE id = 1 AND code IS NULL");
+            jdbcTemplate.execute("UPDATE subscription_plans SET code = 'PRO_MONTHLY' WHERE id = 2 AND code IS NULL");
+            jdbcTemplate.execute("UPDATE subscription_plans SET code = 'PRO_YEARLY' WHERE id = 3 AND code IS NULL");
+            jdbcTemplate.execute("UPDATE subscription_plans SET code = 'VIP_SPECIAL' WHERE id = 4 AND code IS NULL");
+
+            // Cột cho bảng videos (Video moderation)
+            jdbcTemplate.execute("ALTER TABLE videos ADD COLUMN IF NOT EXISTS mod_status VARCHAR(20) DEFAULT 'APPROVED'");
+            jdbcTemplate.execute("ALTER TABLE videos ADD COLUMN IF NOT EXISTS rejection_reason TEXT");
+            jdbcTemplate.execute("ALTER TABLE videos ADD COLUMN IF NOT EXISTS moderated_by VARCHAR(50)");
+            jdbcTemplate.execute("ALTER TABLE videos ADD COLUMN IF NOT EXISTS moderated_at TIMESTAMP");
+            jdbcTemplate.execute("UPDATE videos SET mod_status = 'APPROVED' WHERE mod_status IS NULL");
+
+            // Cột cho bảng users (VIP & Subscriptions)
+            jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS vip_expires_at TIMESTAMP");
+            jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan_id BIGINT");
+
+            // Dọn dẹp triệt để bất kỳ dữ liệu mẫu giả nào (100% dữ liệu thực từ database)
+            jdbcTemplate.execute("DELETE FROM subscription_orders WHERE order_code LIKE 'ORD-SEED%'");
+            jdbcTemplate.execute("DELETE FROM user_daily_token_usage WHERE tokens_used IN (60, 120, 90, 210, 270, 330, 450)");
+
+            // Bảng system_settings (Cấu hình hệ thống, mặc định 60 giây = 1 Token)
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS system_settings (" +
+                    "setting_key VARCHAR(100) PRIMARY KEY, " +
+                    "setting_value VARCHAR(255) NOT NULL, " +
+                    "description VARCHAR(255), " +
+                    "updated_at TIMESTAMP)");
+            jdbcTemplate.execute("INSERT INTO system_settings (setting_key, setting_value, description, updated_at) " +
+                    "VALUES ('SECONDS_PER_TOKEN', '60', 'Thời lượng video cho 1 Token AI tính bằng giây', NOW()) " +
+                    "ON CONFLICT (setting_key) DO NOTHING");
+
+            log.info("Migration cột database thành công hoàn tất!");
+        } catch (Exception e) {
+            log.warn("Lưu ý trong quá trình migration cột database: {}", e.getMessage());
+        }
     }
 }
