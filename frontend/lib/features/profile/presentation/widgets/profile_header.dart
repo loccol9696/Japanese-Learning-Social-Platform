@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/locale_manager.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
@@ -64,7 +65,7 @@ class ProfileTopBar extends StatelessWidget {
               size: 23,
             ),
             splashRadius: 20,
-            tooltip: 'Thêm bạn bè',
+            tooltip: appStrings.profileAddFriends,
             onPressed: onAddFriends,
           ),
 
@@ -76,7 +77,7 @@ class ProfileTopBar extends StatelessWidget {
               size: 24,
             ),
             splashRadius: 20,
-            tooltip: 'Cài đặt và quyền riêng tư',
+            tooltip: appStrings.profileSettingsPrivacy,
             onPressed: onOpenSettings,
           ),
         ],
@@ -203,7 +204,7 @@ class ProfileInfoSection extends StatelessWidget {
           ),
           const SizedBox(width: 3),
           Text(
-            '$streakDays ngày học',
+            appStrings.profileStudyStreak(streakDays),
             style: const TextStyle(
               color: AppColors.warmPeach,
               fontSize: 10.5,
@@ -311,14 +312,14 @@ class ProfileStatsSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Column(
         children: [
-          const Row(
+          Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(child: _StatColumn('9.778', 'Đã follow')),
+              Expanded(child: _StatColumn('9.778', appStrings.profileStatFollowing)),
               _StatDivider(),
-              Expanded(child: _StatColumn('170', 'Follower')),
+              Expanded(child: _StatColumn('170', appStrings.profileStatFollowers)),
               _StatDivider(),
-              Expanded(child: _StatColumn('198', 'Thích')),
+              Expanded(child: _StatColumn('198', appStrings.profileStatLikes)),
             ],
           ),
 
@@ -340,9 +341,9 @@ class ProfileStatsSection extends StatelessWidget {
                     width: 1,
                   ),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
-                    'Sửa hồ sơ',
+                    appStrings.profileEdit,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 13.5,

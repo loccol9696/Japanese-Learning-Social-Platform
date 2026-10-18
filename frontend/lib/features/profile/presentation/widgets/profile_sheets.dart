@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/locale_manager.dart';
 
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -34,15 +35,15 @@ void showCreateContentSheet(BuildContext context) {
 
   showAppBottomSheet(
     context: context,
-    title: 'Tạo nội dung mới',
+    title: appStrings.profileCreateTitle,
     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
     builder: (ctx) => [
       option(ctx, Icons.video_call_rounded, AppColors.socialCyan,
-          'Thêm Video bài học mới', 'Tải lên video giải thích ngữ pháp hoặc phát âm'),
+          appStrings.profileCreateVideo, appStrings.profileCreateVideoHint),
       option(ctx, Icons.style_rounded, AppColors.socialRed,
-          'Tạo bộ thẻ Flashcard mới', 'Soạn từ vựng, Kanji kèm nghĩa tiếng Việt'),
+          appStrings.profileCreateDeck, appStrings.profileCreateDeckHint),
       option(ctx, Icons.history_toggle_off_rounded, AppColors.periwinkle,
-          'Thêm Story học tập (24h)', 'Chia sẻ tiến độ học hoặc câu hỏi nhanh trong ngày'),
+          appStrings.profileCreateStory, appStrings.profileCreateStoryHint),
     ],
   );
 }
@@ -60,20 +61,20 @@ void showSettingsSheet(BuildContext context) {
 
   showAppBottomSheet(
     context: context,
-    title: 'Cài đặt và quyền riêng tư',
+    title: appStrings.profileSettingsPrivacy,
     handleGap: 14,
     titleGap: 12,
     builder: (ctx) => [
-      item(ctx, Icons.manage_accounts_outlined, 'Tài khoản của tôi'),
-      item(ctx, Icons.lock_outline, 'Quyền riêng tư'),
-      item(ctx, Icons.translate_rounded, 'Ngôn ngữ ứng dụng',
-          trailing: const Text('Tiếng Việt',
+      item(ctx, Icons.manage_accounts_outlined, appStrings.profileMyAccount),
+      item(ctx, Icons.lock_outline, appStrings.profilePrivacy),
+      item(ctx, Icons.translate_rounded, appStrings.profileAppLanguage,
+          trailing: Text(localeManager.currentLanguage.name,
               style: TextStyle(color: AppColors.socialTextMuted))),
-      item(ctx, Icons.notifications_none_rounded, 'Thông báo nhắc học'),
+      item(ctx, Icons.notifications_none_rounded, appStrings.profileStudyReminders),
       const Divider(color: Colors.white12),
       ListTile(
         leading: const Icon(Icons.logout_rounded, color: AppColors.socialRed),
-        title: const Text('Đăng xuất',
+        title: Text(appStrings.profileLogout,
             style: TextStyle(
                 color: AppColors.socialRed, fontWeight: FontWeight.bold)),
         onTap: () {
@@ -81,7 +82,7 @@ void showSettingsSheet(BuildContext context) {
           TokenStorage.instance
               .saveAuthData(accessToken: '', refreshToken: null, user: null);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đã đăng xuất')),
+            SnackBar(content: Text(appStrings.profileLoggedOut)),
           );
         },
       ),
@@ -92,7 +93,7 @@ void showSettingsSheet(BuildContext context) {
 void showAddFriendsSheet(BuildContext context) {
   showAppBottomSheet(
     context: context,
-    title: 'Thêm bạn học tiếng Nhật',
+    title: appStrings.profileAddFriendsTitle,
     padding: const EdgeInsets.all(20.0),
     builder: (ctx) => [
       Container(
@@ -102,10 +103,10 @@ void showAddFriendsSheet(BuildContext context) {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white12),
         ),
-        child: const TextField(
+        child: TextField(
           style: TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Nhập username hoặc mã bạn bè...',
+            hintText: appStrings.profileFriendSearchHint,
             hintStyle: TextStyle(color: AppColors.socialTextMuted),
             border: InputBorder.none,
             icon: Icon(Icons.search, color: AppColors.socialTextMuted),
@@ -116,12 +117,12 @@ void showAddFriendsSheet(BuildContext context) {
       ListTile(
         leading: const Icon(Icons.qr_code_scanner_rounded,
             color: AppColors.socialCyan),
-        title: const Text('Quét mã QR bạn bè', style: _sheetTitleStyle),
+        title: Text(appStrings.profileScanQr, style: _sheetTitleStyle),
         onTap: () => Navigator.pop(ctx),
       ),
       ListTile(
         leading: const Icon(Icons.contacts_outlined, color: AppColors.warmPeach),
-        title: const Text('Tìm kiếm từ Danh bạ', style: _sheetTitleStyle),
+        title: Text(appStrings.profileFindContacts, style: _sheetTitleStyle),
         onTap: () => Navigator.pop(ctx),
       ),
     ],
@@ -136,7 +137,7 @@ void showAccountSwitcherSheet(
 }) {
   showAppBottomSheet(
     context: context,
-    title: 'Chuyển đổi tài khoản',
+    title: appStrings.profileSwitchAccount,
     handleGap: 14,
     titleGap: 14,
     builder: (ctx) => [
@@ -162,7 +163,7 @@ void showAccountSwitcherSheet(
           ),
           child: const Icon(Icons.add, color: Colors.white),
         ),
-        title: const Text('Thêm tài khoản mới', style: _sheetTitleStyle),
+        title: Text(appStrings.profileAddAccount, style: _sheetTitleStyle),
         onTap: () => Navigator.pop(ctx),
       ),
     ],
@@ -199,8 +200,8 @@ void showEditProfileDialog(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
       ),
-      title: const Text(
-        'Sửa hồ sơ',
+      title: Text(
+        appStrings.profileEdit,
         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       ),
       content: Column(
@@ -209,21 +210,21 @@ void showEditProfileDialog(
           TextField(
             controller: nameCtrl,
             style: const TextStyle(color: Colors.white),
-            decoration: field('Tên hiển thị'),
+            decoration: field(appStrings.displayName),
           ),
           const SizedBox(height: 14),
           TextField(
             controller: bioCtrl,
             maxLines: 2,
             style: const TextStyle(color: Colors.white),
-            decoration: field('Tiểu sử'),
+            decoration: field(appStrings.profileBioLabel),
           ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('Hủy',
+          child: Text(appStrings.cancel,
               style: TextStyle(color: AppColors.socialTextMuted)),
         ),
         ElevatedButton(
@@ -240,14 +241,14 @@ void showEditProfileDialog(
             ));
             Navigator.pop(ctx);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Đã cập nhật hồ sơ thành công'),
+              SnackBar(
+                content: Text(appStrings.profileUpdated),
                 backgroundColor: AppColors.socialSurface,
               ),
             );
           },
           child:
-              const Text('Lưu', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(appStrings.profileSave, style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     ),

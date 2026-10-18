@@ -51,6 +51,43 @@ abstract class AppStrings {
   String get levelIntermediate;
   String get levelUpperIntermediate;
   String get levelAdvanced;
+
+  // Profile Screen
+  String get profileAddFriends;
+  String get profileSettingsPrivacy;
+  String profileStudyStreak(int days);
+  String get profileStatFollowing;
+  String get profileStatFollowers;
+  String get profileStatLikes;
+  String get profileEdit;
+  String get profileBioLabel;
+  String get profileSave;
+  String get profileUpdated;
+  String get profileWatchVideo;
+  String get profileSavedVideo;
+  String get profileLikedVideo;
+  String get profileNoSavedTitle;
+  String get profileNoSavedHint;
+  String get profilePinned;
+  String get profileCreateTitle;
+  String get profileCreateVideo;
+  String get profileCreateVideoHint;
+  String get profileCreateDeck;
+  String get profileCreateDeckHint;
+  String get profileCreateStory;
+  String get profileCreateStoryHint;
+  String get profileMyAccount;
+  String get profilePrivacy;
+  String get profileAppLanguage;
+  String get profileStudyReminders;
+  String get profileLogout;
+  String get profileLoggedOut;
+  String get profileAddFriendsTitle;
+  String get profileFriendSearchHint;
+  String get profileScanQr;
+  String get profileFindContacts;
+  String get profileSwitchAccount;
+  String get profileAddAccount;
 }
 
 class ViStrings implements AppStrings {
@@ -144,6 +181,77 @@ class ViStrings implements AppStrings {
   String get levelUpperIntermediate => 'Trung cao cấp';
   @override
   String get levelAdvanced => 'Thành thạo';
+
+  @override
+  String get profileAddFriends => 'Thêm bạn bè';
+  @override
+  String get profileSettingsPrivacy => 'Cài đặt và quyền riêng tư';
+  @override
+  String profileStudyStreak(int days) => '$days ngày học';
+  @override
+  String get profileStatFollowing => 'Đã follow';
+  @override
+  String get profileStatFollowers => 'Follower';
+  @override
+  String get profileStatLikes => 'Thích';
+  @override
+  String get profileEdit => 'Sửa hồ sơ';
+  @override
+  String get profileBioLabel => 'Tiểu sử';
+  @override
+  String get profileSave => 'Lưu';
+  @override
+  String get profileUpdated => 'Đã cập nhật hồ sơ thành công';
+  @override
+  String get profileWatchVideo => 'Xem';
+  @override
+  String get profileSavedVideo => 'Video đã lưu';
+  @override
+  String get profileLikedVideo => 'Video đã thích';
+  @override
+  String get profileNoSavedTitle => 'Chưa có video đã lưu';
+  @override
+  String get profileNoSavedHint => 'Nhấn biểu tượng bookmark trên video để lưu lại và xem sau';
+  @override
+  String get profilePinned => 'Đã ghim';
+  @override
+  String get profileCreateTitle => 'Tạo nội dung mới';
+  @override
+  String get profileCreateVideo => 'Thêm Video bài học mới';
+  @override
+  String get profileCreateVideoHint => 'Tải lên video giải thích ngữ pháp hoặc phát âm';
+  @override
+  String get profileCreateDeck => 'Tạo bộ thẻ Flashcard mới';
+  @override
+  String get profileCreateDeckHint => 'Soạn từ vựng, Kanji kèm nghĩa tiếng Việt';
+  @override
+  String get profileCreateStory => 'Thêm Story học tập (24h)';
+  @override
+  String get profileCreateStoryHint => 'Chia sẻ tiến độ học hoặc câu hỏi nhanh trong ngày';
+  @override
+  String get profileMyAccount => 'Tài khoản của tôi';
+  @override
+  String get profilePrivacy => 'Quyền riêng tư';
+  @override
+  String get profileAppLanguage => 'Ngôn ngữ ứng dụng';
+  @override
+  String get profileStudyReminders => 'Thông báo nhắc học';
+  @override
+  String get profileLogout => 'Đăng xuất';
+  @override
+  String get profileLoggedOut => 'Đã đăng xuất';
+  @override
+  String get profileAddFriendsTitle => 'Thêm bạn học tiếng Nhật';
+  @override
+  String get profileFriendSearchHint => 'Nhập username hoặc mã bạn bè...';
+  @override
+  String get profileScanQr => 'Quét mã QR bạn bè';
+  @override
+  String get profileFindContacts => 'Tìm kiếm từ Danh bạ';
+  @override
+  String get profileSwitchAccount => 'Chuyển đổi tài khoản';
+  @override
+  String get profileAddAccount => 'Thêm tài khoản mới';
 }
 
 class EnStrings implements AppStrings {
@@ -237,6 +345,77 @@ class EnStrings implements AppStrings {
   String get levelUpperIntermediate => 'Upper-Intermediate';
   @override
   String get levelAdvanced => 'Advanced';
+
+  @override
+  String get profileAddFriends => 'Add friends';
+  @override
+  String get profileSettingsPrivacy => 'Settings and privacy';
+  @override
+  String profileStudyStreak(int days) => '$days-day streak';
+  @override
+  String get profileStatFollowing => 'Following';
+  @override
+  String get profileStatFollowers => 'Followers';
+  @override
+  String get profileStatLikes => 'Likes';
+  @override
+  String get profileEdit => 'Edit profile';
+  @override
+  String get profileBioLabel => 'Bio';
+  @override
+  String get profileSave => 'Save';
+  @override
+  String get profileUpdated => 'Profile updated';
+  @override
+  String get profileWatchVideo => 'Watch';
+  @override
+  String get profileSavedVideo => 'Saved video';
+  @override
+  String get profileLikedVideo => 'Liked video';
+  @override
+  String get profileNoSavedTitle => 'No saved videos yet';
+  @override
+  String get profileNoSavedHint => 'Tap the bookmark icon on a video to save it for later';
+  @override
+  String get profilePinned => 'Pinned';
+  @override
+  String get profileCreateTitle => 'Create new content';
+  @override
+  String get profileCreateVideo => 'New lesson video';
+  @override
+  String get profileCreateVideoHint => 'Upload a video explaining grammar or pronunciation';
+  @override
+  String get profileCreateDeck => 'New flashcard deck';
+  @override
+  String get profileCreateDeckHint => 'Add vocabulary and kanji with meanings';
+  @override
+  String get profileCreateStory => 'New study story (24h)';
+  @override
+  String get profileCreateStoryHint => 'Share your progress or a quick question for today';
+  @override
+  String get profileMyAccount => 'My account';
+  @override
+  String get profilePrivacy => 'Privacy';
+  @override
+  String get profileAppLanguage => 'App language';
+  @override
+  String get profileStudyReminders => 'Study reminders';
+  @override
+  String get profileLogout => 'Log out';
+  @override
+  String get profileLoggedOut => 'Logged out';
+  @override
+  String get profileAddFriendsTitle => 'Add Japanese study buddies';
+  @override
+  String get profileFriendSearchHint => 'Enter a username or friend code...';
+  @override
+  String get profileScanQr => 'Scan a friend\'s QR code';
+  @override
+  String get profileFindContacts => 'Find from contacts';
+  @override
+  String get profileSwitchAccount => 'Switch account';
+  @override
+  String get profileAddAccount => 'Add account';
 }
 
 class JaStrings implements AppStrings {
@@ -330,4 +509,75 @@ class JaStrings implements AppStrings {
   String get levelUpperIntermediate => '中上級';
   @override
   String get levelAdvanced => '上級';
+
+  @override
+  String get profileAddFriends => '友だちを追加';
+  @override
+  String get profileSettingsPrivacy => '設定とプライバシー';
+  @override
+  String profileStudyStreak(int days) => '$days日連続';
+  @override
+  String get profileStatFollowing => 'フォロー中';
+  @override
+  String get profileStatFollowers => 'フォロワー';
+  @override
+  String get profileStatLikes => 'いいね';
+  @override
+  String get profileEdit => 'プロフィールを編集';
+  @override
+  String get profileBioLabel => '自己紹介';
+  @override
+  String get profileSave => '保存';
+  @override
+  String get profileUpdated => 'プロフィールを更新しました';
+  @override
+  String get profileWatchVideo => '再生';
+  @override
+  String get profileSavedVideo => '保存した動画';
+  @override
+  String get profileLikedVideo => 'いいねした動画';
+  @override
+  String get profileNoSavedTitle => '保存した動画はまだありません';
+  @override
+  String get profileNoSavedHint => '動画のブックマークをタップすると、後で見るために保存できます';
+  @override
+  String get profilePinned => '固定済み';
+  @override
+  String get profileCreateTitle => '新しいコンテンツを作成';
+  @override
+  String get profileCreateVideo => 'レッスン動画を追加';
+  @override
+  String get profileCreateVideoHint => '文法や発音を解説する動画をアップロード';
+  @override
+  String get profileCreateDeck => '新しい単語カードを作成';
+  @override
+  String get profileCreateDeckHint => '語彙や漢字を意味付きで登録';
+  @override
+  String get profileCreateStory => '学習ストーリーを追加（24時間）';
+  @override
+  String get profileCreateStoryHint => '今日の学習の進み具合や質問をシェア';
+  @override
+  String get profileMyAccount => 'マイアカウント';
+  @override
+  String get profilePrivacy => 'プライバシー';
+  @override
+  String get profileAppLanguage => 'アプリの言語';
+  @override
+  String get profileStudyReminders => '学習リマインダー';
+  @override
+  String get profileLogout => 'ログアウト';
+  @override
+  String get profileLoggedOut => 'ログアウトしました';
+  @override
+  String get profileAddFriendsTitle => '日本語の学習仲間を追加';
+  @override
+  String get profileFriendSearchHint => 'ユーザー名またはフレンドコードを入力...';
+  @override
+  String get profileScanQr => '友だちのQRコードをスキャン';
+  @override
+  String get profileFindContacts => '連絡先から探す';
+  @override
+  String get profileSwitchAccount => 'アカウントを切り替え';
+  @override
+  String get profileAddAccount => 'アカウントを追加';
 }

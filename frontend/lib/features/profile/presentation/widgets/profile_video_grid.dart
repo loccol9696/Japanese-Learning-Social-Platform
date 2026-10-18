@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/locale_manager.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
@@ -172,8 +173,8 @@ class PinnedBadge extends StatelessWidget {
         color: AppColors.socialRed,
         borderRadius: BorderRadius.circular(3),
       ),
-      child: const Text(
-        'Đã ghim',
+      child: Text(
+        appStrings.profilePinned,
         style: TextStyle(
           color: Colors.white,
           fontSize: 9.5,

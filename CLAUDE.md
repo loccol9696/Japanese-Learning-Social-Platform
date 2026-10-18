@@ -50,6 +50,7 @@ Japanese Learning Social Platform — mạng xã hội video ngắn kết hợp 
 - Bottom sheet tối (thanh kéo + tiêu đề): dùng `core/widgets/app_bottom_sheet.dart` → `showAppBottomSheet(context:, title:, builder: (ctx) => [...])`.
 - Màn hình chỉ giữ state + ghép widget; khối UI lớn tách vào `presentation/widgets/` (xem `profile_header.dart`, `profile_video_grid.dart`, `profile_sheets.dart`).
 - Refactor UI: chụp golden tạm (`matchesGoldenFile` + `--update-goldens` trên code cũ) rồi so lại sau khi sửa; không commit ảnh golden (font render khác nhau giữa các OS).
+- Chuỗi giao diện: thêm key vào `core/localization/app_strings.dart` (abstract + `ViStrings`/`EnStrings`/`JaStrings`, nhóm theo màn, tiền tố như `profile*`) và dùng `appStrings.x`; không viết chuỗi tiếng Việt trực tiếp trong widget (Home, Profile đã chuyển; Flashcard/Auth/Video chưa). Đổi ngôn ngữ: `localeManager.changeLanguage(...)` (app tự rebuild); test đổi ngôn ngữ phải trả về `AppLanguage.vi` trong `tearDown`.
 - Profile: danh sách video dùng mock trong `features/profile/data/mock/profile_mock_videos.dart` (chưa nối API danh sách video/saved; BE chưa có `GET` danh sách video đã lưu).
 - **Code chỉ chạy trên web** (`dart:html`, `dart:js_interop`) phải tách bằng conditional export: file chính `export 'x_stub.dart' if (dart.library.js_interop) 'x_web.dart';` (xem `core/services/tts_service.dart`, `profile_storage.dart`). Import trực tiếp sẽ làm `flutter test` (chạy trên VM) không compile được.
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/mock/profile_mock_videos.dart';
@@ -198,7 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       videos: _sortedPublicVideos,
       tileBuilder: (video) => ProfileVideoTile(
         video: video,
-        snackPrefix: 'Xem',
+        snackPrefix: appStrings.profileWatchVideo,
         topLeftBadge: video['isPinned'] == true ? const PinnedBadge() : null,
         topRightBadge: video['jlpt'] != null
             ? JlptBadge(label: video['jlpt'] as String)
@@ -213,10 +214,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   // TAB 2: VIDEO ĐÃ LƯU (BOOKMARK)
   Widget _buildSavedVideoGrid() {
     if (_savedVideos.isEmpty) {
-      return const ProfileEmptyTab(
+      return ProfileEmptyTab(
         icon: Icons.bookmark_border_rounded,
-        title: 'Chưa có video đã lưu',
-        subtitle: 'Nhấn biểu tượng bookmark trên video để lưu lại và xem sau',
+        title: appStrings.profileNoSavedTitle,
+        subtitle: appStrings.profileNoSavedHint,
       );
     }
 
@@ -224,7 +225,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       videos: _savedVideos,
       tileBuilder: (video) => ProfileVideoTile(
         video: video,
-        snackPrefix: 'Video đã lưu',
+        snackPrefix: appStrings.profileSavedVideo,
         topRightBadge: video['jlpt'] != null
             ? JlptBadge(label: video['jlpt'] as String)
             : null,
@@ -241,7 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       videos: _likedVideos,
       tileBuilder: (video) => ProfileVideoTile(
         video: video,
-        snackPrefix: 'Video đã thích',
+        snackPrefix: appStrings.profileLikedVideo,
         bottomIcon: Icons.favorite_rounded,
         bottomIconColor: AppColors.socialRed,
         bottomText: video['likesText'] ?? '0',
