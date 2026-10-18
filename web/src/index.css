@@ -1,0 +1,82 @@
+/* High-Agency Production Design System: Pure White & Sky/Ocean Blue Theme */
+:root {
+  --font-display: 'Outfit', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-jp: 'Noto Sans JP', sans-serif;
+
+  /* Crisp Light Theme with Cobalt / Ocean Blue Accents */
+  --bg-core: #f8fafc;           /* Slate 50 */
+  --bg-surface: #ffffff;        /* Pure White */
+  --bg-surface-subtle: #f1f5f9; /* Slate 100 */
+  --bg-surface-elevated: #ffffff;
+  
+  --primary-blue: #0284c7;       /* Sky/Ocean 600 */
+  --primary-blue-hover: #0369a1; /* Sky 700 */
+  --primary-blue-light: #e0f2fe; /* Sky 100 */
+  --primary-blue-soft: rgba(2, 132, 199, 0.08);
+
+  --accent-cyan: #06b6d4;        /* Cyan 500 */
+  --accent-emerald: #059669;     /* Emerald 600 */
+  --accent-gold: #d97706;        /* Amber 600 */
+
+  --border-subtle: #e2e8f0;      /* Slate 200 */
+  --border-strong: #cbd5e1;      /* Slate 300 */
+  --border-focus: #38bdf8;       /* Sky 400 */
+
+  --text-main: #0f172a;          /* Slate 900 */
+  --text-muted: #475569;         /* Slate 600 */
+  --text-dim: #94a3b8;           /* Slate 400 */
+
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-subtle: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  --shadow-elevated: 0 20px 40px -15px rgba(2, 132, 199, 0.12), 0 8px 16px -6px rgba(15, 23, 42, 0.04);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-core);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Elegant Light Radial Glows */
+.ambient-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: 
+    radial-gradient(ellipse 70% 60% at 85% 15%, rgba(56, 189, 248, 0.12) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 60% at 10% 85%, rgba(14, 165, 233, 0.08) 0%, transparent 60%);
+}
+
+.noise-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}

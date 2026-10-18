@@ -20,4 +20,23 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
 
     Page<User> findByIsActiveTrue(Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE " +
+            "(:role IS NULL OR u.role = :role) AND " +
+            "(:search IS NULL OR :search = '' OR " +
+            "LOWER(u.username) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(u.displayName) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<User> searchUsers(
+            @org.springframework.data.repository.query.Param("search") String search,
+            @org.springframework.data.repository.query.Param("role") com.jlsp.backend.user.entity.UserRole role,
+            Pageable pageable);
+
+    long countByUsernameStartingWith(String prefix);
+
+    long countByRole(com.jlsp.backend.user.entity.UserRole role);
+
+    long countByRoleAndIsActive(com.jlsp.backend.user.entity.UserRole role, Boolean isActive);
+
+    long countByIsActive(Boolean isActive);
 }

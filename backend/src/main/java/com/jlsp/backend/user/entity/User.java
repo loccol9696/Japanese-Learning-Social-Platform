@@ -61,14 +61,12 @@ public class User {
     @Builder.Default
     private Boolean isActive = true;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "user_topics",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "topic_id")
-    )
-    @Builder.Default
-    private Set<Topic> topics = new HashSet<>();
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subscription_plan_id")
+    private com.jlsp.backend.subscription.entity.SubscriptionPlan subscriptionPlan;
+
+    @Column(name = "vip_expires_at")
+    private LocalDateTime vipExpiresAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

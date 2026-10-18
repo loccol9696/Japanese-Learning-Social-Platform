@@ -11,6 +11,8 @@ import '../widgets/home_header.dart';
 import '../widgets/video_player_item.dart';
 import '../../../profile/presentation/screens/profile_update_screen.dart';
 
+import '../../../flashcard/presentation/screens/deck_library_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   final HomeRepository? repository;
 
@@ -90,18 +92,21 @@ class _HomeScreenState extends State<HomeScreen> {
       isLight: currentPost?.isLightBackground ?? false,
     );
 
+    Widget mainContent;
+    if (_currentNavIndex == 0) {
+      mainContent = _buildVideoFeed();
+    } else if (_currentNavIndex == 1) {
+      mainContent = const DeckLibraryScreen();
+    } else {
+      mainContent = _buildPlaceholderTab(_currentNavIndex);
+    }
+
     return Scaffold(
       backgroundColor: AppColors.backgroundCanvas,
       body: Stack(
         children: [
           // 1. Main Content based on Nav Tab
-          Positioned.fill(
-            child: _currentNavIndex == 0
-                ? _buildVideoFeed()
-                : (_currentNavIndex == 4
-                    ? const ProfileUpdateScreen(isTab: true)
-                    : _buildPlaceholderTab(_currentNavIndex)),
-          ),
+          mainContent,
 
           // 2. Fixed Top Header (Only on Home Feed)
           if (_currentNavIndex == 0)

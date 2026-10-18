@@ -1,0 +1,31 @@
+package com.jlsp.backend.flashcard.repository;
+
+import com.jlsp.backend.flashcard.entity.FlashcardSet;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface FlashcardSetRepository extends JpaRepository<FlashcardSet, Long> {
+
+    @Query("SELECT s FROM FlashcardSet s WHERE (s.user.id = :userId OR s.isPublic = true) " +
+           "ORDER BY s.isVideoSaved DESC, s.createdAt DESC")
+    Page<FlashcardSet> findUserAndPublicSets(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT s FROM FlashcardSet s WHERE (s.user.id = :userId OR s.isPublic = true) " +
+           "AND LOWER(s.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "ORDER BY s.isVideoSaved DESC, s.createdAt DESC")
+    Page<FlashcardSet> searchUserAndPublicSets(@Param("userId") Long userId,
+                                               @Param("keyword") String keyword,
+                                               Pageable pageable);
+
+    List<FlashcardSet> findByUserId(Long userId);
+
+    Optional<FlashcardSet> findByUserIdAndIsVideoSavedTrue(Long userId);
+}

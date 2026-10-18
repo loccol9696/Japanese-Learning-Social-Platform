@@ -1,18 +1,14 @@
 package com.jlsp.backend.user.service.impl;
 
-import com.jlsp.backend.common.exception.ResourceNotFoundException;
+import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.topic.entity.Topic;
 import com.jlsp.backend.topic.repository.TopicRepository;
 import com.jlsp.backend.user.dto.request.CreateUserRequest;
 import com.jlsp.backend.user.dto.request.UpdateUserRequest;
 import com.jlsp.backend.user.dto.response.UserResponse;
-import com.jlsp.backend.user.entity.JLPTLevel;
-import com.jlsp.backend.user.entity.Role;
 import com.jlsp.backend.user.entity.User;
-import com.jlsp.backend.user.entity.UserRole;
 import com.jlsp.backend.user.mapper.UserMapper;
-import com.jlsp.backend.user.repository.RoleRepository;
 import com.jlsp.backend.user.repository.UserRepository;
 import com.jlsp.backend.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -27,15 +23,17 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+import com.jlsp.backend.user.dto.request.AdminCreateUserRequest;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final TopicRepository topicRepository;
     private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
@@ -53,10 +51,41 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    public UserResponse createPrivilegedUser(AdminCreateUserRequest request) {
+        log.info("Admin creating user '{}' with role '{}'", request.getUsername(), request.getRole());
+
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new AppException(400, "Username already exists: " + request.getUsername());
+        }
+
+        String email = (request.getEmail() != null && !request.getEmail().trim().isEmpty())
+                ? request.getEmail().trim()
+                : request.getUsername().trim() + "@jlsp.internal";
+
+        if (userRepository.existsByEmail(email)) {
+            throw new AppException(400, "Email already exists: " + email);
+        }
+
+        User user = User.builder()
+                .username(request.getUsername())
+                .email(email)
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .displayName(request.getDisplayName() != null && !request.getDisplayName().isBlank()
+                        ? request.getDisplayName()
+                        : request.getUsername())
+                .role(request.getRole())
+                .isActive(true) // Admin-created accounts are active immediately
+                .avatarUrl("https://picsum.photos/seed/" + request.getUsername() + "/120/120")
+                .build();
+
+        User savedUser = userRepository.save(user);
+        return userMapper.toResponse(savedUser);
+    }
+
+    @Override
     public UserResponse getUserById(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+                .orElseThrow(() -> new AppException(404, "User not found with id: " + id));
         return userMapper.toResponse(user);
     }
 
@@ -64,20 +93,16 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public UserResponse getUserByUsername(String username) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
+                .orElseThrow(() -> new AppException(404, "User not found with username: " + username));
         return userMapper.toResponse(user);
     }
 
     @Override
     @Transactional(readOnly = true)
     public PageResponse<UserResponse> getAllUsers(Pageable pageable) {
-        Page<User> page = userRepository.findAll(pageable);
-        List<UserResponse> content = page.getContent().stream()
-                .map(userMapper::toResponse)
-                .collect(Collectors.toList());
-
+        org.springframework.data.domain.Page<User> page = userRepository.findAll(pageable);
         return PageResponse.<UserResponse>builder()
-                .content(content)
+                .content(page.getContent().stream().map(userMapper::toResponse).toList())
                 .page(page.getNumber())
                 .size(page.getSize())
                 .totalElements(page.getTotalElements())
@@ -87,109 +112,136 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional
+    public PageResponse<UserResponse> searchUsers(String search, com.jlsp.backend.user.entity.UserRole role, Pageable pageable) {
+        org.springframework.data.domain.Page<User> page = userRepository.searchUsers(search, role, pageable);
+        return PageResponse.<UserResponse>builder()
+                .content(page.getContent().stream().map(userMapper::toResponse).toList())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
+                .build();
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public UserResponse toggleUserStatus(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new AppException(404, "User not found with id: " + id));
+        user.setIsActive(!Boolean.TRUE.equals(user.getIsActive()));
+        User saved = userRepository.save(user);
+        log.info("Toggled user id {} status to isActive={}", id, saved.getIsActive());
+        return userMapper.toResponse(saved);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public java.util.List<com.jlsp.backend.user.dto.response.GeneratedAccountDto> batchCreateAccounts(
+            com.jlsp.backend.user.dto.request.AdminBatchCreateRequest request) {
+        log.info("Admin batch creating {} accounts with role {}", request.getCount(), request.getRole());
+
+        String prefix = request.getRole() == com.jlsp.backend.user.entity.UserRole.ADMIN ? "admin_" : "mod_";
+        String dateStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String basePrefix = prefix + dateStr + "_";
+
+        long existingCount = userRepository.countByUsernameStartingWith(basePrefix);
+        java.util.List<com.jlsp.backend.user.dto.response.GeneratedAccountDto> results = new java.util.ArrayList<>();
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+        for (int i = 1; i <= request.getCount(); i++) {
+            long seq = existingCount + i;
+            String username = String.format("%s%03d", basePrefix, seq);
+
+            while (userRepository.existsByUsername(username)) {
+                seq++;
+                username = String.format("%s%03d", basePrefix, seq);
+            }
+
+            StringBuilder pwdBuilder = new StringBuilder("Pass@");
+            for (int c = 0; c < 6; c++) {
+                pwdBuilder.append(chars.charAt(random.nextInt(chars.length())));
+            }
+            String rawPassword = pwdBuilder.toString();
+            String email = username + "@jlsp.internal";
+            String roleName = request.getRole() == com.jlsp.backend.user.entity.UserRole.ADMIN ? "Admin " : "Moderator ";
+            String displayName = roleName + String.format("%03d", seq);
+
+            User user = User.builder()
+                    .username(username)
+                    .email(email)
+                    .passwordHash(passwordEncoder.encode(rawPassword))
+                    .displayName(displayName)
+                    .role(request.getRole())
+                    .isActive(true)
+                    .avatarUrl("https://picsum.photos/seed/" + username + "/120/120")
+                    .build();
+
+            User saved = userRepository.save(user);
+
+            results.add(com.jlsp.backend.user.dto.response.GeneratedAccountDto.builder()
+                    .id(saved.getId())
+                    .username(saved.getUsername())
+                    .password(rawPassword)
+                    .email(saved.getEmail())
+                    .role(saved.getRole())
+                    .displayName(saved.getDisplayName())
+                    .build());
+        }
+
+        return results;
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
     public UserResponse updateUser(Long id, UpdateUserRequest request) {
-        return updateProfile(id, request);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new AppException(404, "User not found with id: " + id));
+        applyUserUpdates(user, request);
+        User saved = userRepository.save(user);
+        return userMapper.toResponse(saved);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public UserResponse updateProfileByUsername(String currentUsername, UpdateUserRequest request) {
+        User user = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new AppException(404, "User not found with username: " + currentUsername));
+        applyUserUpdates(user, request);
+        User saved = userRepository.save(user);
+        log.info("Updated profile for user {}", currentUsername);
+        return userMapper.toResponse(saved);
+    }
+
+    private void applyUserUpdates(User user, UpdateUserRequest request) {
+        if (request.getUsername() != null && !request.getUsername().isBlank()) {
+            String newUsername = request.getUsername().trim();
+            if (!newUsername.equalsIgnoreCase(user.getUsername())) {
+                if (userRepository.existsByUsername(newUsername)) {
+                    throw new AppException(400, "Tên đăng nhập '" + newUsername + "' đã tồn tại!");
+                }
+                user.setUsername(newUsername);
+            }
+        }
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            String newEmail = request.getEmail().trim();
+            if (!newEmail.equalsIgnoreCase(user.getEmail())) {
+                if (userRepository.existsByEmail(newEmail)) {
+                    throw new AppException(400, "Email '" + newEmail + "' đã tồn tại!");
+                }
+                user.setEmail(newEmail);
+            }
+        }
+        if (request.getDisplayName() != null) user.setDisplayName(request.getDisplayName().trim());
+        if (request.getBio() != null) user.setBio(request.getBio());
+        if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) user.setAvatarUrl(request.getAvatarUrl().trim());
+        if (request.getJlptLevel() != null) user.setJlptLevel(request.getJlptLevel());
     }
 
     @Override
     @Transactional
     public void deactivateUser(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
-        user.setIsActive(false);
-        user.setStatus("INACTIVE");
-        userRepository.save(user);
-    }
-
-    @Override
-    @Transactional
-    public UserResponse getProfile(Long userId) {
-        User user = resolveOrCreateUser(userId);
-        return userMapper.toResponse(user);
-    }
-
-    @Override
-    @Transactional
-    public UserResponse updateProfile(Long userId, UpdateUserRequest request) {
-        User user = resolveOrCreateUser(userId);
-
-        if (request.getDisplayName() != null) {
-            user.setDisplayName(request.getDisplayName().trim());
-        }
-
-        if (request.getAvatarUrl() != null) {
-            user.setAvatarUrl(request.getAvatarUrl().trim());
-        }
-
-        JLPTLevel newLevel = request.getEffectiveLevel();
-        if (newLevel != null) {
-            user.setCurrentLevel(newLevel);
-        }
-
-        if (request.getBio() != null) {
-            user.setBio(request.getBio().trim());
-        }
-
-        // Synchronize topics/interests
-        boolean hasTopicIds = request.getTopicIds() != null && !request.getTopicIds().isEmpty();
-        boolean hasInterests = request.getInterests() != null && !request.getInterests().isEmpty();
-
-        if (hasTopicIds || hasInterests) {
-            Set<Topic> updatedTopics = new HashSet<>();
-
-            if (hasTopicIds) {
-                List<Topic> byIds = topicRepository.findAllById(request.getTopicIds());
-                updatedTopics.addAll(byIds);
-            }
-
-            if (hasInterests) {
-                for (String interest : request.getInterests()) {
-                    if (interest != null && !interest.trim().isEmpty()) {
-                        String clean = interest.trim();
-                        Topic topic = topicRepository.findByTopicNameIgnoreCase(clean)
-                                .orElseGet(() -> topicRepository.save(Topic.builder().topicName(clean).build()));
-                        updatedTopics.add(topic);
-                    }
-                }
-            }
-
-            user.setTopics(updatedTopics);
-        }
-
-        User updatedUser = userRepository.save(user);
-        log.info("Updated profile for user {}: level={}, topicsCount={}",
-                updatedUser.getId(), updatedUser.getCurrentLevel(), updatedUser.getTopics().size());
-
-        return userMapper.toResponse(updatedUser);
-    }
-
-    private User resolveOrCreateUser(Long userId) {
-        if (userId != null) {
-            return userRepository.findById(userId)
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
-        }
-
-        // Fallback: pick existing first active user or seed default demo user
-        return userRepository.findAll().stream().findFirst().orElseGet(() -> {
-            Role role = roleRepository.findByRoleName("ROLE_USER")
-                    .orElseGet(() -> roleRepository.save(Role.builder().roleName("ROLE_USER").build()));
-
-            User defaultUser = User.builder()
-                    .username("jlsp_learner")
-                    .email("learner@jlsp.com")
-                    .passwordHash("DEMO_HASH")
-                    .displayName("Nihongo Learner")
-                    .avatarUrl("https://api.dicebear.com/7.x/bottts/png?seed=Kenji")
-                    .currentLevel(JLPTLevel.N3)
-                    .bio("Sayonara zetsubou sensei! Đang học tiếng Nhật hướng tới N2.")
-                    .role(role)
-                    .roleEnum(UserRole.USER)
-                    .status("ACTIVE")
-                    .isActive(true)
-                    .build();
-
-            return userRepository.save(defaultUser);
-        });
+        toggleUserStatus(id);
     }
 }

@@ -19,7 +19,5 @@ public class AuthResponse {
 
     private String refreshToken;
 
-    private Long expiresIn;
-
     private UserResponse user;
 }
