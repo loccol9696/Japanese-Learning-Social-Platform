@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
@@ -195,13 +196,13 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161922),
+        backgroundColor: AppColors.flashCardSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hoàn thành bài tự luận!', style: TextStyle(color: Colors.white)),
         content: const Text('Bạn đã hoàn tất tất cả câu hỏi tự luận.', style: TextStyle(color: Colors.white70)),
         actions: [
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF2D55)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.flashAccent),
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.pop(context);
@@ -217,14 +218,14 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0C0E14),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFFF2D55))),
+        backgroundColor: AppColors.flashBackground,
+        body: Center(child: CircularProgressIndicator(color: AppColors.flashAccent)),
       );
     }
 
     if (_cards.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0C0E14),
+        backgroundColor: AppColors.flashBackground,
         body: SafeArea(
           child: Column(
             children: [
@@ -256,7 +257,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     final hintLabel = isInputTerm ? 'NHẬP THUẬT NGỮ' : 'NHẬP ĐỊNH NGHĨA';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0E14),
+      backgroundColor: AppColors.flashBackground,
       body: SafeArea(
         child: Column(
           children: [
@@ -277,7 +278,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1E2B),
+                color: AppColors.flashChoiceSurface,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
@@ -306,7 +307,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
                 child: Text(
                   _feedbackMessage!,
                   style: TextStyle(
-                    color: _isCorrect == true ? const Color(0xFF00C7B1) : const Color(0xFFFF2D55),
+                    color: _isCorrect == true ? AppColors.modeQuiz : AppColors.flashAccent,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -323,7 +324,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
                   child: const Text(
                     'Không biết',
                     style: TextStyle(
-                      color: Color(0xFF5E81F4),
+                      color: AppColors.modeTyping,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -354,10 +355,10 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
                     letterSpacing: 0.5,
                   ),
                   enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF5E81F4), width: 2),
+                    borderSide: BorderSide(color: AppColors.modeTyping, width: 2),
                   ),
                   focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFFF2D55), width: 2.5),
+                    borderSide: BorderSide(color: AppColors.flashAccent, width: 2.5),
                   ),
                 ),
               ),

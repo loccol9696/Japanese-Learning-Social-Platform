@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/models/quiz_question_model.dart';
@@ -229,13 +230,13 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161922),
+        backgroundColor: AppColors.flashCardSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hoàn thành bài trắc nghiệm!', style: TextStyle(color: Colors.white)),
         content: const Text('Bạn đã hoàn tất tất cả câu hỏi.', style: TextStyle(color: Colors.white70)),
         actions: [
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF2D55)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.flashAccent),
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.pop(context);
@@ -251,14 +252,14 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0C0E14),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFFF2D55))),
+        backgroundColor: AppColors.flashBackground,
+        body: Center(child: CircularProgressIndicator(color: AppColors.flashAccent)),
       );
     }
 
     if (_questions.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0C0E14),
+        backgroundColor: AppColors.flashBackground,
         body: SafeArea(
           child: Column(
             children: [
@@ -289,7 +290,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
     final questionText = isOptionsJapanese ? q.meaning : q.term;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0E14),
+      backgroundColor: AppColors.flashBackground,
       body: SafeArea(
         child: Column(
           children: [
@@ -310,7 +311,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1E2B),
+                color: AppColors.flashChoiceSurface,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
@@ -358,16 +359,16 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
                 separatorBuilder: (context, index) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final opt = q.options[index];
-                  Color btnBg = const Color(0xFF161922);
+                  Color btnBg = AppColors.flashCardSurface;
                   Color borderColor = Colors.white.withValues(alpha: 0.08);
 
                   if (_selectedOption != null) {
                     if (opt == q.correctAnswer) {
-                      btnBg = const Color(0xFF0F382E);
-                      borderColor = const Color(0xFF00C7B1);
+                      btnBg = AppColors.flashCorrectBg;
+                      borderColor = AppColors.modeQuiz;
                     } else if (opt == _selectedOption) {
-                      btnBg = const Color(0xFF38151D);
-                      borderColor = const Color(0xFFFF2D55);
+                      btnBg = AppColors.flashWrongBg;
+                      borderColor = AppColors.flashAccent;
                     }
                   }
 

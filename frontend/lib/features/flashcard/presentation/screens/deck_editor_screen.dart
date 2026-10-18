@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../../data/services/flashcard_store.dart';
@@ -126,7 +127,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Vui lòng nhập tiêu đề bộ thẻ'),
-          backgroundColor: Color(0xFF252632),
+          backgroundColor: AppColors.flashSnackBar,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -226,7 +227,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                   ? 'Đã lưu thay đổi bộ thẻ thành công'
                   : 'Đã tạo bộ thẻ mới thành công',
             ),
-            backgroundColor: const Color(0xFF252632),
+            backgroundColor: AppColors.flashSnackBar,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -242,7 +243,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                   ? 'Không thể lưu bộ thẻ: $e'
                   : 'Không thể tạo bộ thẻ: $e',
             ),
-            backgroundColor: const Color(0xFFFF5A5F),
+            backgroundColor: AppColors.flashCoral,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -250,12 +251,40 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
     }
   }
 
+  /// Ô nhập tối của editor (nền chìm, viền sáng lên khi focus).
+  InputDecoration _fieldDecoration(
+    String hint, {
+    double fontSize = 15,
+    double? height,
+  }) {
+    OutlineInputBorder outline(Color color) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: color, width: 1),
+        );
+
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(
+        color: AppColors.flashHint,
+        fontSize: fontSize,
+        fontWeight: FontWeight.w400,
+        height: height,
+      ),
+      filled: true,
+      fillColor: AppColors.flashInputFill,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      enabledBorder: outline(AppColors.flashOutline),
+      focusedBorder: outline(AppColors.flashOutlineFocus),
+      border: outline(AppColors.flashOutline),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: AppColors.socialBackground,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: AppColors.socialBackground,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
@@ -283,9 +312,9 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _saveDeck,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF5A5F),
+                  backgroundColor: AppColors.flashCoral,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFFFF5A5F).withValues(alpha: 0.5),
+                  disabledBackgroundColor: AppColors.flashCoral.withValues(alpha: 0.5),
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                   minimumSize: const Size(60, 36),
@@ -316,7 +345,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFFFF5A5F)),
+              child: CircularProgressIndicator(color: AppColors.flashCoral),
             )
           : ListView(
               controller: _scrollController,
@@ -326,7 +355,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E1F28),
+                    color: AppColors.socialSurface,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.04),
@@ -343,41 +372,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
-                        decoration: InputDecoration(
-                          hintText: 'Tiêu đề bộ thẻ...',
-                          hintStyle: const TextStyle(
-                            color: Color(0xFF73768A),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          filled: true,
-                          fillColor: const Color(0xFF121215),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF2E3140),
-                              width: 1,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF4E526B),
-                              width: 1,
-                            ),
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF2E3140),
-                              width: 1,
-                            ),
-                          ),
-                        ),
+                        decoration: _fieldDecoration('Tiêu đề bộ thẻ...'),
                       ),
                       const SizedBox(height: 10),
                       // Mô tả bộ thẻ
@@ -390,41 +385,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
                         ),
-                        decoration: InputDecoration(
-                          hintText: 'Thêm mô tả...',
-                          hintStyle: const TextStyle(
-                            color: Color(0xFF73768A),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          filled: true,
-                          fillColor: const Color(0xFF121215),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF2E3140),
-                              width: 1,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF4E526B),
-                              width: 1,
-                            ),
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF2E3140),
-                              width: 1,
-                            ),
-                          ),
-                        ),
+                        decoration: _fieldDecoration('Thêm mô tả...', fontSize: 14),
                       ),
                     ],
                   ),
@@ -440,7 +401,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E1F28),
+                        color: AppColors.socialSurface,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: Colors.white.withValues(alpha: 0.04),
@@ -456,7 +417,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                               Text(
                                 '${index + 1}',
                                 style: const TextStyle(
-                                  color: Color(0xFF8E8E93),
+                                  color: AppColors.socialTextMuted,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -470,7 +431,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                                 splashRadius: 18,
                                 icon: const Icon(
                                   Icons.delete_outline_rounded,
-                                  color: Color(0xFF8E8E93),
+                                  color: AppColors.socialTextMuted,
                                   size: 20,
                                 ),
                                 onPressed: () => _removeCard(index),
@@ -491,42 +452,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                               fontWeight: FontWeight.w500,
                               height: 1.4,
                             ),
-                            decoration: InputDecoration(
-                              hintText: 'Thuật ngữ...',
-                              hintStyle: const TextStyle(
-                                color: Color(0xFF73768A),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w400,
-                                height: 1.4,
-                              ),
-                              filled: true,
-                              fillColor: const Color(0xFF121215),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF2E3140),
-                                  width: 1,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF4E526B),
-                                  width: 1,
-                                ),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF2E3140),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
+                            decoration: _fieldDecoration('Thuật ngữ...', height: 1.4),
                           ),
 
                           const SizedBox(height: 10),
@@ -543,42 +469,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                               fontWeight: FontWeight.w400,
                               height: 1.4,
                             ),
-                            decoration: InputDecoration(
-                              hintText: 'Định nghĩa...',
-                              hintStyle: const TextStyle(
-                                color: Color(0xFF73768A),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w400,
-                                height: 1.4,
-                              ),
-                              filled: true,
-                              fillColor: const Color(0xFF121215),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF2E3140),
-                                  width: 1,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF4E526B),
-                                  width: 1,
-                                ),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF2E3140),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
+                            decoration: _fieldDecoration('Định nghĩa...', height: 1.4),
                           ),
                         ],
                       ),
@@ -589,25 +480,30 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                 const SizedBox(height: 8),
 
                 // 4. Nút thêm từ (Bottom Action)
-                InkWell(
-                  onTap: _addNewCard,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E1F28),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.06),
-                      ),
+                // Nền vẽ bằng Container, ink trên Material trong suốt phía trên nền.
+                Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppColors.socialSurface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.06),
                     ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      'Thêm thẻ',
-                      style: TextStyle(
-                        color: Color(0xFFA0A0B0),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                  ),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      onTap: _addNewCard,
+                      borderRadius: BorderRadius.circular(16),
+                      child: const Center(
+                        child: Text(
+                          'Thêm thẻ',
+                          style: TextStyle(
+                            color: AppColors.flashTextSoft,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ),

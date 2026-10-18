@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class SegmentedProgressBar extends StatelessWidget {
   final int currentIndex;
@@ -24,7 +25,7 @@ class SegmentedProgressBar extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: const Color(0xFF1E2330),
+            color: AppColors.flashProgressTrack,
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
@@ -50,7 +51,7 @@ class SegmentedProgressBar extends StatelessWidget {
                   height: 4,
                   margin: const EdgeInsets.symmetric(horizontal: 2.5),
                   decoration: BoxDecoration(
-                    color: isFilled ? const Color(0xFFFF2D55) : const Color(0xFF222632),
+                    color: isFilled ? AppColors.flashAccent : AppColors.flashSegmentEmpty,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -65,7 +66,7 @@ class SegmentedProgressBar extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: const Color(0xFF1E2330),
+            color: AppColors.flashProgressTrack,
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),

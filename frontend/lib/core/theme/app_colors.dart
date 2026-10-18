@@ -88,6 +88,24 @@ class AppColors {
   static const Color flashKnownBg = Color(0xFF0F261C);
   static const Color flashUnknown = Color(0xFFF87171); // Vuốt trái: chưa nhớ
   static const Color flashUnknownBg = Color(0xFF2B1216);
+  static const Color flashCorrectBg = Color(0xFF0F382E); // Đáp án đúng (trắc nghiệm)
+  static const Color flashWrong = Color(0xFFFF453A); // Ghép sai
+  static const Color flashWrongBg = Color(0xFF38151D); // Đáp án sai / ghép sai
+  static const Color flashChoiceSurface = Color(0xFF1B1E2B); // Khung câu hỏi
+  static const Color flashAudioButton = Color(0xFF232634); // Nút phát lớn (luyện nghe)
+  static const Color flashTextSoft = Color(0xFFA0A0B0);
+  static const Color flashTextBright = Color(0xFFEEEEF0);
+  static const Color flashHover = Color(0xFF2F3242); // Hover/nhấn thẻ bộ thẻ
+  static const Color flashMenu = Color(0xFF232530); // Menu nổi
+  static const Color flashMenuBorder = Color(0xFF333647);
+
+  // Ô nhập & thanh tiến độ của Flashcard
+  static const Color flashInputFill = Color(0xFF121215);
+  static const Color flashOutline = Color(0xFF2E3140); // Viền ô nhập, nền thanh tiến độ
+  static const Color flashOutlineFocus = Color(0xFF4E526B);
+  static const Color flashHint = Color(0xFF73768A);
+  static const Color flashProgressTrack = Color(0xFF1E2330);
+  static const Color flashSegmentEmpty = Color(0xFF222632);
 
   // Màu nhận diện từng chế độ học (icon + nền icon)
   static const Color modeFlip = Color(0xFF4A90E2);

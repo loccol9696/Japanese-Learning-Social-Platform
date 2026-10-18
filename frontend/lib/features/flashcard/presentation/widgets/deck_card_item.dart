@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../data/models/flashcard_set_model.dart';
 
 class DeckCardItem extends StatelessWidget {
@@ -25,7 +26,7 @@ class DeckCardItem extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1F28),
+            color: AppColors.socialSurface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.06),
@@ -62,7 +63,7 @@ class DeckCardItem extends StatelessWidget {
               Text(
                 '${deck.totalCards} thuật ngữ',
                 style: const TextStyle(
-                  color: Color(0xFF8E8E93),
+                  color: AppColors.socialTextMuted,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w500,
                 ),
@@ -128,10 +129,10 @@ class _DeckMoreMenuButtonState extends State<_DeckMoreMenuButton> {
                     width: 148,
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF232530),
+                      color: AppColors.flashMenu,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: const Color(0xFF333647),
+                        color: AppColors.flashMenuBorder,
                         width: 1,
                       ),
                       boxShadow: [
@@ -149,7 +150,7 @@ class _DeckMoreMenuButtonState extends State<_DeckMoreMenuButton> {
                         _MenuActionItem(
                           icon: Icons.edit_outlined,
                           title: 'Chỉnh sửa',
-                          color: const Color(0xFFEEEEF0),
+                          color: AppColors.flashTextBright,
                           onTap: () {
                             _closeMenu();
                             widget.onEdit?.call();
@@ -160,7 +161,7 @@ class _DeckMoreMenuButtonState extends State<_DeckMoreMenuButton> {
                         _MenuActionItem(
                           icon: Icons.delete_outline_rounded,
                           title: 'Xóa',
-                          color: const Color(0xFFFF5A5F),
+                          color: AppColors.flashCoral,
                           onTap: () {
                             _closeMenu();
                             widget.onDelete?.call();
@@ -183,7 +184,7 @@ class _DeckMoreMenuButtonState extends State<_DeckMoreMenuButton> {
             padding: EdgeInsets.zero,
             icon: const Icon(
               Icons.more_vert_rounded,
-              color: Color(0xFFA0A0B0),
+              color: AppColors.flashTextSoft,
               size: 20,
             ),
             onPressed: () {
@@ -226,13 +227,13 @@ class _MenuActionItemState extends State<_MenuActionItem> {
         child: InkWell(
           onTap: widget.onTap,
           borderRadius: BorderRadius.circular(8),
-          splashColor: const Color(0xFF2F3242),
-          highlightColor: const Color(0xFF2F3242),
+          splashColor: AppColors.flashHover,
+          highlightColor: AppColors.flashHover,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: _isHovered ? const Color(0xFF2F3242) : Colors.transparent,
+              color: _isHovered ? AppColors.flashHover : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(

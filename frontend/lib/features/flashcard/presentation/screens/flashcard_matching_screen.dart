@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/models/matching_game_model.dart';
 import '../../data/services/flashcard_service.dart';
@@ -100,7 +101,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161922),
+        backgroundColor: AppColors.flashCardSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Chúc mừng!', style: TextStyle(color: Colors.white)),
         content: const Text(
@@ -113,10 +114,10 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
               Navigator.pop(ctx);
               _loadGame();
             },
-            child: const Text('Chơi lại', style: TextStyle(color: Color(0xFFFF2D55))),
+            child: const Text('Chơi lại', style: TextStyle(color: AppColors.flashAccent)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF2D55)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.flashAccent),
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.pop(context);
@@ -132,15 +133,15 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0C0E14),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFFF2D55))),
+        backgroundColor: AppColors.flashBackground,
+        body: Center(child: CircularProgressIndicator(color: AppColors.flashAccent)),
       );
     }
 
     final tiles = _game?.tiles ?? [];
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0E14),
+      backgroundColor: AppColors.flashBackground,
       body: SafeArea(
         child: Column(
           children: [
@@ -177,14 +178,14 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
                       return const SizedBox.shrink(); // Hide matched tile
                     }
 
-                    Color bgColor = const Color(0xFF161922);
+                    Color bgColor = AppColors.flashCardSurface;
                     Color borderColor = Colors.white.withValues(alpha: 0.08);
 
                     if (isSelected) {
-                      borderColor = const Color(0xFFFF2D55);
+                      borderColor = AppColors.flashAccent;
                     } else if (isWrong) {
-                      borderColor = const Color(0xFFFF453A);
-                      bgColor = const Color(0xFF38151D);
+                      borderColor = AppColors.flashWrong;
+                      bgColor = AppColors.flashWrongBg;
                     }
 
                     return Material(
@@ -204,7 +205,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFFFF2D55).withValues(alpha: 0.3),
+                                      color: AppColors.flashAccent.withValues(alpha: 0.3),
                                       blurRadius: 10,
                                       spreadRadius: 1,
                                     )

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_store.dart';
 import '../widgets/deck_card_item.dart';
@@ -101,11 +102,11 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1F28),
+        backgroundColor: AppColors.socialSurface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: const BorderSide(
-            color: Color(0xFF323344),
+            color: AppColors.flashBorder,
             width: 1,
           ),
         ),
@@ -114,12 +115,12 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF5A5F).withValues(alpha: 0.15),
+                color: AppColors.flashCoral.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.delete_outline_rounded,
-                color: Color(0xFFFF5A5F),
+                color: AppColors.flashCoral,
                 size: 22,
               ),
             ),
@@ -154,7 +155,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF5A5F),
+              backgroundColor: AppColors.flashCoral,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -172,7 +173,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Không thể xóa bộ thẻ: $err'),
-                        backgroundColor: const Color(0xFFFF5A5F),
+                        backgroundColor: AppColors.flashCoral,
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -183,7 +184,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Đã xóa bộ thẻ thành công'),
-                  backgroundColor: Color(0xFF252632),
+                  backgroundColor: AppColors.flashSnackBar,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -204,7 +205,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: AppColors.socialBackground,
       body: SafeArea(
         child: Column(
           children: [
@@ -227,7 +228,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E1F28),
+                      color: AppColors.socialSurface,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: Colors.white.withValues(alpha: 0.08),
@@ -249,7 +250,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E1F28),
+                  color: AppColors.socialSurface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.06),
@@ -283,7 +284,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             Expanded(
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFFFF2D55)),
+                      child: CircularProgressIndicator(color: AppColors.flashAccent),
                     )
                   : _decks.isEmpty
                       ? Center(
@@ -316,8 +317,8 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                           ),
                         )
                       : RefreshIndicator(
-                          color: const Color(0xFFFF2D55),
-                          backgroundColor: const Color(0xFF1E1F28),
+                          color: AppColors.flashAccent,
+                          backgroundColor: AppColors.socialSurface,
                           onRefresh: () =>
                               _loadDecks(query: _searchController.text, forceRefresh: true),
                           child: ListView.separated(
