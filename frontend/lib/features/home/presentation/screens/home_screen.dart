@@ -11,6 +11,7 @@ import '../widgets/home_header.dart';
 import '../widgets/video_player_item.dart';
 
 import '../../../flashcard/presentation/screens/deck_library_screen.dart';
+import '../../../profile/presentation/screens/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final HomeRepository? repository;
@@ -96,6 +97,8 @@ class _HomeScreenState extends State<HomeScreen> {
       mainContent = _buildVideoFeed();
     } else if (_currentNavIndex == 1) {
       mainContent = const DeckLibraryScreen();
+    } else if (_currentNavIndex == 4) {
+      mainContent = const ProfileScreen();
     } else {
       mainContent = _buildPlaceholderTab(_currentNavIndex);
     }
