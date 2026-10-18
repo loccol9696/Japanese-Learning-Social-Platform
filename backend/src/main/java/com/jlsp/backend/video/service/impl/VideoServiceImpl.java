@@ -162,10 +162,10 @@ public class VideoServiceImpl implements VideoService {
 
         if (jlptLevel != null) {
             // Lọc video theo cấp độ JLPT chỉ định đã được duyệt
-            page = videoRepository.findByStatusAndModStatusAndJlptLevel(VideoStatus.PUBLIC, com.jlsp.backend.video.entity.VideoModStatus.APPROVED, jlptLevel, pageable);
+            page = videoRepository.findByStatusAndModStatusAndJlptLevel(VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, pageable);
         } else {
             // Lấy tất cả video công khai đã được duyệt
-            page = videoRepository.findByStatusAndModStatus(VideoStatus.PUBLIC, com.jlsp.backend.video.entity.VideoModStatus.APPROVED, pageable);
+            page = videoRepository.findByStatusAndModStatus(VideoStatus.PUBLIC, VideoModStatus.APPROVED, pageable);
         }
 
         List<VideoResponse> responseList = page.getContent().stream()
