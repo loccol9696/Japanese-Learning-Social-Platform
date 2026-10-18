@@ -350,57 +350,58 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
               ),
             ),
 
-          // 6 + 7. Cột tương tác căn giữa theo chiều dọc trong phần phía trên khối thông tin;
-          // khối phụ đề + thông tin dùng hết chiều ngang (không chừa chỗ cho cột nút) nên
-          // tiêu đề không xuống dòng sớm, và hai phần không bao giờ chồng lên nhau.
+          // 6 + 7. Bố cục dưới: khối thông tin (cao cố định trong suốt video) ở đáy;
+          // cột tương tác căn giữa theo chiều dọc trong phần phía trên khối thông tin.
+          // Phụ đề (số dòng đổi liên tục) nằm chồng ở đáy phần đó nên KHÔNG làm cột nút
+          // nhảy lên xuống; cả phụ đề và thông tin đều rộng hết màn hình.
           Positioned.fill(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 12.0),
-                      child: InteractionSidebar(
-                        post: widget.post,
-                        theme: theme,
-                        isSubtitlesVisible: _showSubtitles,
-                        onToggleSubtitles: () {
-                          setState(() {
-                            _showSubtitles = !_showSubtitles;
-                          });
-                        },
-                        onLikeChanged: widget.onLikeChanged,
-                        onFollowToggle: widget.onFollowToggle,
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+                  child: Stack(
                     children: [
-                      AnimatedCrossFade(
-                        firstChild: Padding(
-                          padding: const EdgeInsets.only(bottom: 10.0),
-                          child: RubySubtitleWidget(
+                      Positioned(
+                        left: 16.0,
+                        right: 16.0,
+                        bottom: 0,
+                        child: AnimatedCrossFade(
+                          firstChild: RubySubtitleWidget(
                             rubySegments: displayedSegments,
                             translation: displayedTranslation,
                             theme: theme,
                           ),
+                          secondChild: const SizedBox.shrink(),
+                          crossFadeState: _showSubtitles
+                              ? CrossFadeState.showFirst
+                              : CrossFadeState.showSecond,
+                          duration: const Duration(milliseconds: 250),
                         ),
-                        secondChild: const SizedBox.shrink(),
-                        crossFadeState: _showSubtitles
-                            ? CrossFadeState.showFirst
-                            : CrossFadeState.showSecond,
-                        duration: const Duration(milliseconds: 250),
                       ),
-                      VideoInfoOverlay(post: widget.post, theme: theme),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 12.0),
+                          child: InteractionSidebar(
+                            post: widget.post,
+                            theme: theme,
+                            isSubtitlesVisible: _showSubtitles,
+                            onToggleSubtitles: () {
+                              setState(() {
+                                _showSubtitles = !_showSubtitles;
+                              });
+                            },
+                            onLikeChanged: widget.onLikeChanged,
+                            onFollowToggle: widget.onFollowToggle,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 16.0),
+                  child: VideoInfoOverlay(post: widget.post, theme: theme),
                 ),
               ],
             ),

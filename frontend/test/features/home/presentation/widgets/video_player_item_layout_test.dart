@@ -49,4 +49,37 @@ void main() {
       expect(sidebar.right, size.width - 12.0, reason: 'màn $size');
     }
   });
+
+  testWidgets('phụ đề dài/ngắn không làm cột nút di chuyển', (tester) async {
+    Future<Rect> sidebarFor(String subtitle, String translation) async {
+      final post = VideoPost(
+        id: '4',
+        backgroundImageUrl: '',
+        creatorName: _post.creatorName,
+        creatorTag: _post.creatorTag,
+        creatorAvatarUrl: '',
+        accentInfo: '',
+        jlptLevel: _post.jlptLevel,
+        topicTag: _post.topicTag,
+        rubySegments: [RubySegment(kanji: subtitle, furigana: '')],
+        translation: translation,
+        likeCount: 1,
+        commentCount: 0,
+        shareCount: 0,
+      );
+      tester.view.physicalSize = const Size(412, 892);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: VideoPlayerItem(key: UniqueKey(), post: post))));
+      await tester.pump();
+      return tester.getRect(find.byType(InteractionSidebar));
+    }
+
+    final short = await sidebarFor('はい。', 'Vâng.');
+    final long = await sidebarFor(
+      'おほほほ。今年のローレル さんは秋に咲き誇る 満開の桜 仮想。コンテストはイベント。最大の目玉 楽しまなきゃ 誠に 雅で良き。',
+      'Ohohoho, Laurel năm nay là một loài hoa ảo nở hoa anh đào vào mùa thu. Cuộc thi là một sự kiện, điểm nhấn lớn nhất trong đó phải vui vẻ, thanh lịch và hay ho.',
+    );
+    expect(long, short);
+  });
 }
