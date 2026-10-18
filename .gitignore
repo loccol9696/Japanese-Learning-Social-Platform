@@ -26,6 +26,8 @@ backend/src/main/resources/credentials/
 
 #python file
 vocal-service/.venv
+__pycache__/
+*.pyc
 
 #env
 .env

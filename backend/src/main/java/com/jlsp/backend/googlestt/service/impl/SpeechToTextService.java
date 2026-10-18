@@ -140,8 +140,6 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
             LongRunningRecognizeResponse response = responseFuture.get();
             List<ScriptSegment> segments = new ArrayList<>();
 
-            // System.out.println("========== BẮT ĐẦU DUYỆT KẾT QUẢ GOOGLE ==========");
-            // System.out.println("Tổng số results: " + response.getResultsList().size());
 
             for (SpeechRecognitionResult result : response.getResultsList()) {
                 if (result.getAlternativesCount() == 0)
@@ -150,8 +148,6 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
                 SpeechRecognitionAlternative alternative = result.getAlternatives(0);
                 List<WordInfo> words = alternative.getWordsList();
 
-                // System.out.println("-> Text: " + alternative.getTranscript());
-                // System.out.println("-> Words count: " + words.size());
                 if (!words.isEmpty()) {
                     WordInfo firstWord = words.get(0);
                     WordInfo lastWord = words.get(words.size() - 1);
@@ -173,8 +169,6 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
                 }
             }
 
-            // System.out.println("TỔNG SỐ SEGMENTS TẠO RA: " + segments.size());
-            // System.out.println("==================================================");
 
             return segments;
         } finally {
