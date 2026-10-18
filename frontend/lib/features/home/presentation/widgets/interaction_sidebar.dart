@@ -12,7 +12,8 @@ class InteractionSidebar extends StatefulWidget {
   final AdaptiveVideoTheme? theme;
   final bool isSubtitlesVisible;
   final VoidCallback? onToggleSubtitles;
-  final VoidCallback? onLikeToggle;
+  /// Gọi với trạng thái mới sau khi người dùng bấm tim.
+  final ValueChanged<bool>? onLikeChanged;
   final VoidCallback? onFollowToggle;
   final VoidCallback? onCommentTap;
   final VoidCallback? onShareTap;
@@ -23,7 +24,7 @@ class InteractionSidebar extends StatefulWidget {
     this.theme,
     this.isSubtitlesVisible = true,
     this.onToggleSubtitles,
-    this.onLikeToggle,
+    this.onLikeChanged,
     this.onFollowToggle,
     this.onCommentTap,
     this.onShareTap,
@@ -100,7 +101,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       _likeScaleController.reverse();
     });
 
-    widget.onLikeToggle?.call();
+    widget.onLikeChanged?.call(_isLiked);
   }
 
   void _handleFollow() {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/localization/locale_manager.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../home/data/mappers/video_post_mapper.dart';
 import '../../domain/models/profile_video.dart';
 
 /// Lưới video 3 cột kiểu TikTok dùng cho các tab của màn Profile.
@@ -14,7 +15,7 @@ class ProfileVideoGrid extends StatelessWidget {
   });
 
   final List<ProfileVideo> videos;
-  final Widget Function(ProfileVideo video) tileBuilder;
+  final Widget Function(ProfileVideo video, int index) tileBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +30,7 @@ class ProfileVideoGrid extends StatelessWidget {
         mainAxisSpacing: 1.5,
       ),
       itemCount: videos.length,
-      itemBuilder: (context, index) => tileBuilder(videos[index]),
+      itemBuilder: (context, index) => tileBuilder(videos[index], index),
     );
   }
 }
@@ -40,7 +41,7 @@ class ProfileVideoTile extends StatelessWidget {
   const ProfileVideoTile({
     super.key,
     required this.video,
-    required this.snackPrefix,
+    required this.onTap,
     required this.bottomIcon,
     required this.bottomIconColor,
     required this.bottomText,
@@ -49,7 +50,7 @@ class ProfileVideoTile extends StatelessWidget {
   });
 
   final ProfileVideo video;
-  final String snackPrefix;
+  final VoidCallback onTap;
   final IconData bottomIcon;
   final Color bottomIconColor;
   final String bottomText;
@@ -58,62 +59,62 @@ class ProfileVideoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$snackPrefix: ${video.title}'),
-            backgroundColor: AppColors.socialSurface,
-          ),
-        );
-      },
-      child: Container(
-        color: AppColors.socialSurface,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            VideoThumbnail(url: video.thumbnailUrl),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.7),
-                    ],
-                    stops: const [0.0, 0.5, 1.0],
+    return Semantics(
+      button: true,
+      label: video.title,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          color: AppColors.socialSurface,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Cùng ảnh xem trước với Home (khung đầu video thường trắng/đen)
+              VideoThumbnail(
+                url: videoPreviewImageUrl(video.videoUrl, video.thumbnailUrl),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.7),
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
                   ),
                 ),
               ),
-            ),
-            if (topLeftBadge != null)
-              Positioned(top: 6, left: 6, child: topLeftBadge!),
-            if (topRightBadge != null)
-              Positioned(top: 6, right: 6, child: topRightBadge!),
-            Positioned(
-              left: 6,
-              bottom: 6,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(bottomIcon, color: bottomIconColor, size: 14),
-                  const SizedBox(width: 2),
-                  Text(
-                    bottomText,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      shadows: [Shadow(color: Colors.black, blurRadius: 3)],
+              if (topLeftBadge != null)
+                Positioned(top: 6, left: 6, child: topLeftBadge!),
+              if (topRightBadge != null)
+                Positioned(top: 6, right: 6, child: topRightBadge!),
+              Positioned(
+                left: 6,
+                bottom: 6,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(bottomIcon, color: bottomIconColor, size: 14),
+                    const SizedBox(width: 2),
+                    Text(
+                      bottomText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        shadows: [Shadow(color: Colors.black, blurRadius: 3)],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -12,6 +12,9 @@ class ProfileVideo {
   final String? modStatus;
   final String? rejectionReason;
 
+  /// JSON gốc từ backend: dùng để mở trình phát video (subtitle, người đăng...).
+  final Map<String, dynamic> raw;
+
   const ProfileVideo({
     required this.id,
     required this.title,
@@ -22,6 +25,7 @@ class ProfileVideo {
     this.jlptLevel,
     this.modStatus,
     this.rejectionReason,
+    this.raw = const {},
   });
 
   bool get isPending => modStatus == 'PENDING';
@@ -45,6 +49,7 @@ class ProfileVideo {
       jlptLevel: nonEmpty(json['jlptLevel']),
       modStatus: nonEmpty(json['modStatus']),
       rejectionReason: nonEmpty(json['rejectionReason']),
+      raw: json,
     );
   }
 }

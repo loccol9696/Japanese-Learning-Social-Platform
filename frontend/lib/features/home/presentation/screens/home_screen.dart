@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/localization/locale_manager.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/datasources/home_remote_datasource.dart';
@@ -65,6 +66,16 @@ class _HomeScreenState extends State<HomeScreen> {
         _currentPostIndex = 0;
         _isLoading = false;
       });
+    }
+  }
+
+  /// Lưu thích/bỏ thích lên backend; lỗi (vd. chưa đăng nhập) thì báo cho người dùng.
+  Future<void> _setLiked(String postId, bool liked) async {
+    try {
+      await _repository.setLiked(postId, liked);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -184,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return VideoPlayerItem(
           key: ValueKey(post.id),
           post: post,
-          onLikeToggle: () => _repository.toggleLike(post.id),
+          onLikeChanged: (liked) => _setLiked(post.id, liked),
           onFollowToggle: () => _repository.toggleFollow(post.creatorTag),
         );
       },

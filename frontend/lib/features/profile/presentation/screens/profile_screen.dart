@@ -12,6 +12,7 @@ import '../widgets/profile_header.dart';
 import '../widgets/profile_sheets.dart';
 import '../widgets/profile_video_grid.dart';
 import 'profile_update_screen.dart';
+import 'profile_video_player_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ProfileRepository? repository;
@@ -193,12 +194,23 @@ class _ProfileScreenState extends State<ProfileScreen>
   // 5. LƯỚI NỘI DUNG (TIKTOK VIDEO GRID)
   // ===========================================================================
 
+  /// Mở trình phát toàn màn hình tại video được chọn, vuốt qua các video cùng tab.
+  void _openPlayer(List<ProfileVideo> videos, int index) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            ProfileVideoPlayerScreen(videos: videos, initialIndex: index),
+      ),
+    );
+  }
+
   /// Một tab: đang tải / lỗi (thử lại) / rỗng / lưới video; kéo xuống để làm mới.
   Widget _buildVideoTab({
     required Future<List<ProfileVideo>> future,
     required Future<List<ProfileVideo>> Function() reload,
     required Widget empty,
-    required ProfileVideoTile Function(ProfileVideo video) tile,
+    required ProfileVideoTile Function(ProfileVideo video, VoidCallback onTap)
+    tile,
   }) {
     Future<void> refresh() async {
       final next = reload();
@@ -233,7 +245,11 @@ class _ProfileScreenState extends State<ProfileScreen>
           }
           final videos = snapshot.data ?? const [];
           if (videos.isEmpty) return empty;
-          return ProfileVideoGrid(videos: videos, tileBuilder: tile);
+          return ProfileVideoGrid(
+            videos: videos,
+            tileBuilder: (video, index) =>
+                tile(video, () => _openPlayer(videos, index)),
+          );
         },
       ),
     );
@@ -255,9 +271,9 @@ class _ProfileScreenState extends State<ProfileScreen>
         title: appStrings.profileNoVideosTitle,
         subtitle: appStrings.profileNoVideosHint,
       ),
-      tile: (video) => ProfileVideoTile(
+      tile: (video, onTap) => ProfileVideoTile(
         video: video,
-        snackPrefix: appStrings.profileWatchVideo,
+        onTap: onTap,
         topLeftBadge: ModStatusBadge.maybe(video),
         topRightBadge: video.jlptLevel != null
             ? JlptBadge(label: video.jlptLevel!)
@@ -285,9 +301,9 @@ class _ProfileScreenState extends State<ProfileScreen>
         title: appStrings.profileNoSavedTitle,
         subtitle: appStrings.profileNoSavedHint,
       ),
-      tile: (video) => ProfileVideoTile(
+      tile: (video, onTap) => ProfileVideoTile(
         video: video,
-        snackPrefix: appStrings.profileSavedVideo,
+        onTap: onTap,
         topRightBadge: video.jlptLevel != null
             ? JlptBadge(label: video.jlptLevel!)
             : null,
@@ -314,9 +330,9 @@ class _ProfileScreenState extends State<ProfileScreen>
         title: appStrings.profileNoLikedTitle,
         subtitle: appStrings.profileNoLikedHint,
       ),
-      tile: (video) => ProfileVideoTile(
+      tile: (video, onTap) => ProfileVideoTile(
         video: video,
-        snackPrefix: appStrings.profileLikedVideo,
+        onTap: onTap,
         bottomIcon: Icons.favorite_rounded,
         bottomIconColor: AppColors.socialRed,
         bottomText: formatCount(video.likeCount),

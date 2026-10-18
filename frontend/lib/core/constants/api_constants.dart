@@ -33,6 +33,7 @@ class ApiConstants {
 
   // Video & media endpoints
   static String get videosUrl => '$baseUrl/videos';
+  static String videoLikesUrl(String videoId) => '$baseUrl/videos/$videoId/likes';
   static String mediaUploadUrl({String folder = 'jlsp'}) =>
       '$baseUrl/media/upload?folder=${Uri.encodeQueryComponent(folder)}';
 

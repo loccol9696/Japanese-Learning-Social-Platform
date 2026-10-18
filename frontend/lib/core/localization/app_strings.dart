@@ -61,9 +61,6 @@ abstract class AppStrings {
   String get profileStatFollowers;
   String get profileStatLikes;
   String get profileEdit;
-  String get profileWatchVideo;
-  String get profileSavedVideo;
-  String get profileLikedVideo;
   String get profileNoSavedTitle;
   String get profileNoSavedHint;
   String get profileCreateTitle;
@@ -203,12 +200,6 @@ class ViStrings implements AppStrings {
   String get profileStatLikes => 'Thích';
   @override
   String get profileEdit => 'Sửa hồ sơ';
-  @override
-  String get profileWatchVideo => 'Xem';
-  @override
-  String get profileSavedVideo => 'Video đã lưu';
-  @override
-  String get profileLikedVideo => 'Video đã thích';
   @override
   String get profileNoSavedTitle => 'Chưa có video đã lưu';
   @override
@@ -378,12 +369,6 @@ class EnStrings implements AppStrings {
   @override
   String get profileEdit => 'Edit profile';
   @override
-  String get profileWatchVideo => 'Watch';
-  @override
-  String get profileSavedVideo => 'Saved video';
-  @override
-  String get profileLikedVideo => 'Liked video';
-  @override
   String get profileNoSavedTitle => 'No saved videos yet';
   @override
   String get profileNoSavedHint => 'Tap the bookmark icon on a video to save it for later';
@@ -551,12 +536,6 @@ class JaStrings implements AppStrings {
   String get profileStatLikes => 'いいね';
   @override
   String get profileEdit => 'プロフィールを編集';
-  @override
-  String get profileWatchVideo => '再生';
-  @override
-  String get profileSavedVideo => '保存した動画';
-  @override
-  String get profileLikedVideo => 'いいねした動画';
   @override
   String get profileNoSavedTitle => '保存した動画はまだありません';
   @override

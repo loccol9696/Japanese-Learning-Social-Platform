@@ -9,6 +9,7 @@ import 'package:frontend/features/profile/domain/models/user_profile_model.dart'
 import 'package:frontend/features/profile/domain/repositories/profile_repository.dart';
 import 'package:frontend/features/profile/presentation/screens/profile_screen.dart';
 import 'package:frontend/features/profile/presentation/screens/profile_update_screen.dart';
+import 'package:frontend/features/profile/presentation/screens/profile_video_player_screen.dart';
 import 'package:frontend/features/profile/presentation/widgets/profile_video_grid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -148,6 +149,18 @@ void main() {
     expect(repository.likedLoads, 2);
     expect(find.text('Không tải được dữ liệu'), findsNothing);
     expect(find.text('152K'), findsOneWidget); // lượt thích của video đã thích
+  });
+
+  testWidgets('bấm vào video mở trình phát tại đúng video', (tester) async {
+    await pumpProfile(tester);
+
+    await tester.tap(find.byType(ProfileVideoTile).at(1));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final player = tester.widget<ProfileVideoPlayerScreen>(find.byType(ProfileVideoPlayerScreen));
+    expect(player.initialIndex, 1);
+    expect(player.videos.map((v) => v.id), [1, 2, 3]);
   });
 
   group('đa ngôn ngữ', () {
