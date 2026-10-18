@@ -249,15 +249,16 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
             ),
           ),
 
-          // 4. Streak & XP Badge Pill (Top-left)
+          // 4. Streak & XP Badge Pill (Top-left) — chỉ khi có dữ liệu thật
+          if (widget.post.streakDays != null && widget.post.xp != null)
           Positioned(
             top: 60.0,
             left: 16.0,
             child: SafeArea(
               bottom: false,
               child: StreakXpBadge(
-                streakDays: widget.post.streakDays,
-                xp: widget.post.xp,
+                streakDays: widget.post.streakDays!,
+                xp: widget.post.xp!,
                 theme: theme,
               ),
             ),

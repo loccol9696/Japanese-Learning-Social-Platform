@@ -26,6 +26,10 @@ class ApiConstants {
   static String userUrl(int id) => '$baseUrl/users/$id';
   static String get profileUrl => '$baseUrl/profile'; // hồ sơ của chính người dùng (JWT)
   static String get topicsUrl => '$baseUrl/topics';
+  static String get profileStatsUrl => '$baseUrl/profile/stats';
+  static String get profileSavedVideosUrl => '$baseUrl/profile/saved-videos';
+  static String get profileLikedVideosUrl => '$baseUrl/profile/liked-videos';
+  static String get myVideosUrl => '$baseUrl/videos/my-status'; // video của mình, mọi trạng thái duyệt
 
   // Video & media endpoints
   static String get videosUrl => '$baseUrl/videos';

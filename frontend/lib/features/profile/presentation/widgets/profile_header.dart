@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/localization/locale_manager.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../domain/models/profile_video.dart';
 
 // ===========================================================================
 // 1. TOP HEADER: [username ▾] ... [👤+] [≡]
@@ -31,7 +33,10 @@ class ProfileTopBar extends StatelessWidget {
             onTap: onSwitchAccount,
             borderRadius: BorderRadius.circular(20),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8.0,
+                vertical: 4.0,
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -71,11 +76,7 @@ class ProfileTopBar extends StatelessWidget {
 
           // Right Action 2: [≡] (Menu cài đặt)
           IconButton(
-            icon: const Icon(
-              Icons.menu_rounded,
-              color: Colors.white,
-              size: 24,
-            ),
+            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
             splashRadius: 20,
             tooltip: appStrings.profileSettingsPrivacy,
             onPressed: onOpenSettings,
@@ -97,14 +98,14 @@ class ProfileInfoSection extends StatelessWidget {
     required this.displayName,
     required this.avatarUrl,
     required this.jlptLevel,
-    required this.streakDays,
+    this.streakDays,
     required this.onCreateContent,
   });
 
   final String displayName;
   final String avatarUrl;
   final String jlptLevel; // VD: 'N3'; rỗng thì ẩn huy hiệu
-  final int streakDays;
+  final int? streakDays; // null: chưa có dữ liệu -> ẩn huy hiệu
   final VoidCallback onCreateContent;
 
   @override
@@ -139,7 +140,7 @@ class ProfileInfoSection extends StatelessWidget {
                       _buildJlptLevelBadge(),
                       const SizedBox(width: 8),
                     ],
-                    _buildStreakBadge(),
+                    if (streakDays != null) _buildStreakBadge(),
                   ],
                 ),
               ],
@@ -202,13 +203,10 @@ class ProfileInfoSection extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            '🔥',
-            style: TextStyle(fontSize: 11),
-          ),
+          const Text('🔥', style: TextStyle(fontSize: 11)),
           const SizedBox(width: 3),
           Text(
-            appStrings.profileStudyStreak(streakDays),
+            appStrings.profileStudyStreak(streakDays!),
             style: const TextStyle(
               color: AppColors.warmPeach,
               fontSize: 10.5,
@@ -306,9 +304,18 @@ class ProfileInfoSection extends StatelessWidget {
 // - Margin trên và dưới của nút "Sửa hồ sơ" 16px
 // ===========================================================================
 class ProfileStatsSection extends StatelessWidget {
-  const ProfileStatsSection({super.key, required this.onEditProfile});
+  const ProfileStatsSection({
+    super.key,
+    this.stats,
+    required this.onEditProfile,
+  });
 
+  /// null khi đang tải hoặc tải lỗi -> hiển thị "–".
+  final ProfileStats? stats;
   final VoidCallback onEditProfile;
+
+  String _count(int Function(ProfileStats s) pick) =>
+      stats == null ? '–' : formatCount(pick(stats!));
 
   @override
   Widget build(BuildContext context) {
@@ -319,11 +326,26 @@ class ProfileStatsSection extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(child: _StatColumn('9.778', appStrings.profileStatFollowing)),
+              Expanded(
+                child: _StatColumn(
+                  _count((s) => s.followingCount),
+                  appStrings.profileStatFollowing,
+                ),
+              ),
               _StatDivider(),
-              Expanded(child: _StatColumn('170', appStrings.profileStatFollowers)),
+              Expanded(
+                child: _StatColumn(
+                  _count((s) => s.followerCount),
+                  appStrings.profileStatFollowers,
+                ),
+              ),
               _StatDivider(),
-              Expanded(child: _StatColumn('198', appStrings.profileStatLikes)),
+              Expanded(
+                child: _StatColumn(
+                  _count((s) => s.likeCount),
+                  appStrings.profileStatLikes,
+                ),
+              ),
             ],
           ),
 
@@ -423,10 +445,6 @@ class _StatDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 18,
-      color: AppColors.socialDivider,
-    );
+    return Container(width: 1, height: 18, color: AppColors.socialDivider);
   }
 }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/localization/locale_manager.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/datasources/profile_remote_datasource.dart';
-import '../../data/mock/profile_mock_videos.dart';
 import '../../data/repositories/profile_repository_impl.dart';
+import '../../domain/models/profile_video.dart';
 import '../../domain/models/user_profile_model.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../widgets/profile_header.dart';
@@ -28,20 +30,26 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // Hồ sơ thật từ API (/api/v1/profile); datasource tự dùng bản lưu cục bộ khi offline
   UserProfileModel _profile = const UserProfileModel();
-  final int _streakDays = 7; // Backend chưa có API chuỗi ngày học
+  ProfileStats? _stats; // null: đang tải / lỗi -> "–"
 
-  final List<Map<String, dynamic>> _publicVideos = mockPublicVideos;
-  final List<Map<String, dynamic>> _savedVideos = mockSavedVideos;
-  final List<Map<String, dynamic>> _likedVideos = mockLikedVideos;
+  // Ba tab nạp song song từ API; gán Future mới để tải lại.
+  late Future<List<ProfileVideo>> _myVideos;
+  late Future<List<ProfileVideo>> _savedVideos;
+  late Future<List<ProfileVideo>> _likedVideos;
 
   @override
   void initState() {
     super.initState();
     // 3 Tabs: Video, Saved (Bookmark), Liked
     _tabController = TabController(length: 3, vsync: this);
-    _repository = widget.repository ??
+    _repository =
+        widget.repository ??
         ProfileRepositoryImpl(remoteDataSource: ProfileRemoteDataSourceImpl());
     _loadProfile();
+    _loadStats();
+    _myVideos = _observed(_repository.getMyVideos());
+    _savedVideos = _observed(_repository.getSavedVideos());
+    _likedVideos = _observed(_repository.getLikedVideos());
   }
 
   @override
@@ -56,6 +64,22 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (mounted) setState(() => _profile = profile);
     } catch (_) {
       // Giữ hồ sơ đang hiển thị; datasource đã tự xử lý offline
+    }
+  }
+
+  /// Tab chưa mở thì chưa có FutureBuilder lắng nghe: đánh dấu lỗi đã được xử lý để không
+  /// thành "Unhandled Exception"; FutureBuilder gắn vào sau vẫn nhận lỗi để hiển thị.
+  Future<List<ProfileVideo>> _observed(Future<List<ProfileVideo>> future) {
+    future.ignore();
+    return future;
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final stats = await _repository.getStats();
+      if (mounted) setState(() => _stats = stats);
+    } catch (_) {
+      // Giữ "–"; lỗi chi tiết hiển thị ở các tab
     }
   }
 
@@ -87,12 +111,11 @@ class _ProfileScreenState extends State<ProfileScreen>
               displayName: _profile.displayName,
               avatarUrl: _profile.avatarUrl,
               jlptLevel: _profile.currentLevel,
-              streakDays: _streakDays,
               onCreateContent: () => showCreateContentSheet(context),
             ),
 
             // 3. Social Stats + Single Wide Action Button
-            ProfileStatsSection(onEditProfile: _editProfile),
+            ProfileStatsSection(stats: _stats, onEditProfile: _editProfile),
 
             // 4. Icon-based Tab Bar (Sticky above Grid)
             _buildIconTabBar(),
@@ -102,8 +125,8 @@ class _ProfileScreenState extends State<ProfileScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  // Tab 1: Video Public (3-Column Grid)
-                  _buildPublicVideoGrid(),
+                  // Tab 1: Video của mình (mọi trạng thái duyệt)
+                  _buildMyVideoGrid(),
 
                   // Tab 2: Video đã lưu (Bookmark)
                   _buildSavedVideoGrid(),
@@ -156,17 +179,11 @@ class _ProfileScreenState extends State<ProfileScreen>
         overlayColor: WidgetStateProperty.all(Colors.transparent),
         tabs: const [
           // Tab 1: Video Public
-          Tab(
-            icon: Icon(Icons.grid_on_rounded, size: 21),
-          ),
+          Tab(icon: Icon(Icons.grid_on_rounded, size: 21)),
           // Tab 2: Video đã lưu (Bookmark)
-          Tab(
-            icon: Icon(Icons.bookmark_rounded, size: 21),
-          ),
+          Tab(icon: Icon(Icons.bookmark_rounded, size: 21)),
           // Tab 3: Trái tim (Liked)
-          Tab(
-            icon: Icon(Icons.favorite_rounded, size: 21),
-          ),
+          Tab(icon: Icon(Icons.favorite_rounded, size: 21)),
         ],
       ),
     );
@@ -176,65 +193,133 @@ class _ProfileScreenState extends State<ProfileScreen>
   // 5. LƯỚI NỘI DUNG (TIKTOK VIDEO GRID)
   // ===========================================================================
 
-  /// Video ghim luôn đứng đầu lưới, giữ nguyên thứ tự các video còn lại.
-  List<Map<String, dynamic>> get _sortedPublicVideos {
-    final pinned = _publicVideos.where((v) => v['isPinned'] == true);
-    final others = _publicVideos.where((v) => v['isPinned'] != true);
-    return [...pinned, ...others];
+  /// Một tab: đang tải / lỗi (thử lại) / rỗng / lưới video; kéo xuống để làm mới.
+  Widget _buildVideoTab({
+    required Future<List<ProfileVideo>> future,
+    required Future<List<ProfileVideo>> Function() reload,
+    required Widget empty,
+    required ProfileVideoTile Function(ProfileVideo video) tile,
+  }) {
+    Future<void> refresh() async {
+      final next = reload();
+      _loadStats();
+      try {
+        await next;
+      } catch (_) {
+        // Lỗi hiển thị trong tab
+      }
+    }
+
+    return RefreshIndicator(
+      color: Colors.white,
+      backgroundColor: AppColors.socialSurface,
+      onRefresh: refresh,
+      child: FutureBuilder<List<ProfileVideo>>(
+        future: future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(
+              child: CircularProgressIndicator(
+                color: AppColors.socialTextMuted,
+              ),
+            );
+          }
+          if (snapshot.hasError) {
+            final error = snapshot.error;
+            return ProfileTabError(
+              message: error is ApiException ? error.message : '$error',
+              onRetry: refresh,
+            );
+          }
+          final videos = snapshot.data ?? const [];
+          if (videos.isEmpty) return empty;
+          return ProfileVideoGrid(videos: videos, tileBuilder: tile);
+        },
+      ),
+    );
   }
 
-  Widget _buildPublicVideoGrid() {
-    return ProfileVideoGrid(
-      videos: _sortedPublicVideos,
-      tileBuilder: (video) => ProfileVideoTile(
+  // TAB 1: VIDEO CỦA MÌNH (kèm badge Chờ duyệt / Bị từ chối)
+  Widget _buildMyVideoGrid() {
+    return _buildVideoTab(
+      future: _myVideos,
+      reload: () {
+        final next = _observed(_repository.getMyVideos());
+        setState(() {
+          _myVideos = next;
+        });
+        return next;
+      },
+      empty: ProfileEmptyTab(
+        icon: Icons.video_library_outlined,
+        title: appStrings.profileNoVideosTitle,
+        subtitle: appStrings.profileNoVideosHint,
+      ),
+      tile: (video) => ProfileVideoTile(
         video: video,
         snackPrefix: appStrings.profileWatchVideo,
-        topLeftBadge: video['isPinned'] == true ? const PinnedBadge() : null,
-        topRightBadge: video['jlpt'] != null
-            ? JlptBadge(label: video['jlpt'] as String)
+        topLeftBadge: ModStatusBadge.maybe(video),
+        topRightBadge: video.jlptLevel != null
+            ? JlptBadge(label: video.jlptLevel!)
             : null,
         bottomIcon: Icons.play_arrow_rounded,
         bottomIconColor: Colors.white,
-        bottomText: video['viewsText'] ?? '0',
+        bottomText: formatCount(video.viewCount),
       ),
     );
   }
 
   // TAB 2: VIDEO ĐÃ LƯU (BOOKMARK)
   Widget _buildSavedVideoGrid() {
-    if (_savedVideos.isEmpty) {
-      return ProfileEmptyTab(
+    return _buildVideoTab(
+      future: _savedVideos,
+      reload: () {
+        final next = _observed(_repository.getSavedVideos());
+        setState(() {
+          _savedVideos = next;
+        });
+        return next;
+      },
+      empty: ProfileEmptyTab(
         icon: Icons.bookmark_border_rounded,
         title: appStrings.profileNoSavedTitle,
         subtitle: appStrings.profileNoSavedHint,
-      );
-    }
-
-    return ProfileVideoGrid(
-      videos: _savedVideos,
-      tileBuilder: (video) => ProfileVideoTile(
+      ),
+      tile: (video) => ProfileVideoTile(
         video: video,
         snackPrefix: appStrings.profileSavedVideo,
-        topRightBadge: video['jlpt'] != null
-            ? JlptBadge(label: video['jlpt'] as String)
+        topRightBadge: video.jlptLevel != null
+            ? JlptBadge(label: video.jlptLevel!)
             : null,
         bottomIcon: Icons.play_arrow_rounded,
         bottomIconColor: Colors.white,
-        bottomText: video['viewsText'] ?? '0',
+        bottomText: formatCount(video.viewCount),
       ),
     );
   }
 
   // TAB 3: TRÁI TIM (VIDEO ĐÃ THÍCH)
   Widget _buildLikedVideoGrid() {
-    return ProfileVideoGrid(
-      videos: _likedVideos,
-      tileBuilder: (video) => ProfileVideoTile(
+    return _buildVideoTab(
+      future: _likedVideos,
+      reload: () {
+        final next = _observed(_repository.getLikedVideos());
+        setState(() {
+          _likedVideos = next;
+        });
+        return next;
+      },
+      empty: ProfileEmptyTab(
+        icon: Icons.favorite_border_rounded,
+        title: appStrings.profileNoLikedTitle,
+        subtitle: appStrings.profileNoLikedHint,
+      ),
+      tile: (video) => ProfileVideoTile(
         video: video,
         snackPrefix: appStrings.profileLikedVideo,
         bottomIcon: Icons.favorite_rounded,
         bottomIconColor: AppColors.socialRed,
-        bottomText: video['likesText'] ?? '0',
+        bottomText: formatCount(video.likeCount),
       ),
     );
   }

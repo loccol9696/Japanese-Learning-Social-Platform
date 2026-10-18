@@ -66,7 +66,6 @@ abstract class AppStrings {
   String get profileLikedVideo;
   String get profileNoSavedTitle;
   String get profileNoSavedHint;
-  String get profilePinned;
   String get profileCreateTitle;
   String get profileCreateVideo;
   String get profileCreateVideoHint;
@@ -86,6 +85,14 @@ abstract class AppStrings {
   String get profileFindContacts;
   String get profileSwitchAccount;
   String get profileAddAccount;
+  String get profileNoVideosTitle;
+  String get profileNoVideosHint;
+  String get profileNoLikedTitle;
+  String get profileNoLikedHint;
+  String get profileStatusPending;
+  String get profileStatusRejected;
+  String get profileLoadFailed;
+  String get profileRetry;
 }
 
 class ViStrings implements AppStrings {
@@ -207,8 +214,6 @@ class ViStrings implements AppStrings {
   @override
   String get profileNoSavedHint => 'Nhấn biểu tượng bookmark trên video để lưu lại và xem sau';
   @override
-  String get profilePinned => 'Đã ghim';
-  @override
   String get profileCreateTitle => 'Tạo nội dung mới';
   @override
   String get profileCreateVideo => 'Thêm Video bài học mới';
@@ -246,6 +251,22 @@ class ViStrings implements AppStrings {
   String get profileSwitchAccount => 'Chuyển đổi tài khoản';
   @override
   String get profileAddAccount => 'Thêm tài khoản mới';
+  @override
+  String get profileNoVideosTitle => 'Chưa có video nào';
+  @override
+  String get profileNoVideosHint => 'Video bài học bạn đăng sẽ hiện ở đây';
+  @override
+  String get profileNoLikedTitle => 'Chưa thích video nào';
+  @override
+  String get profileNoLikedHint => 'Nhấn ♥ trên video để thêm vào danh sách đã thích';
+  @override
+  String get profileStatusPending => 'Chờ duyệt';
+  @override
+  String get profileStatusRejected => 'Bị từ chối';
+  @override
+  String get profileLoadFailed => 'Không tải được dữ liệu';
+  @override
+  String get profileRetry => 'Thử lại';
 }
 
 class EnStrings implements AppStrings {
@@ -367,8 +388,6 @@ class EnStrings implements AppStrings {
   @override
   String get profileNoSavedHint => 'Tap the bookmark icon on a video to save it for later';
   @override
-  String get profilePinned => 'Pinned';
-  @override
   String get profileCreateTitle => 'Create new content';
   @override
   String get profileCreateVideo => 'New lesson video';
@@ -406,6 +425,22 @@ class EnStrings implements AppStrings {
   String get profileSwitchAccount => 'Switch account';
   @override
   String get profileAddAccount => 'Add account';
+  @override
+  String get profileNoVideosTitle => 'No videos yet';
+  @override
+  String get profileNoVideosHint => 'Lesson videos you post will appear here';
+  @override
+  String get profileNoLikedTitle => 'No liked videos yet';
+  @override
+  String get profileNoLikedHint => 'Tap ♥ on a video to add it here';
+  @override
+  String get profileStatusPending => 'Pending';
+  @override
+  String get profileStatusRejected => 'Rejected';
+  @override
+  String get profileLoadFailed => 'Could not load data';
+  @override
+  String get profileRetry => 'Retry';
 }
 
 class JaStrings implements AppStrings {
@@ -527,8 +562,6 @@ class JaStrings implements AppStrings {
   @override
   String get profileNoSavedHint => '動画のブックマークをタップすると、後で見るために保存できます';
   @override
-  String get profilePinned => '固定済み';
-  @override
   String get profileCreateTitle => '新しいコンテンツを作成';
   @override
   String get profileCreateVideo => 'レッスン動画を追加';
@@ -566,4 +599,20 @@ class JaStrings implements AppStrings {
   String get profileSwitchAccount => 'アカウントを切り替え';
   @override
   String get profileAddAccount => 'アカウントを追加';
+  @override
+  String get profileNoVideosTitle => 'まだ動画がありません';
+  @override
+  String get profileNoVideosHint => '投稿したレッスン動画がここに表示されます';
+  @override
+  String get profileNoLikedTitle => 'いいねした動画はまだありません';
+  @override
+  String get profileNoLikedHint => '動画の♥をタップするとここに追加されます';
+  @override
+  String get profileStatusPending => '審査中';
+  @override
+  String get profileStatusRejected => '却下';
+  @override
+  String get profileLoadFailed => 'データを読み込めませんでした';
+  @override
+  String get profileRetry => '再試行';
 }

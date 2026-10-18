@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/localization/locale_manager.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../domain/models/profile_video.dart';
 
 /// Lưới video 3 cột kiểu TikTok dùng cho các tab của màn Profile.
 class ProfileVideoGrid extends StatelessWidget {
@@ -11,12 +13,14 @@ class ProfileVideoGrid extends StatelessWidget {
     required this.tileBuilder,
   });
 
-  final List<Map<String, dynamic>> videos;
-  final Widget Function(Map<String, dynamic> video) tileBuilder;
+  final List<ProfileVideo> videos;
+  final Widget Function(ProfileVideo video) tileBuilder;
 
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
+      // Luôn cuộn được để kéo xuống làm mới kể cả khi ít video.
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(0, 1.5, 0, 100),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -44,7 +48,7 @@ class ProfileVideoTile extends StatelessWidget {
     this.topRightBadge,
   });
 
-  final Map<String, dynamic> video;
+  final ProfileVideo video;
   final String snackPrefix;
   final IconData bottomIcon;
   final Color bottomIconColor;
@@ -58,7 +62,7 @@ class ProfileVideoTile extends StatelessWidget {
       onTap: () {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$snackPrefix: ${video['title']}'),
+            content: Text('$snackPrefix: ${video.title}'),
             backgroundColor: AppColors.socialSurface,
           ),
         );
@@ -68,7 +72,7 @@ class ProfileVideoTile extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            VideoThumbnail(url: video['thumbnail'] as String? ?? ''),
+            VideoThumbnail(url: video.thumbnailUrl),
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -103,12 +107,7 @@ class ProfileVideoTile extends StatelessWidget {
                       color: Colors.white,
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 3,
-                        ),
-                      ],
+                      shadows: [Shadow(color: Colors.black, blurRadius: 3)],
                     ),
                   ),
                 ],
@@ -129,24 +128,24 @@ class VideoThumbnail extends StatelessWidget {
   final String url;
 
   Widget _placeholder({bool loading = false}) => Container(
-        color: AppColors.socialSurface,
-        child: Center(
-          child: loading
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.socialTextMuted,
-                  ),
-                )
-              : const Icon(
-                  Icons.play_circle_outline,
-                  color: AppColors.socialTextMuted,
-                  size: 28,
-                ),
-        ),
-      );
+    color: AppColors.socialSurface,
+    child: Center(
+      child: loading
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.socialTextMuted,
+              ),
+            )
+          : const Icon(
+              Icons.play_circle_outline,
+              color: AppColors.socialTextMuted,
+              size: 28,
+            ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -162,26 +161,43 @@ class VideoThumbnail extends StatelessWidget {
   }
 }
 
-class PinnedBadge extends StatelessWidget {
-  const PinnedBadge({super.key});
+/// Trạng thái duyệt của video do chính mình đăng ("Chờ duyệt" / "Bị từ chối");
+/// video đã duyệt không có badge.
+class ModStatusBadge extends StatelessWidget {
+  const ModStatusBadge({super.key, required this.video});
+
+  final ProfileVideo video;
+
+  /// `null` nếu video không cần badge.
+  static ModStatusBadge? maybe(ProfileVideo video) =>
+      video.isPending || video.isRejected ? ModStatusBadge(video: video) : null;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final rejected = video.isRejected;
+    final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.socialRed,
+        color: rejected
+            ? AppColors.socialRed
+            : Colors.black.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
-        appStrings.profilePinned,
-        style: TextStyle(
+        rejected
+            ? appStrings.profileStatusRejected
+            : appStrings.profileStatusPending,
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 9.5,
           fontWeight: FontWeight.bold,
         ),
       ),
     );
+    final reason = video.rejectionReason;
+    return rejected && reason != null
+        ? Tooltip(message: reason, child: badge)
+        : badge;
   }
 }
 
@@ -225,29 +241,89 @@ class ProfileEmptyTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    // ListView (luôn cuộn được) để kéo xuống làm mới cả khi tab trống.
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(32, 48, 32, 100),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 44, color: Colors.white.withValues(alpha: 0.35)),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
+      children: [
+        Icon(icon, size: 44, color: Colors.white.withValues(alpha: 0.35)),
+        const SizedBox(height: 12),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: AppColors.socialTextMuted,
+            fontSize: 12.5,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Lỗi khi tải một tab: thông báo + nút thử lại.
+class ProfileTabError extends StatelessWidget {
+  const ProfileTabError({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(32, 48, 32, 100),
+      children: [
+        Icon(
+          Icons.cloud_off_rounded,
+          size: 44,
+          color: Colors.white.withValues(alpha: 0.35),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          appStrings.profileLoadFailed,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: AppColors.socialTextMuted,
+            fontSize: 12.5,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Center(
+          child: OutlinedButton(
+            onPressed: onRetry,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: AppColors.socialDivider),
             ),
+            child: Text(appStrings.profileRetry),
           ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.socialTextMuted, fontSize: 12.5),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

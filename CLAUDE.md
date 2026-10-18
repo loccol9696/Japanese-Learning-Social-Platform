@@ -51,7 +51,7 @@ Japanese Learning Social Platform — mạng xã hội video ngắn kết hợp 
 - Màn hình chỉ giữ state + ghép widget; khối UI lớn tách vào `presentation/widgets/` (xem `profile_header.dart`, `profile_video_grid.dart`, `profile_sheets.dart`).
 - Refactor UI: chụp golden tạm (`matchesGoldenFile` + `--update-goldens` trên code cũ) rồi so lại sau khi sửa; không commit ảnh golden (font render khác nhau giữa các OS).
 - Chuỗi giao diện: thêm key vào `core/localization/app_strings.dart` (abstract + `ViStrings`/`EnStrings`/`JaStrings`, nhóm theo màn, tiền tố như `profile*`) và dùng `appStrings.x`; không viết chuỗi tiếng Việt trực tiếp trong widget (Home, Profile đã chuyển; Flashcard/Auth/Video chưa). Đổi ngôn ngữ: `localeManager.changeLanguage(...)` (app tự rebuild); test đổi ngôn ngữ phải trả về `AppLanguage.vi` trong `tearDown`.
-- Profile: danh sách video dùng mock trong `features/profile/data/mock/profile_mock_videos.dart` (chưa nối API danh sách video/saved; BE chưa có `GET` danh sách video đã lưu).
+- Profile dùng dữ liệu thật: hồ sơ/thống kê/video đã lưu/đã thích qua `GET /api/v1/profile[/stats|/saved-videos|/liked-videos]` (JWT), video của mình qua `GET /api/v1/videos/my-status`. Không thêm dữ liệu mẫu/giá trị mặc định giả vào UI hay model; trường backend chưa có (chuỗi ngày học, XP) để `null` và ẩn widget. Danh sách lỗi -> hiển thị lỗi + thử lại, không thay bằng dữ liệu mẫu.
 - **Code chỉ chạy trên web** (`dart:html`, `dart:js_interop`) phải tách bằng conditional export: file chính `export 'x_stub.dart' if (dart.library.js_interop) 'x_web.dart';` (xem `core/services/tts_service.dart`, `profile_storage.dart`). Import trực tiếp sẽ làm `flutter test` (chạy trên VM) không compile được.
 
 ## Web admin (`web/src/`)

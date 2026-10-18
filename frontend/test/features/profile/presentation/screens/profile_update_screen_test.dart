@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/features/profile/domain/models/profile_video.dart';
 import 'package:frontend/features/profile/domain/models/topic_model.dart';
 import 'package:frontend/features/profile/domain/models/user_profile_model.dart';
 import 'package:frontend/features/profile/domain/repositories/profile_repository.dart';
@@ -49,6 +50,18 @@ class _FakeProfileRepository implements ProfileRepository {
     profile = updated;
     return profile;
   }
+
+  @override
+  Future<ProfileStats> getStats() async => const ProfileStats();
+
+  @override
+  Future<List<ProfileVideo>> getMyVideos() async => const [];
+
+  @override
+  Future<List<ProfileVideo>> getSavedVideos() async => const [];
+
+  @override
+  Future<List<ProfileVideo>> getLikedVideos() async => const [];
 }
 
 class _TestHttpOverrides extends HttpOverrides {

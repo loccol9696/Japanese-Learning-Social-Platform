@@ -1,3 +1,4 @@
+import '../../domain/models/profile_video.dart';
 import '../../domain/models/topic_model.dart';
 import '../../domain/models/user_profile_model.dart';
 import '../../domain/repositories/profile_repository.dart';
@@ -22,4 +23,18 @@ class ProfileRepositoryImpl implements ProfileRepository {
   Future<List<TopicModel>> getTopics() {
     return remoteDataSource.fetchTopics();
   }
+
+  @override
+  Future<ProfileStats> getStats() => remoteDataSource.fetchStats();
+
+  @override
+  Future<List<ProfileVideo>> getMyVideos() => remoteDataSource.fetchMyVideos();
+
+  @override
+  Future<List<ProfileVideo>> getSavedVideos() =>
+      remoteDataSource.fetchSavedVideos();
+
+  @override
+  Future<List<ProfileVideo>> getLikedVideos() =>
+      remoteDataSource.fetchLikedVideos();
 }

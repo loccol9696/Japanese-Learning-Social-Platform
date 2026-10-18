@@ -364,9 +364,8 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
   }
 
   Widget _buildAvatarSection() {
-    final avatarUrl = _selectedAvatarUrl.isNotEmpty
-        ? _selectedAvatarUrl
-        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80';
+    // Chưa có avatar -> chỉ hiện icon người (không dùng ảnh mẫu của người khác).
+    final avatarUrl = _selectedAvatarUrl;
 
     return Center(
       child: Stack(
@@ -403,8 +402,8 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
               child: CircleAvatar(
                 radius: 52.0,
                 backgroundColor: AppColors.surfaceCardSubtle,
-                backgroundImage: NetworkImage(avatarUrl),
-                onBackgroundImageError: (_, _) {},
+                backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                onBackgroundImageError: avatarUrl.isNotEmpty ? (_, _) {} : null,
                 child: const Icon(
                   Icons.person_rounded,
                   size: 42.0,

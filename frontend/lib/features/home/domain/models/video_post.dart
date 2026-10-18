@@ -18,8 +18,9 @@ class VideoPost {
   final int likeCount;
   final int commentCount;
   final int shareCount;
-  final int streakDays;
-  final int xp;
+  // Chuỗi ngày học / XP của người xem: null khi backend chưa cung cấp (ẩn huy hiệu)
+  final int? streakDays;
+  final int? xp;
   final bool isLiked;
   final bool isFollowing;
   final double progress;
@@ -43,8 +44,8 @@ class VideoPost {
     required this.likeCount,
     required this.commentCount,
     required this.shareCount,
-    this.streakDays = 7,
-    this.xp = 15,
+    this.streakDays,
+    this.xp,
     this.isLiked = false,
     this.isFollowing = false,
     this.progress = 0.4,
@@ -125,8 +126,8 @@ class VideoPost {
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       shareCount: json['shareCount'] as int? ?? 0,
-      streakDays: json['streakDays'] as int? ?? 7,
-      xp: json['xp'] as int? ?? 15,
+      streakDays: json['streakDays'] as int?,
+      xp: json['xp'] as int?,
       isLiked: json['isLiked'] as bool? ?? false,
       isFollowing: json['isFollowing'] as bool? ?? false,
       progress: (json['progress'] as num?)?.toDouble() ?? 0.4,

@@ -143,7 +143,13 @@ void showAccountSwitcherSheet(
     builder: (ctx) => [
       ListTile(
         leading: CircleAvatar(
-          backgroundImage: NetworkImage(avatarUrl),
+          backgroundColor: AppColors.socialBackground,
+          backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+          // Không có ảnh / ảnh lỗi -> icon người thay vì exception.
+          onBackgroundImageError: avatarUrl.isNotEmpty ? (_, _) {} : null,
+          child: avatarUrl.isEmpty
+              ? const Icon(Icons.person, color: AppColors.socialTextMuted)
+              : null,
         ),
         title: Text(displayName,
             style: const TextStyle(
