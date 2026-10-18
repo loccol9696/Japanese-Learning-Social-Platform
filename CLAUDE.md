@@ -47,6 +47,12 @@ Japanese Learning Social Platform — mạng xã hội video ngắn kết hợp 
 - Profile hiện dùng mock data cục bộ (chưa nối API danh sách video/saved; BE chưa có `GET` danh sách video đã lưu).
 - **Code chỉ chạy trên web** (`dart:html`, `dart:js_interop`) phải tách bằng conditional export: file chính `export 'x_stub.dart' if (dart.library.js_interop) 'x_web.dart';` (xem `core/services/tts_service.dart`, `profile_storage.dart`). Import trực tiếp sẽ làm `flutter test` (chạy trên VM) không compile được.
 
+## Web admin (`web/src/`)
+
+- `components/AdminDashboard.tsx` chỉ là khung (sidebar, header, toast, chọn tab). Mỗi tab là một component trong `components/admin/` nhận `AdminTabProps` (`isActive`, `showToast`, `actionsSlot`, `modalsSlot`).
+- Tab luôn được mount (giữ state khi chuyển tab) và `return null` khi không active; nút trên header và modal render qua `createPortal` vào `actionsSlot` / `modalsSlot` để giữ đúng vị trí DOM.
+- Mọi gọi API trong `services/adminService.ts` qua `apiFetch` (401 → tự đăng xuất). Biểu đồ: `admin/charts.tsx`, `TrendChartCard` + `useMetricTrend`.
+
 ## Ngôn ngữ
 
 UI string và comment chủ yếu bằng tiếng Việt — giữ nguyên phong cách đó.
