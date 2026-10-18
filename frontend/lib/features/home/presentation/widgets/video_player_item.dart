@@ -350,52 +350,58 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
               ),
             ),
 
-          // 6. Right Side Interaction Sidebar — căn giữa theo chiều dọc
-          Positioned(
-            right: 12.0,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: InteractionSidebar(
-                post: widget.post,
-                theme: theme,
-                isSubtitlesVisible: _showSubtitles,
-                onToggleSubtitles: () {
-                  setState(() {
-                    _showSubtitles = !_showSubtitles;
-                  });
-                },
-                onLikeChanged: widget.onLikeChanged,
-                onFollowToggle: widget.onFollowToggle,
-              ),
-            ),
-          ),
-
-          // 7. Bottom Subtitle & Video Metadata Overlay
-          Positioned(
-            left: 16.0,
-            right: 88.0,
-            bottom: 16.0,
+          // 6 + 7. Cột tương tác căn giữa theo chiều dọc trong phần phía trên khối thông tin;
+          // khối phụ đề + thông tin dùng hết chiều ngang (không chừa chỗ cho cột nút) nên
+          // tiêu đề không xuống dòng sớm, và hai phần không bao giờ chồng lên nhau.
+          Positioned.fill(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                AnimatedCrossFade(
-                  firstChild: Padding(
-                    padding: const EdgeInsets.only(bottom: 10.0),
-                    child: RubySubtitleWidget(
-                      rubySegments: displayedSegments,
-                      translation: displayedTranslation,
-                      theme: theme,
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12.0),
+                      child: InteractionSidebar(
+                        post: widget.post,
+                        theme: theme,
+                        isSubtitlesVisible: _showSubtitles,
+                        onToggleSubtitles: () {
+                          setState(() {
+                            _showSubtitles = !_showSubtitles;
+                          });
+                        },
+                        onLikeChanged: widget.onLikeChanged,
+                        onFollowToggle: widget.onFollowToggle,
+                      ),
                     ),
                   ),
-                  secondChild: const SizedBox.shrink(),
-                  crossFadeState: _showSubtitles
-                      ? CrossFadeState.showFirst
-                      : CrossFadeState.showSecond,
-                  duration: const Duration(milliseconds: 250),
                 ),
-                VideoInfoOverlay(post: widget.post, theme: theme),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedCrossFade(
+                        firstChild: Padding(
+                          padding: const EdgeInsets.only(bottom: 10.0),
+                          child: RubySubtitleWidget(
+                            rubySegments: displayedSegments,
+                            translation: displayedTranslation,
+                            theme: theme,
+                          ),
+                        ),
+                        secondChild: const SizedBox.shrink(),
+                        crossFadeState: _showSubtitles
+                            ? CrossFadeState.showFirst
+                            : CrossFadeState.showSecond,
+                        duration: const Duration(milliseconds: 250),
+                      ),
+                      VideoInfoOverlay(post: widget.post, theme: theme),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
