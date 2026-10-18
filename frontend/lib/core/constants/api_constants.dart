@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import 'dart:io' show Platform;
 
 class ApiConstants {
@@ -23,6 +24,8 @@ class ApiConstants {
 
   // User endpoints
   static String userUrl(int id) => '$baseUrl/users/$id';
+  static String get profileUrl => '$baseUrl/profile'; // hồ sơ của chính người dùng (JWT)
+  static String get topicsUrl => '$baseUrl/topics';
 
   // Video & media endpoints
   static String get videosUrl => '$baseUrl/videos';
@@ -41,14 +44,20 @@ class ApiConstants {
   // Flashcard endpoints
   static String get flashcardSetsUrl => '$baseUrl/flashcards/sets';
   static String flashcardSetDetailUrl(int id) => '$baseUrl/flashcards/sets/$id';
-  static String flashcardCardsUrl(int setId) => '$baseUrl/flashcards/sets/$setId/cards';
-  static String flashcardQuizUrl(int setId) => '$baseUrl/flashcards/sets/$setId/quiz';
-  static String flashcardMatchingUrl(int setId) => '$baseUrl/flashcards/sets/$setId/matching';
-  static String flashcardResetUrl(int setId) => '$baseUrl/flashcards/sets/$setId/reset';
-  static String flashcardStarUrl(int cardId) => '$baseUrl/flashcards/cards/$cardId/star';
+  static String flashcardCardsUrl(int setId) =>
+      '$baseUrl/flashcards/sets/$setId/cards';
+  static String flashcardQuizUrl(int setId) =>
+      '$baseUrl/flashcards/sets/$setId/quiz';
+  static String flashcardMatchingUrl(int setId) =>
+      '$baseUrl/flashcards/sets/$setId/matching';
+  static String flashcardResetUrl(int setId) =>
+      '$baseUrl/flashcards/sets/$setId/reset';
+  static String flashcardStarUrl(int cardId) =>
+      '$baseUrl/flashcards/cards/$cardId/star';
   static String get flashcardAnswerUrl => '$baseUrl/flashcards/study/answer';
   static String get flashcardSaveVideoUrl => '$baseUrl/flashcards/video/save';
-  static String get flashcardSaveVideoVocabUrl => '$baseUrl/flashcards/video/save';
+  static String get flashcardSaveVideoVocabUrl =>
+      '$baseUrl/flashcards/video/save';
 
   // Timeouts
   static const Duration connectTimeout = Duration(seconds: 15);

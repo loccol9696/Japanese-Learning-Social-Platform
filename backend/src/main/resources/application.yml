@@ -7,9 +7,9 @@ spring:
   application:
     name: backend
   profiles:
-    active: dev # <-- Đổi từ prod sang dev ở đây làm mặc định khi test
+    active: prod # <-- Đổi từ prod sang dev ở đây làm mặc định khi test
   datasource:
-    url: jdbc:postgresql://aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?user=postgres.uefwrxqatjyszdrburkr&password=ToiYeuNaritaTopRoad26
+    url: jdbc:postgresql://aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?user=postgres.cqonrpjxxluuukjujzbo&password=NaritaTopRoad2027
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -39,13 +39,6 @@ spring:
     enabled: true
 
 
-gcp:
-  project-id: ${GCP_PROJECT_ID:swp391-478004}
-  speech:
-    credentials-path: ${GCP_CREDENTIALS_PATH:classpath:credentials/credentials.json}
-  storage:
-    bucket-name: ${GCP_BUCKET_NAME:sptote_bucket_1}
-
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:dbi35fapj}
   api-key: ${CLOUDINARY_API_KEY:743756871269293}
@@ -74,6 +67,10 @@ spring:
     activate:
       on-profile: dev
 
+gcp:
+  stt:
+    enabled: false
+
 app:
   security:
     enabled: false
@@ -98,3 +95,12 @@ spring:
   app:
   security:
     enabled: true          # Bắt buộc bật toàn bộ filter bảo mật và kiểm tra JWT
+
+gcp:
+  stt:
+    enabled: true
+  project-id: ${GCP_PROJECT_ID:swp391-478004}
+  speech:
+    credentials-path: ${GCP_CREDENTIALS_PATH:classpath:credentials/credentials.json}
+  storage:
+    bucket-name: ${GCP_BUCKET_NAME:sptote_bucket_1}

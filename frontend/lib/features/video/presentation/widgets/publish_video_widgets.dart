@@ -374,3 +374,117 @@ class PrivacyToggleCard extends StatelessWidget {
     );
   }
 }
+
+/// Chọn cách tạo phụ đề: "Tạo bằng AI" (cần tác vụ AI của video) / "Tự nhập".
+class SubtitleModeSelector extends StatelessWidget {
+  final bool isManual;
+  final bool aiAvailable;
+  final bool busy;
+  final VoidCallback onSelectAi;
+  final VoidCallback onSelectManual;
+
+  const SubtitleModeSelector({
+    super.key,
+    required this.isManual,
+    required this.aiAvailable,
+    required this.busy,
+    required this.onSelectAi,
+    required this.onSelectManual,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: AppColors.studioSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _ModeButton(
+              icon: Icons.auto_awesome_rounded,
+              label: 'Tạo bằng AI',
+              selected: !isManual,
+              enabled: aiAvailable && !busy,
+              onTap: onSelectAi,
+            ),
+          ),
+          Expanded(
+            child: _ModeButton(
+              icon: Icons.edit_note_rounded,
+              label: 'Tự nhập',
+              selected: isManual,
+              enabled: !busy,
+              onTap: onSelectManual,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModeButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _ModeButton({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = !enabled
+        ? Colors.white24
+        : (selected ? Colors.white : Colors.white60);
+
+    // Nền vẽ bằng Container, ink trên Material trong suốt phía trên nền.
+    return Container(
+      decoration: BoxDecoration(
+        color: selected ? AppColors.studioSelected : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: enabled && selected ? AppColors.brandPink : foreground,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: foreground,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

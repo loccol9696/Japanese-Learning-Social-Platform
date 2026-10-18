@@ -96,12 +96,14 @@ class ProfileInfoSection extends StatelessWidget {
     super.key,
     required this.displayName,
     required this.avatarUrl,
+    required this.jlptLevel,
     required this.streakDays,
     required this.onCreateContent,
   });
 
   final String displayName;
   final String avatarUrl;
+  final String jlptLevel; // VD: 'N3'; rỗng thì ẩn huy hiệu
   final int streakDays;
   final VoidCallback onCreateContent;
 
@@ -112,7 +114,7 @@ class ProfileInfoSection extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Bên trái: Tên to in đậm + Badge JLPT N3 + Streak tag (ngay dưới tên)
+          // Bên trái: Tên to in đậm + Badge JLPT + Streak tag (ngay dưới tên)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,8 +135,10 @@ class ProfileInfoSection extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildJlptLevelBadge(),
-                    const SizedBox(width: 8),
+                    if (jlptLevel.isNotEmpty) ...[
+                      _buildJlptLevelBadge(),
+                      const SizedBox(width: 8),
+                    ],
                     _buildStreakBadge(),
                   ],
                 ),
@@ -162,18 +166,18 @@ class ProfileInfoSection extends StatelessWidget {
           width: 1,
         ),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.verified_rounded,
             size: 11,
             color: AppColors.socialCyan,
           ),
-          SizedBox(width: 3),
+          const SizedBox(width: 3),
           Text(
-            'JLPT N3',
-            style: TextStyle(
+            'JLPT $jlptLevel',
+            style: const TextStyle(
               color: AppColors.socialCyan,
               fontSize: 10,
               fontWeight: FontWeight.w700,

@@ -36,6 +36,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   bool _isPublic = true;
   bool _isSubmitting = false;
   bool _isTranscribing = false;
+  bool _isManualSubtitleMode = false;
 
   @override
   void initState() {
@@ -43,9 +44,27 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     final name = widget.fileName.replaceFirst(RegExp(r'\.[^.]+$'), '');
     _titleController.text = name;
     _thumbnailController.text = widget.thumbnailUrl;
-    if (widget.aiTaskId != null && widget.aiTaskId!.isNotEmpty) {
-      _loadAiSubtitles(widget.aiTaskId!);
+  }
+
+  /// Chế độ "Tự nhập": thêm một đoạn phụ đề trống (mặc định 0 → tối đa 5 giây đầu).
+  void _addManualSubtitle() {
+    setState(() {
+      _isManualSubtitleMode = true;
+      _subtitles.add(
+        SubtitleDraft(start: '00:00', end: formatMmSs(widget.duration.clamp(1, 5))),
+      );
+    });
+  }
+
+  /// Chế độ "Tạo bằng AI": hỏi kết quả Speech-to-Text của video vừa tải lên.
+  void _startAiSubtitleGeneration() {
+    final taskId = widget.aiTaskId;
+    if (taskId == null || taskId.isEmpty) {
+      _showMessage('Video chưa có tác vụ AI để tạo phụ đề.');
+      return;
     }
+    setState(() => _isManualSubtitleMode = false);
+    _loadAiSubtitles(taskId);
   }
 
   @override
@@ -211,16 +230,24 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           const SizedBox(height: 22),
           const PublishSectionTitle('Phụ đề & Lời thoại'),
           const SizedBox(height: 10),
+          SubtitleModeSelector(
+            isManual: _isManualSubtitleMode,
+            aiAvailable: widget.aiTaskId?.isNotEmpty == true,
+            busy: _isTranscribing,
+            onSelectAi: _startAiSubtitleGeneration,
+            onSelectManual: _addManualSubtitle,
+          ),
+          const SizedBox(height: 12),
           if (_isTranscribing)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: LinearProgressIndicator(color: AppColors.brandPink),
             ),
-          if (!_isTranscribing && _subtitles.isEmpty)
+          if (!_isTranscribing && _subtitles.isEmpty && !_isManualSubtitleMode)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: Text(
-                'Chưa có phụ đề AI. Bạn có thể nhập thủ công bằng nút chỉnh sửa.',
+                'Bạn có thể tạo phụ đề bằng AI hoặc tự nhập lời thoại cho video.',
                 style: TextStyle(color: Colors.white60),
               ),
             ),
@@ -232,6 +259,15 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                 subtitle: subtitle,
                 onToggleEdit: () =>
                     setState(() => subtitle.editing = !subtitle.editing),
+              ),
+            ),
+          if (_isManualSubtitleMode && !_isTranscribing)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _addManualSubtitle,
+                icon: const Icon(Icons.add),
+                label: const Text('Thêm đoạn phụ đề'),
               ),
             ),
           const SizedBox(height: 12),

@@ -2,20 +2,70 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_language.dart';
 import 'package:frontend/core/localization/locale_manager.dart';
+import 'package:frontend/features/profile/domain/models/topic_model.dart';
+import 'package:frontend/features/profile/domain/models/user_profile_model.dart';
+import 'package:frontend/features/profile/domain/repositories/profile_repository.dart';
 import 'package:frontend/features/profile/presentation/screens/profile_screen.dart';
+import 'package:frontend/features/profile/presentation/screens/profile_update_screen.dart';
 import 'package:frontend/features/profile/presentation/widgets/profile_video_grid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Repository giả: trả về hồ sơ hiện tại, đếm số lần nạp.
+class _FakeProfileRepository implements ProfileRepository {
+  _FakeProfileRepository(this.profile);
+
+  UserProfileModel profile;
+  int loads = 0;
+
+  @override
+  Future<UserProfileModel> getProfile() async {
+    loads++;
+    return profile;
+  }
+
+  @override
+  Future<UserProfileModel> updateProfile(UserProfileModel p) async => profile = p;
+
+  @override
+  Future<List<TopicModel>> getTopics() async => const [];
+}
+
+const _alice = UserProfileModel(
+  id: 42,
+  username: 'alice',
+  displayName: 'Alice Tanaka',
+  currentLevel: 'N2',
+);
+
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  late _FakeProfileRepository repository;
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    repository = _FakeProfileRepository(_alice);
+  });
+
+  Future<void> settle(WidgetTester tester) async {
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
 
   Future<void> pumpProfile(WidgetTester tester) async {
     tester.view.physicalSize = const Size(412, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(const MaterialApp(home: ProfileScreen()));
+    await tester.pumpWidget(MaterialApp(home: ProfileScreen(repository: repository)));
     await tester.pump(const Duration(milliseconds: 500));
   }
+
+  testWidgets('hiển thị hồ sơ thật từ repository (tên, username, trình độ)', (tester) async {
+    await pumpProfile(tester);
+
+    expect(find.text('Alice Tanaka'), findsOneWidget);
+    expect(find.text('@alice'), findsOneWidget);
+    expect(find.text('JLPT N2'), findsOneWidget);
+  });
 
   testWidgets('3 tab: video, đã lưu (bookmark), đã thích; không còn Bản nháp',
       (tester) async {
@@ -82,22 +132,19 @@ void main() {
     });
   });
 
-  testWidgets('sửa hồ sơ cập nhật tên hiển thị, bỏ qua tên rỗng', (tester) async {
+  testWidgets('"Sửa hồ sơ" mở ProfileUpdateScreen và nạp lại hồ sơ khi quay về', (tester) async {
     await pumpProfile(tester);
+    expect(repository.loads, 1);
 
     await tester.tap(find.text('Sửa hồ sơ'));
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.enterText(find.byType(TextField).first, '  Tên Mới  ');
-    await tester.tap(find.text('Lưu'));
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Tên Mới'), findsOneWidget);
-    expect(find.text('Đã cập nhật hồ sơ thành công'), findsOneWidget);
+    await settle(tester);
+    expect(find.byType(ProfileUpdateScreen), findsOneWidget);
 
-    await tester.tap(find.text('Sửa hồ sơ'));
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.enterText(find.byType(TextField).first, '   ');
-    await tester.tap(find.text('Lưu'));
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Tên Mới'), findsOneWidget);
+    repository.profile = _alice.copyWith(displayName: 'Alice Mới');
+    Navigator.of(tester.element(find.byType(ProfileUpdateScreen))).pop();
+    await settle(tester);
+
+    expect(repository.loads, greaterThanOrEqualTo(2));
+    expect(find.text('Alice Mới'), findsOneWidget);
   });
 }

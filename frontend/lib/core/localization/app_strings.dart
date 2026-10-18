@@ -3,6 +3,7 @@ abstract class AppStrings {
   String get navHome;
   String get navFlashcards;
   String get navAddVideo;
+  String get navApproveVideo;
   String get navMessages;
   String get navProfile;
 
@@ -60,9 +61,6 @@ abstract class AppStrings {
   String get profileStatFollowers;
   String get profileStatLikes;
   String get profileEdit;
-  String get profileBioLabel;
-  String get profileSave;
-  String get profileUpdated;
   String get profileWatchVideo;
   String get profileSavedVideo;
   String get profileLikedVideo;
@@ -97,6 +95,8 @@ class ViStrings implements AppStrings {
   String get navFlashcards => 'Flashcard';
   @override
   String get navAddVideo => 'Thêm video';
+  @override
+  String get navApproveVideo => 'Duyệt video';
   @override
   String get navMessages => 'Tin nhắn';
   @override
@@ -197,12 +197,6 @@ class ViStrings implements AppStrings {
   @override
   String get profileEdit => 'Sửa hồ sơ';
   @override
-  String get profileBioLabel => 'Tiểu sử';
-  @override
-  String get profileSave => 'Lưu';
-  @override
-  String get profileUpdated => 'Đã cập nhật hồ sơ thành công';
-  @override
   String get profileWatchVideo => 'Xem';
   @override
   String get profileSavedVideo => 'Video đã lưu';
@@ -261,6 +255,8 @@ class EnStrings implements AppStrings {
   String get navFlashcards => 'Flashcards';
   @override
   String get navAddVideo => 'Create';
+  @override
+  String get navApproveVideo => 'Approve';
   @override
   String get navMessages => 'Inbox';
   @override
@@ -361,12 +357,6 @@ class EnStrings implements AppStrings {
   @override
   String get profileEdit => 'Edit profile';
   @override
-  String get profileBioLabel => 'Bio';
-  @override
-  String get profileSave => 'Save';
-  @override
-  String get profileUpdated => 'Profile updated';
-  @override
   String get profileWatchVideo => 'Watch';
   @override
   String get profileSavedVideo => 'Saved video';
@@ -425,6 +415,8 @@ class JaStrings implements AppStrings {
   String get navFlashcards => '単語帳';
   @override
   String get navAddVideo => '投稿';
+  @override
+  String get navApproveVideo => '動画を承認';
   @override
   String get navMessages => 'メッセージ';
   @override
@@ -524,12 +516,6 @@ class JaStrings implements AppStrings {
   String get profileStatLikes => 'いいね';
   @override
   String get profileEdit => 'プロフィールを編集';
-  @override
-  String get profileBioLabel => '自己紹介';
-  @override
-  String get profileSave => '保存';
-  @override
-  String get profileUpdated => 'プロフィールを更新しました';
   @override
   String get profileWatchVideo => '再生';
   @override

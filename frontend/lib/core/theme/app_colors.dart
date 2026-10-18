@@ -70,6 +70,7 @@ class AppColors {
   static const Color studioPanel = Color(0xFF151419); // Khối thông tin/lưu ý
   static const Color studioRaised = Color(0xFF29272D); // Nền icon, tab đang chọn
   static const Color studioBadge = Color(0xFF481D2B);
+  static const Color studioSelected = Color(0xFF48202D); // Nút chế độ đang chọn
   static const Color studioBadgeText = Color(0xFFFF6A88);
 
   // Flashcard Palette (màn bộ thẻ & các chế độ học; dùng chung socialSurface/socialTextMuted)

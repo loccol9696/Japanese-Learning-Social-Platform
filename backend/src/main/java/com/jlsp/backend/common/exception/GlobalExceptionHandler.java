@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -104,6 +105,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
         return error(ErrorCode.FORBIDDEN, ErrorCode.FORBIDDEN.getDefaultMessage());
+    }
+
+    // Đăng nhập sai (AuthenticationManager): thông báo cụ thể thay vì "Vui lòng đăng nhập"
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
+        log.warn("Authentication failed: bad credentials");
+        return error(ErrorCode.UNAUTHORIZED, "Tài khoản hoặc mật khẩu không chính xác");
     }
 
     @ExceptionHandler(AuthenticationException.class)

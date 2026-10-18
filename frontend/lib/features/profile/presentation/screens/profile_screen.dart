@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../../../core/localization/locale_manager.dart';
-import '../../../../core/storage/token_storage.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../data/datasources/profile_remote_datasource.dart';
 import '../../data/mock/profile_mock_videos.dart';
+import '../../data/repositories/profile_repository_impl.dart';
+import '../../domain/models/user_profile_model.dart';
+import '../../domain/repositories/profile_repository.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_sheets.dart';
 import '../widgets/profile_video_grid.dart';
+import 'profile_update_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final ProfileRepository? repository;
+
+  const ProfileScreen({super.key, this.repository});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -18,14 +24,11 @@ class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // Profile User Info
-  String _displayName = 'Nguyễn Hữu Lộc';
-  String _username = '@locnh96';
-  String _bio =
-      'Học tiếng Nhật mỗi ngày 🇯🇵 | N3 Target 2026 🎯 | Luyện Kaiwa & chia sẻ Flashcard';
-  String _avatarUrl =
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80';
-  final int _streakDays = 7;
+  late final ProfileRepository _repository;
+
+  // Hồ sơ thật từ API (/api/v1/profile); datasource tự dùng bản lưu cục bộ khi offline
+  UserProfileModel _profile = const UserProfileModel();
+  final int _streakDays = 7; // Backend chưa có API chuỗi ngày học
 
   final List<Map<String, dynamic>> _publicVideos = mockPublicVideos;
   final List<Map<String, dynamic>> _savedVideos = mockSavedVideos;
@@ -36,7 +39,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.initState();
     // 3 Tabs: Video, Saved (Bookmark), Liked
     _tabController = TabController(length: 3, vsync: this);
-    _loadUserData();
+    _repository = widget.repository ??
+        ProfileRepositoryImpl(remoteDataSource: ProfileRemoteDataSourceImpl());
+    _loadProfile();
   }
 
   @override
@@ -45,29 +50,16 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.dispose();
   }
 
-  Future<void> _loadUserData() async {
-    final userData = await TokenStorage.instance.getUserData();
-    if (userData != null && mounted) {
-      setState(() {
-        if (userData['displayName'] != null &&
-            userData['displayName'].toString().trim().isNotEmpty) {
-          _displayName = userData['displayName'];
-        }
-        if (userData['username'] != null &&
-            userData['username'].toString().trim().isNotEmpty) {
-          _username = '@${userData['username'].toString().replaceAll('@', '')}';
-        }
-        if (userData['bio'] != null &&
-            userData['bio'].toString().trim().isNotEmpty) {
-          _bio = userData['bio'];
-        }
-        if (userData['avatarUrl'] != null &&
-            userData['avatarUrl'].toString().trim().isNotEmpty) {
-          _avatarUrl = userData['avatarUrl'];
-        }
-      });
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await _repository.getProfile();
+      if (mounted) setState(() => _profile = profile);
+    } catch (_) {
+      // Giữ hồ sơ đang hiển thị; datasource đã tự xử lý offline
     }
   }
+
+  String get _usernameLabel => '@${_profile.username.replaceAll('@', '')}';
 
   @override
   Widget build(BuildContext context) {
@@ -79,12 +71,12 @@ class _ProfileScreenState extends State<ProfileScreen>
           children: [
             // 1. Top Bar Header
             ProfileTopBar(
-              username: _username,
+              username: _usernameLabel,
               onSwitchAccount: () => showAccountSwitcherSheet(
                 context,
-                avatarUrl: _avatarUrl,
-                displayName: _displayName,
-                username: _username,
+                avatarUrl: _profile.avatarUrl,
+                displayName: _profile.displayName,
+                username: _usernameLabel,
               ),
               onAddFriends: () => showAddFriendsSheet(context),
               onOpenSettings: () => showSettingsSheet(context),
@@ -92,8 +84,9 @@ class _ProfileScreenState extends State<ProfileScreen>
 
             // 2. Profile Info (Horizontal Layout) - Compact
             ProfileInfoSection(
-              displayName: _displayName,
-              avatarUrl: _avatarUrl,
+              displayName: _profile.displayName,
+              avatarUrl: _profile.avatarUrl,
+              jlptLevel: _profile.currentLevel,
               streakDays: _streakDays,
               onCreateContent: () => showCreateContentSheet(context),
             ),
@@ -126,18 +119,14 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  void _editProfile() {
-    showEditProfileDialog(
-      context,
-      displayName: _displayName,
-      bio: _bio,
-      onSave: (edit) => setState(() {
-        if (edit.displayName.isNotEmpty) {
-          _displayName = edit.displayName;
-        }
-        _bio = edit.bio;
-      }),
+  /// Sửa hồ sơ ở màn ProfileUpdateScreen (lưu lên backend) rồi nạp lại.
+  Future<void> _editProfile() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProfileUpdateScreen(repository: _repository),
+      ),
     );
+    if (mounted) await _loadProfile();
   }
 
   // ===========================================================================

@@ -13,9 +13,9 @@ abstract class ProfileRemoteDataSource {
   Future<List<TopicModel>> fetchTopics();
 }
 
-/// Hồ sơ của người dùng đang đăng nhập: `GET/PUT /api/v1/users/{id}` (id lấy từ
-/// user đã lưu khi đăng nhập, backend kiểm tra quyền bằng JWT). Backend chưa lưu
-/// topics/interests nên hai trường này được giữ ở bộ nhớ cục bộ.
+/// Hồ sơ của người dùng đang đăng nhập: `GET/PUT /api/v1/profile` (backend xác định
+/// người dùng bằng JWT). Chỉ gọi API khi đã đăng nhập. Backend chưa lưu
+/// topics/interests của người dùng nên hai trường này được giữ ở bộ nhớ cục bộ.
 class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   final ApiClient _api;
   final Future<Map<String, dynamic>?> Function() _currentUser;
@@ -61,17 +61,26 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
 
   @override
   Future<List<TopicModel>> fetchTopics() async {
-    // Backend chưa có API danh sách chủ đề
+    try {
+      final data = await _api.get(ApiConstants.topicsUrl, timeout: _timeout);
+      if (data is List && data.isNotEmpty) {
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(TopicModel.fromJson)
+            .toList();
+      }
+    } on ApiException {
+      // Backend offline / lỗi -> danh sách mặc định
+    }
     return _defaultTopics;
   }
 
   @override
   Future<UserProfileModel> fetchProfile() async {
     final local = _getFromStorage();
-    final userId = await _currentUserId();
-    if (userId != null) {
+    if (await _isLoggedIn()) {
       try {
-        final data = await _api.get(ApiConstants.userUrl(userId), timeout: _timeout);
+        final data = await _api.get(ApiConstants.profileUrl, timeout: _timeout);
         if (data is Map<String, dynamic>) {
           final profile = _withLocalOnlyFields(UserProfileModel.fromJson(data), local);
           _saveToStorage(profile);
@@ -89,13 +98,12 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     // Lưu cục bộ ngay để không mất dữ liệu khi backend lỗi
     _saveToStorage(profile);
 
-    final userId = await _currentUserId();
-    if (userId == null) {
+    if (!await _isLoggedIn()) {
       return profile;
     }
     try {
       final data = await _api.put(
-        ApiConstants.userUrl(userId),
+        ApiConstants.profileUrl,
         body: profile.toUpdateJson(),
         timeout: _timeout,
       );
@@ -110,10 +118,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     return profile;
   }
 
-  Future<int?> _currentUserId() async {
-    final id = (await _currentUser())?['id'];
-    return id is int ? id : int.tryParse('${id ?? ''}');
-  }
+  Future<bool> _isLoggedIn() async => (await _currentUser()) != null;
 
   UserProfileModel _withLocalOnlyFields(UserProfileModel server, UserProfileModel? local) {
     if (local == null) return server;

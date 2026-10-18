@@ -35,7 +35,7 @@ void main() {
     );
   }
 
-  test('fetchProfile reads the logged-in user from /users/{id}', () async {
+  test('fetchProfile reads the logged-in user from /profile (JWT, no user id in URL)', () async {
     late http.Request sent;
     final ds = dataSource(MockClient((request) async {
       sent = request;
@@ -45,13 +45,14 @@ void main() {
     final profile = await ds.fetchProfile();
 
     expect(sent.method, 'GET');
-    expect(sent.url.path, '/api/v1/users/42');
+    expect(sent.url.path, '/api/v1/profile');
     expect(sent.headers['Authorization'], 'Bearer jwt');
+    expect(sent.headers.containsKey('X-User-Id'), isFalse);
     expect(profile.displayName, 'Alice');
     expect(profile.currentLevel, 'N3');
   });
 
-  test('updateProfile PUTs to /users/{id} and keeps local-only interests', () async {
+  test('updateProfile PUTs to /profile and keeps local-only interests', () async {
     late http.Request sent;
     final ds = dataSource(MockClient((request) async {
       sent = request;
@@ -73,7 +74,7 @@ void main() {
     final saved = await ds.updateProfile(edited);
 
     expect(sent.method, 'PUT');
-    expect(sent.url.path, '/api/v1/users/42');
+    expect(sent.url.path, '/api/v1/profile');
     expect(jsonDecode(sent.body)['displayName'], 'Alice 2');
     expect(saved.displayName, 'Alice 2');
     // Backend chưa lưu interests -> không được làm mất lựa chọn của người dùng
@@ -102,5 +103,25 @@ void main() {
     final profile = await ds.fetchProfile();
 
     expect(profile, isA<UserProfileModel>());
+  });
+
+  test('fetchTopics reads /topics and falls back to defaults on failure', () async {
+    http.Response okList(List<Map<String, dynamic>> data) => http.Response.bytes(
+          utf8.encode(jsonEncode({'status': 200, 'data': data})),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+
+    final ds = dataSource(MockClient((request) async {
+      expect(request.url.path, '/api/v1/topics');
+      return okList([
+        {'id': 7, 'name': 'Kanji & Hán tự'},
+      ]);
+    }));
+    final topics = await ds.fetchTopics();
+    expect(topics.map((t) => t.name), ['Kanji & Hán tự']);
+
+    final offline = dataSource(MockClient((_) async => http.Response('', 503)));
+    expect(await offline.fetchTopics(), isNotEmpty);
   });
 }

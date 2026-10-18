@@ -72,7 +72,10 @@ void main() {
             },
           }));
       await pumpPublish(tester, aiTaskId: 't1');
+      expect(requests, isEmpty); // không tự gọi AI khi mở màn
 
+      await tester.tap(find.text('Tạo bằng AI'));
+      await settle(tester);
       expect(requests.single.url.path, '/api/speech/status/t1');
       expect(find.text('こんにちは'), findsOneWidget);
       expect(find.text('00:00 - 00:03'), findsOneWidget);
@@ -83,6 +86,8 @@ void main() {
             'data': {'status': 'FAILED', 'errorMessage': 'Không nhận dạng được giọng nói'},
           }));
       await pumpPublish(tester, aiTaskId: 't2');
+      await tester.tap(find.text('Tạo bằng AI'));
+      await settle(tester);
 
       expect(find.text('Không nhận dạng được giọng nói'), findsOneWidget);
       expect(find.byType(LinearProgressIndicator), findsNothing);
@@ -91,6 +96,8 @@ void main() {
     testWidgets('rời màn hình thì ngừng hỏi trạng thái AI', (tester) async {
       useApi((_) => _json({'data': {'status': 'PROCESSING'}}));
       await pumpPublish(tester, aiTaskId: 't3');
+      await tester.tap(find.text('Tạo bằng AI'));
+      await settle(tester);
       expect(requests, hasLength(1));
 
       await tester.tap(find.byIcon(Icons.arrow_back));
@@ -98,6 +105,25 @@ void main() {
       await tester.pump(const Duration(seconds: 30));
 
       expect(requests.length, lessThanOrEqualTo(2));
+    });
+
+    testWidgets('"Tự nhập": thêm đoạn phụ đề và gửi kèm khi đăng', (tester) async {
+      useApi((req) => _json({'data': {'videoId': 1}}));
+      await pumpPublish(tester);
+
+      await tester.tap(find.text('Tự nhập'));
+      await settle(tester);
+      expect(find.text('Thêm đoạn phụ đề'), findsOneWidget);
+      await tester.enterText(find.widgetWithText(TextField, 'Tiếng Nhật'), 'こんにちは');
+      await tester.enterText(find.widgetWithText(TextField, 'Bản dịch'), 'Xin chào');
+      await tester.tap(find.text('Đăng video bài học'));
+      await settle(tester);
+
+      final body = jsonDecode(requests.single.body) as Map<String, dynamic>;
+      expect(jsonDecode(body['subtitles'] as String), [
+        {'start': '00:00', 'end': '00:01', 'text': 'こんにちは', 'translation': 'Xin chào'},
+      ]);
+      expect(requests.single.headers.containsKey('X-User-Id'), isFalse);
     });
 
     testWidgets('đăng gửi đúng body và đóng cả màn tải lên', (tester) async {
