@@ -3,7 +3,9 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
+import '../../../../core/video/autoplay_policy.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
@@ -33,7 +35,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   bool _isPlaying = true;
   bool _showRipple = false;
   bool _showSubtitles = true;
-  bool _hasInteracted = false;
+  // Đang phát không tiếng vì trình duyệt chưa cho tự phát có tiếng -> hiện nút bật tiếng.
+  bool _isMuted = false;
   double _videoProgress = 0.0;
 
   late final AnimationController _rippleController;
@@ -77,7 +80,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     try {
       await controller.initialize();
       await controller.setLooping(true);
-      await controller.setVolume(0);
+      // Phát có tiếng nếu được phép; web chưa có tương tác (vd. tải lại trang) thì
+      // trình duyệt chặn tiếng -> phát không tiếng và chờ người dùng chạm để bật.
+      final muted = !canAutoplayWithSound();
+      await controller.setVolume(muted ? 0 : 1);
+      _isMuted = muted;
       controller.addListener(_updateActiveSubtitle);
       if (!mounted || _videoController != controller) return;
       setState(() {});
@@ -142,11 +149,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
 
   void _handleTapToPlayPause() {
     final controller = _videoController;
-    if (controller != null &&
-        controller.value.isInitialized &&
-        !_hasInteracted) {
-      _hasInteracted = true;
+    // Chạm lần đầu khi đang tắt tiếng: bật tiếng (và tiếp tục phát) thay vì tạm dừng.
+    if (controller != null && controller.value.isInitialized && _isMuted) {
       setState(() {
+        _isMuted = false;
         _isPlaying = true;
         _showRipple = true;
       });
@@ -265,6 +271,41 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
               ),
             ),
           ),
+
+          // 4b. Gợi ý bật tiếng khi trình duyệt buộc phát không tiếng
+          if (_isMuted && _videoController?.value.isInitialized == true)
+            Positioned(
+              top: 72.0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(20.0),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.volume_off_rounded, color: Colors.white, size: 18.0),
+                        const SizedBox(width: 6.0),
+                        Text(
+                          appStrings.homeTapToUnmute,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13.0,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
           // 5. Center Play / Pause Animated Ripple Icon
           if (_showRipple)

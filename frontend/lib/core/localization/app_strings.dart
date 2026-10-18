@@ -91,6 +91,7 @@ abstract class AppStrings {
   String get profileLoadFailed;
   String get profileRetry;
   String homeViews(String count);
+  String get homeTapToUnmute;
 }
 
 class ViStrings implements AppStrings {
@@ -261,6 +262,8 @@ class ViStrings implements AppStrings {
   String get profileRetry => 'Thử lại';
   @override
   String homeViews(String count) => '$count lượt xem';
+  @override
+  String get homeTapToUnmute => 'Chạm để bật tiếng';
 }
 
 class EnStrings implements AppStrings {
@@ -431,6 +434,8 @@ class EnStrings implements AppStrings {
   String get profileRetry => 'Retry';
   @override
   String homeViews(String count) => '$count views';
+  @override
+  String get homeTapToUnmute => 'Tap to unmute';
 }
 
 class JaStrings implements AppStrings {
@@ -601,4 +606,6 @@ class JaStrings implements AppStrings {
   String get profileRetry => '再試行';
   @override
   String homeViews(String count) => '$count回視聴';
+  @override
+  String get homeTapToUnmute => 'タップして音声をオン';
 }
