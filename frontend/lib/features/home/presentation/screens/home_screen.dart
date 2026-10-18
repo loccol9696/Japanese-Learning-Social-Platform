@@ -14,6 +14,8 @@ import '../widgets/video_player_item.dart';
 import '../../../flashcard/presentation/screens/deck_library_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 
+import '../../../../core/storage/token_storage.dart';
+
 class HomeScreen extends StatefulWidget {
   final HomeRepository? repository;
 
@@ -31,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentNavIndex = 0;
   int _currentPostIndex = 0;
   bool _isLoading = true;
+  bool _isModerator = false;
   List<VideoPost> _posts = [];
 
   @override
@@ -40,7 +43,16 @@ class _HomeScreenState extends State<HomeScreen> {
         widget.repository ??
         HomeRepositoryImpl(remoteDataSource: HomeRemoteDataSourceImpl());
     _pageController = PageController();
+    _checkRole();
     _loadFeed();
+  }
+
+  Future<void> _checkRole() async {
+    final userData = await TokenStorage.instance.getUserData();
+    final role = userData?['role']?.toString().toUpperCase();
+    if (mounted && (role == 'MODERATOR' || role == 'ADMIN')) {
+      setState(() => _isModerator = true);
+    }
   }
 
   @override
@@ -78,7 +90,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onNavTabSelected(int index) {
     if (index == 2) {
-      Navigator.of(context).pushNamed(AppRoutes.upload);
+      if (_isModerator) {
+        Navigator.of(context).pushNamed(AppRoutes.moderationQueue);
+      } else {
+        Navigator.of(context).pushNamed(AppRoutes.upload);
+      }
       return;
     }
     setState(() {
@@ -146,6 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: BottomNavDock(
               selectedIndex: _currentNavIndex,
               onTabSelected: _onNavTabSelected,
+              isModerator: _isModerator,
             ),
           ),
         ],

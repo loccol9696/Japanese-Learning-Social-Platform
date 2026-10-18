@@ -46,6 +46,17 @@ class ApiConstants {
   static String speechStatusUrl(String taskId) =>
       '${baseUrl.replaceFirst('/api/v1', '/api')}/speech/status/$taskId';
 
+  // Profile endpoints
+  static String get profileUrl => '$baseUrl/profile';
+  static String get topicsUrl => '$baseUrl/topics';
+
+  // Video & Moderation endpoints
+  static String get myVideosStatusUrl => '$baseUrl/videos/my-status';
+  static String userVideosUrl(int userId) => '$baseUrl/users/$userId/videos';
+  static String get moderationVideosUrl => '$baseUrl/videos/moderation';
+  static String approveVideoUrl(int videoId) => '$baseUrl/videos/$videoId/approve';
+  static String rejectVideoUrl(int videoId) => '$baseUrl/videos/$videoId/reject';
+
   // Timeouts
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 15);

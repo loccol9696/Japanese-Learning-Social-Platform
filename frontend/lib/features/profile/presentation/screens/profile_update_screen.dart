@@ -1,4 +1,13 @@
+import 'dart:convert';
+import 'dart:io' show File;
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/datasources/profile_remote_datasource.dart';
@@ -33,6 +42,8 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isUploadingAvatar = false;
+  Uint8List? _localAvatarBytes;
 
   UserProfileModel _profile = const UserProfileModel();
   List<TopicModel> _availableTopics = [];
@@ -84,6 +95,118 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     });
   }
 
+  Future<void> _pickImageFromDevice() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+
+      if (!mounted || result == null || result.files.isEmpty) {
+        return;
+      }
+
+      final file = result.files.single;
+      Uint8List? bytes = file.bytes;
+      if (bytes == null && !kIsWeb && file.path != null) {
+        final ioFile = File(file.path!);
+        if (await ioFile.exists()) {
+          bytes = await ioFile.readAsBytes();
+        }
+      }
+
+      if (bytes == null) {
+        return;
+      }
+
+      setState(() {
+        _localAvatarBytes = bytes;
+        _isUploadingAvatar = true;
+      });
+
+      // Upload to Cloudinary media endpoint
+      try {
+        final uri = Uri.parse('${ApiConstants.baseUrl}/media/upload?folder=jlsp/avatars');
+        final request = http.MultipartRequest('POST', uri);
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            bytes,
+            filename: file.name.isNotEmpty ? file.name : 'avatar.png',
+          ),
+        );
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          final jsonBody = jsonDecode(response.body);
+          final data = jsonBody['data'];
+          final uploadedUrl = data != null ? (data['secureUrl'] ?? data['url']) as String? : null;
+
+          if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+            if (!mounted) return;
+            setState(() {
+              _selectedAvatarUrl = uploadedUrl;
+              _isUploadingAvatar = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: AppColors.success),
+                    SizedBox(width: 8),
+                    Text('Đã tải ảnh lên thành công!'),
+                  ],
+                ),
+                backgroundColor: AppColors.surfaceContainerHigh,
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 2),
+              ),
+            );
+            return;
+          }
+        }
+      } catch (uploadErr) {
+        debugPrint('[ProfileUpdateScreen] Cloud upload error: $uploadErr');
+      }
+
+      // Fallback: encode as base64 data URI so it can be saved and displayed anywhere
+      if (!mounted) return;
+      final extension = file.extension ?? 'png';
+      final base64String = base64Encode(bytes);
+      final dataUri = 'data:image/$extension;base64,$base64String';
+      setState(() {
+        _selectedAvatarUrl = dataUri;
+        _isUploadingAvatar = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: AppColors.success),
+              SizedBox(width: 8),
+              Text('Đã chọn ảnh từ thiết bị!'),
+            ],
+          ),
+          backgroundColor: AppColors.surfaceContainerHigh,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isUploadingAvatar = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không thể chọn ảnh: $e'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   void _openAvatarPicker() {
     showModalBottomSheet(
       context: context,
@@ -95,8 +218,10 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
           onAvatarSelected: (newUrl) {
             setState(() {
               _selectedAvatarUrl = newUrl;
+              _localAvatarBytes = null;
             });
           },
+          onPickFromDevice: _pickImageFromDevice,
         );
       },
     );
@@ -153,6 +278,11 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
+
+      // Thoát khỏi màn hình cập nhật và điều hướng về trang cá nhân
+      if (Navigator.canPop(context)) {
+        Navigator.of(context).pop(true);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -368,83 +498,159 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
         ? _selectedAvatarUrl
         : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80';
 
-    return Center(
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Halo glow border
-          Container(
-            width: 114.0,
-            height: 114.0,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.periwinkle.withValues(alpha: 0.35),
-                  blurRadius: 24.0,
-                  spreadRadius: 2.0,
-                ),
-              ],
-            ),
-          ),
-          // Avatar Image
-          GestureDetector(
-            onTap: _openAvatarPicker,
-            child: Container(
-              padding: const EdgeInsets.all(3.5),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [AppColors.periwinkle, AppColors.sakuraPink],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: CircleAvatar(
-                radius: 52.0,
-                backgroundColor: AppColors.surfaceCardSubtle,
-                backgroundImage: NetworkImage(avatarUrl),
-                onBackgroundImageError: (_, __) {},
-                child: const Icon(
-                  Icons.person_rounded,
-                  size: 42.0,
-                  color: AppColors.softSkyBlue,
-                ),
-              ),
-            ),
-          ),
-          // Camera/Edit Icon Badge
-          Positioned(
-            bottom: 2.0,
-            right: 2.0,
-            child: GestureDetector(
-              onTap: _openAvatarPicker,
-              child: Container(
-                padding: const EdgeInsets.all(7.5),
+    ImageProvider avatarImage;
+    if (_localAvatarBytes != null) {
+      avatarImage = MemoryImage(_localAvatarBytes!);
+    } else {
+      avatarImage = NetworkImage(avatarUrl);
+    }
+
+    return Column(
+      children: [
+        Center(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Halo glow border
+              Container(
+                width: 114.0,
+                height: 114.0,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.periwinkle,
-                  border: Border.all(
-                    color: AppColors.backgroundCanvas,
-                    width: 2.5,
-                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.periwinkle.withValues(alpha: 0.45),
-                      blurRadius: 8.0,
+                      color: AppColors.periwinkle.withValues(alpha: 0.35),
+                      blurRadius: 24.0,
+                      spreadRadius: 2.0,
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.camera_alt_rounded,
-                  size: 16.0,
-                  color: Colors.white,
+              ),
+              // Avatar Image
+              GestureDetector(
+                onTap: _openAvatarPicker,
+                child: Container(
+                  padding: const EdgeInsets.all(3.5),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [AppColors.periwinkle, AppColors.sakuraPink],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 52.0,
+                    backgroundColor: AppColors.surfaceCardSubtle,
+                    backgroundImage: avatarImage,
+                    onBackgroundImageError: (context, error) {},
+                    child: _isUploadingAvatar
+                        ? Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.black.withValues(alpha: 0.5),
+                            ),
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              // Camera/Edit Icon Badge
+              Positioned(
+                bottom: 2.0,
+                right: 2.0,
+                child: GestureDetector(
+                  onTap: _pickImageFromDevice,
+                  child: Container(
+                    padding: const EdgeInsets.all(7.5),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.periwinkle,
+                      border: Border.all(
+                        color: AppColors.backgroundCanvas,
+                        width: 2.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.periwinkle.withValues(alpha: 0.45),
+                          blurRadius: 8.0,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      size: 16.0,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8.0),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8.0,
+          runSpacing: 6.0,
+          children: [
+            InkWell(
+              onTap: _isUploadingAvatar ? null : _pickImageFromDevice,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.periwinkle.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.periwinkle.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_isUploadingAvatar)
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.periwinkle),
+                      )
+                    else
+                      const Icon(Icons.file_upload_outlined, size: 15, color: AppColors.periwinkle),
+                    const SizedBox(width: 4),
+                    const Text('Tải ảnh từ máy', style: TextStyle(color: AppColors.periwinkle, fontSize: 12, fontWeight: FontWeight.w600)),
+                  ],
                 ),
               ),
             ),
-          ),
-        ],
-      ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: _openAvatarPicker,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceCardSubtle,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.softSkyBlue.withValues(alpha: 0.2)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.face_rounded, size: 15, color: AppColors.textSecondary),
+                    SizedBox(width: 4),
+                    Text('Chọn mẫu', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

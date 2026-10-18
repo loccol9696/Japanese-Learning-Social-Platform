@@ -37,6 +37,9 @@ class App extends StatelessWidget {
           scrollBehavior: const AppScrollBehavior(),
           initialRoute: AppRoutes.login,
           routes: AppRoutes.routes,
+          onUnknownRoute: (settings) => MaterialPageRoute(
+            builder: (context) => AppRoutes.routes[AppRoutes.home]!(context),
+          ),
         );
       },
     );

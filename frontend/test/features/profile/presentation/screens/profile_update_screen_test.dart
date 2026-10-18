@@ -6,8 +6,11 @@ import 'package:frontend/features/profile/domain/models/topic_model.dart';
 import 'package:frontend/features/profile/domain/models/user_profile_model.dart';
 import 'package:frontend/features/profile/domain/repositories/profile_repository.dart';
 import 'package:frontend/features/profile/presentation/screens/profile_update_screen.dart';
+import 'package:frontend/features/profile/presentation/widgets/avatar_picker_sheet.dart';
 import 'package:frontend/features/profile/presentation/widgets/interest_tags_selector.dart';
 import 'package:frontend/features/profile/presentation/widgets/jlpt_level_selector.dart';
+
+import 'package:frontend/features/video/domain/models/user_video_model.dart';
 
 class _FakeProfileRepository implements ProfileRepository {
   UserProfileModel profile = const UserProfileModel(
@@ -49,6 +52,21 @@ class _FakeProfileRepository implements ProfileRepository {
     profile = updated;
     return profile;
   }
+
+  @override
+  Future<List<UserVideoModel>> getUserVideos({int? userId}) async => [];
+
+  @override
+  Future<List<UserVideoModel>> getMyVideosStatus() async => [];
+
+  @override
+  Future<List<UserVideoModel>> getModerationVideos({String status = 'PENDING'}) async => [];
+
+  @override
+  Future<void> approveVideo(int videoId) async {}
+
+  @override
+  Future<void> rejectVideo(int videoId, String reason) async {}
 }
 
 class _TestHttpOverrides extends HttpOverrides {
@@ -182,6 +200,8 @@ void main() {
     await tester.pump();
 
     // Select topic 'Luyện thi JLPT'
+    await tester.ensureVisible(find.text('Luyện thi JLPT'));
+    await tester.pump();
     await tester.tap(find.text('Luyện thi JLPT'));
     await tester.pump();
 
@@ -196,5 +216,35 @@ void main() {
     expect(fakeRepo.updateProfileCalled, isTrue);
     expect(fakeRepo.profile.currentLevel, equals('N1'));
     expect(fakeRepo.profile.interests.contains('Luyện thi JLPT'), isTrue);
+  });
+
+  testWidgets('ProfileUpdateScreen renders device avatar import button and opens AvatarPickerSheet',
+      (WidgetTester tester) async {
+    final fakeRepo = _FakeProfileRepository();
+
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProfileUpdateScreen(repository: fakeRepo),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Verify avatar buttons are present
+    expect(find.text('Tải ảnh từ máy'), findsOneWidget);
+    expect(find.text('Chọn mẫu'), findsOneWidget);
+
+    // Tap "Chọn mẫu" to open AvatarPickerSheet
+    await tester.tap(find.text('Chọn mẫu'));
+    await tester.pumpAndSettle();
+
+    // Verify AvatarPickerSheet opened and has "Tải ảnh từ máy / thiết bị" option
+    expect(find.text('Tải ảnh từ máy / thiết bị'), findsOneWidget);
+    expect(find.byType(AvatarPickerSheet), findsOneWidget);
   });
 }

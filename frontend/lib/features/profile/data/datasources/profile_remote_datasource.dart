@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/storage/token_storage.dart';
+import '../../../video/domain/models/user_video_model.dart';
 import '../../domain/models/topic_model.dart';
 import '../../domain/models/user_profile_model.dart';
 import 'profile_storage.dart';
@@ -10,6 +11,11 @@ abstract class ProfileRemoteDataSource {
   Future<UserProfileModel> fetchProfile({int? userId});
   Future<UserProfileModel> updateProfile(UserProfileModel profile, {int? userId});
   Future<List<TopicModel>> fetchTopics();
+  Future<List<UserVideoModel>> fetchUserVideos({int? userId});
+  Future<List<UserVideoModel>> fetchMyVideosStatus();
+  Future<List<UserVideoModel>> fetchModerationVideos({String status = 'PENDING'});
+  Future<void> approveVideo(int videoId);
+  Future<void> rejectVideo(int videoId, String reason);
 }
 
 class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
@@ -197,6 +203,116 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     }
 
     return profile;
+  }
+
+  Future<Map<String, String>> _getHeaders({int? userId}) async {
+    final userData = await TokenStorage.instance.getUserData();
+    final effectiveUserId = userId ??
+        (userData != null
+            ? (userData['id'] is int
+                ? userData['id'] as int
+                : int.tryParse(userData['id']?.toString() ?? ''))
+            : null);
+    final token = await TokenStorage.instance.getAccessToken();
+
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    if (effectiveUserId != null) {
+      headers['X-User-Id'] = effectiveUserId.toString();
+    }
+    return headers;
+  }
+
+  @override
+  Future<List<UserVideoModel>> fetchUserVideos({int? userId}) async {
+    try {
+      final userData = await TokenStorage.instance.getUserData();
+      final effectiveUserId = userId ??
+          (userData != null
+              ? (userData['id'] is int
+                  ? userData['id'] as int
+                  : int.tryParse(userData['id']?.toString() ?? ''))
+              : 1);
+      final headers = await _getHeaders(userId: effectiveUserId);
+      final url = ApiConstants.userVideosUrl(effectiveUserId ?? 1);
+      final response = await _client.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 6));
+      if (response.statusCode == 200) {
+        final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = jsonMap['data'];
+        final List<dynamic> list = data is Map<String, dynamic>
+            ? (data['content'] as List<dynamic>? ?? [])
+            : (data is List<dynamic> ? data : []);
+        return list.map((item) => UserVideoModel.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  @override
+  Future<List<UserVideoModel>> fetchMyVideosStatus() async {
+    try {
+      final headers = await _getHeaders();
+      final url = ApiConstants.myVideosStatusUrl;
+      final response = await _client.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 6));
+      if (response.statusCode == 200) {
+        final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = jsonMap['data'];
+        final List<dynamic> list = data is Map<String, dynamic>
+            ? (data['content'] as List<dynamic>? ?? [])
+            : (data is List<dynamic> ? data : []);
+        return list.map((item) => UserVideoModel.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  @override
+  Future<List<UserVideoModel>> fetchModerationVideos({String status = 'PENDING'}) async {
+    try {
+      final headers = await _getHeaders();
+      final url = '${ApiConstants.moderationVideosUrl}?status=$status';
+      final response = await _client.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 6));
+      if (response.statusCode == 200) {
+        final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = jsonMap['data'];
+        final List<dynamic> list = data is Map<String, dynamic>
+            ? (data['content'] as List<dynamic>? ?? [])
+            : (data is List<dynamic> ? data : []);
+        return list.map((item) => UserVideoModel.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  @override
+  Future<void> approveVideo(int videoId) async {
+    final headers = await _getHeaders();
+    final url = ApiConstants.approveVideoUrl(videoId);
+    final response = await _client.post(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 6));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      throw Exception(body['message'] ?? 'Phê duyệt video thất bại');
+    }
+  }
+
+  @override
+  Future<void> rejectVideo(int videoId, String reason) async {
+    final headers = await _getHeaders();
+    final url = ApiConstants.rejectVideoUrl(videoId);
+    final response = await _client.post(
+      Uri.parse(url),
+      headers: headers,
+      body: jsonEncode({'reason': reason}),
+    ).timeout(const Duration(seconds: 6));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      throw Exception(body['message'] ?? 'Từ chối duyệt video thất bại');
+    }
   }
 
   void _saveToStorage(UserProfileModel profile) {
