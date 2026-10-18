@@ -11,6 +11,7 @@ import '../../domain/repositories/home_repository.dart';
 import '../widgets/bottom_nav_dock.dart';
 import '../widgets/home_header.dart';
 import '../widgets/video_player_item.dart';
+import '../../../profile/presentation/screens/profile_update_screen.dart';
 
 import '../../../flashcard/presentation/screens/deck_library_screen.dart';
 
