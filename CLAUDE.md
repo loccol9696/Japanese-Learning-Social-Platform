@@ -29,7 +29,10 @@ Japanese Learning Social Platform — mạng xã hội video ngắn kết hợp 
 - Không "fallback" âm thầm khi thiếu dữ liệu (user/gói đầu tiên trong DB, giá trị mặc định thay cho input sai) → ném `AppException`. Request DTO dùng Bean Validation + `@Valid`; DTO cho PATCH chỉ dùng ràng buộc cho phép `null` (`@Size(min = 1)`).
 - Seed data: `src/main/resources/data.sql` + `common/config/DataInitializer`.
 - `application.yml` nằm trong `backend/.gitignore` nhưng **vẫn đang được git track** → đừng `git add` thay đổi local của nó; mẫu cấu hình ở `application.yml.txt`.
-- `BackendApplicationTests` (context load) cần PostgreSQL + Redis chạy sẵn; chạy riêng test không cần DB: `./mvnw test -Dtest="SecurityRulesTest,DevModeIdentityTest,GlobalExceptionHandlerTest"`.
+- `BackendApplicationTests` (context load) kết nối DB thật theo `application.yml` (profile `dev` trỏ tới DB dùng chung, `ddl-auto: update`) → **đừng chạy nó trên máy dev**. Chạy mọi test còn lại (không cần DB): `./mvnw test -Dtest='!BackendApplicationTests' -Dsurefire.failIfNoSpecifiedTests=false`.
+- Thêm/sửa `@Query`: `AggregateQueryValidationTest` (`@DataJpaTest`, datasource giả, `allow_jdbc_metadata_access=false`) validate cú pháp HQL mà không cần DB.
+- Thống kê/báo cáo: gom nhóm trong DB (`COUNT/SUM ... GROUP BY`, projection như `common/projection/DailyTotal`), không `findAll()` rồi lọc bằng stream.
+- Endpoint cũ giữ để tương thích: `@Deprecated` + header `Deprecation`/`Link` (xem `VideoController#deprecated`), xóa ở bản sau.
 
 ## Frontend (`frontend/lib/`)
 

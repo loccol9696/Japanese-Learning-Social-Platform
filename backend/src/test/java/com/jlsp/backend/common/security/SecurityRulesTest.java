@@ -31,6 +31,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -85,6 +86,17 @@ class SecurityRulesTest {
                         .param("currentUserId", "1"))
                 .andExpect(status().isOk());
         verify(videoService).likeVideo(5L, 42L);
+    }
+
+    @Test
+    void legacyToggleLikeStillWorksButAdvertisesSuccessor() throws Exception {
+        when(videoService.toggleLike(5L, 42L)).thenReturn(true);
+
+        mvc.perform(post("/api/v1/videos/5/like").header("Authorization", "Bearer " + USER_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Deprecation", "true"))
+                .andExpect(header().string("Link", "</api/v1/videos/5/likes>; rel=\"successor-version\""))
+                .andExpect(jsonPath("$.data").value(true));
     }
 
     @Test

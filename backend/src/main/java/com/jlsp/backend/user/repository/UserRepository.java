@@ -1,5 +1,6 @@
 package com.jlsp.backend.user.repository;
 
+import com.jlsp.backend.common.projection.DailyTotal;
 import com.jlsp.backend.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -37,6 +38,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByRole(com.jlsp.backend.user.entity.UserRole role);
 
     long countByRoleAndIsActive(com.jlsp.backend.user.entity.UserRole role, Boolean isActive);
+
+    /** Số tài khoản tạo mới theo từng ngày trong [from, to). */
+    @org.springframework.data.jpa.repository.Query("SELECT CAST(u.createdAt AS LocalDate) AS day, COUNT(u) AS total " +
+            "FROM User u WHERE u.role = :role AND u.createdAt >= :from AND u.createdAt < :to " +
+            "GROUP BY CAST(u.createdAt AS LocalDate)")
+    java.util.List<DailyTotal> countCreatedPerDay(
+            @org.springframework.data.repository.query.Param("role") com.jlsp.backend.user.entity.UserRole role,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
 
     long countByIsActive(Boolean isActive);
 }

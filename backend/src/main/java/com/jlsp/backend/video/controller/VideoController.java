@@ -18,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -148,7 +149,10 @@ public class VideoController {
     /**
      * Endpoint toggle Like (Hỗ trợ tương thích ngược cho client cũ).
      * POST /api/v1/videos/{id}/like
+     *
+     * @deprecated dùng {@code POST/DELETE /api/v1/videos/{id}/likes}; sẽ bị xóa ở bản sau.
      */
+    @Deprecated
     @PostMapping("/{id}/like")
     public ResponseEntity<ApiResponse<Boolean>> toggleLike(
             @PathVariable Long id) {
@@ -157,7 +161,7 @@ public class VideoController {
 
         boolean isLiked = videoService.toggleLike(id, userId);
         String message = isLiked ? "Đã thích video" : "Đã hủy thích video";
-        return ResponseEntity.ok(ApiResponse.success(200, message, isLiked));
+        return deprecated("/api/v1/videos/" + id + "/likes").body(ApiResponse.success(200, message, isLiked));
     }
 
     /**
@@ -191,7 +195,10 @@ public class VideoController {
     /**
      * Endpoint toggle Save (Hỗ trợ tương thích ngược cho client cũ).
      * POST /api/v1/videos/{id}/save
+     *
+     * @deprecated dùng {@code POST/DELETE /api/v1/videos/{id}/saves}; sẽ bị xóa ở bản sau.
      */
+    @Deprecated
     @PostMapping("/{id}/save")
     public ResponseEntity<ApiResponse<Boolean>> toggleSave(
             @PathVariable Long id) {
@@ -200,7 +207,7 @@ public class VideoController {
 
         boolean isSaved = videoService.toggleSave(id, userId);
         String message = isSaved ? "Đã lưu video vào bộ sưu tập" : "Đã bỏ lưu video";
-        return ResponseEntity.ok(ApiResponse.success(200, message, isSaved));
+        return deprecated("/api/v1/videos/" + id + "/saves").body(ApiResponse.success(200, message, isSaved));
     }
 
     /**
@@ -273,22 +280,31 @@ public class VideoController {
     /**
      * Alias nộp bài luyện nói
      * POST /api/v1/videos/{id}/shadowing
+     *
+     * @deprecated dùng {@code POST /api/v1/videos/{id}/shadowing-practices}; sẽ bị xóa ở bản sau.
      */
+    @Deprecated
     @PostMapping("/{id}/shadowing")
     public ResponseEntity<ApiResponse<ShadowingPracticeResponse>> submitShadowingLegacy(
             @PathVariable Long id,
             @Valid @RequestBody ShadowingSubmissionRequest request) {
-        return submitShadowingPractice(id, request);
+        ResponseEntity<ApiResponse<ShadowingPracticeResponse>> response = submitShadowingPractice(id, request);
+        return deprecated(response.getStatusCode(), "/api/v1/videos/" + id + "/shadowing-practices")
+                .body(response.getBody());
     }
 
     /**
      * Alias lấy lịch sử luyện nói (Hỗ trợ tương thích ngược cho client cũ).
      * GET /api/v1/videos/{id}/shadowing/history
+     *
+     * @deprecated dùng {@code GET /api/v1/videos/{id}/shadowing-practices}; sẽ bị xóa ở bản sau.
      */
+    @Deprecated
     @GetMapping("/{id}/shadowing/history")
     public ResponseEntity<ApiResponse<List<ShadowingPracticeResponse>>> getShadowingHistoryLegacy(
             @PathVariable Long id) {
-        return getShadowingPractices(id);
+        return deprecated("/api/v1/videos/" + id + "/shadowing-practices")
+                .body(getShadowingPractices(id).getBody());
     }
 
     /**
@@ -389,5 +405,16 @@ public class VideoController {
 
         PageResponse<VideoResponse> response = videoService.getMyVideosStatus(userId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /** Đánh dấu endpoint cũ theo RFC 9745 (Deprecation) + RFC 8288 (Link tới endpoint thay thế). */
+    private static ResponseEntity.BodyBuilder deprecated(String successorPath) {
+        return deprecated(HttpStatus.OK, successorPath);
+    }
+
+    private static ResponseEntity.BodyBuilder deprecated(HttpStatusCode status, String successorPath) {
+        return ResponseEntity.status(status)
+                .header("Deprecation", "true")
+                .header("Link", "<" + successorPath + ">; rel=\"successor-version\"");
     }
 }
