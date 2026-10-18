@@ -43,8 +43,11 @@ Japanese Learning Social Platform — mạng xã hội video ngắn kết hợp 
 - URL API khai báo trong `ApiConstants`: `serverUrl` tự chọn host theo platform (Android emulator → `10.0.2.2:8080`), `baseUrl` = `serverUrl/api/v1`. Speech-to-Text nằm ngoài `/v1` (`/api/speech/...`) → dùng `ApiConstants.speechStatusUrl`. Request cần đăng nhập dùng `withAuth: true` (mặc định với get/put/delete/postMultipart; `post` mặc định `false` cho các API auth).
 - `file_picker` ≥ 13: dùng `FilePicker.pickFile(...)` + `PlatformFile.readAsBytes()` (API `FilePicker.platform`, `withData`, `.bytes` đã bị bỏ).
 - Lint: `flutter_lints`. Dùng `Color.withValues(alpha: ...)` (không dùng `withOpacity`).
-- Màu thương hiệu ở `AppColors`; màn Profile dùng dark TikTok-style (`#121212` nền, `#1E1F28` surface, `#20D5EC` cyan, `#FE2C55` đỏ, `#8E8E93` text phụ).
-- Profile hiện dùng mock data cục bộ (chưa nối API danh sách video/saved; BE chưa có `GET` danh sách video đã lưu).
+- Màu ở `AppColors`, không viết `Color(0xFF...)` trong widget. Màn Profile/Flashcard dùng nhóm dark TikTok-style `AppColors.social*` (`socialBackground` #121212, `socialSurface` #1E1F28, `socialCyan`, `socialRed`, `socialTextMuted`, `socialDivider`).
+- Bottom sheet tối (thanh kéo + tiêu đề): dùng `core/widgets/app_bottom_sheet.dart` → `showAppBottomSheet(context:, title:, builder: (ctx) => [...])`.
+- Màn hình chỉ giữ state + ghép widget; khối UI lớn tách vào `presentation/widgets/` (xem `profile_header.dart`, `profile_video_grid.dart`, `profile_sheets.dart`).
+- Refactor UI: chụp golden tạm (`matchesGoldenFile` + `--update-goldens` trên code cũ) rồi so lại sau khi sửa; không commit ảnh golden (font render khác nhau giữa các OS).
+- Profile: danh sách video dùng mock trong `features/profile/data/mock/profile_mock_videos.dart` (chưa nối API danh sách video/saved; BE chưa có `GET` danh sách video đã lưu).
 - **Code chỉ chạy trên web** (`dart:html`, `dart:js_interop`) phải tách bằng conditional export: file chính `export 'x_stub.dart' if (dart.library.js_interop) 'x_web.dart';` (xem `core/services/tts_service.dart`, `profile_storage.dart`). Import trực tiếp sẽ làm `flutter test` (chạy trên VM) không compile được.
 
 ## Web admin (`web/src/`)

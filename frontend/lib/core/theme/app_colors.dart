@@ -52,4 +52,12 @@ class AppColors {
   // Status & Accents
   static const Color success = Color(0xFF4ADE80);
   static const Color error = Color(0xFFF87171);
+
+  // Dark Social Palette (TikTok-style: Profile, Flashcard)
+  static const Color socialBackground = Color(0xFF121212);
+  static const Color socialSurface = Color(0xFF1E1F28);
+  static const Color socialCyan = Color(0xFF20D5EC);
+  static const Color socialRed = Color(0xFFFE2C55);
+  static const Color socialTextMuted = Color(0xFF8E8E93);
+  static const Color socialDivider = Color(0xFF424242);
 }
