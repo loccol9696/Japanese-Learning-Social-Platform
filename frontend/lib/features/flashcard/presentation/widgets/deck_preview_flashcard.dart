@@ -1,11 +1,10 @@
-import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/services/tts_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/flashcard_item_model.dart';
+import 'card_audio.dart';
 
 /// Thẻ xem trước trong carousel của màn bộ thẻ: chạm để lật 3D, nút phát âm, gắn sao.
 class DeckPreviewFlashcard extends StatefulWidget {
@@ -25,12 +24,10 @@ class DeckPreviewFlashcard extends StatefulWidget {
 }
 
 class _DeckPreviewFlashcardState extends State<DeckPreviewFlashcard>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, CardAudioMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
   bool _isFront = true;
-  bool _isPlayingAudio = false;
-  Timer? _audioTimeoutTimer;
 
   bool get _termOnFront => widget.displayFrontFace == 'term';
 
@@ -41,9 +38,10 @@ class _DeckPreviewFlashcardState extends State<DeckPreviewFlashcard>
       vsync: this,
       duration: const Duration(milliseconds: 320),
     );
-    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -52,24 +50,14 @@ class _DeckPreviewFlashcardState extends State<DeckPreviewFlashcard>
     if (oldWidget.card.cardId != widget.card.cardId) {
       _controller.reset();
       _isFront = true;
-      _stopAudio();
+      stopCardAudio();
     }
   }
 
   @override
   void dispose() {
-    _stopAudio();
     _controller.dispose();
     super.dispose();
-  }
-
-  void _stopAudio() {
-    _audioTimeoutTimer?.cancel();
-    _audioTimeoutTimer = null;
-    TtsService.stop();
-    if (_isPlayingAudio && mounted) {
-      setState(() => _isPlayingAudio = false);
-    }
   }
 
   void _flip() {
@@ -79,44 +67,6 @@ class _DeckPreviewFlashcardState extends State<DeckPreviewFlashcard>
       _controller.reverse();
     }
     setState(() => _isFront = !_isFront);
-  }
-
-  void _handlePlayAudio() {
-    _audioTimeoutTimer?.cancel();
-
-    // Đọc mặt đang hiển thị: thuật ngữ → tiếng Nhật, nghĩa → tiếng Việt.
-    final speakTerm = _isFront == _termOnFront;
-    final textToSpeak = speakTerm ? widget.card.term : widget.card.meaning;
-    final lang = speakTerm ? 'ja-JP' : 'vi-VN';
-    final rate = speakTerm ? 0.9 : 1.0;
-
-    if (textToSpeak.trim().isEmpty) return;
-
-    setState(() => _isPlayingAudio = true);
-
-    // Fallback timer đề phòng sự kiện onend của Web Speech API bị trễ
-    _audioTimeoutTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && _isPlayingAudio) {
-        setState(() => _isPlayingAudio = false);
-      }
-    });
-
-    TtsService.speak(
-      text: textToSpeak,
-      lang: lang,
-      rate: rate,
-      onStart: () {
-        if (mounted && !_isPlayingAudio) {
-          setState(() => _isPlayingAudio = true);
-        }
-      },
-      onComplete: () {
-        _audioTimeoutTimer?.cancel();
-        if (mounted) {
-          setState(() => _isPlayingAudio = false);
-        }
-      },
-    );
   }
 
   @override
@@ -222,7 +172,12 @@ class _DeckPreviewFlashcardState extends State<DeckPreviewFlashcard>
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          _buildAudioButton(),
+          CardAudioButton(
+            isPlaying: isPlayingAudio,
+            // Đọc mặt đang hiển thị: thuật ngữ → tiếng Nhật, nghĩa → tiếng Việt.
+            onTap: () =>
+                playCardAudio(widget.card, speakTerm: _isFront == _termOnFront),
+          ),
           Positioned(
             top: 0,
             right: 0,
@@ -242,47 +197,6 @@ class _DeckPreviewFlashcardState extends State<DeckPreviewFlashcard>
           ),
           Center(child: content),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAudioButton() {
-    return Positioned(
-      top: 4,
-      left: 4,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _handlePlayAudio,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: _isPlayingAudio
-                ? AppColors.flashCoral.withValues(alpha: 0.18)
-                : Colors.transparent,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: _isPlayingAudio
-                  ? AppColors.flashCoral.withValues(alpha: 0.5)
-                  : Colors.transparent,
-              width: 1.5,
-            ),
-          ),
-          child: AnimatedScale(
-            scale: _isPlayingAudio ? 1.2 : 1.0,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutBack,
-            child: Icon(
-              _isPlayingAudio
-                  ? Icons.volume_up_rounded
-                  : Icons.volume_up_outlined,
-              color: _isPlayingAudio
-                  ? AppColors.flashCoral
-                  : Colors.white.withValues(alpha: 0.5),
-              size: 22,
-            ),
-          ),
-        ),
       ),
     );
   }

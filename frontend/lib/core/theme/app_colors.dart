@@ -84,6 +84,10 @@ class AppColors {
   static const Color flashStar = Color(0xFFFFCC00);
   static const Color flashDanger = Color(0xFFEF4444);
   static const Color flashReading = Color(0xFFFF5E7E); // Cách đọc (furigana)
+  static const Color flashKnown = Color(0xFF34D399); // Vuốt phải: đã thuộc
+  static const Color flashKnownBg = Color(0xFF0F261C);
+  static const Color flashUnknown = Color(0xFFF87171); // Vuốt trái: chưa nhớ
+  static const Color flashUnknownBg = Color(0xFF2B1216);
 
   // Màu nhận diện từng chế độ học (icon + nền icon)
   static const Color modeFlip = Color(0xFF4A90E2);

@@ -9,7 +9,7 @@ class AuthService {
   AuthService._();
   static AuthService get instance => _instance ??= AuthService._();
 
-  final ApiClient _apiClient = ApiClient.instance;
+  ApiClient get _apiClient => ApiClient.instance;
   final TokenStorage _storage = TokenStorage.instance;
 
   Future<AuthResponseModel> login({

@@ -10,7 +10,7 @@ class FlashcardService {
   FlashcardService._();
   static FlashcardService get instance => _instance ??= FlashcardService._();
 
-  final ApiClient _api = ApiClient.instance;
+  ApiClient get _api => ApiClient.instance;
 
   /// Lấy danh sách bộ thẻ từ Backend API
   Future<List<FlashcardSetModel>> getSets({String? search}) async {

@@ -1,10 +1,13 @@
-import 'dart:async';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
-import '../../../../core/services/tts_service.dart';
+
+import '../../../../core/theme/app_colors.dart';
 import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
+import '../widgets/card_audio.dart';
+import '../widgets/flip_card_widgets.dart';
 import '../widgets/learning_header.dart';
 import '../widgets/simple_empty_state.dart';
 import '../widgets/study_options_bottom_sheet.dart';
@@ -19,7 +22,7 @@ class FlashcardFlipScreen extends StatefulWidget {
 }
 
 class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, CardAudioMixin {
   final FlashcardService _service = FlashcardService.instance;
   late AnimationController _flipController;
   late Animation<double> _flipAnimation;
@@ -31,8 +34,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
   int _currentIndex = 0;
   bool _isFront = true;
   bool _isLoading = true;
-  bool _isPlayingAudio = false;
-  Timer? _audioTimeoutTimer;
+  String? _loadError;
   StudyOptions _options = StudyOptions();
 
   Offset _dragOffset = Offset.zero;
@@ -46,45 +48,52 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
       vsync: this,
       duration: const Duration(milliseconds: 350),
     );
-    _flipAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_flipController);
+    _flipAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(_flipController);
 
-    _swipeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 240),
-    )..addListener(() {
-        setState(() {});
-      });
+    _swipeController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 240),
+        )..addListener(() {
+          setState(() {});
+        });
 
     _loadCards();
   }
 
   @override
   void dispose() {
-    _stopAudio();
     _flipController.dispose();
     _swipeController.dispose();
     super.dispose();
   }
 
-  void _stopAudio() {
-    _audioTimeoutTimer?.cancel();
-    _audioTimeoutTimer = null;
-    TtsService.stop();
-    if (_isPlayingAudio && mounted) {
-      setState(() => _isPlayingAudio = false);
-    }
-  }
-
   Future<void> _loadCards() async {
     setState(() => _isLoading = true);
-    final cards = await _service.getCardsInSet(
-      widget.deck.setId,
-      starredOnly: _options.starredOnly,
-      shuffle: _options.shuffle,
-    );
+    final List<FlashcardItemModel> cards;
+    try {
+      cards = await _service.getCardsInSet(
+        widget.deck.setId,
+        starredOnly: _options.starredOnly,
+        shuffle: _options.shuffle,
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _cards = [];
+          _loadError = 'Không tải được bộ thẻ. Vui lòng thử lại.';
+          _isLoading = false;
+        });
+      }
+      return;
+    }
     if (mounted) {
       setState(() {
         _cards = cards;
+        _loadError = null;
         _currentIndex = 0;
         _isFront = true;
         _flipController.reset();
@@ -107,8 +116,13 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
 
   void _nextCard(bool mastered) {
     if (_cards.isEmpty) return;
-    _stopAudio();
-    _service.submitAnswer(_cards[_currentIndex].cardId, mastered);
+    stopCardAudio();
+    // Gửi ngầm; lỗi chỉ ảnh hưởng thống kê ôn tập nên không chặn luồng học.
+    _service
+        .submitAnswer(_cards[_currentIndex].cardId, mastered)
+        .catchError(
+          (Object e) => debugPrint('Không gửi được kết quả ôn tập: $e'),
+        );
 
     if (_currentIndex < _cards.length - 1) {
       setState(() {
@@ -120,15 +134,16 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
         _isAnimatingSwipe = false;
       });
     } else {
-      _showCompletionDialog();
+      showFlipCompleteDialog(context);
     }
   }
 
-  static const double _swipeThreshold = 140.0; // Ngưỡng kéo để kích hoạt đổi thẻ (pixel)
+  static const double _swipeThreshold =
+      140.0; // Ngưỡng kéo để kích hoạt đổi thẻ (pixel)
 
   void _onPanStart(DragStartDetails details) {
     if (_isAnimatingSwipe || _cards.isEmpty) return;
-    _stopAudio();
+    stopCardAudio();
     _isDragging = false;
   }
 
@@ -146,7 +161,8 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
     if (_isAnimatingSwipe || _cards.isEmpty) return;
 
     // 1. Nếu chỉ nhấp tay (tap) hoặc di chuyển cực nhỏ (< 8px), coi như lật mặt thẻ
-    if (!_isDragging || (_dragOffset.dx.abs() < 8 && _dragOffset.dy.abs() < 8)) {
+    if (!_isDragging ||
+        (_dragOffset.dx.abs() < 8 && _dragOffset.dy.abs() < 8)) {
       _flipCard();
       setState(() {
         _dragOffset = Offset.zero;
@@ -182,25 +198,20 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
     final endAngle = isRight ? (22.0 * pi / 180.0) : (-22.0 * pi / 180.0);
 
     final startOffset = _dragOffset;
-    final startAngle = (_dragOffset.dx / 300.0).clamp(-1.0, 1.0) * (15.0 * pi / 180.0);
+    final startAngle =
+        (_dragOffset.dx / 300.0).clamp(-1.0, 1.0) * (15.0 * pi / 180.0);
 
     _isAnimatingSwipe = true;
 
-    _dragOffsetAnimation = Tween<Offset>(
-      begin: startOffset,
-      end: Offset(endX, endY),
-    ).animate(CurvedAnimation(
-      parent: _swipeController,
-      curve: Curves.easeOutCubic,
-    ));
+    _dragOffsetAnimation =
+        Tween<Offset>(begin: startOffset, end: Offset(endX, endY)).animate(
+          CurvedAnimation(parent: _swipeController, curve: Curves.easeOutCubic),
+        );
 
-    _rotationAnimation = Tween<double>(
-      begin: startAngle,
-      end: endAngle,
-    ).animate(CurvedAnimation(
-      parent: _swipeController,
-      curve: Curves.easeOutCubic,
-    ));
+    _rotationAnimation = Tween<double>(begin: startAngle, end: endAngle)
+        .animate(
+          CurvedAnimation(parent: _swipeController, curve: Curves.easeOutCubic),
+        );
 
     _swipeController.forward(from: 0.0).then((_) {
       _nextCard(isRight);
@@ -217,25 +228,23 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
 
   void _animateBounceBack() {
     final startOffset = _dragOffset;
-    final startAngle = (_dragOffset.dx / 300.0).clamp(-1.0, 1.0) * (15.0 * pi / 180.0);
+    final startAngle =
+        (_dragOffset.dx / 300.0).clamp(-1.0, 1.0) * (15.0 * pi / 180.0);
 
     _isAnimatingSwipe = true;
 
-    _dragOffsetAnimation = Tween<Offset>(
-      begin: startOffset,
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _swipeController,
-      curve: Curves.easeOutBack, // Hiệu ứng lò xo bật về vị trí trung tâm mượt mà
-    ));
+    _dragOffsetAnimation = Tween<Offset>(begin: startOffset, end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _swipeController,
+            curve: Curves
+                .easeOutBack, // Hiệu ứng lò xo bật về vị trí trung tâm mượt mà
+          ),
+        );
 
-    _rotationAnimation = Tween<double>(
-      begin: startAngle,
-      end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _swipeController,
-      curve: Curves.easeOutBack,
-    ));
+    _rotationAnimation = Tween<double>(begin: startAngle, end: 0.0).animate(
+      CurvedAnimation(parent: _swipeController, curve: Curves.easeOutBack),
+    );
 
     _swipeController.forward(from: 0.0).then((_) {
       if (mounted) {
@@ -251,43 +260,29 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
 
   void _handleManualChoice(bool mastered) {
     if (_isAnimatingSwipe || _cards.isEmpty) return;
-    _stopAudio();
+    stopCardAudio();
     _dragOffset = Offset(mastered ? 60 : -60, 0);
     _animateSwipe(isRight: mastered);
-  }
-
-  void _showCompletionDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161922),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Hoàn thành xuất sắc!', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Bạn đã hoàn thành lượt ôn tập cho bộ từ vựng này.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF2D55)),
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: const Text('Trở về', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
   }
 
   void _toggleStar() {
     if (_cards.isEmpty) return;
     final card = _cards[_currentIndex];
     final newStarred = !card.isStarred;
-    _service.updateStar(card.cardId, newStarred);
-    setState(() {
-      _cards[_currentIndex] = card.copyWith(isStarred: newStarred);
+
+    void setStarred(bool starred) {
+      final index = _cards.indexWhere((c) => c.cardId == card.cardId);
+      if (index != -1) _cards[index] = card.copyWith(isStarred: starred);
+    }
+
+    // Optimistic update, hoàn tác nếu API lỗi.
+    setState(() => setStarred(newStarred));
+    _service.updateStar(card.cardId, newStarred).catchError((Object e) {
+      if (!mounted) return;
+      setState(() => setStarred(!newStarred));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Không thể cập nhật gắn sao: $e')));
     });
   }
 
@@ -296,14 +291,23 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => StudyOptionsBottomSheet(
+      builder: (_) => StudyOptionsBottomSheet(
         options: _options,
         onOptionsChanged: (newOptions) {
           setState(() => _options = newOptions);
           _loadCards();
         },
         onResetProgress: () async {
-          await _service.resetProgress(widget.deck.setId);
+          try {
+            await _service.resetProgress(widget.deck.setId);
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Không thể đặt lại tiến trình: $e')),
+              );
+            }
+            return;
+          }
           _loadCards();
         },
       ),
@@ -325,10 +329,13 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
     final currentAngle = _isAnimatingSwipe
         ? (_rotationAnimation?.value ?? 0.0)
         : ((currentOffset.dx / 300.0).clamp(-1.0, 1.0) * (15.0 * pi / 180.0));
-    final swipeProgress = (currentOffset.dx.abs() / _swipeThreshold).clamp(0.0, 1.0);
+    final swipeProgress = (currentOffset.dx.abs() / _swipeThreshold).clamp(
+      0.0,
+      1.0,
+    );
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0E14),
+      backgroundColor: AppColors.flashBackground,
       body: SafeArea(
         child: Column(
           children: [
@@ -345,68 +352,51 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
             // Giant Center Flashcard Stack (Quizlet Style Swipe)
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF2D55)))
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.flashAccent,
+                      ),
+                    )
                   : currentCard == null
-                      ? SimpleEmptyState(
-                          message: _options.starredOnly
-                              ? 'Không có từ vựng nào được gắn sao.'
-                              : 'Không có từ vựng nào trong danh sách.',
-                          onBack: () => Navigator.pop(context),
-                        )
-                      : Stack(
-                          clipBehavior: Clip.none,
-                          alignment: Alignment.center,
-                          children: [
-                            // Thẻ tiếp theo nằm bên dưới (z-index thấp hơn thẻ chính)
-                            if (nextCard != null)
-                              Positioned.fill(
-                                child: _buildUnderneathCard(nextCard, swipeProgress),
-                              ),
-
-                            // Thẻ chính đang tương tác vuốt kéo thả (z-index cao hơn)
-                            Positioned.fill(
-                              child: _buildActiveCard(
-                                currentCard,
-                                currentOffset,
-                                currentAngle,
-                                swipeProgress,
-                              ),
+                  ? SimpleEmptyState(
+                      message: _loadError != null
+                          ? _loadError!
+                          : _options.starredOnly
+                          ? 'Không có từ vựng nào được gắn sao.'
+                          : 'Không có từ vựng nào trong danh sách.',
+                      onBack: () => Navigator.pop(context),
+                    )
+                  : Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.center,
+                      children: [
+                        // Thẻ tiếp theo nằm bên dưới (z-index thấp hơn thẻ chính)
+                        if (nextCard != null)
+                          Positioned.fill(
+                            child: _buildUnderneathCard(
+                              nextCard,
+                              swipeProgress,
                             ),
-                          ],
+                          ),
+
+                        // Thẻ chính đang tương tác vuốt kéo thả (z-index cao hơn)
+                        Positioned.fill(
+                          child: _buildActiveCard(
+                            currentCard,
+                            currentOffset,
+                            currentAngle,
+                            swipeProgress,
+                          ),
                         ),
+                      ],
+                    ),
             ),
 
             // Bottom action hint / buttons (Đồng bộ với thao tác vuốt - chỉ hiện khi có thẻ)
             if (_cards.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        onPressed: () => _handleManualChoice(false),
-                        child: const Text('Chưa nhớ', style: TextStyle(color: Colors.white70)),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF2D55),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        onPressed: () => _handleManualChoice(true),
-                        child: const Text('Đã nhớ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
+              FlipChoiceButtons(
+                onUnknown: () => _handleManualChoice(false),
+                onKnown: () => _handleManualChoice(true),
               ),
           ],
         ),
@@ -433,8 +423,9 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
             opacity: opacity,
             child: IgnorePointer(
               ignoring: true,
-              child: _buildCardFront(
+              child: _buildFace(
                 nextCard,
+                isBack: false,
                 contentOpacity: textOpacity,
               ),
             ),
@@ -456,10 +447,10 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
     final badgeOpacity = (offset.dx.abs() / _swipeThreshold).clamp(0.0, 1.0);
 
     final Color? glowColor = isSwipingRight
-        ? const Color(0xFF34D399)
+        ? AppColors.flashKnown
         : isSwipingLeft
-            ? const Color(0xFFF87171)
-            : null;
+        ? AppColors.flashUnknown
+        : null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -490,7 +481,9 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                         boxShadow: glowColor != null
                             ? [
                                 BoxShadow(
-                                  color: glowColor.withValues(alpha: 0.3 * badgeOpacity),
+                                  color: glowColor.withValues(
+                                    alpha: 0.3 * badgeOpacity,
+                                  ),
                                   blurRadius: 24,
                                   spreadRadius: 2,
                                 ),
@@ -507,8 +500,9 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                           children: [
                             // 1. Mặt trước (Front Face): backface-visibility: hidden khi góc quay > 90°
                             if (isFrontVisible)
-                              _buildCardFront(
+                              _buildFace(
                                 card,
+                                isBack: false,
                                 glowColor: glowColor,
                                 glowOpacity: badgeOpacity,
                               ),
@@ -519,8 +513,9 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                               Transform(
                                 transform: Matrix4.identity()..rotateY(pi),
                                 alignment: Alignment.center,
-                                child: _buildCardBack(
+                                child: _buildFace(
                                   card,
+                                  isBack: true,
                                   glowColor: glowColor,
                                   glowOpacity: badgeOpacity,
                                 ),
@@ -532,83 +527,10 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                   },
                 ),
 
-                // Nhãn "ĐÃ THUỘC" (Góc trên bên trái khi kéo sang phải)
                 if (isSwipingRight)
-                  Positioned(
-                    top: 22,
-                    left: 22,
-                    child: Opacity(
-                      opacity: badgeOpacity,
-                      child: Transform.rotate(
-                        angle: -15 * pi / 180,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0F261C).withValues(alpha: 0.92),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFF34D399),
-                              width: 2.2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF34D399).withValues(alpha: 0.4),
-                                blurRadius: 12,
-                              ),
-                            ],
-                          ),
-                          child: const Text(
-                            'ĐÃ THUỘC',
-                            style: TextStyle(
-                              color: Color(0xFF34D399),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // Nhãn "CHƯA NHỚ" (Góc trên bên phải khi kéo sang trái)
+                  SwipeVerdictBadge(known: true, opacity: badgeOpacity),
                 if (isSwipingLeft)
-                  Positioned(
-                    top: 22,
-                    right: 22,
-                    child: Opacity(
-                      opacity: badgeOpacity,
-                      child: Transform.rotate(
-                        angle: 15 * pi / 180,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2B1216).withValues(alpha: 0.92),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFFF87171),
-                              width: 2.2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFF87171).withValues(alpha: 0.4),
-                                blurRadius: 12,
-                              ),
-                            ],
-                          ),
-                          child: const Text(
-                            'CHƯA NHỚ',
-                            style: TextStyle(
-                              color: Color(0xFFF87171),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  SwipeVerdictBadge(known: false, opacity: badgeOpacity),
               ],
             ),
           ),
@@ -619,272 +541,35 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
 
   void _handlePlayAudio() {
     if (_cards.isEmpty || _currentIndex >= _cards.length) return;
-    final currentCard = _cards[_currentIndex];
-
-    _audioTimeoutTimer?.cancel();
-
-    final String textToSpeak;
-    final String lang;
-    final double rate;
-
-    if (_isFront) {
-      if (_options.displayFrontFace == 'term') {
-        textToSpeak = currentCard.term;
-        lang = 'ja-JP';
-        rate = 0.9;
-      } else {
-        textToSpeak = currentCard.meaning;
-        lang = 'vi-VN';
-        rate = 1.0;
-      }
-    } else {
-      if (_options.displayFrontFace == 'term') {
-        textToSpeak = currentCard.meaning;
-        lang = 'vi-VN';
-        rate = 1.0;
-      } else {
-        textToSpeak = currentCard.term;
-        lang = 'ja-JP';
-        rate = 0.9;
-      }
-    }
-
-    if (textToSpeak.trim().isEmpty) return;
-
-    setState(() => _isPlayingAudio = true);
-
-    _audioTimeoutTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && _isPlayingAudio) {
-        setState(() => _isPlayingAudio = false);
-      }
-    });
-
-    TtsService.speak(
-      text: textToSpeak,
-      lang: lang,
-      rate: rate,
-      onStart: () {
-        if (mounted && !_isPlayingAudio) {
-          setState(() => _isPlayingAudio = true);
-        }
-      },
-      onComplete: () {
-        _audioTimeoutTimer?.cancel();
-        if (mounted) {
-          setState(() => _isPlayingAudio = false);
-        }
-      },
+    // Đọc mặt đang hiển thị: thuật ngữ → tiếng Nhật, nghĩa → tiếng Việt.
+    playCardAudio(
+      _cards[_currentIndex],
+      speakTerm: _isFront == (_options.displayFrontFace == 'term'),
     );
   }
 
-  Widget _buildAudioButton() {
-    return Positioned(
-      top: 16,
-      left: 16,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _handlePlayAudio,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: _isPlayingAudio
-                ? const Color(0xFFFF5A5F).withValues(alpha: 0.18)
-                : Colors.transparent,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: _isPlayingAudio
-                  ? const Color(0xFFFF5A5F).withValues(alpha: 0.5)
-                  : Colors.transparent,
-              width: 1.5,
-            ),
-          ),
-          child: AnimatedScale(
-            scale: _isPlayingAudio ? 1.2 : 1.0,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutBack,
-            child: Icon(
-              _isPlayingAudio ? Icons.volume_up_rounded : Icons.volume_up_outlined,
-              color: _isPlayingAudio
-                  ? const Color(0xFFFF5A5F)
-                  : Colors.white.withValues(alpha: 0.6),
-              size: 26,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCardFront(
+  Widget _buildFace(
     FlashcardItemModel card, {
+    required bool isBack,
     Color? glowColor,
     double glowOpacity = 0.0,
     double contentOpacity = 1.0,
   }) {
-    final displayText = _options.displayFrontFace == 'term' ? card.term : card.meaning;
-    final defaultBorder = const Color(0xFF323344);
-    final borderColor = glowColor != null
-        ? Color.lerp(defaultBorder, glowColor, glowOpacity.clamp(0.0, 1.0))!
-        : defaultBorder;
-
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1F28), // Nền đặc Solid color #1E1F28 khử trong suốt
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: borderColor,
-          width: glowColor != null && glowOpacity > 0.15 ? 2.0 : 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+    return FlipCardFace(
+      card: card,
+      isBack: isBack,
+      displayFrontFace: _options.displayFrontFace,
+      audioButton: CardAudioButton(
+        isPlaying: isPlayingAudio,
+        onTap: _handlePlayAudio,
+        inset: 16,
+        iconSize: 26,
+        idleAlpha: 0.6,
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Opacity(
-        opacity: contentOpacity,
-        child: Stack(
-          children: [
-            // Audio & Star icons
-            _buildAudioButton(),
-            Positioned(
-              top: 20,
-              right: 20,
-              child: IconButton(
-                icon: Icon(
-                  card.isStarred ? Icons.star : Icons.star_border,
-                  color: card.isStarred ? const Color(0xFFFFCC00) : Colors.white.withValues(alpha: 0.4),
-                  size: 26,
-                ),
-                onPressed: _toggleStar,
-              ),
-            ),
-            // Word
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(28.0),
-                child: Text(
-                  displayText,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: _options.displayFrontFace == 'term' ? 44 : 30,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCardBack(
-    FlashcardItemModel card, {
-    Color? glowColor,
-    double glowOpacity = 0.0,
-  }) {
-    final isFrontTerm = _options.displayFrontFace == 'term';
-    final defaultBorder = const Color(0xFF323344);
-    final borderColor = glowColor != null
-        ? Color.lerp(defaultBorder, glowColor, glowOpacity.clamp(0.0, 1.0))!
-        : defaultBorder;
-
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1F28), // Nền đặc Solid color #1E1F28 khử trong suốt
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: borderColor,
-          width: glowColor != null && glowOpacity > 0.15 ? 2.0 : 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          _buildAudioButton(),
-          Positioned(
-            top: 20,
-            right: 20,
-            child: IconButton(
-              icon: Icon(
-                card.isStarred ? Icons.star : Icons.star_border,
-                color: card.isStarred ? const Color(0xFFFFCC00) : Colors.white.withValues(alpha: 0.4),
-                size: 26,
-              ),
-              onPressed: _toggleStar,
-            ),
-          ),
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (!isFrontTerm) ...[
-                    // Mặt trước hiển thị định nghĩa -> Mặt sau hiển thị to rõ thuật ngữ (term)
-                    Text(
-                      card.term,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 42,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  if (card.reading != null && card.reading!.isNotEmpty)
-                    Text(
-                      card.reading!,
-                      style: const TextStyle(color: Color(0xFFFF5E7E), fontSize: 24, fontWeight: FontWeight.w600),
-                    ),
-                  const SizedBox(height: 8),
-                  if (card.sinoVietnamese != null && card.sinoVietnamese!.isNotEmpty)
-                    Text(
-                      card.sinoVietnamese!,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  if (isFrontTerm) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      card.meaning,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                  if (card.example != null && card.example!.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    Divider(color: Colors.white.withValues(alpha: 0.1)),
-                    const SizedBox(height: 12),
-                    Text(
-                      card.example!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14, fontStyle: FontStyle.italic),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+      onToggleStar: _toggleStar,
+      glowColor: glowColor,
+      glowOpacity: glowOpacity,
+      contentOpacity: contentOpacity,
     );
   }
 }
