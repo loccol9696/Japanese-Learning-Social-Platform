@@ -37,7 +37,7 @@ Japanese Learning Social Platform — mạng xã hội video ngắn kết hợp 
 - Lint: `flutter_lints`. Dùng `Color.withValues(alpha: ...)` (không dùng `withOpacity`).
 - Màu thương hiệu ở `AppColors`; màn Profile dùng dark TikTok-style (`#121212` nền, `#1E1F28` surface, `#20D5EC` cyan, `#FE2C55` đỏ, `#8E8E93` text phụ).
 - Profile hiện dùng mock data cục bộ (chưa nối API danh sách video/saved; BE chưa có `GET` danh sách video đã lưu).
-- **Lỗi đã biết:** `core/services/tts_service.dart` import `dart:js_interop` trực tiếp → mọi test kéo theo `HomeScreen` (`test/widget_test.dart`, `home_screen_test.dart`) không compile trên VM. Cần conditional import (như `profile_storage_stub/web`) để sửa.
+- **Code chỉ chạy trên web** (`dart:html`, `dart:js_interop`) phải tách bằng conditional export: file chính `export 'x_stub.dart' if (dart.library.js_interop) 'x_web.dart';` (xem `core/services/tts_service.dart`, `profile_storage.dart`). Import trực tiếp sẽ làm `flutter test` (chạy trên VM) không compile được.
 
 ## Ngôn ngữ
 
