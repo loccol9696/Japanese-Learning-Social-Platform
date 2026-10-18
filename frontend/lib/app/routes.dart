@@ -6,6 +6,7 @@ import '../features/auth/screens/register_screen.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import '../features/flashcard/presentation/screens/deck_library_screen.dart';
 import '../features/video/presentation/screens/upload_video_screen.dart';
+import '../features/subscription/screens/subscription_screen.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -18,6 +19,7 @@ class AppRoutes {
   static const String upload = '/upload';
   static const String messages = '/messages';
   static const String profile = '/profile';
+  static const String subscription = '/subscription';
 
   static Map<String, WidgetBuilder> get routes => {
     home: (context) => const HomeScreen(),
@@ -26,5 +28,6 @@ class AppRoutes {
     forgotPassword: (context) => const ForgotPasswordScreen(),
     flashcards: (context) => const DeckLibraryScreen(),
     upload: (context) => const UploadVideoScreen(),
+    subscription: (context) => const SubscriptionScreen(),
   };
 }

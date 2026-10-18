@@ -5,6 +5,9 @@ import '../../data/datasources/profile_remote_datasource.dart';
 import '../../data/repositories/profile_repository_impl.dart';
 import '../../domain/models/user_profile_model.dart';
 import '../../domain/repositories/profile_repository.dart';
+import '../../../subscription/models/subscription_model.dart';
+import '../../../subscription/services/subscription_service.dart';
+import '../../../../app/routes.dart';
 import 'profile_update_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -19,6 +22,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   late final ProfileRepository _repository;
   UserProfileModel _profile = const UserProfileModel();
+  SubscriptionStatus? _membershipStatus;
   bool _isLoading = true;
   int _selectedTab = 0;
 
@@ -41,6 +45,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         widget.repository ??
         ProfileRepositoryImpl(remoteDataSource: ProfileRemoteDataSourceImpl());
     _loadProfile();
+    _loadMembershipStatus();
+  }
+
+  Future<void> _loadMembershipStatus() async {
+    try {
+      final status = await SubscriptionService.instance.getMySubscriptionStatus(_profile.id);
+      if (mounted) {
+        setState(() {
+          _membershipStatus = status;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _navigateToSubscription() async {
+    await Navigator.of(context).pushNamed(AppRoutes.subscription);
+    await _loadMembershipStatus();
   }
 
   Future<void> _loadProfile() async {
@@ -51,6 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _profile = profile;
         _isLoading = false;
       });
+      await _loadMembershipStatus();
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -74,7 +96,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircularProgressIndicator(color: AppColors.periwinkle),
               )
             : RefreshIndicator(
-                onRefresh: _loadProfile,
+                onRefresh: () async {
+                  await Future.wait([
+                    _loadProfile(),
+                    _loadMembershipStatus(),
+                  ]);
+                },
                 color: AppColors.periwinkle,
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(
@@ -84,6 +111,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     SliverToBoxAdapter(child: _buildTopBar()),
                     SliverToBoxAdapter(child: _buildProfileHeader()),
                     SliverToBoxAdapter(child: _buildActionRow()),
+                    SliverToBoxAdapter(child: _buildMembershipCard()),
                     SliverToBoxAdapter(child: _buildTabBar()),
                     _buildPostGrid(),
                   ],
@@ -148,6 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final username = _profile.username.isNotEmpty
         ? '@${_profile.username}'
         : '@learner';
+    final isVip = _membershipStatus?.hasActiveSubscription == true;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 4, 24, 14),
@@ -158,15 +187,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 31,
-                    fontWeight: FontWeight.w800,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: isVip ? 26 : 31,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (isVip) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFD700), Color(0xFFF59E0B)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.workspace_premium_rounded,
+                          color: Color(0xFF0F172A),
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -282,6 +345,271 @@ class _ProfileScreenState extends State<ProfileScreen> {
               foregroundColor: Colors.black54,
             ),
             icon: const Icon(Icons.edit_outlined),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMembershipCard() {
+    final status = _membershipStatus;
+    final isVip = status?.hasActiveSubscription == true;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
+      child: isVip ? _buildVipCard(status!) : _buildFreeCard(),
+    );
+  }
+
+  Widget _buildVipCard(SubscriptionStatus status) {
+    final isLifetime = status.isLifetime;
+    final planName = status.planName ?? 'Gói VIP';
+    final expiryText = isLifetime
+        ? 'Thời hạn: Vĩnh viễn (Trọn đời)'
+        : 'Hết hạn: ${status.formattedExpiryDate} (Còn ${status.daysRemaining} ngày)';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFD700), Color(0xFFF59E0B)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Color(0xFF0A192F),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'KOTOBA VIP',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            color: Color(0xFFFFD700),
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF10B981), width: 1),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.circle, color: Color(0xFF10B981), size: 7),
+                              SizedBox(width: 4),
+                              Text(
+                                'ĐANG DÙNG',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF10B981),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      planName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0A192F).withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.schedule_rounded, color: Color(0xFFF59E0B), size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    expiryText,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFFDE68A),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 38,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFF59E0B), width: 1.2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                backgroundColor: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+              ),
+              onPressed: _navigateToSubscription,
+              icon: Icon(
+                isLifetime ? Icons.workspace_premium_rounded : Icons.upgrade_rounded,
+                size: 16,
+                color: const Color(0xFFFFD700),
+              ),
+              label: Text(
+                isLifetime ? 'Xem chi tiết đặc quyền VIP' : 'Nâng cấp lên Gói Trọn Đời',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFFFD700),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFreeCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F2042), Color(0xFF1E3A8A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Color(0xFFFFD54F),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Kotoba Premium',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      'Gói hiện tại: Miễn phí (Free Tier)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '✓ Mở khóa toàn bộ AI (Chat AI, Giải thích ngữ pháp, Shadowing AI)\n✓ Không giới hạn lưu từ vựng & Flashcard\n✓ Học tập tập trung, không quảng cáo',
+            style: TextStyle(fontSize: 12, color: Colors.white, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 40,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF38BDF8),
+                foregroundColor: const Color(0xFF0A192F),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 0,
+              ),
+              onPressed: _navigateToSubscription,
+              child: const Text(
+                'Nâng cấp Kotoba Premium ngay',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ),
         ],
       ),

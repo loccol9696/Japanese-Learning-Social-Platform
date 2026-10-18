@@ -46,6 +46,12 @@ class ApiConstants {
   static String speechStatusUrl(String taskId) =>
       '${baseUrl.replaceFirst('/api/v1', '/api')}/speech/status/$taskId';
 
+  // Subscription endpoints
+  static String get subscriptionBaseUrl => '$baseUrl/subscriptions';
+  static String get subscriptionPlansUrl => '$baseUrl/subscriptions/plans';
+  static String get subscriptionCheckoutUrl => '$baseUrl/subscriptions/checkout';
+  static String subscriptionStatusUrl(int userId) => '$baseUrl/subscriptions/my-status?userId=$userId';
+
   // Timeouts
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 15);
