@@ -13,6 +13,7 @@ import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -24,14 +25,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.text.Normalizer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
 @Service
+@ConditionalOnProperty(name = "gcp.stt.enabled", havingValue = "true", matchIfMissing = true)
 public class SpeechToTextService implements SpeechToTextServiceIntf {
 
     private final VocalIsolationService vocalIsolationService;
