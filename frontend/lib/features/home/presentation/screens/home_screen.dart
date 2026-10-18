@@ -101,6 +101,8 @@ class _HomeScreenState extends State<HomeScreen> {
       mainContent = _buildVideoFeed();
     } else if (_currentNavIndex == 1) {
       mainContent = const DeckLibraryScreen();
+    } else if (_currentNavIndex == 4) {
+      mainContent = const ProfileUpdateScreen();
     } else {
       mainContent = _buildPlaceholderTab(_currentNavIndex);
     }

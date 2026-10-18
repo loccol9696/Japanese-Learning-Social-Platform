@@ -26,4 +26,8 @@ public class UserResponse {
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public JLPTLevel getCurrentLevel() {
+        return this.jlptLevel;
+    }
 }

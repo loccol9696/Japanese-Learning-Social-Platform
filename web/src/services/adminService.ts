@@ -208,10 +208,28 @@ export async function batchCreateAccounts(
     body: JSON.stringify({ count, role }),
   });
 
-  const resData: ApiResponse<GeneratedAccountDto[]> = await response.json();
-  if (!response.ok) {
-    throw new Error(resData.message || 'Không thể tạo danh sách tài khoản hàng loạt');
+  const text = await response.text();
+  let resData: ApiResponse<GeneratedAccountDto[]> | null = null;
+  if (text && text.trim().length > 0) {
+    try {
+      resData = JSON.parse(text);
+    } catch (_) {
+      // not json
+    }
   }
+
+  if (!response.ok) {
+    const errorMsg = resData?.message ||
+      (response.status === 504 || response.status === 502
+        ? 'Backend Spring Boot chưa khởi động hoặc mất kết nối (Port 8080)!'
+        : `Lỗi máy chủ (${response.status}: ${response.statusText})`);
+    throw new Error(errorMsg);
+  }
+
+  if (!resData || !resData.data) {
+    throw new Error('Máy chủ trả về phản hồi rỗng. Vui lòng kiểm tra lại Backend.');
+  }
+
   return resData.data;
 }
 
