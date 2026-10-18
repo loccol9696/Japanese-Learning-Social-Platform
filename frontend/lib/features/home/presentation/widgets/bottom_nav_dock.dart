@@ -2,257 +2,174 @@ import 'package:flutter/material.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/app_colors.dart';
 
+/// Thanh điều hướng dưới kiểu TikTok: Trang chủ · Khám phá · [+] · Flashcard · Cá nhân.
+/// Index 2 là nút tạo video (không phải tab) — xử lý ở [onTabSelected].
 class BottomNavDock extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
-  final bool isModerator;
 
   const BottomNavDock({
     super.key,
     required this.selectedIndex,
     required this.onTabSelected,
-    this.isModerator = false,
   });
 
-  static const List<_TabItemData> _tabs = [
-    _TabItemData(
-      label: 'Home',
-      activeIcon: Icons.home_rounded,
-      inactiveIcon: Icons.home_outlined,
-    ),
-    _TabItemData(
-      label: 'Flashcard',
-      activeIcon: Icons.style_rounded,
-      inactiveIcon: Icons.style_outlined,
-    ),
-    _TabItemData(
-      label: 'Add Video',
-      activeIcon: Icons.video_call_rounded,
-      inactiveIcon: Icons.video_call_outlined,
-    ),
-    _TabItemData(
-      label: 'Messages',
-      activeIcon: Icons.chat_bubble_rounded,
-      inactiveIcon: Icons.chat_bubble_outline_rounded,
-      hasBadge: true,
-    ),
-    _TabItemData(
-      label: 'Profile',
-      activeIcon: Icons.person_rounded,
-      inactiveIcon: Icons.person_outline_rounded,
-    ),
-  ];
-
-  String _getTabLabel(int index) {
-    return switch (index) {
-      0 => appStrings.navHome,
-      1 => appStrings.navFlashcards,
-      2 => isModerator ? appStrings.navApproveVideo : appStrings.navAddVideo,
-      3 => appStrings.navMessages,
-      4 => appStrings.navProfile,
-      _ => '',
-    };
-  }
+  static const int createIndex = 2;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Floating Pill Dock
-          Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(maxWidth: 420.0),
-            margin: const EdgeInsets.symmetric(horizontal: 16.0),
-            height: 64.0,
-            padding: const EdgeInsets.all(4.0),
-            decoration: BoxDecoration(
-              color: AppColors.dockBackground,
-              borderRadius: BorderRadius.circular(32.0),
-              border: Border.all(
-                color: AppColors.periwinkle.withValues(alpha: 0.3),
-                width: 1.0,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black,
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 58.0,
+          child: Row(
+            children: [
+              _NavItem(
+                icon: Icons.home_rounded,
+                inactiveIcon: Icons.home_outlined,
+                label: appStrings.navHome,
+                selected: selectedIndex == 0,
+                onTap: () => onTabSelected(0),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.backgroundCanvas.withValues(alpha: 0.85),
-                  blurRadius: 36.0,
-                  offset: const Offset(0, 14),
-                ),
-              ],
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final double tabWidth = constraints.maxWidth / _tabs.length;
-
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Sliding illuminated active pill indicator
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.fastOutSlowIn,
-                      left: selectedIndex * tabWidth,
-                      top: 0,
-                      bottom: 0,
-                      width: tabWidth,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.periwinkle.withValues(alpha: 0.28),
-                          borderRadius: BorderRadius.circular(28.0),
-                          border: Border.all(
-                            color: AppColors.periwinkle.withValues(alpha: 0.6),
-                            width: 1.0,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.periwinkle.withValues(alpha: 0.4),
-                              blurRadius: 16.0,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // 5 Tab Buttons (Positioned.fill ensures full height & vertical centering)
-                    Positioned.fill(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: List.generate(_tabs.length, (index) {
-                          final tab = _tabs[index];
-                          final isSelected = selectedIndex == index;
-
-                          return Expanded(
-                            child: GestureDetector(
-                              onTap: () => onTabSelected(index),
-                              behavior: HitTestBehavior.opaque,
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    // Icon with optional Sakura Pink notification badge
-                                    Stack(
-                                      clipBehavior: Clip.none,
-                                      alignment: Alignment.center,
-                                      children: [
-                                        Icon(
-                                          isSelected
-                                              ? (index == 2 && isModerator
-                                                  ? Icons.fact_check_rounded
-                                                  : tab.activeIcon)
-                                              : (index == 2 && isModerator
-                                                  ? Icons.fact_check_outlined
-                                                  : tab.inactiveIcon),
-                                          size: 22.0,
-                                          color: isSelected
-                                              ? AppColors.periwinkle
-                                              : AppColors.softSkyBlue
-                                                  .withValues(alpha: 0.55),
-                                          shadows: isSelected
-                                              ? [
-                                                  const Shadow(
-                                                    color: AppColors.periwinkle,
-                                                    blurRadius: 8.0,
-                                                  ),
-                                                ]
-                                              : null,
-                                        ),
-                                        if (tab.hasBadge)
-                                          Positioned(
-                                            top: -2.0,
-                                            right: -3.0,
-                                            child: Container(
-                                              width: 7.0,
-                                              height: 7.0,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: AppColors.sakuraPink,
-                                                border: Border.all(
-                                                  color: AppColors.dockBackground,
-                                                  width: 1.0,
-                                                ),
-                                                boxShadow: const [
-                                                  BoxShadow(
-                                                    color: AppColors.sakuraPink,
-                                                    blurRadius: 6.0,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 3.0),
-                                    // Label (dynamically localized)
-                                    Text(
-                                      _getTabLabel(index),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        height: 1.2,
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.w400,
-                                        color: isSelected
-                                            ? AppColors.onSurface
-                                            : AppColors.softSkyBlue
-                                                .withValues(alpha: 0.55),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-
-          // Home Bar Indicator (iOS style)
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
-            child: Container(
-              width: 120.0,
-              height: 4.0,
-              decoration: BoxDecoration(
-                color: AppColors.periwinkle.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(2.0),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.periwinkle.withValues(alpha: 0.4),
-                    blurRadius: 8.0,
+              _NavItem(
+                icon: Icons.search_rounded,
+                inactiveIcon: Icons.search_rounded,
+                label: appStrings.navExplore,
+                selected: selectedIndex == 1,
+                onTap: () => onTabSelected(1),
+              ),
+              Expanded(
+                child: Center(
+                  child: _CreateButton(
+                    label: appStrings.navAddVideo,
+                    onTap: () => onTabSelected(createIndex),
                   ),
-                ],
+                ),
               ),
-            ),
+              _NavItem(
+                icon: Icons.layers_rounded,
+                inactiveIcon: Icons.layers_outlined,
+                label: appStrings.navFlashcards,
+                selected: selectedIndex == 3,
+                onTap: () => onTabSelected(3),
+              ),
+              _NavItem(
+                icon: Icons.person_rounded,
+                inactiveIcon: Icons.person_outline_rounded,
+                label: appStrings.navProfile,
+                selected: selectedIndex == 4,
+                onTap: () => onTabSelected(4),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _TabItemData {
-  final String label;
-  final IconData activeIcon;
+class _NavItem extends StatelessWidget {
+  final IconData icon;
   final IconData inactiveIcon;
-  final bool hasBadge;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
-  const _TabItemData({
-    required this.label,
-    required this.activeIcon,
+  const _NavItem({
+    required this.icon,
     required this.inactiveIcon,
-    this.hasBadge = false,
+    required this.label,
+    required this.selected,
+    required this.onTap,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? Colors.white : Colors.white.withValues(alpha: 0.6);
+
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        excludeSemantics: true,
+        child: InkResponse(
+          onTap: onTap,
+          radius: 28.0,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(selected ? icon : inactiveIcon, color: color, size: 26.0),
+              const SizedBox(height: 2.0),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Nút "+" trắng với viền xanh ngọc / đỏ lệch hai bên (kiểu TikTok).
+class _CreateButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _CreateButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget layer(Color color) => Container(
+          width: 40.0,
+          height: 28.0,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+        );
+
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 48.0,
+          height: 32.0,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned(left: 0, child: layer(AppColors.socialCyan)),
+              Positioned(right: 0, child: layer(AppColors.socialRed)),
+              Container(
+                width: 40.0,
+                height: 28.0,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                child: const Icon(Icons.add_rounded, color: Colors.black, size: 22.0),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

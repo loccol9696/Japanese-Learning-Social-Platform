@@ -322,7 +322,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                           onRefresh: () =>
                               _loadDecks(query: _searchController.text, forceRefresh: true),
                           child: ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 90),
+                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                             itemCount: _decks.length,
                             separatorBuilder: (context, index) =>
                                 const SizedBox(height: 12),

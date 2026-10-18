@@ -156,10 +156,18 @@ void main() {
 
     // Verify bottom nav dock
     expect(find.byType(BottomNavDock), findsOneWidget);
-    expect(find.text('Trang chủ'), findsOneWidget);
-    expect(find.text('Flashcard'), findsOneWidget);
-    expect(find.text('Thêm video'), findsOneWidget);
-    expect(find.text('Tin nhắn'), findsOneWidget);
-    expect(find.text('Cá nhân'), findsOneWidget);
+    // Thứ tự kiểu TikTok: Trang chủ · Khám phá · [+] · Flashcard · Cá nhân
+    final labels = ['Trang chủ', 'Khám phá', 'Flashcard', 'Cá nhân'];
+    final xs = [for (final l in labels) tester.getCenter(find.text(l)).dx];
+    expect(xs, orderedEquals([...xs]..sort()));
+    expect(find.bySemanticsLabel('Thêm video'), findsOneWidget); // nút "+" ở giữa
+    expect(tester.getCenter(find.bySemanticsLabel('Thêm video')).dx,
+        allOf(greaterThan(xs[1]), lessThan(xs[2])));
+    expect(find.text('Tin nhắn'), findsNothing);
+
+    // Khám phá chưa có màn riêng -> trang "đang phát triển"
+    await tester.tap(find.text('Khám phá'));
+    await tester.pump();
+    expect(find.text('Tính năng đang được phát triển'), findsOneWidget);
   });
 }

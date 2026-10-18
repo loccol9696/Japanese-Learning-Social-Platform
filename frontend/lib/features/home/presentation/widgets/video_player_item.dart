@@ -346,7 +346,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           // 6. Right Side Interaction Sidebar
           Positioned(
             right: 12.0,
-            bottom: 100.0,
+            bottom: 20.0,
             child: InteractionSidebar(
               post: widget.post,
               theme: theme,
@@ -365,7 +365,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           Positioned(
             left: 16.0,
             right: 88.0,
-            bottom: 95.0,
+            bottom: 16.0,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -392,7 +392,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
 
           // 8. Video Progress Scrubber Bar
           Positioned(
-            bottom: 84.0,
+            bottom: 0,
             left: 0,
             right: 0,
             child: SizedBox(

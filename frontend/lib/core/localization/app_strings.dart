@@ -92,6 +92,7 @@ abstract class AppStrings {
   String get profileRetry;
   String homeViews(String count);
   String get homeTapToUnmute;
+  String get navExplore;
 }
 
 class ViStrings implements AppStrings {
@@ -264,6 +265,8 @@ class ViStrings implements AppStrings {
   String homeViews(String count) => '$count lượt xem';
   @override
   String get homeTapToUnmute => 'Chạm để bật tiếng';
+  @override
+  String get navExplore => 'Khám phá';
 }
 
 class EnStrings implements AppStrings {
@@ -436,6 +439,8 @@ class EnStrings implements AppStrings {
   String homeViews(String count) => '$count views';
   @override
   String get homeTapToUnmute => 'Tap to unmute';
+  @override
+  String get navExplore => 'Discover';
 }
 
 class JaStrings implements AppStrings {
@@ -608,4 +613,6 @@ class JaStrings implements AppStrings {
   String homeViews(String count) => '$count回視聴';
   @override
   String get homeTapToUnmute => 'タップして音声をオン';
+  @override
+  String get navExplore => '発見';
 }

@@ -22,7 +22,7 @@ class ProfileVideoGrid extends StatelessWidget {
     return GridView.builder(
       // Luôn cuộn được để kéo xuống làm mới kể cả khi ít video.
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(0, 1.5, 0, 100),
+      padding: const EdgeInsets.fromLTRB(0, 1.5, 0, 16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         childAspectRatio: 0.74,
@@ -245,7 +245,7 @@ class ProfileEmptyTab extends StatelessWidget {
     // ListView (luôn cuộn được) để kéo xuống làm mới cả khi tab trống.
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(32, 48, 32, 100),
+      padding: const EdgeInsets.fromLTRB(32, 48, 32, 32),
       children: [
         Icon(icon, size: 44, color: Colors.white.withValues(alpha: 0.35)),
         const SizedBox(height: 12),
@@ -287,7 +287,7 @@ class ProfileTabError extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(32, 48, 32, 100),
+      padding: const EdgeInsets.fromLTRB(32, 48, 32, 32),
       children: [
         Icon(
           Icons.cloud_off_rounded,

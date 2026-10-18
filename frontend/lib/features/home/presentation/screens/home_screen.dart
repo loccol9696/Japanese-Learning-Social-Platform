@@ -89,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onNavTabSelected(int index) {
-    if (index == 2) {
+    if (index == BottomNavDock.createIndex) {
       Navigator.of(context).pushNamed(AppRoutes.upload);
       return;
     }
@@ -110,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Widget mainContent;
     if (_currentNavIndex == 0) {
       mainContent = _buildVideoFeed();
-    } else if (_currentNavIndex == 1) {
+    } else if (_currentNavIndex == 3) {
       mainContent = const DeckLibraryScreen();
     } else if (_currentNavIndex == 4) {
       mainContent = const ProfileScreen();
@@ -149,18 +149,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-
-          // 3. Floating Bottom Nav Dock
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: BottomNavDock(
-              selectedIndex: _currentNavIndex,
-              onTabSelected: _onNavTabSelected,
-            ),
-          ),
         ],
+      ),
+      // Thanh menu phẳng kiểu TikTok: nội dung kết thúc ngay trên thanh, không bị che.
+      bottomNavigationBar: BottomNavDock(
+        selectedIndex: _currentNavIndex,
+        onTabSelected: _onNavTabSelected,
       ),
     );
   }
@@ -203,18 +197,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPlaceholderTab(int index) {
+    // Chỉ còn tab Khám phá (1) chưa có màn hình riêng.
     final titles = [
       appStrings.navHome,
-      appStrings.navFlashcards,
+      appStrings.navExplore,
       appStrings.navAddVideo,
-      appStrings.navMessages,
+      appStrings.navFlashcards,
       appStrings.navProfile,
     ];
     final icons = [
       Icons.home_rounded,
-      Icons.style_rounded,
+      Icons.search_rounded,
       Icons.video_call_rounded,
-      Icons.chat_bubble_rounded,
+      Icons.layers_rounded,
       Icons.person_rounded,
     ];
 
