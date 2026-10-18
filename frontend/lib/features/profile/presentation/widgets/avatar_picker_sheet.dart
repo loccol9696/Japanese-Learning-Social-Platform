@@ -1,62 +1,60 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+
 import '../../../../core/localization/locale_manager.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
+
+/// Đổi ảnh đại diện: tải ảnh từ máy lên, hoặc chọn một ảnh minh họa có sẵn.
+/// Chọn xong sheet tự đóng và trả URL qua [onAvatarSelected]. Mở bằng [showAvatarPickerSheet]
+/// (màu nền đặt trên chính sheet để ListTile hiện được hiệu ứng chạm).
+Future<void> showAvatarPickerSheet(
+  BuildContext context, {
+  required String currentAvatarUrl,
+  required ValueChanged<String> onAvatarSelected,
+  required Future<String> Function(Uint8List bytes, String filename) onUpload,
+}) {
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.socialSurface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20.0)),
+    ),
+    builder: (_) => AvatarPickerSheet(
+      currentAvatarUrl: currentAvatarUrl,
+      onAvatarSelected: onAvatarSelected,
+      onUpload: onUpload,
+    ),
+  );
+}
 
 class AvatarPickerSheet extends StatefulWidget {
   final String currentAvatarUrl;
   final ValueChanged<String> onAvatarSelected;
 
+  /// Tải ảnh lên server, trả về URL (vd. `ProfileRepository.uploadAvatar`).
+  final Future<String> Function(Uint8List bytes, String filename) onUpload;
+
   const AvatarPickerSheet({
     super.key,
     required this.currentAvatarUrl,
     required this.onAvatarSelected,
+    required this.onUpload,
   });
 
-  static const List<_PresetAvatar> _presets = [
-    _PresetAvatar(
-      id: 'sakura',
-      name: 'Sakura Girl',
-      url:
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
-    ),
-    _PresetAvatar(
-      id: 'kenji',
-      name: 'Kenji Sensei',
-      url:
-          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80',
-    ),
-    _PresetAvatar(
-      id: 'yuki',
-      name: 'Yuki Anime',
-      url:
-          'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=256&q=80',
-    ),
-    _PresetAvatar(
-      id: 'daiki',
-      name: 'Daiki Otaku',
-      url:
-          'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=256&q=80',
-    ),
-    _PresetAvatar(
-      id: 'bot_kenji',
-      name: 'Kenji Bot',
-      url: 'https://api.dicebear.com/7.x/bottts/png?seed=Kenji',
-    ),
-    _PresetAvatar(
-      id: 'bot_sakura',
-      name: 'Sakura Bot',
-      url: 'https://api.dicebear.com/7.x/bottts/png?seed=Sakura',
-    ),
-    _PresetAvatar(
-      id: 'bot_tokyo',
-      name: 'Tokyo Neon',
-      url: 'https://api.dicebear.com/7.x/bottts/png?seed=Tokyo',
-    ),
-    _PresetAvatar(
-      id: 'bot_shiba',
-      name: 'Inu Shiba',
-      url: 'https://api.dicebear.com/7.x/bottts/png?seed=Shiba',
-    ),
+  /// Ảnh minh họa do DiceBear sinh theo seed (không dùng ảnh người thật).
+  static const List<String> presetUrls = [
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Sakura',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Kenji',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Yuki',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Daiki',
+    'https://api.dicebear.com/7.x/bottts/png?seed=Kenji',
+    'https://api.dicebear.com/7.x/bottts/png?seed=Sakura',
+    'https://api.dicebear.com/7.x/bottts/png?seed=Tokyo',
+    'https://api.dicebear.com/7.x/bottts/png?seed=Shiba',
   ];
 
   @override
@@ -64,258 +62,151 @@ class AvatarPickerSheet extends StatefulWidget {
 }
 
 class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
-  late String _selectedUrl;
-  late final TextEditingController _customUrlController;
+  bool _uploading = false;
+  String? _error;
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedUrl = widget.currentAvatarUrl;
-    _customUrlController = TextEditingController(text: widget.currentAvatarUrl);
+  void _select(String url) {
+    widget.onAvatarSelected(url);
+    Navigator.of(context).pop();
   }
 
-  @override
-  void dispose() {
-    _customUrlController.dispose();
-    super.dispose();
-  }
+  Future<void> _pickAndUpload() async {
+    final file = await FilePicker.pickFile(type: FileType.image);
+    if (file == null || !mounted) return;
 
-  void _applySelection(String url) {
     setState(() {
-      _selectedUrl = url;
-      _customUrlController.text = url;
+      _uploading = true;
+      _error = null;
     });
+    try {
+      final url = await widget.onUpload(await file.readAsBytes(), file.name);
+      if (mounted) _select(url);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _uploading = false;
+        _error = e is ApiException ? e.message : appStrings.uploadPhotoFailed;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        left: 20.0,
-        right: 20.0,
-        top: 16.0,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24.0,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28.0)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 44.0,
-              height: 4.0,
-              decoration: BoxDecoration(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2.0),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18.0),
-
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                appStrings.choosePresetAvatar,
-                style: const TextStyle(
-                  fontSize: 18.0,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36.0,
+                height: 4.0,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2.0),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.close, color: AppColors.textSecondary),
-                onPressed: () => Navigator.pop(context),
+            ),
+            const SizedBox(height: 16.0),
+            Text(
+              appStrings.changeAvatar,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17.0,
+                fontWeight: FontWeight.bold,
               ),
-            ],
-          ),
-          const SizedBox(height: 14.0),
-
-          // Preset Avatars Grid
-          SizedBox(
-            height: 176.0,
-            child: GridView.builder(
-              physics: const BouncingScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                crossAxisSpacing: 12.0,
-                mainAxisSpacing: 12.0,
-                childAspectRatio: 0.9,
+            ),
+            const SizedBox(height: 12.0),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4.0),
+              leading: _uploading
+                  ? const SizedBox(
+                      width: 24.0,
+                      height: 24.0,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.0,
+                        color: Colors.white70,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.photo_library_outlined,
+                      color: Colors.white,
+                    ),
+              title: Text(
+                appStrings.uploadPhoto,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              itemCount: AvatarPickerSheet._presets.length,
-              itemBuilder: (context, index) {
-                final preset = AvatarPickerSheet._presets[index];
-                final isSelected = _selectedUrl == preset.url;
-
-                return GestureDetector(
-                  onTap: () => _applySelection(preset.url),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(3.0),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected
-                                ? AppColors.periwinkle
-                                : Colors.transparent,
-                            width: 2.5,
-                          ),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: AppColors.periwinkle
-                                        .withValues(alpha: 0.5),
-                                    blurRadius: 10.0,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: CircleAvatar(
-                          radius: 26.0,
-                          backgroundColor: AppColors.surfaceCardSubtle,
-                          backgroundImage: NetworkImage(preset.url),
-                          onBackgroundImageError: (_, _) {},
-                          child: isSelected
-                              ? Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppColors.periwinkle
-                                        .withValues(alpha: 0.4),
-                                  ),
-                                  child: const Icon(
-                                    Icons.check,
-                                    color: Colors.white,
-                                    size: 20.0,
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(height: 4.0),
-                      Text(
-                        preset.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: isSelected
-                              ? AppColors.periwinkle
-                              : AppColors.textSecondary,
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                    ],
+              subtitle: _error == null
+                  ? null
+                  : Text(
+                      _error!,
+                      style: const TextStyle(color: AppColors.socialRed),
+                    ),
+              onTap: _uploading ? null : _pickAndUpload,
+            ),
+            const SizedBox(height: 8.0),
+            Text(
+              appStrings.choosePresetAvatar,
+              style: const TextStyle(
+                color: AppColors.socialTextMuted,
+                fontSize: 13.0,
+              ),
+            ),
+            const SizedBox(height: 12.0),
+            GridView.count(
+              crossAxisCount: 4,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12.0,
+              crossAxisSpacing: 12.0,
+              children: [
+                for (final url in AvatarPickerSheet.presetUrls)
+                  _PresetAvatar(
+                    url: url,
+                    selected: url == widget.currentAvatarUrl,
+                    onTap: _uploading ? null : () => _select(url),
                   ),
-                );
-              },
+              ],
             ),
-          ),
-
-          const SizedBox(height: 12.0),
-          // Custom URL Input
-          Text(
-            appStrings.customAvatarUrl,
-            style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8.0),
-          TextField(
-            controller: _customUrlController,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 13.5,
-            ),
-            decoration: InputDecoration(
-              hintText: appStrings.enterAvatarUrl,
-              hintStyle: TextStyle(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.4),
-              ),
-              prefixIcon: const Icon(
-                Icons.link_rounded,
-                color: AppColors.periwinkle,
-                size: 20.0,
-              ),
-              filled: true,
-              fillColor: AppColors.surfaceCardSubtle,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 12.0,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14.0),
-                borderSide: BorderSide(
-                  color: AppColors.softSkyBlue.withValues(alpha: 0.2),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14.0),
-                borderSide: const BorderSide(
-                  color: AppColors.periwinkle,
-                  width: 1.5,
-                ),
-              ),
-            ),
-            onChanged: (val) {
-              setState(() {
-                _selectedUrl = val.trim();
-              });
-            },
-          ),
-          const SizedBox(height: 20.0),
-
-          // Action Button
-          SizedBox(
-            width: double.infinity,
-            height: 48.0,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.periwinkle,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14.0),
-                ),
-                elevation: 4.0,
-                shadowColor: AppColors.periwinkle.withValues(alpha: 0.4),
-              ),
-              onPressed: () {
-                widget.onAvatarSelected(_selectedUrl);
-                Navigator.pop(context);
-              },
-              child: Text(
-                appStrings.select,
-                style: const TextStyle(
-                  fontSize: 15.0,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _PresetAvatar {
-  final String id;
-  final String name;
+class _PresetAvatar extends StatelessWidget {
   final String url;
+  final bool selected;
+  final VoidCallback? onTap;
 
-  const _PresetAvatar({
-    required this.id,
-    required this.name,
-    required this.url,
-  });
+  const _PresetAvatar({required this.url, required this.selected, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(2.0),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? Colors.white : Colors.transparent,
+            width: 2.0,
+          ),
+        ),
+        child: CircleAvatar(
+          backgroundColor: AppColors.socialBackground,
+          backgroundImage: NetworkImage(url),
+          onBackgroundImageError: (_, _) {},
+        ),
+      ),
+    );
+  }
 }

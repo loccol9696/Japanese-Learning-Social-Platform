@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/profile/domain/models/profile_video.dart';
@@ -7,6 +8,7 @@ import 'package:frontend/features/profile/domain/models/topic_model.dart';
 import 'package:frontend/features/profile/domain/models/user_profile_model.dart';
 import 'package:frontend/features/profile/domain/repositories/profile_repository.dart';
 import 'package:frontend/features/profile/presentation/screens/profile_update_screen.dart';
+import 'package:frontend/features/profile/presentation/widgets/avatar_picker_sheet.dart';
 import 'package:frontend/features/profile/presentation/widgets/interest_tags_selector.dart';
 import 'package:frontend/features/profile/presentation/widgets/jlpt_level_selector.dart';
 
@@ -62,6 +64,10 @@ class _FakeProfileRepository implements ProfileRepository {
 
   @override
   Future<List<ProfileVideo>> getLikedVideos() async => const [];
+
+  @override
+  Future<String> uploadAvatar(Uint8List bytes, String filename) async =>
+      'https://cdn/avatars/$filename';
 }
 
 class _TestHttpOverrides extends HttpOverrides {
@@ -157,57 +163,89 @@ void main() {
     HttpOverrides.global = _TestHttpOverrides();
   });
 
-  testWidgets('ProfileUpdateScreen loads and renders profile data correctly',
-      (WidgetTester tester) async {
-    final fakeRepo = _FakeProfileRepository();
+  late _FakeProfileRepository fakeRepo;
 
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 2.75;
-    addTearDown(tester.view.resetPhysicalSize);
+  Future<void> settle(WidgetTester tester) async {
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ProfileUpdateScreen(repository: fakeRepo),
-      ),
+  /// Mở màn sửa hồ sơ từ một màn gốc (để kiểm tra việc quay lại sau khi lưu).
+  Future<void> pumpEditor(WidgetTester tester) async {
+    fakeRepo = _FakeProfileRepository();
+    tester.view.physicalSize = const Size(412, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(MaterialApp(navigatorKey: navigator, home: const Text('profile')));
+    navigator.currentState!.push(
+      MaterialPageRoute(builder: (_) => ProfileUpdateScreen(repository: fakeRepo)),
     );
+    await settle(tester);
+  }
 
-    // Initial render & wait for async getProfile/getTopics
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
+  testWidgets('nạp hồ sơ, chọn trình độ + chủ đề, "Lưu" gửi lên rồi quay lại', (tester) async {
+    await pumpEditor(tester);
 
-    // Verify title and display name loaded
-    expect(find.text('Cập nhật hồ sơ'), findsOneWidget);
+    expect(find.text('Sửa hồ sơ'), findsOneWidget);
     expect(find.text('Kenji Yamada'), findsOneWidget);
-
-    // Verify JlptLevelSelector and InterestTagsSelector exist
     expect(find.byType(JlptLevelSelector), findsOneWidget);
     expect(find.byType(InterestTagsSelector), findsOneWidget);
+    for (final level in ['N5', 'N4', 'N3', 'N2', 'N1']) {
+      expect(find.text(level), findsOneWidget);
+    }
 
-    // Verify all 5 JLPT levels rendered
-    expect(find.text('N5'), findsOneWidget);
-    expect(find.text('N4'), findsOneWidget);
-    expect(find.text('N3'), findsOneWidget);
-    expect(find.text('N2'), findsOneWidget);
-    expect(find.text('N1'), findsOneWidget);
-
-    // Select N1
     await tester.tap(find.text('N1'));
-    await tester.pump();
-
-    // Select topic 'Luyện thi JLPT'
     await tester.tap(find.text('Luyện thi JLPT'));
     await tester.pump();
+    await tester.tap(find.widgetWithText(TextButton, 'Lưu'));
+    await settle(tester);
 
-    // Tap Save Changes
-    final saveButton = find.widgetWithText(ElevatedButton, 'Lưu thay đổi');
-    expect(saveButton, findsOneWidget);
-    await tester.tap(saveButton);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    // Verify repository updateProfile was called
     expect(fakeRepo.updateProfileCalled, isTrue);
-    expect(fakeRepo.profile.currentLevel, equals('N1'));
-    expect(fakeRepo.profile.interests.contains('Luyện thi JLPT'), isTrue);
+    expect(fakeRepo.profile.currentLevel, 'N1');
+    expect(fakeRepo.profile.interests, contains('Luyện thi JLPT'));
+    expect(find.text('profile'), findsOneWidget); // đã quay lại
+  });
+
+  testWidgets('tên hiển thị trống -> báo lỗi, không lưu', (tester) async {
+    await pumpEditor(tester);
+
+    await tester.enterText(find.byType(TextFormField).first, '   ');
+    await tester.tap(find.widgetWithText(TextButton, 'Lưu'));
+    await settle(tester);
+
+    expect(find.text('Tên hiển thị không được để trống'), findsOneWidget);
+    expect(fakeRepo.updateProfileCalled, isFalse);
+  });
+
+  testWidgets('"Đổi ảnh": chọn ảnh minh họa có sẵn -> sheet đóng, ảnh được lưu', (tester) async {
+    await pumpEditor(tester);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Đổi ảnh'));
+    await settle(tester);
+    expect(find.text('Tải ảnh lên từ máy'), findsOneWidget);
+
+    await tester.tap(find.byType(CircleAvatar).at(1)); // ảnh minh họa đầu tiên trong sheet
+    await settle(tester);
+    expect(find.text('Tải ảnh lên từ máy'), findsNothing);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Lưu'));
+    await settle(tester);
+    expect(fakeRepo.profile.avatarUrl, AvatarPickerSheet.presetUrls.first);
+  });
+
+  testWidgets('không tải được hồ sơ -> báo lỗi, khóa "Lưu" (không ghi đè hồ sơ rỗng)', (tester) async {
+    tester.view.physicalSize = const Size(412, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final repo = _FakeProfileRepository()..profile = const UserProfileModel();
+    await tester.pumpWidget(MaterialApp(home: ProfileUpdateScreen(repository: repo)));
+    await settle(tester);
+
+    expect(find.text('Không tải được dữ liệu'), findsOneWidget);
+    expect(find.text('Thử lại'), findsOneWidget);
+    expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'Lưu')).onPressed, isNull);
+    expect(repo.updateProfileCalled, isFalse);
   });
 }

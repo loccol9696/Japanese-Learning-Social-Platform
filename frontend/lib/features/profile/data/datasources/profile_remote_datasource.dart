@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
@@ -19,6 +20,9 @@ abstract class ProfileRemoteDataSource {
   Future<List<ProfileVideo>> fetchMyVideos();
   Future<List<ProfileVideo>> fetchSavedVideos();
   Future<List<ProfileVideo>> fetchLikedVideos();
+
+  /// Tải ảnh đại diện lên Cloudinary (`POST /media/upload`), trả về URL ảnh.
+  Future<String> uploadAvatar(Uint8List bytes, String filename);
 }
 
 /// Hồ sơ của người dùng đang đăng nhập: `GET/PUT /api/v1/profile` (backend xác định
@@ -34,7 +38,6 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   }) : _api = apiClient ?? ApiClient.instance,
        _currentUser = currentUser ?? TokenStorage.instance.getUserData;
 
-  static const Duration _timeout = Duration(seconds: 3);
 
   static const String _storageKey = 'jlsp_user_profile_data';
 
@@ -53,7 +56,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   @override
   Future<List<TopicModel>> fetchTopics() async {
     try {
-      final data = await _api.get(ApiConstants.topicsUrl, timeout: _timeout);
+      final data = await _api.get(ApiConstants.topicsUrl);
       if (data is List && data.isNotEmpty) {
         return data
             .whereType<Map<String, dynamic>>()
@@ -78,7 +81,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     final local = cached != null && cached.id == userId ? cached : null;
 
     try {
-      final data = await _api.get(ApiConstants.profileUrl, timeout: _timeout);
+      final data = await _api.get(ApiConstants.profileUrl);
       if (data is Map<String, dynamic>) {
         final profile = _withLocalOnlyFields(UserProfileModel.fromJson(data), local);
         _saveToStorage(profile);
@@ -102,7 +105,6 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       final data = await _api.put(
         ApiConstants.profileUrl,
         body: profile.toUpdateJson(),
-        timeout: _timeout,
       );
       if (data is Map<String, dynamic>) {
         final updated = _withLocalOnlyFields(
@@ -122,7 +124,6 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   Future<ProfileStats> fetchStats() async {
     final data = await _api.get(
       ApiConstants.profileStatsUrl,
-      timeout: _timeout,
     );
     return data is Map<String, dynamic>
         ? ProfileStats.fromJson(data)
@@ -141,9 +142,24 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   Future<List<ProfileVideo>> fetchLikedVideos() =>
       _fetchVideoPage(ApiConstants.profileLikedVideosUrl);
 
+  @override
+  Future<String> uploadAvatar(Uint8List bytes, String filename) async {
+    final data = await _api.postMultipart(
+      ApiConstants.mediaUploadUrl(folder: 'jlsp/avatars'),
+      fieldName: 'file',
+      bytes: bytes,
+      filename: filename,
+    );
+    final url = data is Map<String, dynamic> ? (data['secureUrl'] ?? data['url']) : null;
+    if (url is! String || url.isEmpty) {
+      throw ApiException(statusCode: 500, message: 'Máy chủ không trả về đường dẫn ảnh');
+    }
+    return url;
+  }
+
   /// Trang đầu (tối đa 30 video) của một danh sách `PageResponse<VideoResponse>`.
   Future<List<ProfileVideo>> _fetchVideoPage(String url) async {
-    final data = await _api.get('$url?page=0&size=30', timeout: _timeout);
+    final data = await _api.get('$url?page=0&size=30');
     final content = data is Map<String, dynamic> ? data['content'] : null;
     if (content is! List) return const [];
     return content

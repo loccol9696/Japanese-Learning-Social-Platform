@@ -10,21 +10,21 @@ import '../widgets/avatar_picker_sheet.dart';
 import '../widgets/interest_tags_selector.dart';
 import '../widgets/jlpt_level_selector.dart';
 
+/// Sửa hồ sơ (cùng phong cách tối với màn Profile). Lưu thành công -> quay lại.
 class ProfileUpdateScreen extends StatefulWidget {
   final ProfileRepository? repository;
-  final bool isTab;
 
-  const ProfileUpdateScreen({
-    super.key,
-    this.repository,
-    this.isTab = false,
-  });
+  const ProfileUpdateScreen({super.key, this.repository});
 
   @override
   State<ProfileUpdateScreen> createState() => _ProfileUpdateScreenState();
 }
 
 class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
+  // Giới hạn trùng với UpdateUserRequest ở backend.
+  static const int _maxDisplayName = 100;
+  static const int _maxBio = 500;
+
   late final ProfileRepository _repository;
 
   final _formKey = GlobalKey<FormState>();
@@ -57,24 +57,21 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-    });
+  // Hồ sơ không có id = không tải được (offline, chưa có bản lưu): không cho lưu đè lên server.
+  bool get _loadFailed => !_isLoading && _profile.id == null;
 
+  Future<void> _loadData() async {
+    if (!_isLoading) setState(() => _isLoading = true);
     final results = await Future.wait([
       _repository.getProfile(),
       _repository.getTopics(),
     ]);
-
     if (!mounted) return;
 
     final profile = results[0] as UserProfileModel;
-    final topics = results[1] as List<TopicModel>;
-
     setState(() {
       _profile = profile;
-      _availableTopics = topics;
+      _availableTopics = results[1] as List<TopicModel>;
       _selectedAvatarUrl = profile.avatarUrl;
       _selectedLevel = profile.currentLevel;
       _selectedInterests = List<String>.from(profile.interests);
@@ -85,83 +82,46 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
   }
 
   void _openAvatarPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return AvatarPickerSheet(
-          currentAvatarUrl: _selectedAvatarUrl,
-          onAvatarSelected: (newUrl) {
-            setState(() {
-              _selectedAvatarUrl = newUrl;
-            });
-          },
-        );
-      },
+    showAvatarPickerSheet(
+      context,
+      currentAvatarUrl: _selectedAvatarUrl,
+      onAvatarSelected: (url) => setState(() => _selectedAvatarUrl = url),
+      onUpload: _repository.uploadAvatar,
     );
   }
 
   Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    final selectedTopicModels = _availableTopics
-        .where((t) => _selectedInterests.contains(t.name))
-        .toList();
+    if (_isSaving || !_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
 
     final updated = _profile.copyWith(
       displayName: _displayNameController.text.trim(),
       avatarUrl: _selectedAvatarUrl,
       currentLevel: _selectedLevel,
       bio: _bioController.text.trim(),
-      topics: selectedTopicModels,
+      topics: _availableTopics.where((t) => _selectedInterests.contains(t.name)).toList(),
       interests: _selectedInterests,
     );
 
     try {
-      final savedProfile = await _repository.updateProfile(updated);
+      await _repository.updateProfile(updated);
       if (!mounted) return;
-
-      setState(() {
-        _profile = savedProfile;
-        _isSaving = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop(true);
+      messenger.showSnackBar(
         SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: AppColors.success),
-              const SizedBox(width: 10.0),
-              Expanded(
-                child: Text(
-                  appStrings.profileUpdatedSuccessfully,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: AppColors.surfaceContainerHigh,
+          content: Text(appStrings.profileUpdatedSuccessfully),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
           duration: const Duration(seconds: 2),
         ),
       );
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _isSaving = false;
-      });
+      setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(appStrings.updateFailed),
-          backgroundColor: AppColors.error,
+          backgroundColor: AppColors.socialRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -170,491 +130,210 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isTab) {
-      return Container(
-        color: AppColors.backgroundCanvas,
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              // Custom Top Header for Tab
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      appStrings.profileTitle,
-                      style: const TextStyle(
-                        fontSize: 20.0,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _isSaving ? null : _saveProfile,
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 18.0,
-                              height: 18.0,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.0,
-                                color: AppColors.periwinkle,
-                              ),
-                            )
-                          : Text(
-                              appStrings.saveChanges,
-                              style: const TextStyle(
-                                color: AppColors.periwinkle,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14.5,
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: AppColors.periwinkle),
-                      )
-                    : Form(
-                        key: _formKey,
-                        child: ListView(
-                          physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-                          children: [
-                            _buildAvatarSection(),
-                            const SizedBox(height: 24.0),
-                            _buildDisplayNameField(),
-                            const SizedBox(height: 20.0),
-                            JlptLevelSelector(
-                              selectedLevel: _selectedLevel,
-                              onLevelSelected: (lvl) {
-                                setState(() {
-                                  _selectedLevel = lvl;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 24.0),
-                            InterestTagsSelector(
-                              availableTopics: _availableTopics,
-                              selectedInterests: _selectedInterests,
-                              onInterestsChanged: (tags) {
-                                setState(() {
-                                  _selectedInterests = tags;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 24.0),
-                            _buildBioField(),
-                            const SizedBox(height: 24.0),
-                            _buildSaveButtonContent(),
-                            const SizedBox(height: 120.0),
-                          ],
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
-      backgroundColor: AppColors.backgroundCanvas,
+      backgroundColor: AppColors.socialBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.backgroundCanvas,
+        backgroundColor: AppColors.socialBackground,
+        foregroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
-        leading: Navigator.canPop(context)
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                    color: AppColors.onSurface, size: 20.0),
-                onPressed: () => Navigator.pop(context),
-              )
-            : null,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20.0),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         title: Text(
-          appStrings.editProfile,
-          style: const TextStyle(
-            fontSize: 18.0,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
+          appStrings.profileEdit,
+          style: const TextStyle(fontSize: 17.0, fontWeight: FontWeight.w700),
         ),
         actions: [
-          TextButton(
-            onPressed: _isSaving ? null : _saveProfile,
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
             child: _isSaving
-                ? const SizedBox(
-                    width: 18.0,
-                    height: 18.0,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.0,
-                      color: AppColors.periwinkle,
+                ? const Center(
+                    child: SizedBox(
+                      width: 20.0,
+                      height: 20.0,
+                      child: CircularProgressIndicator(strokeWidth: 2.0, color: Colors.white70),
                     ),
                   )
-                : Text(
-                    appStrings.saveChanges,
-                    style: const TextStyle(
-                      color: AppColors.periwinkle,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14.5,
+                : TextButton(
+                    onPressed: _isLoading || _loadFailed ? null : _saveProfile,
+                    style: TextButton.styleFrom(foregroundColor: AppColors.socialCyan),
+                    child: Text(
+                      appStrings.save,
+                      style: const TextStyle(fontSize: 16.0, fontWeight: FontWeight.w700),
                     ),
                   ),
           ),
-          const SizedBox(width: 8.0),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(height: 1.0, color: Colors.white.withValues(alpha: 0.08)),
+        ),
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.periwinkle),
-            )
-          : SafeArea(
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20.0,
-                    vertical: 12.0,
-                  ),
-                  children: [
-                    // 1. Avatar Section
-                    _buildAvatarSection(),
-                    const SizedBox(height: 24.0),
-
-                    // 2. Display Name Input
-                    _buildDisplayNameField(),
-                    const SizedBox(height: 20.0),
-
-                    // 3. JLPT Level Selector
-                    JlptLevelSelector(
-                      selectedLevel: _selectedLevel,
-                      onLevelSelected: (lvl) {
-                        setState(() {
-                          _selectedLevel = lvl;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 24.0),
-
-                    // 4. Interests / Topics Selector
-                    InterestTagsSelector(
-                      availableTopics: _availableTopics,
-                      selectedInterests: _selectedInterests,
-                      onInterestsChanged: (tags) {
-                        setState(() {
-                          _selectedInterests = tags;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 24.0),
-
-                    // 5. Bio Input Field
-                    _buildBioField(),
-                    const SizedBox(height: 20.0),
-                  ],
-                ),
-              ),
-            ),
-      bottomNavigationBar: _buildSaveButton(),
-    );
-  }
-
-  Widget _buildAvatarSection() {
-    // Chưa có avatar -> chỉ hiện icon người (không dùng ảnh mẫu của người khác).
-    final avatarUrl = _selectedAvatarUrl;
-
-    return Center(
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Halo glow border
-          Container(
-            width: 114.0,
-            height: 114.0,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.periwinkle.withValues(alpha: 0.35),
-                  blurRadius: 24.0,
-                  spreadRadius: 2.0,
-                ),
-              ],
-            ),
-          ),
-          // Avatar Image
-          GestureDetector(
-            onTap: _openAvatarPicker,
-            child: Container(
-              padding: const EdgeInsets.all(3.5),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [AppColors.periwinkle, AppColors.sakuraPink],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: CircleAvatar(
-                radius: 52.0,
-                backgroundColor: AppColors.surfaceCardSubtle,
-                backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                onBackgroundImageError: avatarUrl.isNotEmpty ? (_, _) {} : null,
-                child: const Icon(
-                  Icons.person_rounded,
-                  size: 42.0,
-                  color: AppColors.softSkyBlue,
-                ),
-              ),
-            ),
-          ),
-          // Camera/Edit Icon Badge
-          Positioned(
-            bottom: 2.0,
-            right: 2.0,
-            child: GestureDetector(
-              onTap: _openAvatarPicker,
-              child: Container(
-                padding: const EdgeInsets.all(7.5),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.periwinkle,
-                  border: Border.all(
-                    color: AppColors.backgroundCanvas,
-                    width: 2.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.periwinkle.withValues(alpha: 0.45),
-                      blurRadius: 8.0,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.camera_alt_rounded,
-                  size: 16.0,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDisplayNameField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(
-              Icons.badge_rounded,
-              color: AppColors.softSkyBlue,
-              size: 20.0,
-            ),
-            const SizedBox(width: 8.0),
-            Expanded(
-              child: Text(
-                appStrings.displayName,
-                style: const TextStyle(
-                  fontSize: 16.0,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10.0),
-        TextFormField(
-          controller: _displayNameController,
-          style: const TextStyle(color: AppColors.textPrimary, fontSize: 14.5),
-          decoration: InputDecoration(
-            hintText: appStrings.displayNamePlaceholder,
-            hintStyle: TextStyle(
-              color: AppColors.softSkyBlue.withValues(alpha: 0.4),
-            ),
-            filled: true,
-            fillColor: AppColors.surfaceCardSubtle,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18.0,
-              vertical: 14.0,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: BorderSide(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.2),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: BorderSide(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.2),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: const BorderSide(
-                color: AppColors.periwinkle,
-                width: 1.5,
-              ),
-            ),
-          ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Tên hiển thị không được để trống';
-            }
-            if (value.trim().length > 100) {
-              return 'Tên hiển thị không được quá 100 ký tự';
-            }
-            return null;
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBioField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(
-              Icons.auto_stories_rounded,
-              color: AppColors.warmPeach,
-              size: 20.0,
-            ),
-            const SizedBox(width: 8.0),
-            Expanded(
-              child: Text(
-                appStrings.bio,
-                style: const TextStyle(
-                  fontSize: 16.0,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10.0),
-        TextFormField(
-          controller: _bioController,
-          maxLines: 4,
-          style: const TextStyle(color: AppColors.textPrimary, fontSize: 14.0),
-          decoration: InputDecoration(
-            hintText: appStrings.bioPlaceholder,
-            hintStyle: TextStyle(
-              color: AppColors.softSkyBlue.withValues(alpha: 0.4),
-            ),
-            filled: true,
-            fillColor: AppColors.surfaceCardSubtle,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18.0,
-              vertical: 14.0,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: BorderSide(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.2),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: BorderSide(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.2),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: const BorderSide(
-                color: AppColors.periwinkle,
-                width: 1.5,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSaveButtonContent() {
-    return Container(
-      width: double.infinity,
-      height: 52.0,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16.0),
-        gradient: const LinearGradient(
-          colors: [AppColors.periwinkle, AppColors.lavender],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.periwinkle.withValues(alpha: 0.45),
-            blurRadius: 18.0,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-        ),
-        onPressed: _isSaving ? null : _saveProfile,
-        child: _isSaving
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+          ? const Center(child: CircularProgressIndicator(color: AppColors.socialTextMuted))
+          : _loadFailed
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(
-                    width: 20.0,
-                    height: 20.0,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 12.0),
                   Text(
-                    appStrings.saving,
-                    style: const TextStyle(
-                      fontSize: 16.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                    appStrings.profileLoadFailed,
+                    style: const TextStyle(color: Colors.white, fontSize: 15.0),
+                  ),
+                  const SizedBox(height: 12.0),
+                  OutlinedButton(
+                    onPressed: _loadData,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: AppColors.socialDivider),
                     ),
+                    child: Text(appStrings.profileRetry),
                   ),
                 ],
-              )
-            : Text(
-                appStrings.saveChanges,
-                style: const TextStyle(
-                  fontSize: 16.0,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
               ),
-      ),
+            )
+          : Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 32.0),
+                children: [
+                  _buildAvatar(),
+                  const SizedBox(height: 28.0),
+                  _SectionLabel(appStrings.displayName),
+                  _buildTextField(
+                    controller: _displayNameController,
+                    hint: appStrings.displayNamePlaceholder,
+                    maxLength: _maxDisplayName,
+                    validator: (value) => (value == null || value.trim().isEmpty)
+                        ? appStrings.displayNameRequired
+                        : null,
+                  ),
+                  const SizedBox(height: 20.0),
+                  _SectionLabel(appStrings.bio),
+                  _buildTextField(
+                    controller: _bioController,
+                    hint: appStrings.bioPlaceholder,
+                    maxLength: _maxBio,
+                    maxLines: 4,
+                  ),
+                  const SizedBox(height: 20.0),
+                  _SectionLabel(appStrings.selectJlptLevel),
+                  JlptLevelSelector(
+                    selectedLevel: _selectedLevel,
+                    onLevelSelected: (level) => setState(() => _selectedLevel = level),
+                  ),
+                  const SizedBox(height: 28.0),
+                  _SectionLabel(appStrings.selectInterests, hint: appStrings.interestsHint),
+                  InterestTagsSelector(
+                    availableTopics: _availableTopics,
+                    selectedInterests: _selectedInterests,
+                    onInterestsChanged: (list) => setState(() => _selectedInterests = list),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 
-  Widget _buildSaveButton() {
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-      child: SafeArea(
-        top: false,
-        child: _buildSaveButtonContent(),
+  Widget _buildAvatar() {
+    final url = _selectedAvatarUrl;
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: _openAvatarPicker,
+          child: CircleAvatar(
+            radius: 48.0,
+            backgroundColor: AppColors.socialSurface,
+            backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
+            onBackgroundImageError: url.isNotEmpty ? (_, _) {} : null,
+            child: url.isEmpty
+                ? const Icon(Icons.person_rounded, size: 48.0, color: AppColors.socialTextMuted)
+                : null,
+          ),
+        ),
+        TextButton(
+          onPressed: _openAvatarPicker,
+          style: TextButton.styleFrom(foregroundColor: Colors.white),
+          child: Text(
+            appStrings.changeAvatar,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required int maxLength,
+    int maxLines = 1,
+    FormFieldValidator<String>? validator,
+  }) {
+    OutlineInputBorder border(Color color) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+          borderSide: BorderSide(color: color),
+        );
+
+    return TextFormField(
+      controller: controller,
+      maxLength: maxLength,
+      maxLines: maxLines,
+      minLines: 1,
+      validator: validator,
+      style: const TextStyle(color: Colors.white, fontSize: 15.0),
+      cursorColor: AppColors.socialCyan,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: AppColors.socialTextMuted),
+        filled: true,
+        fillColor: AppColors.socialSurface,
+        counterStyle: const TextStyle(color: AppColors.socialTextMuted, fontSize: 11.0),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+        border: border(Colors.transparent),
+        enabledBorder: border(Colors.transparent),
+        focusedBorder: border(AppColors.socialCyan),
+        errorBorder: border(AppColors.socialRed),
+        focusedErrorBorder: border(AppColors.socialRed),
+      ),
+    );
+  }
+}
+
+/// Nhãn của một mục, có thể kèm dòng gợi ý nhỏ.
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  final String? hint;
+
+  const _SectionLabel(this.text, {this.hint});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14.0,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (hint != null) ...[
+            const SizedBox(height: 2.0),
+            Text(
+              hint!,
+              style: const TextStyle(color: AppColors.socialTextMuted, fontSize: 12.0),
+            ),
+          ],
+        ],
       ),
     );
   }

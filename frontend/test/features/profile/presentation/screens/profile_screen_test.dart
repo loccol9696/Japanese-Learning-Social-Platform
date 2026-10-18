@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_language.dart';
@@ -48,6 +50,9 @@ class _FakeProfileRepository implements ProfileRepository {
 
   @override
   Future<List<ProfileVideo>> getSavedVideos() async => saved;
+
+  @override
+  Future<String> uploadAvatar(Uint8List bytes, String filename) async => 'https://cdn/$filename';
 
   @override
   Future<List<ProfileVideo>> getLikedVideos() async {

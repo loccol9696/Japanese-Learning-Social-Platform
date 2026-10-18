@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../domain/models/profile_video.dart';
 import '../../domain/models/topic_model.dart';
 import '../../domain/models/user_profile_model.dart';
@@ -37,4 +39,8 @@ class ProfileRepositoryImpl implements ProfileRepository {
   @override
   Future<List<ProfileVideo>> getLikedVideos() =>
       remoteDataSource.fetchLikedVideos();
+
+  @override
+  Future<String> uploadAvatar(Uint8List bytes, String filename) =>
+      remoteDataSource.uploadAvatar(bytes, filename);
 }
