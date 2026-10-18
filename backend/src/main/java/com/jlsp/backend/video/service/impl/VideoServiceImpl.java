@@ -633,4 +633,36 @@ public class VideoServiceImpl implements VideoService {
                 .last(page.isLast())
                 .build();
     }
+
+    @Override
+    public PageResponse<VideoResponse> getSavedVideos(Long userId, Pageable pageable) {
+        return toPageWithViewerFlags(videoSaveRepository.findVideosByUserId(userId, pageable), userId);
+    }
+
+    @Override
+    public PageResponse<VideoResponse> getLikedVideos(Long userId, Pageable pageable) {
+        return toPageWithViewerFlags(videoLikeRepository.findVideosByUserId(userId, pageable), userId);
+    }
+
+    /** Map một trang video kèm isLiked/isSaved của người xem bằng 2 truy vấn gộp (không N+1). */
+    private PageResponse<VideoResponse> toPageWithViewerFlags(Page<Video> page, Long viewerId) {
+        List<Long> ids = page.getContent().stream().map(Video::getId).toList();
+        java.util.Set<Long> liked = ids.isEmpty() ? java.util.Set.of()
+                : new java.util.HashSet<>(videoLikeRepository.findVideoIdsByUserIdAndVideoIdIn(viewerId, ids));
+        java.util.Set<Long> saved = ids.isEmpty() ? java.util.Set.of()
+                : new java.util.HashSet<>(videoSaveRepository.findVideoIdsByUserIdAndVideoIdIn(viewerId, ids));
+
+        List<VideoResponse> content = page.getContent().stream()
+                .map(v -> videoMapper.toVideoResponse(v, liked.contains(v.getId()), saved.contains(v.getId())))
+                .toList();
+
+        return PageResponse.<VideoResponse>builder()
+                .content(content)
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
+                .build();
+    }
 }

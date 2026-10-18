@@ -239,4 +239,14 @@ public interface VideoService {
      * @return Danh sách video của chính mình
      */
     PageResponse<VideoResponse> getMyVideosStatus(Long userId, Pageable pageable);
+
+    /**
+     * Video người dùng đã lưu (bookmark), mới lưu trước.
+     */
+    PageResponse<VideoResponse> getSavedVideos(Long userId, Pageable pageable);
+
+    /**
+     * Video người dùng đã thích, mới thích trước.
+     */
+    PageResponse<VideoResponse> getLikedVideos(Long userId, Pageable pageable);
 }

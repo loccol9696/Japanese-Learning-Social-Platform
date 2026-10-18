@@ -7,7 +7,10 @@ import com.jlsp.backend.user.dto.request.UpdateUserRequest;
 import com.jlsp.backend.user.dto.response.UserResponse;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.mapper.UserMapper;
+import com.jlsp.backend.user.dto.response.ProfileStatsResponse;
+import com.jlsp.backend.user.repository.FollowRepository;
 import com.jlsp.backend.user.repository.UserRepository;
+import com.jlsp.backend.video.repository.VideoRepository;
 import com.jlsp.backend.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +28,8 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final FollowRepository followRepository;
+    private final VideoRepository videoRepository;
 
     @Override
     public UserResponse createUser(CreateUserRequest request) {
@@ -221,5 +226,17 @@ public class UserServiceImpl implements UserService {
     @Override
     public void deactivateUser(Long id) {
         toggleUserStatus(id);
+    }
+
+    @Override
+    public ProfileStatsResponse getProfileStats(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new com.jlsp.backend.common.exception.ResourceNotFoundException("Không tìm thấy người dùng");
+        }
+        return ProfileStatsResponse.builder()
+                .followingCount(followRepository.countByIdFollowerId(userId))
+                .followerCount(followRepository.countByIdFollowingId(userId))
+                .likeCount(videoRepository.sumLikeCountByUserId(userId))
+                .build();
     }
 }

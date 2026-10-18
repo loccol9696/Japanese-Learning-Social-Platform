@@ -28,4 +28,7 @@ public interface UserService {
 
     java.util.List<com.jlsp.backend.user.dto.response.GeneratedAccountDto> batchCreateAccounts(com.jlsp.backend.user.dto.request.AdminBatchCreateRequest request);
     UserResponse updateProfileByUsername(String currentUsername, UpdateUserRequest request);
+
+    /** Số đang theo dõi / người theo dõi / tổng lượt thích của người dùng. */
+    com.jlsp.backend.user.dto.response.ProfileStatsResponse getProfileStats(Long userId);
 }

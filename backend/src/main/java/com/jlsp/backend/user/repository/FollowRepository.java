@@ -26,4 +26,10 @@ public interface FollowRepository extends JpaRepository<Follow, FollowId> {
      * Kiểm tra xem followerId có đang theo dõi followingId hay không.
      */
     boolean existsByIdFollowerIdAndIdFollowingId(Long followerId, Long followingId);
+
+    /** Số người mà [followerId] đang theo dõi. */
+    long countByIdFollowerId(Long followerId);
+
+    /** Số người đang theo dõi [followingId]. */
+    long countByIdFollowingId(Long followingId);
 }

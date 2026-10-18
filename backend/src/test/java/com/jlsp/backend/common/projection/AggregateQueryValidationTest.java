@@ -1,5 +1,9 @@
 package com.jlsp.backend.common.projection;
 
+import com.jlsp.backend.user.repository.FollowRepository;
+import com.jlsp.backend.video.repository.VideoLikeRepository;
+import com.jlsp.backend.video.repository.VideoRepository;
+import com.jlsp.backend.video.repository.VideoSaveRepository;
 import com.jlsp.backend.subscription.repository.SubscriptionOrderRepository;
 import com.jlsp.backend.subscription.repository.UserDailyTokenUsageRepository;
 import com.jlsp.backend.user.repository.UserRepository;
@@ -38,11 +42,23 @@ class AggregateQueryValidationTest {
     UserDailyTokenUsageRepository tokenUsageRepository;
     @Autowired
     SubscriptionOrderRepository orderRepository;
+    @Autowired
+    VideoRepository videoRepository;
+    @Autowired
+    VideoLikeRepository videoLikeRepository;
+    @Autowired
+    VideoSaveRepository videoSaveRepository;
+    @Autowired
+    FollowRepository followRepository;
 
     @Test
     void aggregateQueriesParseAgainstEntityModel() {
         assertThat(userRepository).isNotNull();
         assertThat(tokenUsageRepository).isNotNull();
         assertThat(orderRepository).isNotNull();
+        assertThat(videoRepository).isNotNull();
+        assertThat(videoLikeRepository).isNotNull();
+        assertThat(videoSaveRepository).isNotNull();
+        assertThat(followRepository).isNotNull();
     }
 }
