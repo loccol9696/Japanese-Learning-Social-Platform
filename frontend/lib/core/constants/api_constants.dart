@@ -21,6 +21,9 @@ class ApiConstants {
 
   static String get baseUrl => '$serverUrl/api/v1';
 
+  // User endpoints
+  static String userUrl(int id) => '$baseUrl/users/$id';
+
   // Video & media endpoints
   static String get videosUrl => '$baseUrl/videos';
   static String mediaUploadUrl({String folder = 'jlsp'}) =>

@@ -1,5 +1,7 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../../../../core/constants/api_constants.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../domain/models/topic_model.dart';
 import '../../domain/models/user_profile_model.dart';
@@ -11,22 +13,20 @@ abstract class ProfileRemoteDataSource {
   Future<List<TopicModel>> fetchTopics();
 }
 
+/// Hồ sơ của người dùng đang đăng nhập: `GET/PUT /api/v1/users/{id}` (id lấy từ
+/// user đã lưu khi đăng nhập, backend kiểm tra quyền bằng JWT). Backend chưa lưu
+/// topics/interests nên hai trường này được giữ ở bộ nhớ cục bộ.
 class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
-  final String baseUrl;
-  final http.Client _client;
+  final ApiClient _api;
+  final Future<Map<String, dynamic>?> Function() _currentUser;
 
   ProfileRemoteDataSourceImpl({
-    this.baseUrl = 'http://localhost:8080',
-    http.Client? client,
-  }) : _client = client ?? http.Client();
+    ApiClient? apiClient,
+    Future<Map<String, dynamic>?> Function()? currentUser,
+  })  : _api = apiClient ?? ApiClient.instance,
+        _currentUser = currentUser ?? TokenStorage.instance.getUserData;
 
-  /// Danh tính lấy từ JWT, backend không còn tin header X-User-Id.
-  Future<void> _addAuthHeader(Map<String, String> headers) async {
-    final token = await TokenStorage.instance.getAccessToken();
-    if (token != null && token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
-    }
-  }
+  static const Duration _timeout = Duration(seconds: 3);
 
   static const String _storageKey = 'jlsp_user_profile_data';
 
@@ -61,91 +61,63 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
 
   @override
   Future<List<TopicModel>> fetchTopics() async {
-    try {
-      final response = await _client
-          .get(Uri.parse('$baseUrl/api/v1/topics'))
-          .timeout(const Duration(seconds: 2));
-
-      if (response.statusCode == 200) {
-        final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
-        final data = jsonMap['data'] as List<dynamic>? ?? [];
-        return data
-            .map((item) => TopicModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-    } catch (_) {
-      // Backend offline fallback
-    }
+    // Backend chưa có API danh sách chủ đề
     return _defaultTopics;
   }
 
   @override
   Future<UserProfileModel> fetchProfile() async {
-    // 1. Try to fetch fresh state from Backend Spring Boot
-    try {
-      final headers = <String, String>{
-        'Accept': 'application/json',
-      };
-      await _addAuthHeader(headers);
-
-      final response = await _client
-          .get(Uri.parse('$baseUrl/api/v1/profile'), headers: headers)
-          .timeout(const Duration(seconds: 2));
-
-      if (response.statusCode == 200) {
-        final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
-        final data = jsonMap['data'] as Map<String, dynamic>;
-        final profile = UserProfileModel.fromJson(data);
-        _saveToStorage(profile);
-        return profile;
+    final local = _getFromStorage();
+    final userId = await _currentUserId();
+    if (userId != null) {
+      try {
+        final data = await _api.get(ApiConstants.userUrl(userId), timeout: _timeout);
+        if (data is Map<String, dynamic>) {
+          final profile = _withLocalOnlyFields(UserProfileModel.fromJson(data), local);
+          _saveToStorage(profile);
+          return profile;
+        }
+      } on ApiException {
+        // Backend offline / lỗi -> dùng bản lưu cục bộ
       }
-    } catch (_) {
-      // Backend offline or connection refused
     }
-
-    // 2. If Backend is offline, retrieve persistent saved changes from browser localStorage
-    final stored = _getFromStorage();
-    if (stored != null) {
-      return stored;
-    }
-
-    return _defaultProfile;
+    return local ?? _defaultProfile;
   }
 
   @override
   Future<UserProfileModel> updateProfile(UserProfileModel profile) async {
-    // 1. Save immediately to persistent browser storage so refresh never loses data
+    // Lưu cục bộ ngay để không mất dữ liệu khi backend lỗi
     _saveToStorage(profile);
 
-    // 2. Synchronize to Backend Spring Boot REST API
+    final userId = await _currentUserId();
+    if (userId == null) {
+      return profile;
+    }
     try {
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
-      await _addAuthHeader(headers);
-
-      final payload = jsonEncode(profile.toUpdateJson());
-      final response = await _client
-          .put(
-            Uri.parse('$baseUrl/api/v1/profile'),
-            headers: headers,
-            body: payload,
-          )
-          .timeout(const Duration(seconds: 3));
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
-        final data = jsonMap['data'] as Map<String, dynamic>;
-        final updated = UserProfileModel.fromJson(data);
+      final data = await _api.put(
+        ApiConstants.userUrl(userId),
+        body: profile.toUpdateJson(),
+        timeout: _timeout,
+      );
+      if (data is Map<String, dynamic>) {
+        final updated = _withLocalOnlyFields(UserProfileModel.fromJson(data), profile);
         _saveToStorage(updated);
         return updated;
       }
-    } catch (_) {
+    } on ApiException {
       // Backend offline
     }
-
     return profile;
+  }
+
+  Future<int?> _currentUserId() async {
+    final id = (await _currentUser())?['id'];
+    return id is int ? id : int.tryParse('${id ?? ''}');
+  }
+
+  UserProfileModel _withLocalOnlyFields(UserProfileModel server, UserProfileModel? local) {
+    if (local == null) return server;
+    return server.copyWith(topics: local.topics, interests: local.interests);
   }
 
   void _saveToStorage(UserProfileModel profile) {

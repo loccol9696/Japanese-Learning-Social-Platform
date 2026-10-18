@@ -34,9 +34,10 @@ Japanese Learning Social Platform — mạng xã hội video ngắn kết hợp 
 ## Frontend (`frontend/lib/`)
 
 - `app/` (app.dart, `routes.dart`), `core/` (constants/`api_constants.dart`, network/`api_client.dart`, storage/`token_storage.dart`, theme/`app_colors.dart`, localization).
-- Feature theo lớp: `features/<feature>/{data/{datasources,models,repositories}, domain/{models,repositories}, presentation/{screens,widgets}}`. (`auth` dùng cấu trúc cũ phẳng hơn.)
+- Feature theo lớp: `features/<feature>/{data/..., domain/..., presentation/{screens,widgets}}`. `home`/`profile` có đủ datasource + repository + domain; `auth`/`flashcard` dùng dạng gọn `data/{models,services}` + `presentation/` (chỉ thêm domain/repository khi thực sự cần mock/thay nguồn dữ liệu).
+- **Mọi HTTP request đi qua `core/network/ApiClient`** (gắn JWT, timeout, bóc `data`, lỗi → `ApiException`; có `postMultipart`). Không import `package:http` trong feature. Test dùng `ApiClient.withClient(MockClient(...), tokenProvider: ...)`.
 - Điều hướng chính: `HomeScreen` có bottom nav — index 0 feed, 1 `DeckLibraryScreen` (Flashcard), 4 `ProfileScreen`.
-- URL API khai báo trong `ApiConstants`: `serverUrl` tự chọn host theo platform (Android emulator → `10.0.2.2:8080`), `baseUrl` = `serverUrl/api/v1`. Speech-to-Text nằm ngoài `/v1` (`/api/speech/...`) → dùng `ApiConstants.speechStatusUrl`. Mọi request cần đăng nhập gửi `Authorization: Bearer <token>` (`ApiClient` hoặc `TokenStorage`).
+- URL API khai báo trong `ApiConstants`: `serverUrl` tự chọn host theo platform (Android emulator → `10.0.2.2:8080`), `baseUrl` = `serverUrl/api/v1`. Speech-to-Text nằm ngoài `/v1` (`/api/speech/...`) → dùng `ApiConstants.speechStatusUrl`. Request cần đăng nhập dùng `withAuth: true` (mặc định với get/put/delete/postMultipart; `post` mặc định `false` cho các API auth).
 - `file_picker` ≥ 13: dùng `FilePicker.pickFile(...)` + `PlatformFile.readAsBytes()` (API `FilePicker.platform`, `withData`, `.bytes` đã bị bỏ).
 - Lint: `flutter_lints`. Dùng `Color.withValues(alpha: ...)` (không dùng `withOpacity`).
 - Màu thương hiệu ở `AppColors`; màn Profile dùng dark TikTok-style (`#121212` nền, `#1E1F28` surface, `#20D5EC` cyan, `#FE2C55` đỏ, `#8E8E93` text phụ).
