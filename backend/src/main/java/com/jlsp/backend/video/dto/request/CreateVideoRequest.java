@@ -5,6 +5,7 @@ import com.jlsp.backend.video.entity.VideoStatus;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 /**
@@ -20,6 +21,7 @@ public class CreateVideoRequest {
      * Tiêu đề của video (bắt buộc)
      */
     @NotBlank(message = "Tiêu đề video không được để trống")
+    @Size(max = 255, message = "Tiêu đề video tối đa 255 ký tự")
     private String title;
 
     /**
@@ -31,6 +33,7 @@ public class CreateVideoRequest {
      * Đường dẫn ảnh bìa / thumbnail của video (bắt buộc)
      */
     @NotBlank(message = "Ảnh bìa video (thumbnailUrl) không được để trống")
+    @Size(max = 255, message = "Đường dẫn ảnh bìa tối đa 255 ký tự")
     private String thumbnailUrl;
 
     /**
@@ -50,6 +53,7 @@ public class CreateVideoRequest {
      * Đường dẫn file video (MP4 hoặc HLS .m3u8)
      */
     @NotBlank(message = "Đường dẫn video (videoUrl) không được để trống")
+    @Size(max = 255, message = "Đường dẫn video tối đa 255 ký tự")
     private String videoUrl;
 
     /**

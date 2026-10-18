@@ -1,6 +1,7 @@
 package com.jlsp.backend.user.controller;
 
 import com.jlsp.backend.common.response.ApiResponse;
+import com.jlsp.backend.common.constant.ErrorCode;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.common.security.CurrentUser;
@@ -125,7 +126,7 @@ public class UserController {
     /** Chỉ ADMIN mới được thao tác trên tài khoản của người khác. */
     private void requireAdmin(User current) {
         if (current.getRole() != UserRole.ADMIN) {
-            throw new AppException(HttpStatus.FORBIDDEN.value(), "Bạn không có quyền chỉnh sửa tài khoản này");
+            throw new AppException(ErrorCode.FORBIDDEN, "Bạn không có quyền chỉnh sửa tài khoản này");
         }
     }
 }

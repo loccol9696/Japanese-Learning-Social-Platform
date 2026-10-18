@@ -1,8 +1,8 @@
 package com.jlsp.backend.common.security;
 
+import com.jlsp.backend.common.constant.ErrorCode;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.user.entity.User;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -36,7 +36,6 @@ public final class CurrentUser {
     }
 
     public static User require() {
-        return find().orElseThrow(() -> new AppException(
-                HttpStatus.UNAUTHORIZED.value(), "Vui lòng đăng nhập để thực hiện thao tác này"));
+        return find().orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
     }
 }

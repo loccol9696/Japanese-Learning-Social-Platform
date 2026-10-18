@@ -1,5 +1,7 @@
 package com.jlsp.backend.googlestt.service.impl;
 
+import com.jlsp.backend.common.constant.ErrorCode;
+import com.jlsp.backend.common.exception.AppException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.gax.longrunning.OperationFuture;
@@ -107,7 +109,8 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
             throws IOException, ExecutionException, InterruptedException, Exception {
 
         if (this.speechClient == null || this.storage == null) {
-            throw new IllegalStateException("GCP Speech/Storage service is not available. Please check credentials.");
+            throw new AppException(ErrorCode.SERVICE_UNAVAILABLE,
+                    "GCP Speech/Storage service is not available. Please check credentials.");
         }
         // Đổi đuôi file sang .mp3 và contentType sang audio/mpeg
         byte[] cleanVocalBytes = vocalIsolationService.separateVocals(fileBytes);

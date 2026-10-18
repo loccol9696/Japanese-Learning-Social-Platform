@@ -1,5 +1,6 @@
 package com.jlsp.backend.flashcard.service.impl;
 
+import com.jlsp.backend.common.constant.ErrorCode;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
 import com.jlsp.backend.common.response.PageResponse;
@@ -417,21 +418,11 @@ public class FlashcardServiceImpl implements FlashcardService {
 
     // Helpers
     private User getUserOrThrow(Long userId) {
-        if (userId != null) {
-            java.util.Optional<User> found = userRepository.findById(userId);
-            if (found.isPresent()) {
-                return found.get();
-            }
+        if (userId == null) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
         }
-        return userRepository.findAll().stream().findFirst()
-                .orElseGet(() -> userRepository.save(User.builder()
-                        .username("Loccol9696")
-                        .email("loccol9696@example.com")
-                        .passwordHash("password")
-                        .displayName("Loccol9696")
-                        .role(com.jlsp.backend.user.entity.UserRole.USER)
-                        .isActive(true)
-                        .build()));
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy tài khoản người dùng"));
     }
 
     private LocalDateTime calculateNextReview(LocalDateTime now, int boxLevel) {

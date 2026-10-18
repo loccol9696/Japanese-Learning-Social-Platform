@@ -97,7 +97,7 @@ public class VideoController {
     @PatchMapping("/{id}")
     public ResponseEntity<ApiResponse<VideoDetailResponse>> patchVideo(
             @PathVariable Long id,
-            @RequestBody UpdateVideoRequest request) {
+            @Valid @RequestBody UpdateVideoRequest request) {
 
         Long userId = CurrentUser.requireId();
 

@@ -2,6 +2,7 @@ package com.jlsp.backend.subscription.controller;
 
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.subscription.dto.request.SubscriptionPlanRequest;
+import com.jlsp.backend.subscription.dto.request.UpdateTokenRateRequest;
 import com.jlsp.backend.subscription.dto.response.SubscriptionPlanResponse;
 import com.jlsp.backend.subscription.service.SubscriptionService;
 import jakarta.validation.Valid;
@@ -27,11 +28,9 @@ public class SubscriptionPlanController {
 
     @PutMapping({"/token-rate", "/admin/token-rate"})
     public ResponseEntity<ApiResponse<com.jlsp.backend.subscription.dto.response.TokenRateDto>> updateTokenRate(
-            @RequestBody com.jlsp.backend.subscription.dto.response.TokenRateDto request) {
-        int seconds = (request.getSecondsPerToken() != null && request.getSecondsPerToken() > 0)
-                ? request.getSecondsPerToken()
-                : 60;
-        com.jlsp.backend.subscription.dto.response.TokenRateDto updated = systemSettingService.setSecondsPerToken(seconds);
+            @Valid @RequestBody UpdateTokenRateRequest request) {
+        com.jlsp.backend.subscription.dto.response.TokenRateDto updated =
+                systemSettingService.setSecondsPerToken(request.getSecondsPerToken());
         return ResponseEntity.ok(ApiResponse.success(200, "Cập nhật cấu hình tỷ lệ quy đổi Token thành công", updated));
     }
 

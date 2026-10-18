@@ -25,10 +25,11 @@ Japanese Learning Social Platform — mạng xã hội video ngắn kết hợp 
 - Endpoint REST prefix `/api/v1/...`; controller luôn trả `ResponseEntity<ApiResponse<T>>` qua `ApiResponse.success(...)`.
 - **Danh tính người dùng chỉ lấy từ JWT** qua `common/security/CurrentUser`: `requireId()` cho endpoint ghi (401 nếu chưa đăng nhập), `idOrNull()` cho endpoint đọc công khai. **Không** nhận user id từ header (`X-User-Id`), query param hay body, không fallback về user mặc định.
 - `JwtAuthenticationFilter` chạy ở mọi profile; principal là `CustomUserDetails` (nạp từ DB, tài khoản bị khóa không xác thực được). `app.security.enabled=false` (dev) chỉ tắt chặn theo URL; phân quyền theo URL/role nằm trong `SecurityConfig` (prod). Test phân quyền: `src/test/.../common/security/*Test` (`@WebMvcTest`, không cần DB).
-- Lỗi nghiệp vụ: ném `AppException(status, message)` / `ResourceNotFoundException`, để `GlobalExceptionHandler` map ra `ApiResponse`; không tự build response lỗi trong controller.
+- Lỗi nghiệp vụ: ném `AppException(ErrorCode.X)` hoặc `AppException(ErrorCode.X, "message riêng")` (`ResourceNotFoundException` cho 404), để `GlobalExceptionHandler` map ra `ApiResponse`; không tự build response lỗi trong controller. Lỗi không lường trước trả 500 với message chung (chi tiết chỉ nằm trong log).
+- Không "fallback" âm thầm khi thiếu dữ liệu (user/gói đầu tiên trong DB, giá trị mặc định thay cho input sai) → ném `AppException`. Request DTO dùng Bean Validation + `@Valid`; DTO cho PATCH chỉ dùng ràng buộc cho phép `null` (`@Size(min = 1)`).
 - Seed data: `src/main/resources/data.sql` + `common/config/DataInitializer`.
 - `application.yml` nằm trong `backend/.gitignore` nhưng **vẫn đang được git track** → đừng `git add` thay đổi local của nó; mẫu cấu hình ở `application.yml.txt`.
-- `BackendApplicationTests` (context load) cần PostgreSQL + Redis chạy sẵn; chạy riêng test không cần DB: `./mvnw test -Dtest="SecurityRulesTest,DevModeIdentityTest"`.
+- `BackendApplicationTests` (context load) cần PostgreSQL + Redis chạy sẵn; chạy riêng test không cần DB: `./mvnw test -Dtest="SecurityRulesTest,DevModeIdentityTest,GlobalExceptionHandlerTest"`.
 
 ## Frontend (`frontend/lib/`)
 

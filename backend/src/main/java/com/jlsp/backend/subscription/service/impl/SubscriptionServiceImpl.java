@@ -1,5 +1,6 @@
 package com.jlsp.backend.subscription.service.impl;
 
+import com.jlsp.backend.common.constant.ErrorCode;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
 import com.jlsp.backend.common.response.PageResponse;
@@ -131,28 +132,29 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Override
     @Transactional
     public SubscriptionOrderResponse createQrOrder(CreateQrOrderRequest request) {
+        boolean hasPlanCode = request.getPlanCode() != null && !request.getPlanCode().isBlank();
+        if (request.getPlanId() == null && !hasPlanCode) {
+            throw new AppException(ErrorCode.BAD_REQUEST, "Vui lòng chọn gói thành viên (planId hoặc planCode)");
+        }
+
+        // Không tự chọn gói khác khi không tìm thấy: người dùng phải trả đúng gói đã chọn
         SubscriptionPlan plan = null;
         if (request.getPlanId() != null) {
             plan = planRepository.findById(request.getPlanId()).orElse(null);
         }
-        if (plan == null && request.getPlanCode() != null && !request.getPlanCode().isBlank()) {
+        if (plan == null && hasPlanCode) {
             plan = planRepository.findByCode(request.getPlanCode().trim().toUpperCase()).orElse(null);
         }
         if (plan == null) {
-            plan = planRepository.findAll().stream().findFirst()
-                    .orElseThrow(() -> new AppException(404, "Không tìm thấy gói thành viên tương ứng"));
+            throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy gói thành viên tương ứng");
         }
 
         Long userId = request.getUserId();
         if (userId == null) {
-            throw new AppException(401, "Vui lòng đăng nhập để tạo đơn hàng");
+            throw new AppException(ErrorCode.UNAUTHORIZED);
         }
         User user = userRepository.findById(userId)
-                .orElseGet(() -> userRepository.findAll().stream().findFirst().orElse(null));
-
-        if (user == null) {
-            throw new AppException(404, "User not found");
-        }
+                .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy tài khoản người dùng"));
 
         long timestamp = System.currentTimeMillis();
         String orderCode = "TX-" + (timestamp % 1000000);

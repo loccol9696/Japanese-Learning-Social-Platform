@@ -1,5 +1,7 @@
 package com.jlsp.backend.googlestt.service.impl;
 
+import com.jlsp.backend.common.constant.ErrorCode;
+import com.jlsp.backend.common.exception.AppException;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -42,6 +44,7 @@ public class VocalIsolationService implements VocalIsolationServiceIntf {
             return response.getBody(); // Trả về bytes của vocals.mp3 sạch
         }
 
-        throw new RuntimeException("Tách vocal thất bại từ Python service: " + response.getStatusCode());
+        throw new AppException(ErrorCode.SERVICE_UNAVAILABLE,
+                "Tách vocal thất bại từ Python service: " + response.getStatusCode());
     }
 }
