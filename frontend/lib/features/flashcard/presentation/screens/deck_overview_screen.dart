@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../../core/services/tts_service.dart';
+import '../../../../core/storage/token_storage.dart';
 import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_store.dart';
+import 'deck_editor_screen.dart';
 import 'flashcard_flip_screen.dart';
+import 'flashcard_listening_screen.dart';
 import 'flashcard_matching_screen.dart';
 import 'flashcard_quiz_screen.dart';
 import 'flashcard_typing_screen.dart';
@@ -26,13 +29,14 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
   int _currentPage = 0;
   List<FlashcardItemModel> _allCards = [];
   List<FlashcardItemModel> _cards = [];
-  bool _isBookmarked = false;
   bool _isLoading = false;
+  bool _isAuthor = true;
   StudyOptions _options = StudyOptions();
 
   @override
   void initState() {
     super.initState();
+    _checkIfAuthor();
     // Cache-First (0ms): Nếu bộ thẻ này đã từng nạp, lấy ngay lập tức từ RAM/Cache
     if (_store.hasCachedCards(widget.deck.setId)) {
       _allCards = List.from(_store.getCachedCards(widget.deck.setId)!);
@@ -88,6 +92,164 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     if (_currentPage >= _cards.length) {
       _currentPage = _cards.isEmpty ? 0 : _cards.length - 1;
     }
+  }
+
+  Future<void> _checkIfAuthor() async {
+    final userData = await TokenStorage.instance.getUserData();
+    if (userData != null && mounted) {
+      final currentUserId = userData['id'] is int
+          ? userData['id'] as int
+          : (userData['id'] != null ? int.tryParse(userData['id'].toString()) : null);
+      final currentUsername = (userData['username'] as String?)?.toLowerCase();
+
+      final deckAuthorId = widget.deck.authorId;
+      final deckAuthorName = widget.deck.authorName.toLowerCase();
+
+      final isOwner = (deckAuthorId != null && currentUserId != null && deckAuthorId == currentUserId) ||
+          (currentUsername != null && deckAuthorName == currentUsername) ||
+          deckAuthorId == null;
+
+      setState(() {
+        _isAuthor = isOwner;
+      });
+    }
+  }
+
+  void _openDeckActionsSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        decoration: const BoxDecoration(
+          color: Color(0xFF1E1F28),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Thanh kéo drag handle
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Dòng 1: Chỉnh sửa bộ thẻ
+              ListTile(
+                leading: const Icon(Icons.edit_outlined, color: Colors.white, size: 22),
+                title: const Text(
+                  'Chỉnh sửa bộ thẻ',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DeckEditorScreen(deck: widget.deck),
+                    ),
+                  );
+                  if (result == true) {
+                    _loadCards(forceRefresh: true);
+                  }
+                },
+              ),
+
+              const SizedBox(height: 4),
+
+              // Dòng 2: Xóa bộ thẻ
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 22),
+                title: const Text(
+                  'Xóa bộ thẻ',
+                  style: TextStyle(
+                    color: Color(0xFFEF4444),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmDeleteDeck();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteDeck() {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1F28),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Xóa bộ thẻ vĩnh viễn?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa bộ thẻ "${widget.deck.title}"? Hành động này không thể hoàn tác.',
+          style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Hủy', style: TextStyle(color: Colors.white60)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              _store.optimisticDeleteSet(
+                widget.deck.setId,
+                onError: (err) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Không thể xóa bộ thẻ: $err'),
+                        backgroundColor: const Color(0xFFFF5A5F),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Đã xóa bộ thẻ thành công'),
+                  backgroundColor: Color(0xFF252632),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+              Navigator.pop(context, true);
+            },
+            child: const Text('Xóa vĩnh viễn', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _openStudyOptions() {
@@ -283,19 +445,19 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                         onPressed: () => Navigator.pop(context),
                       ),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: Icon(
-                              _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                              color: _isBookmarked ? const Color(0xFFFF2D55) : Colors.white,
-                            ),
-                            onPressed: () => setState(() => _isBookmarked = !_isBookmarked),
-                          ),
                           IconButton(
                             icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 23),
                             onPressed: _openStudyOptions,
                             splashRadius: 22,
                           ),
+                          if (_isAuthor)
+                            IconButton(
+                              icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 23),
+                              onPressed: _openDeckActionsSheet,
+                              splashRadius: 22,
+                            ),
                         ],
                       ),
                     ],
@@ -408,7 +570,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                     ),
                   ),
 
-                // Title & Author
+                // Title & Card Count
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
@@ -422,51 +584,20 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Container(
-                            width: 22,
-                            height: 22,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Color(0xFF0091FF),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              widget.deck.authorName.isNotEmpty ? widget.deck.authorName[0].toUpperCase() : 'U',
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            widget.deck.authorName,
-                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'PRO',
-                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '• ${widget.deck.totalCards > 0 ? widget.deck.totalCards : _cards.length} thuật ngữ',
-                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
-                          ),
-                        ],
+                      const SizedBox(height: 6),
+                      Text(
+                        '${widget.deck.totalCards > 0 ? widget.deck.totalCards : _cards.length} thuật ngữ',
+                        style: const TextStyle(
+                          color: Color(0xFF8E8E93),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
                 // Mode Selection Tiles (Tự động mở rộng chiều cao tự nhiên, không cuộn lồng nhau)
                 Padding(
@@ -514,6 +645,23 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (context) => FlashcardTypingScreen(
+                                deck: widget.deck,
+                                options: _options,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildModeTile(
+                        icon: Icons.headphones_rounded,
+                        iconColor: const Color(0xFFFF9500),
+                        iconBgColor: const Color(0xFF332314),
+                        title: 'Luyện nghe',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FlashcardListeningScreen(
                                 deck: widget.deck,
                                 options: _options,
                               ),
