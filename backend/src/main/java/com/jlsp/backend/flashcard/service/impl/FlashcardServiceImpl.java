@@ -26,13 +26,23 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class FlashcardServiceImpl implements FlashcardService {
 
     private final FlashcardSetRepository setRepository;
     private final FlashcardRepository cardRepository;
     private final FlashcardProgressRepository progressRepository;
     private final UserRepository userRepository;
+
+    public FlashcardServiceImpl(
+            FlashcardSetRepository setRepository,
+            FlashcardRepository cardRepository,
+            FlashcardProgressRepository progressRepository,
+            UserRepository userRepository) {
+        this.setRepository = setRepository;
+        this.cardRepository = cardRepository;
+        this.progressRepository = progressRepository;
+        this.userRepository = userRepository;
+    }
 
     @Override
     @Transactional
@@ -196,11 +206,16 @@ public class FlashcardServiceImpl implements FlashcardService {
                 && !card.getFlashcardSet().getUser().getId().equals(userId)) {
             throw new AppException(403, "You do not have permission to update this card");
         }
-        if (request.getTerm() != null) card.setTerm(request.getTerm().trim());
-        if (request.getReading() != null) card.setReading(request.getReading().trim());
-        if (request.getMeaning() != null) card.setMeaning(request.getMeaning().trim());
-        if (request.getSinoVietnamese() != null) card.setSinoVietnamese(request.getSinoVietnamese().trim());
-        if (request.getExample() != null) card.setExample(request.getExample().trim());
+        if (request.getTerm() != null)
+            card.setTerm(request.getTerm().trim());
+        if (request.getReading() != null)
+            card.setReading(request.getReading().trim());
+        if (request.getMeaning() != null)
+            card.setMeaning(request.getMeaning().trim());
+        if (request.getSinoVietnamese() != null)
+            card.setSinoVietnamese(request.getSinoVietnamese().trim());
+        if (request.getExample() != null)
+            card.setExample(request.getExample().trim());
         Flashcard saved = cardRepository.save(card);
         return mapToCardResponse(saved, null);
     }

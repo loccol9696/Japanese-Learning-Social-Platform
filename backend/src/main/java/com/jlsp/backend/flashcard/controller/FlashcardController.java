@@ -20,11 +20,15 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/flashcards")
-@RequiredArgsConstructor
 public class FlashcardController {
 
     private final FlashcardService flashcardService;
     private final UserRepository userRepository;
+
+    public FlashcardController(FlashcardService flashcardService, UserRepository userRepository) {
+        this.flashcardService = flashcardService;
+        this.userRepository = userRepository;
+    }
 
     private Long resolveUserId(Authentication authentication) {
         if (authentication == null || authentication.getName() == null

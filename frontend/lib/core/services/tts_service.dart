@@ -9,6 +9,13 @@ extension type SpeechSynthesis(JSObject _) implements JSObject {
   external void cancel();
   external void speak(SpeechSynthesisUtterance utterance);
   external bool get speaking;
+  external JSArray<SpeechSynthesisVoice> getVoices();
+}
+
+@JS('SpeechSynthesisVoice')
+extension type SpeechSynthesisVoice(JSObject _) implements JSObject {
+  external JSString get lang;
+  external JSString get name;
 }
 
 @JS('SpeechSynthesisUtterance')
@@ -17,6 +24,7 @@ extension type SpeechSynthesisUtterance._(JSObject _) implements JSObject {
   external set lang(JSString value);
   external set rate(JSNumber value);
   external set pitch(JSNumber value);
+  external set voice(SpeechSynthesisVoice? value);
   external set onend(JSFunction? callback);
   external set onerror(JSFunction? callback);
 }
@@ -51,6 +59,19 @@ class TtsService {
       final utterance = SpeechSynthesisUtterance(cleanText.toJS);
       utterance.lang = lang.toJS;
       utterance.rate = rate.toJS;
+
+      try {
+        final voices = synth.getVoices().toDart;
+        final prefix = lang.split('-').first.toLowerCase();
+        for (final v in voices) {
+          if (v.lang.toDart.toLowerCase().startsWith(prefix)) {
+            utterance.voice = v;
+            break;
+          }
+        }
+      } catch (e) {
+        debugPrint('[TTS] Could not assign specific voice: $e');
+      }
 
       if (onStart != null) {
         onStart();
