@@ -854,6 +854,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   const [plans, setPlans] = useState<SubscriptionPlanItem[]>([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlanItem | null>(null);
+  const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState<number>(0);
   const [editDuration, setEditDuration] = useState<number>(30);
   const [editDailyTokenLimit, setEditDailyTokenLimit] = useState<number>(500);
@@ -910,6 +911,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
   const handleOpenEditPlan = (plan: SubscriptionPlanItem) => {
     setEditingPlan(plan);
+    setEditName(plan.name);
     setEditPrice(plan.price);
     setEditDuration(plan.durationDays);
     setEditDailyTokenLimit(plan.dailyTokenLimit);
@@ -923,7 +925,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     setIsSubmittingPlan(true);
     try {
       await updatePlan(editingPlan.id, {
-        name: editingPlan.name,
+        name: editName.trim() || editingPlan.name,
         code: editingPlan.code,
         price: editPrice,
         durationDays: editDuration,
@@ -932,7 +934,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
         features: editFeatures,
         isActive: editingPlan.isActive,
       });
-      showToast(`Đã cập nhật biểu phí và hạn mức Token cho gói ${editingPlan.name}!`);
+      showToast(`Đã cập nhật biểu phí và hạn mức Token cho gói ${editName || editingPlan.name}!`);
       setEditingPlan(null);
       loadPlans();
     } catch (err: any) {
@@ -1731,18 +1733,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               ) : (
                 <>
                   <div className="data-table-container">
-                    <table className="enterprise-table">
+                    <table className="enterprise-table mod-table">
                       <thead>
                         <tr>
-                          <th style={{ width: '60px' }}>ID</th>
-                          <th style={{ minWidth: '280px' }}>Video Bài Học</th>
-                          <th>Cấp độ</th>
-                          <th>Thời lượng</th>
-                          <th>Người đăng</th>
-                          <th>Chế độ</th>
-                          <th>Ngày gửi</th>
-                          <th>Trạng thái</th>
-                          <th style={{ textAlign: 'right', minWidth: '180px' }}>Thao tác</th>
+                          <th style={{ width: '45px', textAlign: 'center' }}>ID</th>
+                          <th style={{ width: '210px' }}>Video Bài Học</th>
+                          <th style={{ width: '100px', textAlign: 'center' }}>Cấp độ</th>
+                          <th style={{ width: '80px', textAlign: 'center' }}>Thời lượng</th>
+                          <th style={{ width: '120px' }}>Người đăng</th>
+                          <th style={{ width: '100px', textAlign: 'center' }}>Chế độ</th>
+                          <th style={{ width: '90px', textAlign: 'center' }}>Ngày gửi</th>
+                          <th style={{ width: '100px', textAlign: 'center' }}>Trạng thái</th>
+                          <th style={{ width: '155px', textAlign: 'center' }}>Thao tác</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1753,13 +1755,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                             onClick={() => setSelectedDetailVideo(v)}
                             title="Click vào hàng để xem chi tiết video và phụ đề AI"
                           >
-                            <td>
-                              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--admin-text-dim)' }}>
-                                #{v.id}
-                              </span>
+                            <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                              <div className="mod-cell-center">
+                                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--admin-text-dim)' }}>
+                                  #{v.id}
+                                </span>
+                              </div>
                             </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                            <td style={{ verticalAlign: 'middle' }}>
+                              <div className="mod-table-video-cell" style={{ minHeight: '44px', display: 'flex', alignItems: 'center' }}>
                                 <div className="video-thumb-preview">
                                   <img
                                     src={v.thumbnailUrl}
@@ -1767,71 +1771,96 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                                     onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
                                   />
                                   <div className="video-thumb-play-overlay">
-                                    <Play size={13} color="#ffffff" fill="#ffffff" />
+                                    <Play size={11} color="#ffffff" fill="#ffffff" />
                                   </div>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', overflow: 'hidden' }}>
-                                  <strong style={{ fontSize: '0.86rem', color: 'var(--admin-text-main)' }} className="truncate">
+                                <div className="mod-table-video-info">
+                                  <strong className="mod-table-video-title" title={v.title}>
                                     {v.title}
                                   </strong>
-                                  {v.subtitles && v.subtitles !== '[]' && (
-                                    <span style={{ fontSize: '0.74rem', color: 'var(--admin-primary)', fontStyle: 'italic' }} className="truncate">
-                                      {v.subtitles.length > 50 ? v.subtitles.substring(0, 50) + '...' : v.subtitles}
-                                    </span>
-                                  )}
+                                  {(() => {
+                                    let preview = '';
+                                    if (v.subtitles && v.subtitles !== '[]') {
+                                      try {
+                                        const parsed = typeof v.subtitles === 'string' ? JSON.parse(v.subtitles) : v.subtitles;
+                                        if (Array.isArray(parsed) && parsed.length > 0) {
+                                          preview = parsed[0]?.text || parsed[0]?.translation || '';
+                                        }
+                                      } catch {
+                                        preview = v.subtitles;
+                                      }
+                                    }
+                                    if (!preview && v.description) preview = v.description;
+                                    if (!preview) return null;
+                                    return (
+                                      <span className="mod-table-video-subtitle" title={preview}>
+                                        💬 {preview.length > 14 ? preview.substring(0, 14) + '...' : preview}
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </td>
-                            <td>
-                              <span className={`status-pill ${
-                                v.jlptLevel === 'N1' ? 'danger' :
-                                v.jlptLevel === 'N2' ? 'warning' :
-                                v.jlptLevel === 'N3' ? 'info' : 'success'
-                              }`} style={{ fontWeight: 700 }}>
-                                {v.jlptLevel || 'N5'}
-                              </span>
+                            <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                              <div className="mod-cell-center">
+                                <span className={`status-pill ${
+                                  v.jlptLevel === 'N1' ? 'danger' :
+                                  v.jlptLevel === 'N2' ? 'warning' :
+                                  v.jlptLevel === 'N3' ? 'info' : 'success'
+                                }`}>
+                                  JLPT {v.jlptLevel || 'N5'}
+                                </span>
+                              </div>
                             </td>
-                            <td>
-                              <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-mono)' }}>
-                                {v.duration ? `${Math.floor(v.duration / 60)}m ${v.duration % 60}s` : '0s'}
-                              </span>
+                            <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                              <div className="mod-cell-center">
+                                <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)' }}>
+                                  {v.duration ? `${Math.floor(v.duration / 60)}m ${v.duration % 60}s` : '0s'}
+                                </span>
+                              </div>
                             </td>
-                            <td>
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <strong style={{ fontSize: '0.82rem', color: 'var(--admin-text-main)' }}>
+                            <td style={{ verticalAlign: 'middle' }}>
+                              <div className="mod-table-user-cell" style={{ minHeight: '44px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                <strong className="mod-table-user-name" title={v.creatorDisplayName || v.creatorUsername || 'Creator'}>
                                   {v.creatorDisplayName || v.creatorUsername || v.user?.displayName || v.user?.username || 'Creator'}
                                 </strong>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--admin-text-dim)', fontFamily: 'var(--font-mono)' }}>
+                                <span className="mod-table-user-handle">
                                   @{v.creatorUsername || v.user?.username || 'creator'}
                                 </span>
                               </div>
                             </td>
-                            <td>
-                              <span className="status-pill info" style={{ fontWeight: 700, fontSize: '0.72rem' }}>
-                                🌐 {v.status || 'PUBLIC'}
-                              </span>
+                            <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                              <div className="mod-cell-center">
+                                <span className="status-pill info">
+                                  🌐 {v.status || 'PUBLIC'}
+                                </span>
+                              </div>
                             </td>
-                            <td>
-                              <span style={{ fontSize: '0.78rem', color: 'var(--admin-text-dim)', whiteSpace: 'nowrap' }}>
-                                {v.createdAt ? new Date(v.createdAt).toLocaleDateString('vi-VN') : '—'}
-                              </span>
+                            <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                              <div className="mod-cell-center">
+                                <span style={{ fontSize: '0.78rem', color: 'var(--admin-text-dim)', whiteSpace: 'nowrap' }}>
+                                  {v.createdAt ? new Date(v.createdAt).toLocaleDateString('vi-VN') : '—'}
+                                </span>
+                              </div>
                             </td>
-                            <td>
-                              <span className={`status-pill ${
-                                v.modStatus === 'APPROVED' ? 'success' : v.modStatus === 'REJECTED' ? 'danger' : 'pending'
-                              }`}>
-                                {v.modStatus === 'APPROVED' ? 'ĐÃ THÔNG QUA' : v.modStatus === 'REJECTED' ? 'ĐÃ TỪ CHỐI' : 'CHỜ DUYỆT'}
-                              </span>
+                            <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                              <div className="mod-cell-center">
+                                <span className={`status-pill ${
+                                  v.modStatus === 'APPROVED' ? 'success' : v.modStatus === 'REJECTED' ? 'danger' : 'pending'
+                                }`}>
+                                  {v.modStatus === 'APPROVED' ? 'ĐÃ DUYỆT' : v.modStatus === 'REJECTED' ? 'TỪ CHỐI' : 'CHỜ DUYỆT'}
+                                </span>
+                              </div>
                             </td>
-                            <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                              <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <td style={{ textAlign: 'center', verticalAlign: 'middle' }} onClick={(e) => e.stopPropagation()}>
+                              <div className="mod-cell-center" style={{ gap: '0.25rem' }}>
                                 <button
                                   onClick={() => setSelectedDetailVideo(v)}
                                   className="btn-outline"
-                                  style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem' }}
+                                  style={{ padding: '0 0.45rem', fontSize: '0.72rem', height: '26px', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
                                   title="Xem chi tiết video và phụ đề"
                                 >
-                                  <Eye size={13} />
+                                  <Eye size={12} />
                                   <span>Chi tiết</span>
                                 </button>
 
@@ -1840,19 +1869,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                                     <button
                                       onClick={() => handleApproveVideo(v.id)}
                                       className="btn-success"
-                                      style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem' }}
+                                      style={{ padding: '0 0.45rem', fontSize: '0.72rem', height: '26px', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
                                       title="Phê duyệt video công khai"
                                     >
-                                      <CheckCircle2 size={13} />
+                                      <CheckCircle2 size={12} />
                                       <span>Duyệt</span>
                                     </button>
                                     <button
                                       onClick={() => setSelectedRejectVideo(v)}
                                       className="btn-danger"
-                                      style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem' }}
+                                      style={{ padding: '0 0.45rem', fontSize: '0.72rem', height: '26px', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
                                       title="Từ chối video vi phạm"
                                     >
-                                      <XCircle size={13} />
+                                      <XCircle size={12} />
                                       <span>Từ chối</span>
                                     </button>
                                   </>
@@ -2315,16 +2344,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               ) : (
                 <div className="pricing-cards-grid">
                   {plans.map(p => (
-                  <div key={p.id} className={`pricing-plan-card ${p.code === 'PRO_MONTHLY' ? 'highlight' : ''}`}>
+                  <div key={p.id} className={`pricing-plan-card ${p.code === 'PRO_MONTHLY' ? 'highlight' : p.code === 'FREE' ? 'free-plan-card' : ''}`}>
                     <div className="plan-header-row">
-                      <h3 className="plan-name-title">{p.name}</h3>
-                      <span className={`status-pill ${p.isActive ? 'success' : 'danger'}`}>
-                        {p.isActive ? 'Active' : 'Disabled'}
+                      <h3 className="plan-name-title">
+                        {p.code === 'FREE' ? `🌱 ${p.name}` : p.name}
+                      </h3>
+                      <span className={`status-pill ${p.code === 'FREE' ? 'info' : p.isActive ? 'success' : 'danger'}`}>
+                        {p.code === 'FREE' ? 'Mặc định Free' : p.isActive ? 'Active' : 'Disabled'}
                       </span>
                     </div>
 
                     <div className="plan-price-tag">
-                      {p.price?.toLocaleString('vi-VN')} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>đ / {p.durationDays} ngày</span>
+                      {p.price === 0 || p.code === 'FREE' ? (
+                        <>0 đ <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600 }}>(Gói Miễn Phí Mặc Định)</span></>
+                      ) : (
+                        <>{p.price?.toLocaleString('vi-VN')} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>đ / {p.durationDays} ngày</span></>
+                      )}
                     </div>
 
                     {/* Token Limit Highlight */}
@@ -2840,15 +2875,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               <button onClick={() => setSelectedDetailVideo(null)} className="btn-icon-square">✕</button>
             </div>
 
-            <div className="modal-sharp-body" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
-              {/* Video Player */}
+            <div className="modal-sharp-body" style={{ maxHeight: '78vh', overflowY: 'auto' }}>
+              {/* Video Player - Compact, centered, 100% full frame without cropping */}
               <div className="mod-detail-video-box">
-                <video
-                  src={selectedDetailVideo.videoUrl}
-                  poster={selectedDetailVideo.thumbnailUrl}
-                  controls
-                  autoPlay
-                />
+                <div className="mod-detail-video-player-wrap">
+                  <video
+                    src={selectedDetailVideo.videoUrl}
+                    poster={selectedDetailVideo.thumbnailUrl}
+                    controls
+                    autoPlay
+                    playsInline
+                  />
+                </div>
               </div>
 
               {/* Meta Grid */}
@@ -2888,8 +2926,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                 </div>
 
                 <div>
-                  <span style={{ color: 'var(--admin-text-dim)', display: 'block', fontSize: '0.75rem' }}>Chế độ hiển thị:</span>
-                  <span className="status-pill info" style={{ fontWeight: 700, fontSize: '0.75rem', display: 'inline-block', marginTop: '0.2rem' }}>
+                  <span style={{ color: 'var(--admin-text-dim)', display: 'block', fontSize: '0.75rem', marginBottom: '0.2rem' }}>Chế độ hiển thị:</span>
+                  <span className="status-pill info">
                     🌐 {selectedDetailVideo.status || 'PUBLIC'}
                   </span>
                 </div>
@@ -2923,19 +2961,66 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               {/* Speech-to-text Transcription / Subtitles block */}
               {(selectedDetailVideo.japaneseTranscription || selectedDetailVideo.vietnameseTranslation || (selectedDetailVideo.subtitles && selectedDetailVideo.subtitles !== '[]')) && (
                 <div style={{ marginTop: '0.85rem' }}>
-                  <label className="form-label-sharp" style={{ marginBottom: '0.3rem' }}>
-                    Trích xuất lời thoại AI (Speech-to-Text) & Phụ đề:
-                  </label>
-                  <div className="mod-transcript-box">
-                    {selectedDetailVideo.japaneseTranscription ? (
-                      <div className="mod-transcript-jp">{selectedDetailVideo.japaneseTranscription}</div>
-                    ) : selectedDetailVideo.subtitles && selectedDetailVideo.subtitles !== '[]' ? (
-                      <div className="mod-transcript-jp">{selectedDetailVideo.subtitles}</div>
-                    ) : null}
-                    {selectedDetailVideo.vietnameseTranslation && (
-                      <div className="mod-transcript-vn">"{selectedDetailVideo.vietnameseTranslation}"</div>
-                    )}
-                  </div>
+                  {(() => {
+                    let parsedSubs: Array<{ start?: string; end?: string; text?: string; translation?: string }> = [];
+                    if (selectedDetailVideo.subtitles && selectedDetailVideo.subtitles !== '[]') {
+                      try {
+                        const parsed = typeof selectedDetailVideo.subtitles === 'string'
+                          ? JSON.parse(selectedDetailVideo.subtitles)
+                          : selectedDetailVideo.subtitles;
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                          parsedSubs = parsed;
+                        }
+                      } catch {
+                        // ignore json parse error
+                      }
+                    }
+
+                    return (
+                      <>
+                        <label className="form-label-sharp" style={{ marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span>Trích xuất lời thoại AI (Speech-to-Text) & Phụ đề:</span>
+                          {parsedSubs.length > 0 && (
+                            <span style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: 600 }}>
+                              ({parsedSubs.length} đoạn hội thoại)
+                            </span>
+                          )}
+                        </label>
+
+                        {parsedSubs.length > 0 ? (
+                          <div className="mod-subtitles-list">
+                            {parsedSubs.map((sub, idx) => (
+                              <div key={idx} className="mod-subtitle-item">
+                                {(sub.start || sub.end) && (
+                                  <div className="mod-subtitle-time">
+                                    {sub.start || '00:00'} - {sub.end || ''}
+                                  </div>
+                                )}
+                                <div style={{ flex: 1 }}>
+                                  <div className="mod-subtitle-text">{sub.text}</div>
+                                  {sub.translation && (
+                                    <div className="mod-subtitle-trans">"{sub.translation}"</div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="mod-transcript-box">
+                            {selectedDetailVideo.japaneseTranscription && (
+                              <div className="mod-transcript-jp">{selectedDetailVideo.japaneseTranscription}</div>
+                            )}
+                            {selectedDetailVideo.vietnameseTranslation && (
+                              <div className="mod-transcript-vn">"{selectedDetailVideo.vietnameseTranslation}"</div>
+                            )}
+                            {!selectedDetailVideo.japaneseTranscription && !selectedDetailVideo.vietnameseTranslation && selectedDetailVideo.subtitles && (
+                              <div className="mod-transcript-jp">{selectedDetailVideo.subtitles}</div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -3150,6 +3235,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             <form onSubmit={handleSavePlan}>
               <div className="modal-sharp-body">
                 <div className="form-group-sharp">
+                  <label className="form-label-sharp">Tên gói dịch vụ</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-input-sharp"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    placeholder="e.g. Gói Miễn Phí (Mặc định)"
+                  />
+                </div>
+
+                <div className="form-group-sharp">
                   <label className="form-label-sharp">Giá dịch vụ (VND)</label>
                   <input
                     type="number"
@@ -3160,6 +3257,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                     value={editPrice}
                     onChange={e => setEditPrice(parseInt(e.target.value) || 0)}
                   />
+                  {editingPlan.code === 'FREE' && (
+                    <span className="form-input-help" style={{ color: '#38bdf8' }}>
+                      Gói miễn phí mặc định có giá 0 đ.
+                    </span>
+                  )}
                 </div>
 
                 <div className="form-group-sharp">
@@ -3181,13 +3283,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                   </label>
                   <input
                     type="number"
-                    min={0}
+                    min={10}
                     step={10}
                     required
                     className="form-input-sharp"
                     value={editDailyTokenLimit}
                     onChange={e => setEditDailyTokenLimit(parseInt(e.target.value) || 0)}
                   />
+                  <span className="form-input-help" style={{ color: editingPlan.code === 'FREE' ? '#38bdf8' : undefined }}>
+                    {editingPlan.code === 'FREE' 
+                      ? '⚡ Học viên mới và người dùng chưa mua VIP sẽ tự động nhận hạn mức Token này mỗi ngày từ Database (100% không còn fallback gán cứng).'
+                      : 'Hạn mức số lượng Token AI (Speech-to-Text) học viên sở hữu gói này được dùng trong 1 ngày.'}
+                  </span>
                 </div>
 
                 <div className="form-group-sharp">
