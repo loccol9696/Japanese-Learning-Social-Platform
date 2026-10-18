@@ -9,8 +9,13 @@ spring:
   profiles:
     active: dev # <-- Đổi từ prod sang dev ở đây làm mặc định khi test
   datasource:
-    url: jdbc:postgresql://aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?user=postgres.uefwrxqatjyszdrburkr&password=ToiYeuNaritaTopRoad26
+    url: jdbc:postgresql://aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres?user=postgres.cqonrpjxxluuukjujzbo&password=NaritaTopRoad2027&prepareThreshold=0
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 1
+      idle-timeout: 30000
+      connection-timeout: 20000
   jpa:
     hibernate:
       ddl-auto: update
@@ -38,13 +43,6 @@ spring:
     url: untraitorous-huong-conversably.ngrok-free.dev/api/v1/separate-vocal
     enabled: true
 
-
-gcp:
-  project-id: ${GCP_PROJECT_ID:swp391-478004}
-  speech:
-    credentials-path: ${GCP_CREDENTIALS_PATH:classpath:credentials/credentials.json}
-  storage:
-    bucket-name: ${GCP_BUCKET_NAME:sptote_bucket_1}
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:dbi35fapj}
@@ -74,6 +72,10 @@ spring:
     activate:
       on-profile: dev
 
+gcp:
+  stt:
+    enabled: false
+
 app:
   security:
     enabled: false
@@ -84,6 +86,14 @@ spring:
   config:
     activate:
       on-profile: prod
+
+gcp:
+  project-id: ${GCP_PROJECT_ID:swp391-478004}
+  speech:
+    credentials-path: ${GCP_CREDENTIALS_PATH:classpath:credentials/credentials.json}
+  storage:
+    bucket-name: ${GCP_BUCKET_NAME:sptote_bucket_1}
+
 
   jpa:
     hibernate:

@@ -3,6 +3,7 @@ abstract class AppStrings {
   String get navHome;
   String get navFlashcards;
   String get navAddVideo;
+  String get navApproveVideo;
   String get navMessages;
   String get navProfile;
 
@@ -60,6 +61,8 @@ class ViStrings implements AppStrings {
   String get navFlashcards => 'Flashcard';
   @override
   String get navAddVideo => 'Thêm video';
+  @override
+  String get navApproveVideo => 'Duyệt video';
   @override
   String get navMessages => 'Tin nhắn';
   @override
@@ -154,6 +157,8 @@ class EnStrings implements AppStrings {
   @override
   String get navAddVideo => 'Create';
   @override
+  String get navApproveVideo => 'Approve';
+  @override
   String get navMessages => 'Inbox';
   @override
   String get navProfile => 'Profile';
@@ -246,6 +251,8 @@ class JaStrings implements AppStrings {
   String get navFlashcards => '単語帳';
   @override
   String get navAddVideo => '投稿';
+  @override
+  String get navApproveVideo => '動画を承認';
   @override
   String get navMessages => 'メッセージ';
   @override
