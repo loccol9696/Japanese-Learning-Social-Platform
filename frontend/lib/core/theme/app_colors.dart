@@ -60,4 +60,29 @@ class AppColors {
   static const Color socialRed = Color(0xFFFE2C55);
   static const Color socialTextMuted = Color(0xFF8E8E93);
   static const Color socialDivider = Color(0xFF424242);
+
+  // Flashcard Palette (màn bộ thẻ & các chế độ học; dùng chung socialSurface/socialTextMuted)
+  static const Color flashBackground = Color(0xFF0C0E14);
+  static const Color flashCardSurface = Color(0xFF161922);
+  static const Color flashPanel = Color(0xFF151620); // Nhóm tùy chọn trong sheet
+  static const Color flashInset = Color(0xFF111219); // Nền nút chọn chìm
+  static const Color flashBorder = Color(0xFF323344);
+  static const Color flashAccent = Color(0xFFFF2D55);
+  static const Color flashCoral = Color(0xFFFF5A5F); // Lỗi / đang phát âm
+  static const Color flashSnackBar = Color(0xFF252632);
+  static const Color flashStar = Color(0xFFFFCC00);
+  static const Color flashDanger = Color(0xFFEF4444);
+  static const Color flashReading = Color(0xFFFF5E7E); // Cách đọc (furigana)
+
+  // Màu nhận diện từng chế độ học (icon + nền icon)
+  static const Color modeFlip = Color(0xFF4A90E2);
+  static const Color modeFlipBg = Color(0xFF1E2840);
+  static const Color modeQuiz = Color(0xFF00C7B1);
+  static const Color modeQuizBg = Color(0xFF143034);
+  static const Color modeTyping = Color(0xFF5E81F4);
+  static const Color modeTypingBg = Color(0xFF1D2444);
+  static const Color modeListening = Color(0xFFFF9500);
+  static const Color modeListeningBg = Color(0xFF332314);
+  static const Color modeMatching = Color(0xFF8B6BF6);
+  static const Color modeMatchingBg = Color(0xFF282148);
 }

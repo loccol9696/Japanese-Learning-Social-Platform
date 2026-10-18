@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+
 class StudyOptions {
   bool shuffle;
   bool starredOnly;
@@ -49,6 +51,19 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
   late bool _starredOnly;
   late String _displayFrontFace;
 
+  static const _sectionLabelStyle = TextStyle(
+    color: AppColors.socialTextMuted,
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.5,
+  );
+
+  static final _panelDecoration = BoxDecoration(
+    color: AppColors.flashPanel,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+  );
+
   @override
   void initState() {
     super.initState();
@@ -69,22 +84,22 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1F28),
+        backgroundColor: AppColors.socialSurface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFF323344), width: 1),
+          side: const BorderSide(color: AppColors.flashBorder, width: 1),
         ),
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF5A5F).withValues(alpha: 0.15),
+                color: AppColors.flashCoral.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.restart_alt_rounded,
-                color: Color(0xFFFF5A5F),
+                color: AppColors.flashCoral,
                 size: 22,
               ),
             ),
@@ -119,7 +134,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF5A5F),
+              backgroundColor: AppColors.flashCoral,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -144,12 +159,57 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
     );
   }
 
+  Widget _switchTile(String title, bool value, ValueChanged<bool> onChanged) {
+    return SwitchListTile(
+      title: Text(
+        title,
+        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+      ),
+      value: value,
+      activeThumbColor: AppColors.flashCoral,
+      onChanged: (val) {
+        setState(() => onChanged(val));
+        _notifyChange();
+      },
+    );
+  }
+
+  /// Một nửa của nút chọn mặt thẻ hiển thị trước ('term' / 'definition').
+  Widget _frontFaceOption(String value, String label) {
+    final selected = _displayFrontFace == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _displayFrontFace = value);
+          _notifyChange();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? AppColors.flashCoral : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : AppColors.socialTextMuted,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       decoration: const BoxDecoration(
-        color: Color(0xFF1E1F28),
+        color: AppColors.socialSurface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
@@ -195,72 +255,30 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
             const SizedBox(height: 14),
 
             // Nhóm 1: CÀI ĐẶT ÔN TẬP
-            const Text(
-              'CÀI ĐẶT ÔN TẬP',
-              style: TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
+            const Text('CÀI ĐẶT ÔN TẬP', style: _sectionLabelStyle),
             const SizedBox(height: 8),
             Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF151620),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
-              ),
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text(
-                      'Trộn thẻ ngẫu nhiên',
-                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
-                    ),
-                    value: _shuffle,
-                    activeThumbColor: const Color(0xFFFF5A5F),
-                    onChanged: (val) {
-                      setState(() => _shuffle = val);
-                      _notifyChange();
-                    },
-                  ),
-                  Divider(height: 1, color: Colors.white.withValues(alpha: 0.05)),
-                  SwitchListTile(
-                    title: const Text(
-                      'Chỉ học từ gắn sao',
-                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
-                    ),
-                    value: _starredOnly,
-                    activeThumbColor: const Color(0xFFFF5A5F),
-                    onChanged: (val) {
-                      setState(() => _starredOnly = val);
-                      _notifyChange();
-                    },
-                  ),
-                ],
+              decoration: _panelDecoration,
+              // Material trong suốt để SwitchListTile vẽ được hiệu ứng chạm trên nền panel.
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  children: [
+                    _switchTile('Trộn thẻ ngẫu nhiên', _shuffle, (val) => _shuffle = val),
+                    Divider(height: 1, color: Colors.white.withValues(alpha: 0.05)),
+                    _switchTile('Chỉ học từ gắn sao', _starredOnly, (val) => _starredOnly = val),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 18),
 
             // Nhóm 2: HIỂN THỊ
-            const Text(
-              'HIỂN THỊ',
-              style: TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
+            const Text('HIỂN THỊ', style: _sectionLabelStyle),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF151620),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
-              ),
+              decoration: _panelDecoration,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -276,69 +294,13 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111219),
+                      color: AppColors.flashInset,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() => _displayFrontFace = 'term');
-                              _notifyChange();
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              padding: const EdgeInsets.symmetric(vertical: 9),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: _displayFrontFace == 'term'
-                                    ? const Color(0xFFFF5A5F)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(9),
-                              ),
-                              child: Text(
-                                'Thuật ngữ',
-                                style: TextStyle(
-                                  color: _displayFrontFace == 'term'
-                                      ? Colors.white
-                                      : const Color(0xFF8E8E93),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() => _displayFrontFace = 'definition');
-                              _notifyChange();
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              padding: const EdgeInsets.symmetric(vertical: 9),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: _displayFrontFace == 'definition'
-                                    ? const Color(0xFFFF5A5F)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(9),
-                              ),
-                              child: Text(
-                                'Định nghĩa',
-                                style: TextStyle(
-                                  color: _displayFrontFace == 'definition'
-                                      ? Colors.white
-                                      : const Color(0xFF8E8E93),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                        _frontFaceOption('term', 'Thuật ngữ'),
+                        _frontFaceOption('definition', 'Định nghĩa'),
                       ],
                     ),
                   ),
@@ -348,38 +310,27 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
             const SizedBox(height: 18),
 
             // Nhóm 3: ĐẶT LẠI
-            const Text(
-              'ĐẶT LẠI',
-              style: TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
+            const Text('ĐẶT LẠI', style: _sectionLabelStyle),
             const SizedBox(height: 8),
             Material(
               color: Colors.transparent,
               child: InkWell(
                 onTap: () => _showResetConfirmDialog(context),
                 borderRadius: BorderRadius.circular(16),
-                child: Container(
+                // Ink (không phải Container) để hiệu ứng chạm vẽ đè lên nền panel.
+                child: Ink(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF151620),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
-                  ),
-                  child: Row(
+                  decoration: _panelDecoration,
+                  child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.restart_alt_rounded, color: Color(0xFFFF5A5F), size: 20),
+                    children: [
+                      Icon(Icons.restart_alt_rounded, color: AppColors.flashCoral, size: 20),
                       SizedBox(width: 8),
                       Text(
                         'Đặt lại tiến trình thẻ',
                         style: TextStyle(
-                          color: Color(0xFFFF5A5F),
+                          color: AppColors.flashCoral,
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),

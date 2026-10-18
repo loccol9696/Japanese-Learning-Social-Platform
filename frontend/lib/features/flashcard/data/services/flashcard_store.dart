@@ -38,6 +38,13 @@ class FlashcardStore with ChangeNotifier {
   bool hasCachedCards(int setId) => _cachedCardsBySetId.containsKey(setId);
   List<FlashcardItemModel>? getCachedCards(int setId) =>
       _cachedCardsBySetId[setId];
+  /// Nạp sẵn cache thẻ (còn mới) cho widget test, tránh gọi API.
+  @visibleForTesting
+  void seedCardsForTest(int setId, List<FlashcardItemModel> cards) {
+    _cachedCardsBySetId[setId] = cards;
+    _cardsLastFetchedBySetId[setId] = DateTime.now();
+  }
+
   bool isCardsStale(int setId) =>
       !_cardsLastFetchedBySetId.containsKey(setId) ||
       DateTime.now().difference(_cardsLastFetchedBySetId[setId]!) >
