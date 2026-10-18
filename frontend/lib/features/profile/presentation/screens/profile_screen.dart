@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../flashcard/data/models/flashcard_set_model.dart';
-import '../../../flashcard/data/services/flashcard_store.dart';
-import '../../../flashcard/presentation/screens/deck_overview_screen.dart';
-import '../../../flashcard/presentation/widgets/deck_card_item.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,7 +12,6 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final FlashcardStore _flashcardStore = FlashcardStore.instance;
 
   // Profile User Info
   String _displayName = 'Nguyễn Hữu Lộc';
@@ -30,28 +25,17 @@ class _ProfileScreenState extends State<ProfileScreen>
   // Mock public videos
   final List<Map<String, dynamic>> _publicVideos = [
     {
-      'id': 'draft_01',
-      'isDraft': true,
-      'draftCount': 1,
-      'title': 'Bản nháp bài học Kanji N3',
-      'views': 0,
-      'thumbnail': '',
-      'isPinned': false,
-    },
-    {
       'id': 'v_01',
-      'isDraft': false,
       'title': 'Phân biệt は và が trong 60s!',
       'views': 45100,
       'viewsText': '45.1K',
       'thumbnail':
-          'https://images.unsplash.com/photo-1528164344705-475426879c0d?auto=format&fit=crop&w=600&q=80',
+          'https://images.unsplash.com/photo-1545569341-9eb8b30979d9?auto=format&fit=crop&w=600&q=80',
       'isPinned': true,
       'jlpt': 'N4-N3',
     },
     {
       'id': 'v_02',
-      'isDraft': false,
       'title': 'Gọi món tại Izakaya chuẩn người bản xứ 🍶',
       'views': 1203,
       'viewsText': '1.203',
@@ -62,7 +46,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     },
     {
       'id': 'v_03',
-      'isDraft': false,
       'title': '10 câu Slang giới trẻ Tokyo hay dùng',
       'views': 24300,
       'viewsText': '24.3K',
@@ -73,7 +56,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     },
     {
       'id': 'v_04',
-      'isDraft': false,
       'title': 'Cách nhớ 20 Kanji bộ Thủ siêu tốc',
       'views': 8900,
       'viewsText': '8.9K',
@@ -84,7 +66,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     },
     {
       'id': 'v_05',
-      'isDraft': false,
       'title': 'Nghe hiểu N3: Hội thoại tại ga Shinjuku 🚆',
       'views': 5420,
       'viewsText': '5.420',
@@ -95,7 +76,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     },
     {
       'id': 'v_06',
-      'isDraft': false,
       'title': 'Bí kíp đạt 180/180 JLPT N4 của mình 📚',
       'views': 12800,
       'viewsText': '12.8K',
@@ -103,6 +83,46 @@ class _ProfileScreenState extends State<ProfileScreen>
           'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=600&q=80',
       'isPinned': false,
       'jlpt': 'Tips',
+    },
+  ];
+
+  // Saved videos - Bookmark (Tab 2)
+  final List<Map<String, dynamic>> _savedVideos = [
+    {
+      'id': 'save_01',
+      'title': '50 mẫu ngữ pháp N3 hay ra thi nhất',
+      'views': 152000,
+      'viewsText': '152K',
+      'thumbnail':
+          'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=600&q=80',
+      'jlpt': 'N3',
+    },
+    {
+      'id': 'save_02',
+      'title': 'Hội thoại check-in khách sạn ở Kyoto',
+      'views': 27600,
+      'viewsText': '27.6K',
+      'thumbnail':
+          'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=600&q=80',
+      'jlpt': 'Kaiwa',
+    },
+    {
+      'id': 'save_03',
+      'title': 'Mẹo nhớ Katakana trong 1 ngày',
+      'views': 98300,
+      'viewsText': '98.3K',
+      'thumbnail':
+          'https://images.unsplash.com/photo-1480796927426-f609979314bd?auto=format&fit=crop&w=600&q=80',
+      'jlpt': 'N5',
+    },
+    {
+      'id': 'save_04',
+      'title': 'Nghe hiểu thông báo trên tàu điện Tokyo',
+      'views': 15400,
+      'viewsText': '15.4K',
+      'thumbnail':
+          'https://images.unsplash.com/photo-1490806843957-31f4c9a91c65?auto=format&fit=crop&w=600&q=80',
+      'jlpt': 'Listening',
     },
   ];
 
@@ -140,7 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   void initState() {
     super.initState();
-    // 3 Tabs: Video, Flashcards, Liked
+    // 3 Tabs: Video, Saved (Bookmark), Liked
     _tabController = TabController(length: 3, vsync: this);
     _loadUserData();
   }
@@ -205,8 +225,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                   // Tab 1: Video Public (3-Column Grid)
                   _buildPublicVideoGrid(),
 
-                  // Tab 2: Thẻ Flashcard (Flashcard Sets)
-                  _buildFlashcardTab(),
+                  // Tab 2: Video đã lưu (Bookmark)
+                  _buildSavedVideoGrid(),
 
                   // Tab 3: Video đã thích (Trái tim)
                   _buildLikedVideoGrid(),
@@ -600,7 +620,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   // ===========================================================================
-  // 4. THANH TABS (3 TABS CHÍNH: VIDEO, FLASHCARDS, TRÁI TIM)
+  // 4. THANH TABS (3 TABS CHÍNH: VIDEO, ĐÃ LƯU, TRÁI TIM)
   // - Căn giữa icon, indicator rõ nét (weight 2.5)
   // ===========================================================================
   Widget _buildIconTabBar() {
@@ -629,9 +649,9 @@ class _ProfileScreenState extends State<ProfileScreen>
           Tab(
             icon: Icon(Icons.grid_on_rounded, size: 21),
           ),
-          // Tab 2: Flashcards
+          // Tab 2: Video đã lưu (Bookmark)
           Tab(
-            icon: Icon(Icons.style_rounded, size: 21),
+            icon: Icon(Icons.bookmark_rounded, size: 21),
           ),
           // Tab 3: Trái tim (Liked)
           Tab(
@@ -645,294 +665,54 @@ class _ProfileScreenState extends State<ProfileScreen>
   // ===========================================================================
   // 5. LƯỚI NỘI DUNG (TIKTOK VIDEO GRID)
   // ===========================================================================
+
+  /// Video ghim luôn đứng đầu lưới, giữ nguyên thứ tự các video còn lại.
+  List<Map<String, dynamic>> get _sortedPublicVideos {
+    final pinned = _publicVideos.where((v) => v['isPinned'] == true);
+    final others = _publicVideos.where((v) => v['isPinned'] != true);
+    return [...pinned, ...others];
+  }
+
   Widget _buildPublicVideoGrid() {
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(0, 1.5, 0, 100),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 0.74,
-        crossAxisSpacing: 1.5,
-        mainAxisSpacing: 1.5,
+    final videos = _sortedPublicVideos;
+    return _buildVideoGrid(
+      videos: videos,
+      tileBuilder: (video) => _buildVideoTile(
+        video: video,
+        snackPrefix: 'Xem',
+        topLeftBadge: video['isPinned'] == true ? _buildPinnedBadge() : null,
+        topRightBadge:
+            video['jlpt'] != null ? _buildJlptBadge(video['jlpt'] as String) : null,
+        bottomIcon: Icons.play_arrow_rounded,
+        bottomIconColor: Colors.white,
+        bottomText: video['viewsText'] ?? '0',
       ),
-      itemCount: _publicVideos.length,
-      itemBuilder: (context, index) {
-        final video = _publicVideos[index];
-        final isDraft = video['isDraft'] == true;
-
-        if (isDraft) {
-          // Ô ĐẦU TIÊN: BẢN NHÁP (DRAFTS)
-          return InkWell(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Mở danh sách Bản nháp video'),
-                  backgroundColor: Color(0xFF1E1F28),
-                ),
-              );
-            },
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF1A1B24),
-                borderRadius: BorderRadius.zero,
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.edit_note_rounded,
-                          size: 32,
-                          color: Colors.white.withValues(alpha: 0.5),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '1 bản nháp',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'Bản nháp',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        // CÁC Ô VIDEO BÌNH THƯỜNG
-        return InkWell(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Xem: ${video['title']}'),
-                backgroundColor: const Color(0xFF1E1F28),
-              ),
-            );
-          },
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Color(0xFF1E1F28),
-              borderRadius: BorderRadius.zero,
-            ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.network(
-                  video['thumbnail'] as String,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: const Color(0xFF1E1F28),
-                      child: const Center(
-                        child: Icon(
-                          Icons.play_circle_outline,
-                          color: Color(0xFF8E8E93),
-                          size: 28,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
-                        ],
-                        stops: const [0.0, 0.5, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-                if (video['isPinned'] == true)
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFE2C55),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: const Text(
-                        'Đã ghim',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (video['jlpt'] != null && video['isPinned'] != true)
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Text(
-                        video['jlpt'] as String,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  left: 6,
-                  bottom: 6,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.play_arrow_rounded,
-                        color: Colors.white,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        video['viewsText'] ?? '0',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 3,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
   // ===========================================================================
-  // TAB 2: FLASHCARD SETS
+  // TAB 2: VIDEO ĐÃ LƯU (BOOKMARK)
   // ===========================================================================
-  Widget _buildFlashcardTab() {
-    final cachedDecks = _flashcardStore.cachedSets ?? [];
-
-    if (cachedDecks.isEmpty) {
-      final mockDecks = [
-        FlashcardSetModel(
-          setId: 101,
-          title: 'Từ vựng N5 Minna no Nihongo (Bài 1-10)',
-          description: '50 từ vựng căn bản về chào hỏi, quốc gia và gia đình',
-          authorName: _displayName,
-          totalCards: 48,
-          learnedCards: 36,
-          progressPercentage: 0.75,
-          isPublic: true,
-        ),
-        FlashcardSetModel(
-          setId: 102,
-          title: 'Kanji cấp tốc N4 - Bộ thủ & Âm On/Kun',
-          description: 'Tổng hợp 80 Kanji xuất hiện nhiều nhất trong đề thi JLPT',
-          authorName: _displayName,
-          totalCards: 80,
-          learnedCards: 45,
-          progressPercentage: 0.56,
-          isPublic: true,
-        ),
-        FlashcardSetModel(
-          setId: 103,
-          title: 'Giao tiếp Quán ăn & Mua sắm tại Tokyo',
-          description: 'Hội thoại thực chiến gọi món, tính tiền, hỏi size đồ',
-          authorName: _displayName,
-          totalCards: 32,
-          learnedCards: 32,
-          progressPercentage: 1.0,
-          isPublic: false,
-        ),
-      ];
-
-      return ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 100),
-        itemCount: mockDecks.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 10),
-        itemBuilder: (context, index) {
-          final deck = mockDecks[index];
-          return DeckCardItem(
-            deck: deck,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => DeckOverviewScreen(
-                    deck: deck,
-                  ),
-                ),
-              );
-            },
-          );
-        },
+  Widget _buildSavedVideoGrid() {
+    if (_savedVideos.isEmpty) {
+      return _buildEmptyTab(
+        icon: Icons.bookmark_border_rounded,
+        title: 'Chưa có video đã lưu',
+        subtitle: 'Nhấn biểu tượng bookmark trên video để lưu lại và xem sau',
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 100),
-      itemCount: cachedDecks.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final deck = cachedDecks[index];
-        return DeckCardItem(
-          deck: deck,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DeckOverviewScreen(
-                  deck: deck,
-                ),
-              ),
-            );
-          },
-        );
-      },
+    return _buildVideoGrid(
+      videos: _savedVideos,
+      tileBuilder: (video) => _buildVideoTile(
+        video: video,
+        snackPrefix: 'Video đã lưu',
+        topRightBadge:
+            video['jlpt'] != null ? _buildJlptBadge(video['jlpt'] as String) : null,
+        bottomIcon: Icons.play_arrow_rounded,
+        bottomIconColor: Colors.white,
+        bottomText: video['viewsText'] ?? '0',
+      ),
     );
   }
 
@@ -940,6 +720,25 @@ class _ProfileScreenState extends State<ProfileScreen>
   // TAB 3: TRÁI TIM (VIDEO ĐÃ THÍCH)
   // ===========================================================================
   Widget _buildLikedVideoGrid() {
+    return _buildVideoGrid(
+      videos: _likedVideos,
+      tileBuilder: (video) => _buildVideoTile(
+        video: video,
+        snackPrefix: 'Video đã thích',
+        bottomIcon: Icons.favorite_rounded,
+        bottomIconColor: const Color(0xFFFE2C55),
+        bottomText: video['likesText'] ?? '0',
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // THÀNH PHẦN DÙNG CHUNG CHO CÁC LƯỚI VIDEO
+  // ===========================================================================
+  Widget _buildVideoGrid({
+    required List<Map<String, dynamic>> videos,
+    required Widget Function(Map<String, dynamic> video) tileBuilder,
+  }) {
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(0, 1.5, 0, 100),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -948,69 +747,184 @@ class _ProfileScreenState extends State<ProfileScreen>
         crossAxisSpacing: 1.5,
         mainAxisSpacing: 1.5,
       ),
-      itemCount: _likedVideos.length,
-      itemBuilder: (context, index) {
-        final video = _likedVideos[index];
-        return InkWell(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Video đã thích: ${video['title']}'),
-                backgroundColor: const Color(0xFF1E1F28),
-              ),
-            );
-          },
-          child: Container(
-            color: const Color(0xFF1E1F28),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.network(
-                  video['thumbnail'] as String,
-                  fit: BoxFit.cover,
-                ),
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 6,
-                  bottom: 6,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.favorite_rounded,
-                        color: Color(0xFFFE2C55),
-                        size: 13,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        video['likesText'] ?? '0',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+      itemCount: videos.length,
+      itemBuilder: (context, index) => tileBuilder(videos[index]),
+    );
+  }
+
+  Widget _buildVideoTile({
+    required Map<String, dynamic> video,
+    required String snackPrefix,
+    required IconData bottomIcon,
+    required Color bottomIconColor,
+    required String bottomText,
+    Widget? topLeftBadge,
+    Widget? topRightBadge,
+  }) {
+    return InkWell(
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$snackPrefix: ${video['title']}'),
+            backgroundColor: const Color(0xFF1E1F28),
           ),
         );
       },
+      child: Container(
+        color: const Color(0xFF1E1F28),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildThumbnailImage(video['thumbnail'] as String? ?? ''),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.7),
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            if (topLeftBadge != null)
+              Positioned(top: 6, left: 6, child: topLeftBadge),
+            if (topRightBadge != null)
+              Positioned(top: 6, right: 6, child: topRightBadge),
+            Positioned(
+              left: 6,
+              bottom: 6,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(bottomIcon, color: bottomIconColor, size: 14),
+                  const SizedBox(width: 2),
+                  Text(
+                    bottomText,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 3,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Thumbnail có placeholder khi đang tải và fallback khi URL lỗi/rỗng,
+  /// tránh ô video bị trống hoặc vỡ ảnh.
+  Widget _buildThumbnailImage(String url) {
+    Widget placeholder({bool loading = false}) => Container(
+          color: const Color(0xFF1E1F28),
+          child: Center(
+            child: loading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  )
+                : const Icon(
+                    Icons.play_circle_outline,
+                    color: Color(0xFF8E8E93),
+                    size: 28,
+                  ),
+          ),
+        );
+
+    if (url.isEmpty) return placeholder();
+
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) =>
+          progress == null ? child : placeholder(loading: true),
+      errorBuilder: (context, error, stackTrace) => placeholder(),
+    );
+  }
+
+  Widget _buildPinnedBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFE2C55),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: const Text(
+        'Đã ghim',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 9.5,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJlptBadge(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 8.5,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyTab({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 48, 32, 100),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 44, color: Colors.white.withValues(alpha: 0.35)),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12.5),
+          ),
+        ],
+      ),
     );
   }
 
