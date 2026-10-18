@@ -34,7 +34,7 @@ class _FakeProfileRepository implements ProfileRepository {
   bool updateProfileCalled = false;
 
   @override
-  Future<UserProfileModel> getProfile({int? userId}) async {
+  Future<UserProfileModel> getProfile() async {
     return profile;
   }
 
@@ -44,7 +44,7 @@ class _FakeProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<UserProfileModel> updateProfile(UserProfileModel updated, {int? userId}) async {
+  Future<UserProfileModel> updateProfile(UserProfileModel updated) async {
     updateProfileCalled = true;
     profile = updated;
     return profile;

@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../../../core/storage/token_storage.dart';
 import '../../domain/models/topic_model.dart';
 import '../../domain/models/user_profile_model.dart';
 import 'profile_storage.dart';
 
 abstract class ProfileRemoteDataSource {
-  Future<UserProfileModel> fetchProfile({int? userId});
-  Future<UserProfileModel> updateProfile(UserProfileModel profile, {int? userId});
+  Future<UserProfileModel> fetchProfile();
+  Future<UserProfileModel> updateProfile(UserProfileModel profile);
   Future<List<TopicModel>> fetchTopics();
 }
 
@@ -18,6 +19,14 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     this.baseUrl = 'http://localhost:8080',
     http.Client? client,
   }) : _client = client ?? http.Client();
+
+  /// Danh tính lấy từ JWT, backend không còn tin header X-User-Id.
+  Future<void> _addAuthHeader(Map<String, String> headers) async {
+    final token = await TokenStorage.instance.getAccessToken();
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+  }
 
   static const String _storageKey = 'jlsp_user_profile_data';
 
@@ -71,15 +80,13 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   }
 
   @override
-  Future<UserProfileModel> fetchProfile({int? userId}) async {
+  Future<UserProfileModel> fetchProfile() async {
     // 1. Try to fetch fresh state from Backend Spring Boot
     try {
       final headers = <String, String>{
         'Accept': 'application/json',
       };
-      if (userId != null) {
-        headers['X-User-Id'] = userId.toString();
-      }
+      await _addAuthHeader(headers);
 
       final response = await _client
           .get(Uri.parse('$baseUrl/api/v1/profile'), headers: headers)
@@ -106,7 +113,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   }
 
   @override
-  Future<UserProfileModel> updateProfile(UserProfileModel profile, {int? userId}) async {
+  Future<UserProfileModel> updateProfile(UserProfileModel profile) async {
     // 1. Save immediately to persistent browser storage so refresh never loses data
     _saveToStorage(profile);
 
@@ -116,9 +123,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       };
-      if (userId != null) {
-        headers['X-User-Id'] = userId.toString();
-      }
+      await _addAuthHeader(headers);
 
       final payload = jsonEncode(profile.toUpdateJson());
       final response = await _client

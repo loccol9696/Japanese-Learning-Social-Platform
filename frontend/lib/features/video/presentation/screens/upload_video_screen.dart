@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/storage/token_storage.dart';
 
 class UploadVideoScreen extends StatefulWidget {
   const UploadVideoScreen({super.key});
@@ -540,9 +541,13 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
 
     setState(() => _isSubmitting = true);
     try {
+      final token = await TokenStorage.instance.getAccessToken();
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/videos'),
-        headers: {'Content-Type': 'application/json', 'X-User-Id': '1'},
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
         body: jsonEncode({
           'title': _titleController.text.trim(),
           'description': _descriptionController.text.trim().isEmpty
