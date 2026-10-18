@@ -234,13 +234,28 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Override
     public TokenQuotaResponse checkTokenQuota(Long userId) {
         User user = userRepository.findById(userId).orElse(null);
-        int limit = 50; // default Free tier
-        String planName = "Miễn phí (Free)";
 
-        if (user != null && user.getSubscriptionPlan() != null) {
-            limit = user.getSubscriptionPlan().getDailyTokenLimit();
-            planName = user.getSubscriptionPlan().getName();
-        }
+        // Truy vấn động gói FREE từ database làm chuẩn
+        SubscriptionPlan freePlan = planRepository.findByCode("FREE").orElse(null);
+        int freeLimit = (freePlan != null && freePlan.getDailyTokenLimit() != null)
+                ? freePlan.getDailyTokenLimit()
+                : 50;
+        String freePlanName = (freePlan != null && freePlan.getName() != null)
+                ? freePlan.getName()
+                : "Miễn phí (Free)";
+
+        // Kiểm tra xem người dùng có gói VIP còn hạn hay không
+        boolean hasActiveVip = user != null && user.getSubscriptionPlan() != null
+                && (user.getVipExpiresAt() == null || user.getVipExpiresAt().isAfter(LocalDateTime.now()));
+
+        SubscriptionPlan activePlan = hasActiveVip ? user.getSubscriptionPlan() : freePlan;
+
+        int limit = (activePlan != null && activePlan.getDailyTokenLimit() != null)
+                ? activePlan.getDailyTokenLimit()
+                : freeLimit;
+        String planName = (activePlan != null && activePlan.getName() != null)
+                ? activePlan.getName()
+                : freePlanName;
 
         LocalDate today = LocalDate.now();
         int used = 0;
@@ -263,11 +278,22 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Transactional
     public void validateAndDeductTokens(Long userId, int tokensRequired) {
         User user = userRepository.findById(userId).orElse(null);
-        int limit = 50; // default Free tier: 50 tokens/day
 
-        if (user != null && user.getSubscriptionPlan() != null) {
-            limit = user.getSubscriptionPlan().getDailyTokenLimit();
-        }
+        // Truy vấn động gói FREE từ database làm chuẩn
+        SubscriptionPlan freePlan = planRepository.findByCode("FREE").orElse(null);
+        int freeLimit = (freePlan != null && freePlan.getDailyTokenLimit() != null)
+                ? freePlan.getDailyTokenLimit()
+                : 50;
+
+        // Kiểm tra xem người dùng có gói VIP còn hạn hay không
+        boolean hasActiveVip = user != null && user.getSubscriptionPlan() != null
+                && (user.getVipExpiresAt() == null || user.getVipExpiresAt().isAfter(LocalDateTime.now()));
+
+        SubscriptionPlan activePlan = hasActiveVip ? user.getSubscriptionPlan() : freePlan;
+
+        int limit = (activePlan != null && activePlan.getDailyTokenLimit() != null)
+                ? activePlan.getDailyTokenLimit()
+                : freeLimit;
 
         LocalDate today = LocalDate.now();
         UserDailyTokenUsage usage = (user != null)
