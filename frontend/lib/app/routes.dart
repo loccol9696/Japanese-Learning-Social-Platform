@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../features/auth/screens/forgot_password_screen.dart';
-import '../features/auth/screens/login_screen.dart';
-import '../features/auth/screens/register_screen.dart';
+import '../features/auth/presentation/screens/forgot_password_screen.dart';
+import '../features/auth/presentation/screens/login_screen.dart';
+import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import '../features/flashcard/presentation/screens/deck_library_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';

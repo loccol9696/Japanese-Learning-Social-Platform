@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../core/network/api_exception.dart';
-import '../data/services/auth_service.dart';
+import '../../../../core/network/api_exception.dart';
+import '../../data/services/auth_service.dart';
 import 'login_screen.dart';
 import 'otp_verification_screen.dart';
 
