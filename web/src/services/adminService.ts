@@ -97,6 +97,17 @@ export interface PageResponse<T> {
   last: boolean;
 }
 
+export const UNAUTHORIZED_EVENT = 'jlsp:unauthorized';
+
+/** fetch kèm xử lý phiên: token hết hạn / tài khoản bị khóa (401) -> App tự đăng xuất. */
+async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const response = await fetch(input, init);
+  if (response.status === 401) {
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+  return response;
+}
+
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('jlsp_token');
   return {
@@ -112,7 +123,7 @@ export async function getModerationVideos(
   page = 0,
   size = 10
 ): Promise<PageResponse<VideoModerationItem>> {
-  const response = await fetch(`/api/v1/videos/moderation?status=${modStatus}&modStatus=${modStatus}&page=${page}&size=${size}`, {
+  const response = await apiFetch(`/api/v1/videos/moderation?status=${modStatus}&modStatus=${modStatus}&page=${page}&size=${size}`, {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<PageResponse<VideoModerationItem>> = await response.json();
@@ -123,7 +134,7 @@ export async function getModerationVideos(
 }
 
 export async function approveVideo(videoId: number): Promise<VideoModerationItem> {
-  const response = await fetch(`/api/v1/videos/${videoId}/approve`, {
+  const response = await apiFetch(`/api/v1/videos/${videoId}/approve`, {
     method: 'POST',
     headers: getAuthHeaders(),
   });
@@ -135,7 +146,7 @@ export async function approveVideo(videoId: number): Promise<VideoModerationItem
 }
 
 export async function rejectVideo(videoId: number, reason: string): Promise<VideoModerationItem> {
-  const response = await fetch(`/api/v1/videos/${videoId}/reject`, {
+  const response = await apiFetch(`/api/v1/videos/${videoId}/reject`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ reason }),
@@ -162,7 +173,7 @@ export async function getAdminUsers(
   if (search.trim()) params.append('search', search.trim());
   if (role) params.append('role', role);
 
-  const response = await fetch(`/api/v1/users/admin-list?${params.toString()}`, {
+  const response = await apiFetch(`/api/v1/users/admin-list?${params.toString()}`, {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<PageResponse<AdminUserItem>> = await response.json();
@@ -173,7 +184,7 @@ export async function getAdminUsers(
 }
 
 export async function toggleUserStatus(userId: number): Promise<AdminUserItem> {
-  const response = await fetch(`/api/v1/users/${userId}/toggle-status`, {
+  const response = await apiFetch(`/api/v1/users/${userId}/toggle-status`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
   });
@@ -185,7 +196,7 @@ export async function toggleUserStatus(userId: number): Promise<AdminUserItem> {
 }
 
 export async function createPrivilegedAccount(payload: AdminCreateUserPayload): Promise<UserProfile> {
-  const response = await fetch('/api/v1/users/admin-create', {
+  const response = await apiFetch('/api/v1/users/admin-create', {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
@@ -202,7 +213,7 @@ export async function batchCreateAccounts(
   count: number,
   role: 'ADMIN' | 'MODERATOR'
 ): Promise<GeneratedAccountDto[]> {
-  const response = await fetch('/api/v1/users/admin-batch-create', {
+  const response = await apiFetch('/api/v1/users/admin-batch-create', {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ count, role }),
@@ -222,7 +233,7 @@ export async function changePassword(payload: {
   newPassword: string;
   username?: string;
 }): Promise<void> {
-  const response = await fetch('/api/v1/auth/change-password', {
+  const response = await apiFetch('/api/v1/auth/change-password', {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
@@ -237,7 +248,7 @@ export async function changePassword(payload: {
 // ==================== PLANS & DAILY TOKEN LIMIT (ADMIN) ====================
 
 export async function getAllPlansAdmin(): Promise<SubscriptionPlanItem[]> {
-  const response = await fetch('/api/v1/subscription-plans/admin-all', {
+  const response = await apiFetch('/api/v1/subscription-plans/admin-all', {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<SubscriptionPlanItem[]> = await response.json();
@@ -256,7 +267,7 @@ export async function createPlan(payload: {
   description?: string;
   features?: string;
 }): Promise<SubscriptionPlanItem> {
-  const response = await fetch('/api/v1/subscription-plans', {
+  const response = await apiFetch('/api/v1/subscription-plans', {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
@@ -281,7 +292,7 @@ export async function updatePlan(
     isActive?: boolean;
   }
 ): Promise<SubscriptionPlanItem> {
-  const response = await fetch(`/api/v1/subscription-plans/${id}`, {
+  const response = await apiFetch(`/api/v1/subscription-plans/${id}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
@@ -299,7 +310,7 @@ export interface TokenRateDto {
 }
 
 export async function getTokenRate(): Promise<TokenRateDto> {
-  const response = await fetch('/api/v1/subscription-plans/token-rate', {
+  const response = await apiFetch('/api/v1/subscription-plans/token-rate', {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<TokenRateDto> = await response.json();
@@ -310,7 +321,7 @@ export async function getTokenRate(): Promise<TokenRateDto> {
 }
 
 export async function updateTokenRate(secondsPerToken: number): Promise<TokenRateDto> {
-  const response = await fetch('/api/v1/subscription-plans/token-rate', {
+  const response = await apiFetch('/api/v1/subscription-plans/token-rate', {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify({ secondsPerToken }),
@@ -329,7 +340,7 @@ export async function getSubscriptionOrders(
   size = 15,
   sort = 'createdAt,desc'
 ): Promise<PageResponse<SubscriptionOrderItem>> {
-  const response = await fetch(`/api/v1/payments/history?page=${page}&size=${size}&sort=${sort}`, {
+  const response = await apiFetch(`/api/v1/payments/history?page=${page}&size=${size}&sort=${sort}`, {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<PageResponse<SubscriptionOrderItem>> = await response.json();
@@ -347,7 +358,7 @@ export async function createQrOrder(planCode: string): Promise<{
   qrCodeUrl: string;
   status: string;
 }> {
-  const response = await fetch('/api/v1/payments/create-order', {
+  const response = await apiFetch('/api/v1/payments/create-order', {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ planCode }),
@@ -360,7 +371,7 @@ export async function createQrOrder(planCode: string): Promise<{
 }
 
 export async function confirmPayment(orderCode: string, verificationCode: string): Promise<any> {
-  const response = await fetch('/api/v1/payments/confirm', {
+  const response = await apiFetch('/api/v1/payments/confirm', {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ orderCode, verificationCode }),
@@ -404,7 +415,7 @@ export interface AdminAnalyticsData {
 }
 
 export async function getAdminAnalytics(period: '7days' | 'month' | 'year' = '7days'): Promise<AdminAnalyticsData> {
-  const response = await fetch(`/api/v1/admin/analytics?period=${period}`, {
+  const response = await apiFetch(`/api/v1/admin/analytics?period=${period}`, {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<AdminAnalyticsData> = await response.json();
@@ -424,7 +435,7 @@ export async function getMetricTrend(
   if (year) params.append('year', year.toString());
   if (month) params.append('month', month.toString());
 
-  const response = await fetch(`/api/v1/admin/analytics/trend?${params.toString()}`, {
+  const response = await apiFetch(`/api/v1/admin/analytics/trend?${params.toString()}`, {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<DailyMetricDto[]> = await response.json();
@@ -446,7 +457,7 @@ export async function updateAdminProfile(
   currentUsername: string,
   payload: UpdateProfilePayload
 ): Promise<AdminUserItem> {
-  const response = await fetch(`/api/v1/users/profile-by-username/${encodeURIComponent(currentUsername)}`, {
+  const response = await apiFetch(`/api/v1/users/profile-by-username/${encodeURIComponent(currentUsername)}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),

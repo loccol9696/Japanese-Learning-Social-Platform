@@ -3,6 +3,7 @@ import { LoginForm } from './components/LoginForm';
 import { DashboardView } from './components/DashboardView';
 import { AdminDashboard } from './components/AdminDashboard';
 import type { UserProfile } from './types/auth';
+import { UNAUTHORIZED_EVENT } from './services/adminService';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -32,6 +33,12 @@ export const App: React.FC = () => {
     localStorage.removeItem('jlsp_user');
     localStorage.removeItem('jlsp_token');
   };
+
+  // Backend trả 401 (token hết hạn / tài khoản bị khóa) -> quay về màn đăng nhập
+  useEffect(() => {
+    window.addEventListener(UNAUTHORIZED_EVENT, handleLogout);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, handleLogout);
+  }, []);
 
   return (
     <>
