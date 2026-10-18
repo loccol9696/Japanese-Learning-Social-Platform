@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/video_post.dart';
+import '../../domain/models/ruby_segment.dart';
 import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';
 import 'streak_xp_badge.dart';
@@ -28,10 +31,14 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   bool _isPlaying = true;
   bool _showRipple = false;
   bool _showSubtitles = true;
+  bool _hasInteracted = false;
+  double _videoProgress = 0.0;
 
   late final AnimationController _rippleController;
   late final Animation<double> _scaleAnimation;
   late final Animation<double> _opacityAnimation;
+  VideoPlayerController? _videoController;
+  SubtitleCue? _activeSubtitle;
 
   @override
   void initState() {
@@ -49,19 +56,126 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 30),
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 70),
     ]).animate(_rippleController);
+    _initializeVideo();
   }
 
   @override
   void dispose() {
+    _videoController?.dispose();
     _rippleController.dispose();
     super.dispose();
   }
 
+  Future<void> _initializeVideo() async {
+    final videoUrl = widget.post.videoUrl;
+    if (videoUrl.isEmpty) return;
+
+    final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+    _videoController = controller;
+    try {
+      await controller.initialize();
+      await controller.setLooping(true);
+      await controller.setVolume(0);
+      controller.addListener(_updateActiveSubtitle);
+      if (!mounted || _videoController != controller) return;
+      setState(() {});
+      _updateActiveSubtitle();
+
+      try {
+        await controller.play();
+      } catch (error) {
+        // Browsers may block autoplay even when the video is muted.
+        debugPrint('Video autoplay was blocked: $error');
+        if (mounted) {
+          setState(() => _isPlaying = false);
+        }
+      }
+    } catch (error) {
+      debugPrint('Video initialization failed: $error');
+      await controller.dispose();
+      if (_videoController == controller) {
+        _videoController = null;
+      }
+    }
+  }
+
+  void _updateActiveSubtitle() {
+    final controller = _videoController;
+    if (!mounted || controller == null || !controller.value.isInitialized) {
+      return;
+    }
+
+    final position = controller.value.position;
+    final duration = controller.value.duration;
+    SubtitleCue? active;
+    for (final cue in widget.post.subtitleCues) {
+      if (cue.contains(position)) {
+        active = cue;
+        break;
+      }
+    }
+
+    final progress = duration.inMilliseconds > 0
+        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+        : 0.0;
+    if (active?.start != _activeSubtitle?.start ||
+        active?.end != _activeSubtitle?.end ||
+        progress != _videoProgress) {
+      setState(() {
+        _activeSubtitle = active;
+        _videoProgress = progress;
+      });
+    }
+  }
+
+  Future<void> _seekToFraction(double fraction) async {
+    final controller = _videoController;
+    if (controller == null || !controller.value.isInitialized) return;
+    final duration = controller.value.duration;
+    if (duration.inMilliseconds <= 0) return;
+    await controller.seekTo(
+      Duration(milliseconds: (duration.inMilliseconds * fraction).round()),
+    );
+  }
+
   void _handleTapToPlayPause() {
+    final controller = _videoController;
+    if (controller != null &&
+        controller.value.isInitialized &&
+        !_hasInteracted) {
+      _hasInteracted = true;
+      setState(() {
+        _isPlaying = true;
+        _showRipple = true;
+      });
+      controller.setVolume(1);
+      controller.play().catchError((error) {
+        debugPrint('Video playback with audio failed: $error');
+      });
+      _rippleController.forward(from: 0.0).then((_) {
+        if (mounted) {
+          setState(() => _showRipple = false);
+        }
+      });
+      return;
+    }
+
     setState(() {
       _isPlaying = !_isPlaying;
       _showRipple = true;
     });
+    if (controller != null && controller.value.isInitialized) {
+      if (_isPlaying) {
+        controller.play().catchError((error) {
+          debugPrint('Video playback failed: $error');
+          if (mounted) {
+            setState(() => _isPlaying = false);
+          }
+        });
+      } else {
+        controller.pause();
+      }
+    }
 
     _rippleController.forward(from: 0.0).then((_) {
       if (mounted) {
@@ -76,6 +190,15 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   Widget build(BuildContext context) {
     // Dynamic contrast theme based on background brightness
     final theme = AdaptiveVideoTheme(isLight: widget.post.isLightBackground);
+    final activeCue = _activeSubtitle;
+    final displayedSegments = widget.post.subtitleCues.isEmpty
+        ? widget.post.rubySegments
+        : activeCue == null
+        ? const <RubySegment>[]
+        : [RubySegment(kanji: activeCue.text, furigana: '')];
+    final displayedTranslation = widget.post.subtitleCues.isEmpty
+        ? widget.post.translation
+        : activeCue?.translation ?? '';
 
     return GestureDetector(
       onTap: _handleTapToPlayPause,
@@ -84,20 +207,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
         fit: StackFit.expand,
         children: [
           // 1. Background Video / Simulation Image
-          Image.network(
-            widget.post.backgroundImageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(
-              color: AppColors.surfaceContainerHighest,
-              child: Center(
-                child: Icon(
-                  Icons.image_not_supported_rounded,
-                  color: theme.primaryAdaptive,
-                  size: 48.0,
-                ),
-              ),
-            ),
-          ),
+          _buildVideoBackground(theme),
 
           // 2. Subtle Dark Tint Overlay (only for dark background)
           if (!widget.post.isLightBackground)
@@ -178,7 +288,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                       ],
                     ),
                     child: Icon(
-                      _isPlaying ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                      _isPlaying
+                          ? Icons.play_arrow_rounded
+                          : Icons.pause_rounded,
                       size: 38.0,
                       color: theme.playRippleIcon,
                     ),
@@ -208,7 +320,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           // 7. Bottom Subtitle & Video Metadata Overlay
           Positioned(
             left: 16.0,
-            right: 76.0,
+            right: 88.0,
             bottom: 95.0,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,8 +330,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                   firstChild: Padding(
                     padding: const EdgeInsets.only(bottom: 10.0),
                     child: RubySubtitleWidget(
-                      rubySegments: widget.post.rubySegments,
-                      translation: widget.post.translation,
+                      rubySegments: displayedSegments,
+                      translation: displayedTranslation,
                       theme: theme,
                     ),
                   ),
@@ -229,10 +341,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                       : CrossFadeState.showSecond,
                   duration: const Duration(milliseconds: 250),
                 ),
-                VideoInfoOverlay(
-                  post: widget.post,
-                  theme: theme,
-                ),
+                VideoInfoOverlay(post: widget.post, theme: theme),
               ],
             ),
           ),
@@ -242,30 +351,141 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
             bottom: 84.0,
             left: 0,
             right: 0,
-            child: Container(
-              height: 3.0,
-              color: theme.progressTrack,
-              alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: widget.post.progress,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: theme.progressActive,
-                    borderRadius: const BorderRadius.horizontal(
-                      right: Radius.circular(2.0),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.progressGlow,
-                        blurRadius: 8.0,
+            child: SizedBox(
+              height: 22.0,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (details) => _seekToFraction(
+                      (details.localPosition.dx / constraints.maxWidth).clamp(
+                        0.0,
+                        1.0,
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                    onHorizontalDragUpdate: (details) => _seekToFraction(
+                      (details.localPosition.dx / constraints.maxWidth).clamp(
+                        0.0,
+                        1.0,
+                      ),
+                    ),
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: SizedBox(
+                        height: 3.0,
+                        child: Stack(
+                          children: [
+                            Container(color: theme.progressTrack),
+                            FractionallySizedBox(
+                              widthFactor: _videoProgress,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: theme.progressActive,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: theme.progressGlow,
+                                      blurRadius: 8.0,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildVideoBackground(AdaptiveVideoTheme theme) {
+    final controller = _videoController;
+    if (controller != null && controller.value.isInitialized) {
+      final aspectRatio = controller.value.aspectRatio;
+      final isLandscape = aspectRatio > 1.15;
+
+      if (!isLandscape) {
+        return FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: controller.value.size.width,
+            height: controller.value.size.height,
+            child: VideoPlayer(controller),
+          ),
+        );
+      }
+
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          _buildLandscapeBackdrop(theme),
+          Center(
+            child: AspectRatio(
+              aspectRatio: aspectRatio,
+              child: VideoPlayer(controller),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (widget.post.backgroundImageUrl.isNotEmpty) {
+      return Image.network(
+        widget.post.backgroundImageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _videoPlaceholder(theme),
+      );
+    }
+    return _videoPlaceholder(theme);
+  }
+
+  Widget _buildLandscapeBackdrop(AdaptiveVideoTheme theme) {
+    final thumbnailUrl = widget.post.backgroundImageUrl;
+    if (thumbnailUrl.isEmpty) {
+      return Container(color: AppColors.surfaceContainerHighest);
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.network(
+          thumbnailUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) =>
+              Container(color: AppColors.surfaceContainerHighest),
+        ),
+        Container(color: Colors.black.withValues(alpha: 0.62)),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.18),
+                theme.bottomScrimColors.last.withValues(alpha: 0.55),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _videoPlaceholder(AdaptiveVideoTheme theme) {
+    return Container(
+      color: AppColors.surfaceContainerHighest,
+      child: Center(
+        child: Icon(
+          Icons.video_library_outlined,
+          color: theme.primaryAdaptive,
+          size: 48.0,
+        ),
       ),
     );
   }
