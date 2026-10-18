@@ -15,4 +15,6 @@ public interface AuthService {
     void verifyOtp(VerifyOtpRequest request);
 
     void resendOtp(ResendOtpRequest request);
+
+    void changePassword(String username, Long userId, com.jlsp.backend.auth.dto.request.ChangePasswordRequest request);
 }

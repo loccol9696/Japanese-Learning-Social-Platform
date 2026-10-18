@@ -19,4 +19,13 @@ public interface UserService {
     UserResponse updateUser(Long id, UpdateUserRequest request);
 
     void deactivateUser(Long id);
+
+    UserResponse createPrivilegedUser(com.jlsp.backend.user.dto.request.AdminCreateUserRequest request);
+
+    PageResponse<UserResponse> searchUsers(String search, com.jlsp.backend.user.entity.UserRole role, Pageable pageable);
+
+    UserResponse toggleUserStatus(Long id);
+
+    java.util.List<com.jlsp.backend.user.dto.response.GeneratedAccountDto> batchCreateAccounts(com.jlsp.backend.user.dto.request.AdminBatchCreateRequest request);
+    UserResponse updateProfileByUsername(String currentUsername, UpdateUserRequest request);
 }

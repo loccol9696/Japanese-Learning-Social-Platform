@@ -1,0 +1,100 @@
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 500MB
+      max-request-size: 500MB
+  application:
+    name: backend
+  profiles:
+    active: dev # <-- Đổi từ prod sang dev ở đây làm mặc định khi test
+  datasource:
+    url: jdbc:postgresql://aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?user=postgres.uefwrxqatjyszdrburkr&password=ToiYeuNaritaTopRoad26
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: true
+    open-in-view: false
+  
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:minedung2005@gmail.com}        # Đặt trong .env (ví dụ: your_email@gmail.com)
+    password: ${MAIL_PASSWORD:gxjb jpad zwed iwmj}        # App Password 16 ký tự từ Google
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  ai:
+  vocal-service:
+    # Điền link từ Cloudflare / Ngrok của máy bạn
+    url: untraitorous-huong-conversably.ngrok-free.dev/api/v1/separate-vocal
+    enabled: true
+
+
+gcp:
+  project-id: ${GCP_PROJECT_ID:swp391-478004}
+  speech:
+    credentials-path: ${GCP_CREDENTIALS_PATH:classpath:credentials/credentials.json}
+  storage:
+    bucket-name: ${GCP_BUCKET_NAME:sptote_bucket_1}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:dbi35fapj}
+  api-key: ${CLOUDINARY_API_KEY:743756871269293}
+  api-secret: ${CLOUDINARY_API_SECRET:Ri_hZtd5w3cDoKt5--fMa1kxd0c}
+
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+      force-response: true
+
+app:
+  security:
+    enabled: true
+
+jwt:
+  secret: ${JWT_SECRET:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30}
+  expiration: ${JWT_EXPIRATION:86200000}
+
+---
+# Cấu hình riêng khi chạy Profile: dev
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+app:
+  security:
+    enabled: false
+
+---
+# Cấu hình riêng cho môi trường Production
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: true
+    open-in-view: false
+
+  app:
+  security:
+    enabled: true          # Bắt buộc bật toàn bộ filter bảo mật và kiểm tra JWT

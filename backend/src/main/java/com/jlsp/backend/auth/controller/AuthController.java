@@ -14,11 +14,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping({"/api/v1/auth", "/api/auth"})
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -51,5 +52,22 @@ public class AuthController {
         authService.resendOtp(request);
 
         return ResponseEntity.ok(ApiResponse.success(200, "Resend OTP successful", null));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.jlsp.backend.common.security.CustomUserDetails userDetails,
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @Valid @RequestBody com.jlsp.backend.auth.dto.request.ChangePasswordRequest request) {
+
+        String username = null;
+        if (userDetails != null) {
+            username = userDetails.getUsername();
+        } else if (request.getUsername() != null && !request.getUsername().isBlank()) {
+            username = request.getUsername();
+        }
+
+        authService.changePassword(username, headerUserId, request);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đổi mật khẩu thành công", null));
     }
 }

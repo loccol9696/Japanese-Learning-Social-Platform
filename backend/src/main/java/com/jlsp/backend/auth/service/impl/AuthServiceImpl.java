@@ -7,10 +7,10 @@ import com.jlsp.backend.auth.service.AuthService;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.security.CustomUserDetails;
 import com.jlsp.backend.common.security.jwt.JwtUtils;
-import com.jlsp.backend.otp.dto.ResendOtpRequest;
-import com.jlsp.backend.otp.dto.VerifyOtpRequest;
 import com.jlsp.backend.otp.service.EmailService;
 import com.jlsp.backend.otp.service.OtpRedisService;
+import com.jlsp.backend.otp.dto.ResendOtpRequest;
+import com.jlsp.backend.otp.dto.VerifyOtpRequest;
 import com.jlsp.backend.user.mapper.UserMapper;
 import com.jlsp.backend.user.repository.UserRepository;
 
@@ -135,5 +135,42 @@ public class AuthServiceImpl implements AuthService {
         String newOtp = emailService.generateOtp();
         otpRedisService.saveOtp(request.getEmail(), newOtp);
         emailService.sendOtpEmail(request.getEmail(), newOtp);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(String username, Long userId, com.jlsp.backend.auth.dto.request.ChangePasswordRequest request) {
+        log.info("Processing password change request for username: {}, userId: {}", username, userId);
+
+        User user = null;
+        if (username != null && !username.isBlank()) {
+            user = userRepository.findByUsername(username)
+                    .orElseGet(() -> userRepository.findByEmail(username).orElse(null));
+        }
+
+        if (user == null && userId != null) {
+            user = userRepository.findById(userId).orElse(null);
+        }
+
+        if (user == null && request.getUsername() != null && !request.getUsername().isBlank()) {
+            user = userRepository.findByUsername(request.getUsername())
+                    .orElseGet(() -> userRepository.findByEmail(request.getUsername()).orElse(null));
+        }
+
+        if (user == null) {
+            throw new AppException(404, "Không tìm thấy thông tin tài khoản người dùng");
+        }
+
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
+            throw new AppException(400, "Mật khẩu hiện tại không chính xác");
+        }
+
+        if (request.getNewPassword().length() < 6) {
+            throw new AppException(400, "Mật khẩu mới phải có ít nhất 6 ký tự");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        log.info("Password successfully changed for user: {}", user.getUsername());
     }
 }
