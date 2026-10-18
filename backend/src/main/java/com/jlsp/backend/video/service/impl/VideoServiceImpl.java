@@ -126,6 +126,14 @@ public class VideoServiceImpl implements VideoService {
             video.setJlptLevel(request.getJlptLevel());
         }
         if (request.getStatus() != null) {
+            // Nếu người dùng chuyển video từ PRIVATE/UNLISTED sang PUBLIC thì cần Moderator duyệt (PENDING)
+            if (video.getStatus() != VideoStatus.PUBLIC && request.getStatus() == VideoStatus.PUBLIC) {
+                video.setModStatus(com.jlsp.backend.video.entity.VideoModStatus.PENDING);
+                video.setModeratedBy(null);
+                video.setModeratedAt(null);
+                video.setRejectionReason(null);
+                log.info("Video ID {} chuyển sang PUBLIC -> Đặt trạng thái PENDING chờ Moderator duyệt", id);
+            }
             video.setStatus(request.getStatus());
         }
 
@@ -552,8 +560,11 @@ public class VideoServiceImpl implements VideoService {
         Video video = videoRepository.findById(videoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Video", "id", videoId));
 
+        if (video.getStatus() != VideoStatus.PUBLIC) {
+            throw new AppException(400, "Chỉ có thể phê duyệt video ở chế độ công khai (PUBLIC)");
+        }
+
         video.setModStatus(com.jlsp.backend.video.entity.VideoModStatus.APPROVED);
-        video.setStatus(VideoStatus.PUBLIC);
         video.setModeratedBy(moderatorId);
         video.setModeratedAt(LocalDateTime.now());
         video.setRejectionReason(null);
@@ -568,6 +579,10 @@ public class VideoServiceImpl implements VideoService {
     public VideoDetailResponse rejectVideo(Long videoId, Long moderatorId, String rejectionReason) {
         Video video = videoRepository.findById(videoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Video", "id", videoId));
+
+        if (video.getStatus() != VideoStatus.PUBLIC) {
+            throw new AppException(400, "Chỉ có thể xử lý video ở chế độ công khai (PUBLIC)");
+        }
 
         video.setModStatus(com.jlsp.backend.video.entity.VideoModStatus.REJECTED);
         video.setModeratedBy(moderatorId);
@@ -584,7 +599,8 @@ public class VideoServiceImpl implements VideoService {
     @Override
     public PageResponse<VideoResponse> getModerationVideos(com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable) {
         com.jlsp.backend.video.entity.VideoModStatus targetStatus = modStatus != null ? modStatus : com.jlsp.backend.video.entity.VideoModStatus.PENDING;
-        Page<Video> page = videoRepository.findByModStatus(targetStatus, pageable);
+        // Moderator CHỈ kiểm duyệt các video ở chế độ công khai (PUBLIC)
+        Page<Video> page = videoRepository.findByStatusAndModStatus(VideoStatus.PUBLIC, targetStatus, pageable);
 
         List<VideoResponse> responseList = page.getContent().stream()
                 .map(v -> videoMapper.toVideoResponse(v, false, false))
