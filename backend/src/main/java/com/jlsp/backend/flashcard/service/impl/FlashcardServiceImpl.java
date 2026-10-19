@@ -100,9 +100,9 @@ public class FlashcardServiceImpl implements FlashcardService {
     public PageResponse<FlashcardSetResponse> getSets(Long userId, String keyword, Pageable pageable) {
         Page<FlashcardSet> page;
         if (keyword != null && !keyword.trim().isEmpty()) {
-            page = setRepository.searchUserAndPublicSets(userId, keyword.trim(), pageable);
+            page = setRepository.searchUserSets(userId, keyword.trim(), pageable);
         } else {
-            page = setRepository.findUserAndPublicSets(userId, pageable);
+            page = setRepository.findUserSets(userId, pageable);
         }
         List<FlashcardSetResponse> content = page.getContent().stream()
                 .map(set -> mapToSetResponse(set, userId, 0))

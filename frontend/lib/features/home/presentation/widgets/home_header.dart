@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../app/routes.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 
@@ -9,7 +8,6 @@ class HomeHeader extends StatelessWidget {
   final FeedTab currentTab;
   final ValueChanged<FeedTab> onTabChanged;
   final VoidCallback? onSearchTap;
-  final VoidCallback? onSubscriptionSuccess;
   final AdaptiveVideoTheme? theme;
 
   const HomeHeader({
@@ -17,7 +15,6 @@ class HomeHeader extends StatelessWidget {
     required this.currentTab,
     required this.onTabChanged,
     this.onSearchTap,
-    this.onSubscriptionSuccess,
     this.theme,
   });
 
@@ -30,31 +27,6 @@ class HomeHeader extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Left Kotoba Premium VIP Button
-          Positioned(
-            left: 8.0,
-            child: SizedBox(
-              width: 40.0,
-              height: 40.0,
-              child: IconButton(
-                onPressed: () async {
-                  final result = await Navigator.of(context).pushNamed(AppRoutes.subscription);
-                  if (result == true && onSubscriptionSuccess != null) {
-                    onSubscriptionSuccess!();
-                  }
-                },
-                icon: const Icon(
-                  Icons.workspace_premium_rounded,
-                  size: 26.0,
-                  color: Color(0xFFFFD54F),
-                ),
-                tooltip: 'Kotoba Premium',
-                splashRadius: 22.0,
-                padding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-
           // Center Feed Switcher
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 48.0),

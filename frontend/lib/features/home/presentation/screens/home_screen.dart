@@ -127,10 +127,8 @@ class _HomeScreenState extends State<HomeScreen> {
     Widget mainContent;
     if (_currentNavIndex == 0) {
       mainContent = _buildVideoFeed();
-    } else if (_currentNavIndex == 1) {
+    } else if (_currentNavIndex == 3) {
       mainContent = const DeckLibraryScreen();
-    } else if (_currentNavIndex == 4) {
-      mainContent = const ProfileScreen();
     } else if (_currentNavIndex == 4) {
       mainContent = const ProfileScreen();
     } else {
@@ -156,11 +154,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   currentTab: _currentFeedTab,
                   theme: activeVideoTheme,
                   onTabChanged: _onFeedTabChanged,
-                  onSubscriptionSuccess: () {
-                    setState(() {
-                      _currentNavIndex = 4;
-                    });
-                  },
                   onSearchTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -230,16 +223,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildPlaceholderTab(int index) {
     final titles = [
       appStrings.navHome,
-      appStrings.navFlashcards,
+      appStrings.navExplore,
       appStrings.navAddVideo,
-      appStrings.navMessages,
+      appStrings.navFlashcards,
       appStrings.navProfile,
     ];
     final icons = [
       Icons.home_rounded,
-      Icons.style_rounded,
-      Icons.video_call_rounded,
-      Icons.chat_bubble_rounded,
+      Icons.search_rounded,
+      Icons.add_rounded,
+      Icons.layers_rounded,
       Icons.person_rounded,
     ];
 
