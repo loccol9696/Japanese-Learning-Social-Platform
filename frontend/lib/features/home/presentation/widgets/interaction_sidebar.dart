@@ -13,6 +13,7 @@ class InteractionSidebar extends StatefulWidget {
   final bool isSubtitlesVisible;
   final VoidCallback? onToggleSubtitles;
   final VoidCallback? onLikeToggle;
+  final VoidCallback? onSaveToggle;
   final VoidCallback? onFollowToggle;
   final VoidCallback? onCommentTap;
   final VoidCallback? onShareTap;
@@ -24,6 +25,7 @@ class InteractionSidebar extends StatefulWidget {
     this.isSubtitlesVisible = true,
     this.onToggleSubtitles,
     this.onLikeToggle,
+    this.onSaveToggle,
     this.onFollowToggle,
     this.onCommentTap,
     this.onShareTap,
@@ -35,11 +37,10 @@ class InteractionSidebar extends StatefulWidget {
 
 class _InteractionSidebarState extends State<InteractionSidebar>
     with TickerProviderStateMixin {
-  late final AnimationController _discController;
   late final AnimationController _likeScaleController;
-  late final AnimationController _noteBounceController;
 
   late bool _isLiked;
+  late bool _isSaved;
   late bool _isFollowing;
   late int _likeCount;
 
@@ -47,13 +48,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   void initState() {
     super.initState();
     _isLiked = widget.post.isLiked;
+    _isSaved = widget.post.isSaved;
     _isFollowing = widget.post.isFollowing;
     _likeCount = widget.post.likeCount;
-
-    _discController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat();
 
     _likeScaleController = AnimationController(
       vsync: this,
@@ -61,11 +58,6 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       lowerBound: 1.0,
       upperBound: 1.3,
     );
-
-    _noteBounceController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
   }
 
   @override
@@ -73,6 +65,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.post.id != widget.post.id) {
       _isLiked = widget.post.isLiked;
+      _isSaved = widget.post.isSaved;
       _isFollowing = widget.post.isFollowing;
       _likeCount = widget.post.likeCount;
     }
@@ -80,9 +73,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
 
   @override
   void dispose() {
-    _discController.dispose();
     _likeScaleController.dispose();
-    _noteBounceController.dispose();
     super.dispose();
   }
 
@@ -110,6 +101,11 @@ class _InteractionSidebarState extends State<InteractionSidebar>
     widget.onFollowToggle?.call();
   }
 
+  void _handleSave() {
+    setState(() => _isSaved = !_isSaved);
+    widget.onSaveToggle?.call();
+  }
+
   String _formatCount(int count) {
     if (count >= 1000000) {
       return '${(count / 1000000).toStringAsFixed(1)}M';
@@ -128,17 +124,13 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 0. Subtitle Toggle Button (placed directly above user avatar)
-        _buildSubtitleToggleButton(activeTheme),
-        const SizedBox(height: 14.0),
-
         // 1. Creator Avatar & Follow Button
         _buildCreatorAvatar(activeTheme),
-        const SizedBox(height: 16.0),
+        const SizedBox(height: 14.0),
 
         // 2. Like / Heart Button
         _buildLikeButton(activeTheme),
-        const SizedBox(height: 14.0),
+        const SizedBox(height: 4.0),
 
         // 3. Comments Button
         _buildActionButton(
@@ -147,7 +139,16 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           countText: _formatCount(widget.post.commentCount),
           onTap: widget.onCommentTap,
         ),
-        const SizedBox(height: 14.0),
+        const SizedBox(height: 8.0),
+        _buildActionButton(
+          theme: activeTheme,
+          icon: _isSaved
+              ? Icons.bookmark_rounded
+              : Icons.bookmark_border_rounded,
+          countText: null,
+          onTap: _handleSave,
+        ),
+        const SizedBox(height: 8.0),
 
         // 4. Share Button
         _buildActionButton(
@@ -156,10 +157,10 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           countText: _formatCount(widget.post.shareCount),
           onTap: widget.onShareTap,
         ),
-        const SizedBox(height: 16.0),
+        const SizedBox(height: 4.0),
 
-        // 5. Rotating Vinyl Disc
-        _buildRotatingDisc(activeTheme),
+        // 5. Subtitle Toggle Button (below share)
+        _buildSubtitleToggleButton(activeTheme),
       ],
     );
   }
@@ -174,8 +175,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           onTap: widget.onToggleSubtitles,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
-            width: 44.0,
-            height: 44.0,
+            width: 38.0,
+            height: 38.0,
             child: Center(
               child: Icon(
                 isVisible
@@ -192,7 +193,6 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             ),
           ),
         ),
-        const SizedBox(height: 2.0),
         Text(
           appStrings.subtitle,
           style: TextStyle(
@@ -295,8 +295,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           child: ScaleTransition(
             scale: _likeScaleController,
             child: SizedBox(
-              width: 44.0,
-              height: 44.0,
+              width: 38.0,
+              height: 38.0,
               child: Center(
                 child: Icon(
                   _isLiked
@@ -319,7 +319,6 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             ),
           ),
         ),
-        const SizedBox(height: 2.0),
         Text(
           _formatCount(_likeCount),
           style: TextStyle(
@@ -336,7 +335,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   Widget _buildActionButton({
     required AdaptiveVideoTheme theme,
     required IconData icon,
-    required String countText,
+    String? countText,
     VoidCallback? onTap,
   }) {
     return Column(
@@ -346,8 +345,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
-            width: 44.0,
-            height: 44.0,
+            width: 38.0,
+            height: 38.0,
             child: Center(
               child: Icon(
                 icon,
@@ -359,85 +358,16 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           ),
         ),
         const SizedBox(height: 2.0),
-        Text(
-          countText,
-          style: TextStyle(
-            fontSize: 12.0,
-            fontWeight: FontWeight.w600,
-            color: theme.isLight ? theme.primaryAdaptive : Colors.white,
-            shadows: theme.textShadows,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRotatingDisc(AdaptiveVideoTheme theme) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        RotationTransition(
-          turns: _discController,
-          child: Container(
-            width: 42.0,
-            height: 42.0,
-            padding: const EdgeInsets.all(4.0),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: theme.isLight ? Colors.white : AppColors.surfaceDim,
-              border: Border.all(
-                color: theme.isLight
-                    ? const Color(0xFF1E212D).withValues(alpha: 0.3)
-                    : AppColors.lavender,
-                width: 2.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.isLight
-                      ? Colors.black.withValues(alpha: 0.1)
-                      : AppColors.lavender.withValues(alpha: 0.5),
-                  blurRadius: 12.0,
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: Image.network(
-                widget.post.audioDiscImageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: AppColors.surfaceContainerHighest,
-                  child: Icon(
-                    Icons.album_rounded,
-                    size: 16.0,
-                    color: theme.isLight
-                        ? const Color(0xFF1E212D)
-                        : AppColors.lavender,
-                  ),
-                ),
-              ),
+        if (countText != null)
+          Text(
+            countText,
+            style: TextStyle(
+              fontSize: 12.0,
+              fontWeight: FontWeight.w600,
+              color: theme.isLight ? theme.primaryAdaptive : Colors.white,
+              shadows: theme.textShadows,
             ),
           ),
-        ),
-        // Animated bouncing music note
-        Positioned(
-          top: -6.0,
-          right: -4.0,
-          child: AnimatedBuilder(
-            animation: _noteBounceController,
-            builder: (context, child) {
-              return Transform.translate(
-                offset: Offset(0, -4.0 * _noteBounceController.value),
-                child: child,
-              );
-            },
-            child: const Icon(
-              Icons.music_note_rounded,
-              size: 16.0,
-              color: AppColors.sakuraPink,
-              shadows: [Shadow(color: AppColors.sakuraPink, blurRadius: 8.0)],
-            ),
-          ),
-        ),
       ],
     );
   }

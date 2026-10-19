@@ -36,6 +36,27 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 
     Page<Video> findByStatusAndModStatusAndJlptLevel(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, JLPTLevel jlptLevel, Pageable pageable);
 
+    /**
+     * Tìm video công khai đã duyệt theo tiêu đề / mô tả (màn Khám phá), có thể lọc thêm JLPT.
+     */
+    @Query("SELECT v FROM Video v WHERE v.status = :status AND v.modStatus = :modStatus " +
+           "AND (LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(COALESCE(v.description, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    Page<Video> searchPublicVideos(@Param("status") VideoStatus status,
+                                   @Param("modStatus") com.jlsp.backend.video.entity.VideoModStatus modStatus,
+                                   @Param("keyword") String keyword,
+                                   Pageable pageable);
+
+    @Query("SELECT v FROM Video v WHERE v.status = :status AND v.modStatus = :modStatus " +
+           "AND v.jlptLevel = :jlptLevel " +
+           "AND (LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(COALESCE(v.description, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    Page<Video> searchPublicVideosByJlptLevel(@Param("status") VideoStatus status,
+                                              @Param("modStatus") com.jlsp.backend.video.entity.VideoModStatus modStatus,
+                                              @Param("jlptLevel") JLPTLevel jlptLevel,
+                                              @Param("keyword") String keyword,
+                                              Pageable pageable);
+
     Page<Video> findByUserIdInAndStatusAndModStatus(List<Long> userIds, VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable);
 
     /**
@@ -52,6 +73,12 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
      * Lấy danh sách video của người dùng (dành cho chính chủ xem cả video private/public).
      */
     Page<Video> findByUserId(Long userId, Pageable pageable);
+
+    @Query("SELECT v FROM Video v JOIN VideoLike l ON l.id.videoId = v.id WHERE l.id.userId = :userId ORDER BY v.createdAt DESC")
+    Page<Video> findLikedByUserId(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT v FROM Video v JOIN VideoSave s ON s.id.videoId = v.id WHERE s.id.userId = :userId ORDER BY v.createdAt DESC")
+    Page<Video> findSavedByUserId(@Param("userId") Long userId, Pageable pageable);
 
     /**
      * Lấy danh sách video từ danh sách ID các Creator mà user đang theo dõi (Following Feed).

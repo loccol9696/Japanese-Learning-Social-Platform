@@ -29,7 +29,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                icon: const Icon(Icons.arrow_back_ios, size: 20, color: Colors.black87),
+                icon: const Icon(
+                  Icons.arrow_back_ios,
+                  size: 20,
+                  color: Colors.black87,
+                ),
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
               const SizedBox(height: 32),
@@ -41,7 +45,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   color: Color(0xFF0D1B3E),
                 ),
               ),
-              
+
               const SizedBox(height: 32),
               const Text(
                 'Email',
@@ -63,8 +67,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 cursorColor: const Color(0xFF0D1B3E),
                 decoration: InputDecoration(
                   hintText: 'name@example.com',
-                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                  prefixIcon: const Icon(Icons.mail_outline, size: 20, color: Colors.grey),
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 14,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.mail_outline,
+                    size: 20,
+                    color: Colors.grey,
+                  ),
                   filled: true,
                   fillColor: const Color(0xFFF9FAFB),
                   contentPadding: const EdgeInsets.symmetric(vertical: 16),
@@ -94,7 +105,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: () {},
+                  // TODO: backend chưa có API quên/đặt lại mật khẩu.
+                  onPressed: () {
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Tính năng khôi phục mật khẩu đang được phát triển',
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                  },
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

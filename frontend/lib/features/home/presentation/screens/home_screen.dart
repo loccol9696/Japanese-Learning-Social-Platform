@@ -11,6 +11,7 @@ import '../../domain/repositories/home_repository.dart';
 import '../widgets/bottom_nav_dock.dart';
 import '../widgets/home_header.dart';
 import '../widgets/video_player_item.dart';
+import '../../../explore/presentation/explore_screen.dart';
 import '../../../flashcard/presentation/screens/deck_library_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 
@@ -128,6 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_currentNavIndex == 0) {
       mainContent = _buildVideoFeed();
     } else if (_currentNavIndex == 1) {
+      mainContent = const ExploreScreen();
+    } else if (_currentNavIndex == 3) {
       mainContent = const DeckLibraryScreen();
     } else if (_currentNavIndex == 4) {
       mainContent = const ProfileScreen();
@@ -154,20 +157,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   currentTab: _currentFeedTab,
                   theme: activeVideoTheme,
                   onTabChanged: _onFeedTabChanged,
-                  onSubscriptionSuccess: () {
-                    setState(() {
-                      _currentNavIndex = 4;
-                    });
-                  },
-                  onSearchTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(appStrings.searchPlaceholder),
-                        backgroundColor: AppColors.surfaceContainerHigh,
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
-                  },
                 ),
               ),
             ),
@@ -218,26 +207,93 @@ class _HomeScreenState extends State<HomeScreen> {
         return VideoPlayerItem(
           key: ValueKey(post.id),
           post: post,
-          onLikeToggle: () => _repository.toggleLike(post.id),
+          onLikeToggle: () => _handleLikeToggle(post),
+          onSaveToggle: () => _handleSaveToggle(post),
           onFollowToggle: () => _repository.toggleFollow(post.creatorTag),
         );
       },
     );
   }
 
+  Future<void> _handleLikeToggle(VideoPost post) async {
+    final previousLiked = post.isLiked;
+    final optimisticLiked = !previousLiked;
+    _updatePostLikeState(post.id, optimisticLiked);
+
+    try {
+      final confirmedLiked = await _repository.toggleLike(post.id);
+      if (mounted) {
+        _updatePostLikeState(post.id, confirmedLiked);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      _updatePostLikeState(post.id, previousLiked);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không thể cập nhật lượt thích: $error'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+
+  }
+
+  Future<void> _handleSaveToggle(VideoPost post) async {
+    final previousSaved = post.isSaved;
+    _updatePostSaveState(post.id, !previousSaved);
+    try {
+      final confirmedSaved = await _repository.toggleSave(post.id);
+      if (mounted) {
+        _updatePostSaveState(post.id, confirmedSaved);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      _updatePostSaveState(post.id, previousSaved);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không thể cập nhật video đã lưu: $error'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  void _updatePostSaveState(String postId, bool isSaved) {
+    final index = _posts.indexWhere((post) => post.id == postId);
+    if (index == -1) return;
+    setState(() {
+      _posts[index] = _posts[index].copyWith(isSaved: isSaved);
+    });
+  }
+
+  void _updatePostLikeState(String postId, bool isLiked) {
+    final index = _posts.indexWhere((post) => post.id == postId);
+    if (index == -1) return;
+
+    final post = _posts[index];
+    final likeCount = isLiked == post.isLiked
+        ? post.likeCount
+        : isLiked
+        ? post.likeCount + 1
+        : (post.likeCount > 0 ? post.likeCount - 1 : 0);
+    setState(() {
+      _posts[index] = post.copyWith(isLiked: isLiked, likeCount: likeCount);
+    });
+  }
+
   Widget _buildPlaceholderTab(int index) {
     final titles = [
       appStrings.navHome,
-      appStrings.navFlashcards,
+      appStrings.navExplore,
       appStrings.navAddVideo,
-      appStrings.navMessages,
+      appStrings.navFlashcards,
       appStrings.navProfile,
     ];
     final icons = [
       Icons.home_rounded,
-      Icons.style_rounded,
-      Icons.video_call_rounded,
-      Icons.chat_bubble_rounded,
+      Icons.search_rounded,
+      Icons.add_rounded,
+      Icons.layers_rounded,
       Icons.person_rounded,
     ];
 

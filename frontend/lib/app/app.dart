@@ -6,6 +6,7 @@ import '../core/constants/app_constants.dart';
 import '../core/localization/locale_manager.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_theme.dart';
+import '../features/auth/data/services/auth_service.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import 'routes.dart';
@@ -54,13 +55,48 @@ class App extends StatelessWidget {
   }
 }
 
-class _AuthGate extends StatelessWidget {
+class _AuthGate extends StatefulWidget {
   const _AuthGate();
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  // Chỉ chạy một lần, tránh gọi logout lặp lại mỗi lần rebuild.
+  late final Future<bool> _sessionFuture = _resolveSession();
+
+  /// Chỉ vào thẳng Home khi còn token hợp lệ VÀ người dùng đã chọn
+  /// "Ghi nhớ đăng nhập". Ngược lại thì đăng xuất (giải phóng phiên trên
+  /// server để lần đăng nhập sau không bị báo "đang đăng nhập ở thiết bị khác").
+  ///
+  /// Kiểm tra "Ghi nhớ" chỉ áp dụng lần đầu khi mở app. Sau khi đăng nhập,
+  /// màn Login điều hướng về route '/' (chính là _AuthGate) nên lúc đó chỉ
+  /// cần token còn hạn.
+  static bool _launchChecked = false;
+
+  static Future<bool> _resolveSession() async {
+    final storage = TokenStorage.instance;
+    final isAppLaunch = !_launchChecked;
+    _launchChecked = true;
+
+    final hasToken = (await storage.getAccessToken())?.isNotEmpty ?? false;
+    if (!hasToken) return false;
+
+    final loggedIn = await storage.isLoggedIn();
+    if (loggedIn && !isAppLaunch) return true;
+
+    final rememberMe = await storage.getRememberMe();
+    if (loggedIn && rememberMe) return true;
+
+    await AuthService.instance.logout();
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: TokenStorage.instance.isLoggedIn(),
+      future: _sessionFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(

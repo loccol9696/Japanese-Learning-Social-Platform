@@ -1,6 +1,7 @@
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/token_storage.dart';
+import '../../../flashcard/data/services/flashcard_store.dart';
 import '../models/auth_response_model.dart';
 import '../models/user_model.dart';
 
@@ -34,6 +35,8 @@ class AuthService {
         user: authResponse.user?.toJson(),
       );
     }
+
+    FlashcardStore.instance.invalidateAll();
 
     await _storage.saveRememberMe(
       rememberMe: rememberMe,
@@ -88,6 +91,7 @@ class AuthService {
       // Always clear local credentials even when the server is unavailable.
     }
     await _storage.clear();
+    FlashcardStore.instance.invalidateAll();
   }
 
   Future<bool> isLoggedIn() async {

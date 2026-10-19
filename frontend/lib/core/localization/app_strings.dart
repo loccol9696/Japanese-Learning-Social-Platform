@@ -1,6 +1,7 @@
 abstract class AppStrings {
   // Navigation Bar
   String get navHome;
+  String get navExplore;
   String get navFlashcards;
   String get navAddVideo;
   String get navApproveVideo;
@@ -57,6 +58,8 @@ abstract class AppStrings {
 class ViStrings implements AppStrings {
   @override
   String get navHome => 'Trang chủ';
+  @override
+  String get navExplore => 'Khám phá';
   @override
   String get navFlashcards => 'Flashcard';
   @override
@@ -153,6 +156,8 @@ class EnStrings implements AppStrings {
   @override
   String get navHome => 'Home';
   @override
+  String get navExplore => 'Discover';
+  @override
   String get navFlashcards => 'Flashcards';
   @override
   String get navAddVideo => 'Create';
@@ -247,6 +252,8 @@ class EnStrings implements AppStrings {
 class JaStrings implements AppStrings {
   @override
   String get navHome => 'ホーム';
+  @override
+  String get navExplore => '発見';
   @override
   String get navFlashcards => '単語帳';
   @override

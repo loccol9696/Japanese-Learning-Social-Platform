@@ -49,13 +49,14 @@ public class VideoController {
             @RequestParam(value = "feed", required = false, defaultValue = "for-you") String feed,
             @RequestParam(value = "jlptLevel", required = false) JLPTLevel jlptLevel,
             @RequestParam(value = "userId", required = false) Long targetUserId,
+            @RequestParam(value = "search", required = false) String search,
             @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
             @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Long currentUserId = resolveUserId(headerUserId, paramUserId);
         PageResponse<VideoResponse> response = videoService.getAllVideos(currentUserId, feed, jlptLevel, targetUserId,
-                pageable);
+                search, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -422,6 +423,26 @@ public class VideoController {
         Long viewerId = resolveUserId(headerUserId, paramUserId);
         PageResponse<VideoResponse> response = videoService.getVideosByUserId(userId, viewerId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/liked")
+    public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getLikedVideos(
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "userId", required = false) Long paramUserId,
+            @PageableDefault(size = 30, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Long userId = resolveUserId(headerUserId, paramUserId);
+        if (userId == null) userId = 1L;
+        return ResponseEntity.ok(ApiResponse.success(videoService.getLikedVideos(userId, pageable)));
+    }
+
+    @GetMapping("/saved")
+    public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getSavedVideos(
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "userId", required = false) Long paramUserId,
+            @PageableDefault(size = 30, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Long userId = resolveUserId(headerUserId, paramUserId);
+        if (userId == null) userId = 1L;
+        return ResponseEntity.ok(ApiResponse.success(videoService.getSavedVideos(userId, pageable)));
     }
 
     /**

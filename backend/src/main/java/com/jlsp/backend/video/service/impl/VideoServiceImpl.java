@@ -176,6 +176,23 @@ public class VideoServiceImpl implements VideoService {
             page = videoRepository.findByStatusAndModStatus(VideoStatus.PUBLIC, VideoModStatus.APPROVED, pageable);
         }
 
+        return toVideoPageResponse(page, currentUserId);
+    }
+
+    /**
+     * Tìm kiếm video công khai đã duyệt theo từ khoá (màn Khám phá).
+     */
+    private PageResponse<VideoResponse> searchVideos(Long currentUserId, String keyword, JLPTLevel jlptLevel,
+            Pageable pageable) {
+        Page<Video> page = jlptLevel != null
+                ? videoRepository.searchPublicVideosByJlptLevel(
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, keyword, pageable)
+                : videoRepository.searchPublicVideos(
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, keyword, pageable);
+        return toVideoPageResponse(page, currentUserId);
+    }
+
+    private PageResponse<VideoResponse> toVideoPageResponse(Page<Video> page, Long currentUserId) {
         List<VideoResponse> responseList = page.getContent().stream()
                 .map(v -> {
                     boolean isLiked = currentUserId != null
@@ -263,6 +280,33 @@ public class VideoServiceImpl implements VideoService {
 
         return PageResponse.<VideoResponse>builder()
                 .content(responseList)
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
+                .build();
+    }
+
+    @Override
+    public PageResponse<VideoResponse> getLikedVideos(Long userId, Pageable pageable) {
+        return toCollectionPage(videoRepository.findLikedByUserId(userId, pageable), userId);
+    }
+
+    @Override
+    public PageResponse<VideoResponse> getSavedVideos(Long userId, Pageable pageable) {
+        return toCollectionPage(videoRepository.findSavedByUserId(userId, pageable), userId);
+    }
+
+    private PageResponse<VideoResponse> toCollectionPage(Page<Video> page, Long currentUserId) {
+        List<VideoResponse> content = page.getContent().stream()
+                .map(video -> videoMapper.toVideoResponse(
+                        video,
+                        videoLikeRepository.existsByIdUserIdAndIdVideoId(currentUserId, video.getId()),
+                        videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, video.getId())))
+                .collect(Collectors.toList());
+        return PageResponse.<VideoResponse>builder()
+                .content(content)
                 .page(page.getNumber())
                 .size(page.getSize())
                 .totalElements(page.getTotalElements())
@@ -428,9 +472,12 @@ public class VideoServiceImpl implements VideoService {
      */
     @Override
     public PageResponse<VideoResponse> getAllVideos(Long currentUserId, String feed, JLPTLevel jlptLevel, Long userId,
-            Pageable pageable) {
+            String search, Pageable pageable) {
         if (userId != null) {
             return getVideosByUserId(userId, currentUserId, pageable);
+        }
+        if (search != null && !search.isBlank()) {
+            return searchVideos(currentUserId, search.trim(), jlptLevel, pageable);
         }
         if ("following".equalsIgnoreCase(feed)) {
             return getFollowingFeed(currentUserId, pageable);

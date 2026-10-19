@@ -2,12 +2,15 @@ import 'dart:convert';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/token_storage.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../../domain/models/video_post.dart';
 
 abstract class HomeRemoteDataSource {
   Future<List<VideoPost>> fetchForYouFeed();
   Future<List<VideoPost>> fetchFollowingFeed();
+  Future<bool> toggleLike(String postId);
+  Future<bool> toggleSave(String postId);
 }
 
 class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
@@ -27,8 +30,11 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
   }
 
   Future<List<VideoPost>> _fetchFeed(String feed) async {
+    final userData = await TokenStorage.instance.getUserData();
+    final userId = userData?['id'];
     final response = await _apiClient.get(
-      '${ApiConstants.baseUrl}/videos?feed=$feed&size=20',
+      '${ApiConstants.baseUrl}/videos?feed=$feed&size=20'
+      '${userId != null ? '&currentUserId=$userId' : ''}',
     );
 
     if (response is! Map<String, dynamic>) {
@@ -43,6 +49,30 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     }
 
     return content.whereType<Map<String, dynamic>>().map(_toVideoPost).toList();
+  }
+
+  @override
+  Future<bool> toggleLike(String postId) async {
+    final userData = await TokenStorage.instance.getUserData();
+    final userId = userData?['id'];
+    final response = await _apiClient.post(
+      '${ApiConstants.baseUrl}/videos/$postId/like'
+      '${userId != null ? '?currentUserId=$userId' : ''}',
+      withAuth: true,
+    );
+    return response is bool ? response : true;
+  }
+
+  @override
+  Future<bool> toggleSave(String postId) async {
+    final userData = await TokenStorage.instance.getUserData();
+    final userId = userData?['id'];
+    final response = await _apiClient.post(
+      '${ApiConstants.baseUrl}/videos/$postId/save'
+      '${userId != null ? '?currentUserId=$userId' : ''}',
+      withAuth: true,
+    );
+    return response is bool ? response : true;
   }
 
   VideoPost _toVideoPost(Map<String, dynamic> json) {
@@ -89,10 +119,13 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       commentCount: 0,
       shareCount: views,
       isLiked: json['isLiked'] == true,
+      isSaved: json['isSaved'] == true,
       progress: 0,
       isLightBackground: false,
     );
   }
+
+  VideoPost toVideoPost(Map<String, dynamic> json) => _toVideoPost(json);
 
   List<SubtitleCue> _parseSubtitles(dynamic rawSubtitles) {
     if (rawSubtitles is! String || rawSubtitles.trim().isEmpty) {

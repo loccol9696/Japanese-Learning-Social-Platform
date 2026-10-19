@@ -35,6 +35,16 @@ class ProfileRepositoryImpl implements ProfileRepository {
   }
 
   @override
+  Future<List<UserVideoModel>> getLikedVideos() {
+    return remoteDataSource.fetchLikedVideos();
+  }
+
+  @override
+  Future<List<UserVideoModel>> getSavedVideos() {
+    return remoteDataSource.fetchSavedVideos();
+  }
+
+  @override
   Future<List<UserVideoModel>> getModerationVideos({String status = 'PENDING'}) {
     return remoteDataSource.fetchModerationVideos(status: status);
   }

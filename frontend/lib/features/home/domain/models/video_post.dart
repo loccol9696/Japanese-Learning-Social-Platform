@@ -21,6 +21,7 @@ class VideoPost {
   final int streakDays;
   final int xp;
   final bool isLiked;
+  final bool isSaved;
   final bool isFollowing;
   final double progress;
   final bool isLightBackground;
@@ -46,6 +47,7 @@ class VideoPost {
     this.streakDays = 7,
     this.xp = 15,
     this.isLiked = false,
+    this.isSaved = false,
     this.isFollowing = false,
     this.progress = 0.4,
     this.isLightBackground = false,
@@ -72,6 +74,7 @@ class VideoPost {
     int? streakDays,
     int? xp,
     bool? isLiked,
+    bool? isSaved,
     bool? isFollowing,
     double? progress,
     bool? isLightBackground,
@@ -97,6 +100,7 @@ class VideoPost {
       streakDays: streakDays ?? this.streakDays,
       xp: xp ?? this.xp,
       isLiked: isLiked ?? this.isLiked,
+      isSaved: isSaved ?? this.isSaved,
       isFollowing: isFollowing ?? this.isFollowing,
       progress: progress ?? this.progress,
       isLightBackground: isLightBackground ?? this.isLightBackground,

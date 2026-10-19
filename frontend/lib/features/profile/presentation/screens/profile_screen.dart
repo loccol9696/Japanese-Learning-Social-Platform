@@ -28,6 +28,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   UserProfileModel _profile = const UserProfileModel();
   SubscriptionStatus? _membershipStatus;
   List<UserVideoModel> _videos = [];
+  List<UserVideoModel> _likedVideos = [];
+  List<UserVideoModel> _savedVideos = [];
   bool _isLoading = true;
   int _selectedTab = 0; // 0: Video public, 1: Video riêng tư, 2: Video đã lưu, 3: Video đăng lại
 
@@ -63,11 +65,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final results = await Future.wait([
         _repository.getProfile(),
         _repository.getMyVideosStatus(),
+        _repository.getLikedVideos(),
+        _repository.getSavedVideos(),
       ]);
       if (!mounted) return;
       setState(() {
         _profile = results[0] as UserProfileModel;
         _videos = results[1] as List<UserVideoModel>;
+        _likedVideos = results[2] as List<UserVideoModel>;
+        _savedVideos = results[3] as List<UserVideoModel>;
         _isLoading = false;
       });
       await _loadMembershipStatus();
@@ -503,8 +509,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Video riêng tư (!isPublic)
       return _videos.where((v) => !v.isPublic).toList();
     } else if (_selectedTab == 2) {
-      // Video đã lưu
-      return [];
+      return _savedVideos;
+    } else if (_selectedTab == 3) {
+      return _likedVideos;
     } else {
       // Video đăng lại
       return [];
@@ -1135,6 +1142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       {'label': 'Video public', 'icon': Icons.public_rounded},
       {'label': 'Video riêng tư', 'icon': Icons.lock_outline_rounded},
       {'label': 'Video đã lưu', 'icon': Icons.bookmark_outline_rounded},
+      {'label': 'Video đã thích', 'icon': Icons.favorite_border_rounded},
       {'label': 'Video đăng lại', 'icon': Icons.repeat_rounded},
     ];
 
@@ -1224,6 +1232,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           emptySubtitle = 'Bấm biểu tượng lưu khi xem video để lưu bài học vào bộ sưu tập cá nhân';
           break;
         case 3:
+          emptyIcon = Icons.favorite_border_rounded;
+          emptyTitle = 'Chưa có video đã thích';
+          emptySubtitle = 'Những video bạn đã nhấn thích sẽ xuất hiện tại đây';
+          break;
+        case 4:
         default:
           emptyIcon = Icons.repeat_rounded;
           emptyTitle = 'Chưa có video đăng lại';

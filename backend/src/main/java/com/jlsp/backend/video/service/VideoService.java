@@ -86,6 +86,8 @@ public interface VideoService {
      * @return Danh sách video phân trang
      */
     PageResponse<VideoResponse> getVideosByUserId(Long userId, Long currentUserId, Pageable pageable);
+    PageResponse<VideoResponse> getLikedVideos(Long userId, Pageable pageable);
+    PageResponse<VideoResponse> getSavedVideos(Long userId, Pageable pageable);
 
     /**
      * Thả tim hoặc Bỏ thích video (Toggle Like).
@@ -157,11 +159,12 @@ public interface VideoService {
      * @param feed          Loại feed ("for-you" hoặc "following")
      * @param jlptLevel     Cấp độ JLPT cần lọc (tuỳ chọn)
      * @param userId        ID Creator cần lọc (tuỳ chọn)
+     * @param search        Từ khoá tìm theo tiêu đề / mô tả (tuỳ chọn)
      * @param pageable      Phân trang và sắp xếp
      * @return Danh sách video phân trang
      */
     PageResponse<VideoResponse> getAllVideos(Long currentUserId, String feed, JLPTLevel jlptLevel, Long userId,
-            Pageable pageable);
+            String search, Pageable pageable);
 
     /**
      * Thả tim (Like) video

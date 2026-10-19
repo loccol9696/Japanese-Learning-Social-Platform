@@ -8,6 +8,8 @@ abstract class ProfileRepository {
   Future<List<TopicModel>> getTopics();
   Future<List<UserVideoModel>> getUserVideos({int? userId});
   Future<List<UserVideoModel>> getMyVideosStatus();
+  Future<List<UserVideoModel>> getLikedVideos();
+  Future<List<UserVideoModel>> getSavedVideos();
   Future<List<UserVideoModel>> getModerationVideos({String status = 'PENDING'});
   Future<void> approveVideo(int videoId);
   Future<void> rejectVideo(int videoId, String reason);

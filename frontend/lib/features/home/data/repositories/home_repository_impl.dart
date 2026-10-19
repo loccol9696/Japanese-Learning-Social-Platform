@@ -19,8 +19,12 @@ class HomeRepositoryImpl implements HomeRepository {
 
   @override
   Future<bool> toggleLike(String postId) async {
-    // In real app, call API
-    return true;
+    return remoteDataSource.toggleLike(postId);
+  }
+
+  @override
+  Future<bool> toggleSave(String postId) {
+    return remoteDataSource.toggleSave(postId);
   }
 
   @override
