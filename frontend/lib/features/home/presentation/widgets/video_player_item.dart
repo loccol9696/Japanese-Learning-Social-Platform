@@ -139,6 +139,29 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     );
   }
 
+  /// Tạm dừng video khi người dùng tra từ trong phụ đề, phát tiếp khi xong
+  /// (chỉ phát tiếp nếu chính việc tra từ đã làm video dừng).
+  bool _pausedForLookup = false;
+
+  void _handleLookupActiveChanged(bool active) {
+    final controller = _videoController;
+    if (controller == null || !controller.value.isInitialized) return;
+
+    if (active) {
+      if (controller.value.isPlaying) {
+        _pausedForLookup = true;
+        controller.pause();
+      }
+    } else if (_pausedForLookup) {
+      _pausedForLookup = false;
+      if (_isPlaying && mounted) {
+        controller.play().catchError((error) {
+          debugPrint('Video playback failed: $error');
+        });
+      }
+    }
+  }
+
   void _handleTapToPlayPause() {
     final controller = _videoController;
     if (controller != null &&
@@ -324,6 +347,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                       rubySegments: displayedSegments,
                       translation: displayedTranslation,
                       theme: theme,
+                      sentence: activeCue?.text,
+                      onLookupActiveChanged: _handleLookupActiveChanged,
                     ),
                   ),
                   secondChild: const SizedBox.shrink(),

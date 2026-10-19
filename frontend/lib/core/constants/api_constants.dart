@@ -27,6 +27,10 @@ class ApiConstants {
   static String get resendOtpUrl => '$baseUrl/auth/resend-otp';
   static String get logoutUrl => '$baseUrl/auth/logout';
 
+  // Dictionary endpoints (tra từ trong phụ đề)
+  static String get dictionaryTokenizeUrl => '$baseUrl/dictionary/tokenize';
+  static String get dictionaryLookupUrl => '$baseUrl/dictionary/lookup';
+
   // Flashcard endpoints
   static String get flashcardSetsUrl => '$baseUrl/flashcards/sets';
   static String flashcardSetDetailUrl(int id) => '$baseUrl/flashcards/sets/$id';
