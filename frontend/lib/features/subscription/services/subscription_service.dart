@@ -66,6 +66,14 @@ class SubscriptionService {
     final currentUser = await AuthService.instance.getCurrentUser();
     final effectiveUserId = currentUser?.id ?? userId;
 
+    if (paymentMethod == 'VNPAY') {
+      throw ApiException(
+        statusCode: 501,
+        message:
+            'Thanh toán VNPay chưa được cấu hình trên máy chủ. Gói chưa được đăng ký.',
+      );
+    }
+
     PaymentResponse? result;
     try {
       final token = await TokenStorage.instance.getAccessToken();
@@ -132,12 +140,10 @@ class SubscriptionService {
     required int planId,
     String? planName,
   }) async {
-    final currentUser = await AuthService.instance.getCurrentUser();
-    final effectiveUserId = currentUser?.id ?? userId;
-    await _saveLocalSubscription(
-      userId: effectiveUserId,
-      planId: planId,
-      planName: planName,
+    throw ApiException(
+      statusCode: 501,
+      message:
+          'Không thể xác nhận VNPay thủ công. Gói chỉ được kích hoạt sau khi máy chủ xác nhận giao dịch.',
     );
   }
 

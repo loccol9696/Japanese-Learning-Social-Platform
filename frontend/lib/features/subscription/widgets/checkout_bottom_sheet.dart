@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../models/subscription_model.dart';
 import '../services/subscription_service.dart';
@@ -137,7 +138,9 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             decoration: BoxDecoration(
               color: AppColors.primary.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
+              ),
             ),
             child: Row(
               children: [
@@ -169,7 +172,10 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                       const SizedBox(height: 4),
                       Text(
                         'Thời hạn: ${widget.plan.durationLabel}',
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
@@ -206,10 +212,10 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
           _buildPaymentMethodOption(
             value: 'VNPAY',
             title: 'Cổng thanh toán VNPAY (Sandbox)',
-            subtitle: 'Thẻ ATM nội địa NCB, QR Pay (Thử nghiệm miễn phí)',
+            subtitle: 'Tạm khóa: máy chủ chưa cấu hình VNPay',
             icon: Icons.account_balance_rounded,
             iconColor: AppColors.primary,
-            enabled: true,
+            enabled: false,
           ),
           if (_selectedMethod == 'VNPAY')
             Container(
@@ -225,7 +231,11 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.link_rounded, size: 16, color: Color(0xFF2563EB)),
+                      Icon(
+                        Icons.link_rounded,
+                        size: 16,
+                        color: Color(0xFF2563EB),
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Đường link thanh toán VNPAY Sandbox:',
@@ -265,20 +275,27 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
           ),
           if (_errorMessage != null) ...[
             const SizedBox(height: 12),
-            Text(_errorMessage!, style: TextStyle(color: AppColors.error, fontSize: 13)),
+            Text(
+              _errorMessage!,
+              style: TextStyle(color: AppColors.error, fontSize: 13),
+            ),
           ],
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Tổng thanh toán:',
-                  style: TextStyle(fontSize: 15, color: Colors.black54)),
-              Text(widget.plan.formattedPrice,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.primary,
-                  )),
+              const Text(
+                'Tổng thanh toán:',
+                style: TextStyle(fontSize: 15, color: Colors.black54),
+              ),
+              Text(
+                widget.plan.formattedPrice,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -307,8 +324,13 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                   : const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Xác nhận & Thanh toán ngay',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        Text(
+                          'Xác nhận & Thanh toán ngay',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         SizedBox(width: 8),
                         Icon(Icons.arrow_forward, size: 18),
                       ],
@@ -333,7 +355,9 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: isSelected ? AppColors.primary.withValues(alpha: 0.06) : Colors.white,
+        color: isSelected
+            ? AppColors.primary.withValues(alpha: 0.06)
+            : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isSelected
@@ -345,30 +369,40 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
       child: ListTile(
         enabled: enabled,
         dense: true,
-        onTap: enabled
-            ? () => setState(() => _selectedMethod = value)
-            : null,
+        onTap: enabled ? () => setState(() => _selectedMethod = value) : null,
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: enabled ? iconColor.withValues(alpha: 0.1) : Colors.grey.shade100,
+            color: enabled
+                ? iconColor.withValues(alpha: 0.1)
+                : Colors.grey.shade100,
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: enabled ? iconColor : Colors.grey.shade400, size: 20),
+          child: Icon(
+            icon,
+            color: enabled ? iconColor : Colors.grey.shade400,
+            size: 20,
+          ),
         ),
-        title: Text(title,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: enabled ? const Color(0xFF0D1B3E) : Colors.grey.shade500,
-            )),
-        subtitle: Text(subtitle,
-            style: TextStyle(
-              fontSize: 11.5,
-              color: enabled ? Colors.grey.shade600 : Colors.grey.shade400,
-            )),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: enabled ? const Color(0xFF0D1B3E) : Colors.grey.shade500,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 11.5,
+            color: enabled ? Colors.grey.shade600 : Colors.grey.shade400,
+          ),
+        ),
         trailing: Icon(
-          isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+          isSelected
+              ? Icons.check_circle_rounded
+              : Icons.radio_button_unchecked,
           color: isSelected ? AppColors.primary : Colors.grey.shade300,
           size: 20,
         ),
