@@ -271,6 +271,33 @@ public class VideoServiceImpl implements VideoService {
                 .build();
     }
 
+    @Override
+    public PageResponse<VideoResponse> getLikedVideos(Long userId, Pageable pageable) {
+        return toCollectionPage(videoRepository.findLikedByUserId(userId, pageable), userId);
+    }
+
+    @Override
+    public PageResponse<VideoResponse> getSavedVideos(Long userId, Pageable pageable) {
+        return toCollectionPage(videoRepository.findSavedByUserId(userId, pageable), userId);
+    }
+
+    private PageResponse<VideoResponse> toCollectionPage(Page<Video> page, Long currentUserId) {
+        List<VideoResponse> content = page.getContent().stream()
+                .map(video -> videoMapper.toVideoResponse(
+                        video,
+                        videoLikeRepository.existsByIdUserIdAndIdVideoId(currentUserId, video.getId()),
+                        videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, video.getId())))
+                .collect(Collectors.toList());
+        return PageResponse.<VideoResponse>builder()
+                .content(content)
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
+                .build();
+    }
+
     /**
      * Thả tim hoặc Bỏ thích video (Toggle Like).
      * Tự động tăng/giảm like_count trên video một cách nguyên tử.

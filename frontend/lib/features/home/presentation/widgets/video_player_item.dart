@@ -12,12 +12,14 @@ import 'video_info_overlay.dart';
 class VideoPlayerItem extends StatefulWidget {
   final VideoPost post;
   final VoidCallback? onLikeToggle;
+  final VoidCallback? onSaveToggle;
   final VoidCallback? onFollowToggle;
 
   const VideoPlayerItem({
     super.key,
     required this.post,
     this.onLikeToggle,
+    this.onSaveToggle,
     this.onFollowToggle,
   });
 
@@ -298,6 +300,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                 });
               },
               onLikeToggle: widget.onLikeToggle,
+              onSaveToggle: widget.onSaveToggle,
               onFollowToggle: widget.onFollowToggle,
             ),
           ),

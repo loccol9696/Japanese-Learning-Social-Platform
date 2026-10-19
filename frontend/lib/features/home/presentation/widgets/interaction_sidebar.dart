@@ -13,6 +13,7 @@ class InteractionSidebar extends StatefulWidget {
   final bool isSubtitlesVisible;
   final VoidCallback? onToggleSubtitles;
   final VoidCallback? onLikeToggle;
+  final VoidCallback? onSaveToggle;
   final VoidCallback? onFollowToggle;
   final VoidCallback? onCommentTap;
   final VoidCallback? onShareTap;
@@ -24,6 +25,7 @@ class InteractionSidebar extends StatefulWidget {
     this.isSubtitlesVisible = true,
     this.onToggleSubtitles,
     this.onLikeToggle,
+    this.onSaveToggle,
     this.onFollowToggle,
     this.onCommentTap,
     this.onShareTap,
@@ -38,6 +40,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   late final AnimationController _likeScaleController;
 
   late bool _isLiked;
+  late bool _isSaved;
   late bool _isFollowing;
   late int _likeCount;
 
@@ -45,6 +48,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   void initState() {
     super.initState();
     _isLiked = widget.post.isLiked;
+    _isSaved = widget.post.isSaved;
     _isFollowing = widget.post.isFollowing;
     _likeCount = widget.post.likeCount;
 
@@ -61,6 +65,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.post.id != widget.post.id) {
       _isLiked = widget.post.isLiked;
+      _isSaved = widget.post.isSaved;
       _isFollowing = widget.post.isFollowing;
       _likeCount = widget.post.likeCount;
     }
@@ -96,6 +101,11 @@ class _InteractionSidebarState extends State<InteractionSidebar>
     widget.onFollowToggle?.call();
   }
 
+  void _handleSave() {
+    setState(() => _isSaved = !_isSaved);
+    widget.onSaveToggle?.call();
+  }
+
   String _formatCount(int count) {
     if (count >= 1000000) {
       return '${(count / 1000000).toStringAsFixed(1)}M';
@@ -128,6 +138,15 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           icon: Icons.chat_bubble_rounded,
           countText: _formatCount(widget.post.commentCount),
           onTap: widget.onCommentTap,
+        ),
+        const SizedBox(height: 8.0),
+        _buildActionButton(
+          theme: activeTheme,
+          icon: _isSaved
+              ? Icons.bookmark_rounded
+              : Icons.bookmark_border_rounded,
+          countText: null,
+          onTap: _handleSave,
         ),
         const SizedBox(height: 8.0),
 
@@ -318,7 +337,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   Widget _buildActionButton({
     required AdaptiveVideoTheme theme,
     required IconData icon,
-    required String countText,
+    String? countText,
     VoidCallback? onTap,
   }) {
     return Column(
@@ -341,15 +360,16 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           ),
         ),
         const SizedBox(height: 2.0),
-        Text(
-          countText,
-          style: TextStyle(
-            fontSize: 12.0,
-            fontWeight: FontWeight.w600,
-            color: theme.isLight ? theme.primaryAdaptive : Colors.white,
-            shadows: theme.textShadows,
+        if (countText != null)
+          Text(
+            countText,
+            style: TextStyle(
+              fontSize: 12.0,
+              fontWeight: FontWeight.w600,
+              color: theme.isLight ? theme.primaryAdaptive : Colors.white,
+              shadows: theme.textShadows,
+            ),
           ),
-        ),
       ],
     );
   }

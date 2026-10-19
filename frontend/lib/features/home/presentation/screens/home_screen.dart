@@ -213,11 +213,78 @@ class _HomeScreenState extends State<HomeScreen> {
         return VideoPlayerItem(
           key: ValueKey(post.id),
           post: post,
-          onLikeToggle: () => _repository.toggleLike(post.id),
+          onLikeToggle: () => _handleLikeToggle(post),
+          onSaveToggle: () => _handleSaveToggle(post),
           onFollowToggle: () => _repository.toggleFollow(post.creatorTag),
         );
       },
     );
+  }
+
+  Future<void> _handleLikeToggle(VideoPost post) async {
+    final previousLiked = post.isLiked;
+    final optimisticLiked = !previousLiked;
+    _updatePostLikeState(post.id, optimisticLiked);
+
+    try {
+      final confirmedLiked = await _repository.toggleLike(post.id);
+      if (mounted) {
+        _updatePostLikeState(post.id, confirmedLiked);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      _updatePostLikeState(post.id, previousLiked);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không thể cập nhật lượt thích: $error'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+
+  }
+
+  Future<void> _handleSaveToggle(VideoPost post) async {
+    final previousSaved = post.isSaved;
+    _updatePostSaveState(post.id, !previousSaved);
+    try {
+      final confirmedSaved = await _repository.toggleSave(post.id);
+      if (mounted) {
+        _updatePostSaveState(post.id, confirmedSaved);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      _updatePostSaveState(post.id, previousSaved);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không thể cập nhật video đã lưu: $error'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  void _updatePostSaveState(String postId, bool isSaved) {
+    final index = _posts.indexWhere((post) => post.id == postId);
+    if (index == -1) return;
+    setState(() {
+      _posts[index] = _posts[index].copyWith(isSaved: isSaved);
+    });
+  }
+
+  void _updatePostLikeState(String postId, bool isLiked) {
+    final index = _posts.indexWhere((post) => post.id == postId);
+    if (index == -1) return;
+
+    final post = _posts[index];
+    final likeCount = isLiked == post.isLiked
+        ? post.likeCount
+        : isLiked
+        ? post.likeCount + 1
+        : (post.likeCount > 0 ? post.likeCount - 1 : 0);
+    setState(() {
+      _posts[index] = post.copyWith(isLiked: isLiked, likeCount: likeCount);
+    });
   }
 
   Widget _buildPlaceholderTab(int index) {

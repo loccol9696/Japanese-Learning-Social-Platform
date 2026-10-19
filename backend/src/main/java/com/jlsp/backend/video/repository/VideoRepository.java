@@ -53,6 +53,12 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
      */
     Page<Video> findByUserId(Long userId, Pageable pageable);
 
+    @Query("SELECT v FROM Video v JOIN VideoLike l ON l.id.videoId = v.id WHERE l.id.userId = :userId ORDER BY v.createdAt DESC")
+    Page<Video> findLikedByUserId(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT v FROM Video v JOIN VideoSave s ON s.id.videoId = v.id WHERE s.id.userId = :userId ORDER BY v.createdAt DESC")
+    Page<Video> findSavedByUserId(@Param("userId") Long userId, Pageable pageable);
+
     /**
      * Lấy danh sách video từ danh sách ID các Creator mà user đang theo dõi (Following Feed).
      */

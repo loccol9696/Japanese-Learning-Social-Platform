@@ -424,6 +424,26 @@ public class VideoController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @GetMapping("/liked")
+    public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getLikedVideos(
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "userId", required = false) Long paramUserId,
+            @PageableDefault(size = 30, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Long userId = resolveUserId(headerUserId, paramUserId);
+        if (userId == null) userId = 1L;
+        return ResponseEntity.ok(ApiResponse.success(videoService.getLikedVideos(userId, pageable)));
+    }
+
+    @GetMapping("/saved")
+    public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getSavedVideos(
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "userId", required = false) Long paramUserId,
+            @PageableDefault(size = 30, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Long userId = resolveUserId(headerUserId, paramUserId);
+        if (userId == null) userId = 1L;
+        return ResponseEntity.ok(ApiResponse.success(videoService.getSavedVideos(userId, pageable)));
+    }
+
     /**
      * Lấy danh sách video chờ duyệt hoặc theo trạng thái dành cho Admin / Moderator.
      * GET /api/v1/videos/moderation

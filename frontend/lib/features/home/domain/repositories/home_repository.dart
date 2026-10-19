@@ -4,5 +4,6 @@ abstract class HomeRepository {
   Future<List<VideoPost>> getForYouFeed();
   Future<List<VideoPost>> getFollowingFeed();
   Future<bool> toggleLike(String postId);
+  Future<bool> toggleSave(String postId);
   Future<bool> toggleFollow(String creatorId);
 }

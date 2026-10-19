@@ -86,6 +86,8 @@ public interface VideoService {
      * @return Danh sách video phân trang
      */
     PageResponse<VideoResponse> getVideosByUserId(Long userId, Long currentUserId, Pageable pageable);
+    PageResponse<VideoResponse> getLikedVideos(Long userId, Pageable pageable);
+    PageResponse<VideoResponse> getSavedVideos(Long userId, Pageable pageable);
 
     /**
      * Thả tim hoặc Bỏ thích video (Toggle Like).
