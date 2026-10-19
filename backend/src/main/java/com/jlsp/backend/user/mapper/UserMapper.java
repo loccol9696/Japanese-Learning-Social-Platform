@@ -24,6 +24,8 @@ public class UserMapper {
                 .isActive(entity.getIsActive())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .vipExpiresAt(entity.getVipExpiresAt())
+                .subscriptionPlanName(entity.getSubscriptionPlan() != null ? entity.getSubscriptionPlan().getName() : null)
                 .build();
     }
 

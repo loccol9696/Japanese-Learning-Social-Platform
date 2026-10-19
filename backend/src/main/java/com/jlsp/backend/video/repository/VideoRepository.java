@@ -78,4 +78,15 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     @Modifying
     @Query("UPDATE Video v SET v.saveCount = CASE WHEN (v.saveCount + :amount) < 0 THEN 0 ELSE (v.saveCount + :amount) END WHERE v.id = :id")
     void updateSaveCount(@Param("id") Long id, @Param("amount") int amount);
+
+    /**
+     * Tổng số video của một user
+     */
+    long countByUserId(Long userId);
+
+    /**
+     * Tổng số lượt thích trên tất cả video của một user
+     */
+    @Query("SELECT COALESCE(SUM(v.likeCount), 0) FROM Video v WHERE v.user.id = :userId")
+    long sumLikesByUserId(@Param("userId") Long userId);
 }

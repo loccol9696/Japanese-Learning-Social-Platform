@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.jlsp.backend.common.security.CustomUserDetails;
 
 @RestController
 @RequestMapping({"/api/v1/auth", "/api/auth"})
@@ -38,6 +40,16 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success(200, "Login successful", response));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        if (userDetails != null && authorization != null && authorization.startsWith("Bearer ")) {
+            authService.logout(userDetails.getUsername(), authorization.substring(7));
+        }
+        return ResponseEntity.ok(ApiResponse.success(200, "Logout successful", null));
     }
 
     @PostMapping("/verify-otp")

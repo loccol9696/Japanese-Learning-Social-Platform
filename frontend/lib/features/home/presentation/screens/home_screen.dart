@@ -14,6 +14,8 @@ import '../widgets/video_player_item.dart';
 import '../../../flashcard/presentation/screens/deck_library_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 
+import '../../../../core/storage/token_storage.dart';
+
 class HomeScreen extends StatefulWidget {
   final HomeRepository? repository;
 
@@ -31,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentNavIndex = 0;
   int _currentPostIndex = 0;
   bool _isLoading = true;
+  bool _isModerator = false;
   List<VideoPost> _posts = [];
 
   @override
@@ -40,7 +43,16 @@ class _HomeScreenState extends State<HomeScreen> {
         widget.repository ??
         HomeRepositoryImpl(remoteDataSource: HomeRemoteDataSourceImpl());
     _pageController = PageController();
+    _checkRole();
     _loadFeed();
+  }
+
+  Future<void> _checkRole() async {
+    final userData = await TokenStorage.instance.getUserData();
+    final role = userData?['role']?.toString().toUpperCase();
+    if (mounted && (role == 'MODERATOR' || role == 'ADMIN')) {
+      setState(() => _isModerator = true);
+    }
   }
 
   @override
@@ -54,16 +66,25 @@ class _HomeScreenState extends State<HomeScreen> {
       _isLoading = true;
     });
 
-    final posts = _currentFeedTab == FeedTab.forYou
-        ? await _repository.getForYouFeed()
-        : await _repository.getFollowingFeed();
+    try {
+      final posts = _currentFeedTab == FeedTab.forYou
+          ? await _repository.getForYouFeed()
+          : await _repository.getFollowingFeed();
 
-    if (mounted) {
-      setState(() {
-        _posts = posts;
-        _currentPostIndex = 0;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _posts = posts;
+          _currentPostIndex = 0;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _posts = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -76,9 +97,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onNavTabSelected(int index) {
+  Future<void> _onNavTabSelected(int index) async {
     if (index == 2) {
-      Navigator.of(context).pushNamed(AppRoutes.upload);
+      if (_isModerator) {
+        await Navigator.of(context).pushNamed(AppRoutes.moderationQueue);
+      } else {
+        final result = await Navigator.of(context).pushNamed(AppRoutes.upload);
+        if (!mounted) return;
+        if (result is int && result != 2) {
+          setState(() => _currentNavIndex = result);
+        }
+      }
       return;
     }
     setState(() {
@@ -125,6 +154,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   currentTab: _currentFeedTab,
                   theme: activeVideoTheme,
                   onTabChanged: _onFeedTabChanged,
+                  onSubscriptionSuccess: () {
+                    setState(() {
+                      _currentNavIndex = 4;
+                    });
+                  },
                   onSearchTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -146,6 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: BottomNavDock(
               selectedIndex: _currentNavIndex,
               onTabSelected: _onNavTabSelected,
+              isModerator: _isModerator,
             ),
           ),
         ],

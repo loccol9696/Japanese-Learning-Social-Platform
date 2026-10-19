@@ -25,6 +25,7 @@ class ApiConstants {
   static String get registerUrl => '$baseUrl/auth/register';
   static String get verifyOtpUrl => '$baseUrl/auth/verify-otp';
   static String get resendOtpUrl => '$baseUrl/auth/resend-otp';
+  static String get logoutUrl => '$baseUrl/auth/logout';
 
   // Flashcard endpoints
   static String get flashcardSetsUrl => '$baseUrl/flashcards/sets';
@@ -45,6 +46,27 @@ class ApiConstants {
       '$baseUrl/flashcards/video/save';
   static String speechStatusUrl(String taskId) =>
       '${baseUrl.replaceFirst('/api/v1', '/api')}/speech/status/$taskId';
+
+  // Subscription endpoints
+  static String get subscriptionBaseUrl => '$baseUrl/subscriptions';
+  static String get subscriptionPlansUrl => '$baseUrl/subscriptions/plans';
+  static String get subscriptionCheckoutUrl =>
+      '$baseUrl/subscriptions/checkout';
+  static String subscriptionStatusUrl(int userId) =>
+      '$baseUrl/subscriptions/my-status?userId=$userId';
+
+  // Profile endpoints
+  static String get profileUrl => '$baseUrl/profile';
+  static String get topicsUrl => '$baseUrl/topics';
+
+  // Video & Moderation endpoints
+  static String get myVideosStatusUrl => '$baseUrl/videos/my-status';
+  static String userVideosUrl(int userId) => '$baseUrl/users/$userId/videos';
+  static String get moderationVideosUrl => '$baseUrl/videos/moderation';
+  static String approveVideoUrl(int videoId) =>
+      '$baseUrl/videos/$videoId/approve';
+  static String rejectVideoUrl(int videoId) =>
+      '$baseUrl/videos/$videoId/reject';
 
   // Timeouts
   static const Duration connectTimeout = Duration(seconds: 15);

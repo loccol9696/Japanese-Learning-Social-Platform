@@ -1,5 +1,6 @@
 package com.jlsp.backend.common.security.jwt;
 
+import com.jlsp.backend.common.security.ActiveSessionRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,10 +18,11 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
+    private final ActiveSessionRegistry activeSessionRegistry;
 
-    // Đã xóa SecurityFilterChain khỏi constructor để tránh Circular Dependency
-    public JwtAuthenticationFilter(JwtUtils jwtUtils) {
+    public JwtAuthenticationFilter(JwtUtils jwtUtils, ActiveSessionRegistry activeSessionRegistry) {
         this.jwtUtils = jwtUtils;
+        this.activeSessionRegistry = activeSessionRegistry;
     }
 
     @Override
@@ -33,6 +35,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authHeader.substring(7);
             if (jwtUtils.validateToken(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
                 String username = jwtUtils.extractUsername(token);
+                if (!activeSessionRegistry.isActive(username, token)) {
+                    resp.sendError(HttpServletResponse.SC_UNAUTHORIZED,
+                            "Phiên đăng nhập đã hết hạn hoặc tài khoản đang được dùng ở nơi khác");
+                    return;
+                }
                 var authorities = jwtUtils.extractRoles(token).stream()
                         .map(SimpleGrantedAuthority::new)
                         .toList();
