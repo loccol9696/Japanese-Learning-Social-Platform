@@ -22,6 +22,8 @@ public class WordLookupResponse {
     private String meaningEn;
     /** N5..N1, rỗng nếu từ không thuộc danh sách JLPT */
     private String jlptLevel;
+    /** Từ loại bằng tiếng Việt (Động từ, Danh từ...), rỗng nếu không rõ */
+    private String partOfSpeech;
     /** false nếu không tìm được nghĩa nào */
     private boolean found;
 }

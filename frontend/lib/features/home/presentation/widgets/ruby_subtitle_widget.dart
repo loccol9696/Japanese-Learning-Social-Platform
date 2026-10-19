@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_exception.dart';
@@ -9,15 +7,17 @@ import '../../../flashcard/data/services/flashcard_service.dart';
 import '../../../flashcard/data/services/flashcard_store.dart';
 import '../../data/services/dictionary_service.dart';
 import '../../domain/models/ruby_segment.dart';
+import 'save_to_deck_sheet.dart';
 
 const _subtitleTextStyle = TextStyle(
-  fontSize: 16.0,
+  fontFamilyFallback: ['NotoSansJP'],
+  fontSize: 15.5,
   fontWeight: FontWeight.bold,
   color: Colors.white,
-  height: 1.35,
+  height: 1.45,
+  letterSpacing: 0.2,
   shadows: [
-    Shadow(color: Colors.black, blurRadius: 5.0),
-    Shadow(color: Colors.black87, blurRadius: 1.0),
+    Shadow(color: Color(0x99000000), offset: Offset(0, 1), blurRadius: 4.0),
   ],
 );
 
@@ -54,7 +54,6 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
   Future<List<SubtitleToken>>? _tokensFuture;
   SubtitleToken? _selected;
   int? _selectedIndex;
-  Timer? _hideTimer;
 
   @override
   void initState() {
@@ -73,7 +72,6 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
 
   @override
   void dispose() {
-    _hideTimer?.cancel();
     if (_selected != null) widget.onLookupActiveChanged?.call(false);
     super.dispose();
   }
@@ -86,7 +84,6 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
   }
 
   void _select(SubtitleToken token, int index) {
-    _hideTimer?.cancel();
     if (_selectedIndex == index) return;
     final wasActive = _selected != null;
     setState(() {
@@ -105,7 +102,6 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
   }
 
   void _clearSelection() {
-    _hideTimer?.cancel();
     if (_selected == null) return;
     setState(() {
       _selected = null;
@@ -114,68 +110,75 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
     widget.onLookupActiveChanged?.call(false);
   }
 
-  /// Trễ một chút để người dùng kịp di chuột từ chữ lên bảng tra từ.
-  void _scheduleHide() {
-    _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) _clearSelection();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme ?? const AdaptiveVideoTheme(isLight: false);
     final selected = _selected;
 
-    return MouseRegion(
-      onEnter: (_) => _hideTimer?.cancel(),
-      onExit: (_) => _scheduleHide(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (selected != null) ...[
-            // Chặn chạm vào vùng trống của bảng để không bật/tắt video.
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {},
-              child: _WordLookupCard(
-                key: ValueKey(selected.baseForm),
-                token: selected,
-                sentence: widget.sentence ?? '',
-              ),
-            ),
-            const SizedBox(height: 8.0),
-          ],
-          _tokensFuture == null
-              ? Wrap(
-                  alignment: WrapAlignment.start,
-                  crossAxisAlignment: WrapCrossAlignment.end,
-                  spacing: 6.0,
-                  runSpacing: 4.0,
-                  children: widget.rubySegments
-                      .map((segment) => _buildRubySegment(segment, theme))
-                      .toList(),
-                )
-              : _buildTokenizedSentence(),
-          const SizedBox(height: 6.0),
-          Text(
-            widget.translation,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-              height: 1.25,
-              shadows: [
-                Shadow(color: Colors.black, blurRadius: 4.0),
-                Shadow(color: Colors.black87, blurRadius: 1.0),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (selected != null) ...[
+          // Chặn chạm vào vùng trống của bảng để không bật/tắt video.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {},
+            child: _WordLookupCard(
+              key: ValueKey(selected.baseForm),
+              token: selected,
+              sentence: widget.sentence ?? '',
+              onClose: _clearSelection,
             ),
           ),
+          const SizedBox(height: 8.0),
         ],
-      ),
+        // Giới hạn khu vực phụ đề không chiếm quá 35% chiều cao màn hình
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.35,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _tokensFuture == null
+                  ? Wrap(
+                      alignment: WrapAlignment.start,
+                      crossAxisAlignment: WrapCrossAlignment.end,
+                      spacing: 6.0,
+                      runSpacing: 4.0,
+                      children: widget.rubySegments
+                          .map((segment) => _buildRubySegment(segment, theme))
+                          .toList(),
+                    )
+                  : _buildTokenizedSentence(),
+              if (widget.translation.trim().isNotEmpty) ...[
+                const SizedBox(height: 8.0),
+                Text(
+                  widget.translation,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.0,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.85),
+                    height: 1.4,
+                    letterSpacing: 0.1,
+                    shadows: const [
+                      Shadow(
+                        color: Color(0x80000000),
+                        offset: Offset(0, 1),
+                        blurRadius: 3.0,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -191,6 +194,8 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
 
         return Wrap(
           crossAxisAlignment: WrapCrossAlignment.end,
+          spacing: 1.0,
+          runSpacing: 4.0,
           children: [
             for (var i = 0; i < tokens.length; i++)
               tokens[i].lookupable
@@ -206,13 +211,11 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
     final isSelected = _selectedIndex == index;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => _select(token, index),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => _toggle(token, index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.symmetric(horizontal: 1.0),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 1.0),
           decoration: BoxDecoration(
             color: isSelected
                 ? _accent.withValues(alpha: 0.35)
@@ -238,32 +241,42 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
               fontSize: 10.5,
               fontWeight: FontWeight.w600,
               color: theme.furiganaColor,
-              height: 1.1,
+              height: 1.2,
+              shadows: const [
+                Shadow(
+                  color: Color(0x80000000),
+                  offset: Offset(0, 1),
+                  blurRadius: 3.0,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 1.0),
+          const SizedBox(height: 2.0),
         ],
         // Kanji / Kana Text
         Text(
           segment.kanji,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
-          style: _subtitleTextStyle.copyWith(height: 1.2),
+          style: _subtitleTextStyle,
         ),
       ],
     );
   }
 }
 
-/// Bảng tra từ: từ gốc, cách đọc, nghĩa, cấp JLPT, phát âm và lưu Flashcard.
+/// Bảng tra từ: cách đọc, từ gốc, nghĩa, từ loại, cấp JLPT, phát âm và
+/// lưu Flashcard.
 class _WordLookupCard extends StatefulWidget {
   final SubtitleToken token;
   final String sentence;
+  final VoidCallback onClose;
 
   const _WordLookupCard({
     super.key,
     required this.token,
     required this.sentence,
+    required this.onClose,
   });
 
   @override
@@ -271,8 +284,15 @@ class _WordLookupCard extends StatefulWidget {
 }
 
 class _WordLookupCardState extends State<_WordLookupCard> {
-  /// Những từ đã lưu trong phiên này, để không lưu trùng.
-  static final Set<String> _savedTerms = {};
+  // Kích thước và màu dùng chung để bảng đồng nhất.
+  static const double _cardWidth = 280.0;
+  static const double _cardMinHeight = 148.0;
+  static const Color _cardColor = Color(0xFF1C1C1E);
+  static const Color _mutedText = Color(0xFF9A9AA0);
+
+  /// Những từ đã lưu trong phiên này: từ -> {khoá bộ thẻ -> tên bộ}.
+  /// Dùng để không lưu trùng một từ vào cùng một bộ.
+  static final Map<String, Map<String, String>> _savedDecks = {};
 
   late Future<WordLookup> _lookupFuture;
   bool _isSaving = false;
@@ -289,21 +309,44 @@ class _WordLookupCardState extends State<_WordLookupCard> {
     });
   }
 
-  Future<void> _save(WordLookup word) async {
-    if (_isSaving || _savedTerms.contains(word.term)) return;
+  /// Mở bảng chọn bộ thẻ, rồi lưu từ vào bộ được chọn.
+  Future<void> _chooseAndSave(WordLookup word) async {
+    if (_isSaving) return;
+    final choice = await showSaveToDeckSheet(
+      context,
+      savedKeys: (_savedDecks[word.term] ?? const {}).keys.toSet(),
+    );
+    if (choice == null || !mounted) return;
+    await _saveTo(word, choice);
+  }
+
+  Future<void> _saveTo(WordLookup word, DeckChoice choice) async {
+    if (_isSaving) return;
     setState(() => _isSaving = true);
     try {
-      await FlashcardService.instance.saveVideoVocab(
-        term: word.term,
-        reading: word.reading,
-        meaning: word.meaning,
-        example: widget.sentence.isNotEmpty ? widget.sentence : null,
-      );
-      _savedTerms.add(word.term);
-      // Để Thư viện thẻ nạp lại bộ "Từ vựng đã lưu từ Video".
+      final example = widget.sentence.isNotEmpty ? widget.sentence : null;
+      if (choice.setId == null) {
+        // Bộ mặc định "Từ vựng đã lưu từ Video": backend tự tạo nếu chưa có.
+        await FlashcardService.instance.saveVideoVocab(
+          term: word.term,
+          reading: word.reading,
+          meaning: word.meaning,
+          example: example,
+        );
+      } else {
+        await FlashcardService.instance.addCard(
+          choice.setId!,
+          term: word.term,
+          reading: word.reading,
+          meaning: word.meaning,
+          example: example,
+        );
+      }
+      (_savedDecks[word.term] ??= {})[choice.key] = choice.title;
+      // Để Thư viện thẻ nạp lại số thuật ngữ của các bộ.
       FlashcardStore.instance.invalidateAll();
       if (!mounted) return;
-      _showSnackBar('Đã lưu "${word.term}" vào Flashcard');
+      _showSnackBar('Đã lưu "${word.term}" vào "${choice.title}"');
     } on ApiException catch (e) {
       if (mounted) _showSnackBar(e.message);
     } catch (_) {
@@ -328,11 +371,12 @@ class _WordLookupCardState extends State<_WordLookupCard> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 320.0),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      width: _cardWidth,
+      constraints: const BoxConstraints(minHeight: _cardMinHeight),
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 14),
       decoration: BoxDecoration(
-        color: const Color(0xF21E1E1E),
-        borderRadius: BorderRadius.circular(14.0),
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16.0),
         border: Border.all(color: Colors.white12),
         boxShadow: const [
           BoxShadow(
@@ -345,87 +389,123 @@ class _WordLookupCardState extends State<_WordLookupCard> {
       child: FutureBuilder<WordLookup>(
         future: _lookupFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return _buildLoading();
-          }
+          final loading = snapshot.connectionState != ConnectionState.done;
           final word = snapshot.data;
-          if (snapshot.hasError || word == null || !word.found) {
-            return _buildNotFound();
-          }
-          return _buildContent(word);
+          final failed =
+              !loading && (snapshot.hasError || word == null || !word.found);
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(loading ? null : word),
+              const SizedBox(height: 8),
+              if (loading)
+                _buildLoadingBody()
+              else if (failed)
+                _buildNotFoundBody()
+              else
+                _buildMeaning(word!),
+              if (!loading && !failed) ...[
+                const SizedBox(height: 12),
+                const Divider(height: 1, color: Colors.white12),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _buildSaveButton(word!),
+                ),
+              ],
+            ],
+          );
         },
       ),
     );
   }
 
-  Widget _buildHeader({required String term, required String reading}) {
+  /// Hàng đầu: [cách đọc nhỏ + từ lớn + 🔊] bên trái, [JLPT + ✕] bên phải.
+  Widget _buildHeader(WordLookup? word) {
+    final term = word != null && word.term.isNotEmpty
+        ? word.term
+        : widget.token.baseForm;
+    final reading = word != null && word.reading.isNotEmpty
+        ? word.reading
+        : widget.token.reading;
+    final showReading = reading.isNotEmpty && reading != term;
+    final surface = widget.token.surface;
+    final jlpt = word?.jlptLevel ?? '';
+
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Flexible(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: term,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showReading)
+                Text(
+                  reading,
                   style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    fontSize: 12,
+                    color: _mutedText,
+                    height: 1.2,
                   ),
                 ),
-                if (reading.isNotEmpty && reading != term)
-                  TextSpan(
-                    text: '  [$reading]',
-                    style: const TextStyle(fontSize: 14, color: Colors.white60),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      term,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        height: 1.2,
+                      ),
+                    ),
                   ),
-              ],
-            ),
+                  const SizedBox(width: 6),
+                  InkResponse(
+                    onTap: () => TtsService.speak(text: term),
+                    radius: 18,
+                    child: const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: Icon(
+                        Icons.volume_up_rounded,
+                        size: 20,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (surface != term && surface.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'dạng gốc của $surface',
+                    style: const TextStyle(fontSize: 11, color: _mutedText),
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(width: 8),
-        InkResponse(
-          onTap: () => TtsService.speak(text: term),
-          radius: 20,
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: Colors.white12,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.volume_up_rounded,
-              size: 18,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoading() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildHeader(
-          term: widget.token.baseForm,
-          reading: widget.token.reading,
-        ),
-        const SizedBox(height: 12),
-        const Row(
+        Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
-            ),
-            SizedBox(width: 8),
-            Text(
-              'Đang tra từ...',
-              style: TextStyle(color: Colors.white60, fontSize: 13),
+            if (jlpt.isNotEmpty) _buildJlptBadge(jlpt),
+            InkResponse(
+              onTap: widget.onClose,
+              radius: 18,
+              child: const SizedBox(
+                width: 32,
+                height: 28,
+                child: Icon(Icons.close_rounded, size: 20, color: _mutedText),
+              ),
             ),
           ],
         ),
@@ -433,121 +513,168 @@ class _WordLookupCardState extends State<_WordLookupCard> {
     );
   }
 
-  Widget _buildNotFound() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildHeader(
-          term: widget.token.baseForm,
-          reading: widget.token.reading,
+  Widget _buildJlptBadge(String level) {
+    return Container(
+      margin: const EdgeInsets.only(right: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: _accent.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: _accent.withValues(alpha: 0.6)),
+      ),
+      child: Text(
+        level,
+        style: const TextStyle(
+          color: _accent,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Không tìm thấy nghĩa của từ này.',
-                style: TextStyle(color: Colors.white60, fontSize: 13),
-              ),
-            ),
-            TextButton(
-              onPressed: _retry,
-              child: const Text('Thử lại', style: TextStyle(color: _accent)),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildContent(WordLookup word) {
-    final isSaved = _savedTerms.contains(word.term);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildHeader(term: word.term, reading: word.reading),
-        const SizedBox(height: 6),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  /// Chip từ loại + nghĩa (tối đa 2 dòng).
+  Widget _buildMeaning(WordLookup word) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Text.rich(
+        TextSpan(
           children: [
-            Expanded(
-              child: Text(
-                word.meaning,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
-                ),
-              ),
-            ),
-            if (word.jlptLevel.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: _accent.withValues(alpha: 0.6)),
-                ),
-                child: Text(
-                  word.jlptLevel,
-                  style: const TextStyle(
-                    color: _accent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+            if (word.partOfSpeech.isNotEmpty)
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
                   ),
-                ),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 40,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isSaved ? Colors.white12 : _accent,
-              disabledBackgroundColor: isSaved
-                  ? Colors.white12
-                  : _accent.withValues(alpha: 0.6),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            onPressed: isSaved || _isSaving ? null : () => _save(word),
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    word.partOfSpeech,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w600,
                     ),
-                  )
-                : Icon(
-                    isSaved ? Icons.check_rounded : Icons.add_rounded,
-                    size: 18,
-                    color: Colors.white,
                   ),
-            label: Text(
-              isSaved ? 'Đã lưu vào Flashcard' : 'Lưu vào Flashcard',
+                ),
+              ),
+            TextSpan(
+              text: word.meaning,
               style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
                 fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                height: 1.4,
               ),
             ),
+          ],
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  /// Khung xám giữ đúng chiều cao để bảng không nhảy khi có kết quả.
+  Widget _buildLoadingBody() {
+    Widget bar(double width) => Container(
+      width: width,
+      height: 12,
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(6),
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8, top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          bar(190),
+          const SizedBox(height: 8),
+          bar(120),
+          const SizedBox(height: 22),
+          Container(
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotFoundBody() {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Không tìm thấy nghĩa của từ này.',
+              style: TextStyle(color: _mutedText, fontSize: 13),
+            ),
+          ),
+          TextButton(
+            onPressed: _retry,
+            child: const Text('Thử lại', style: TextStyle(color: _accent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaveButton(WordLookup word) {
+    final isSaved = (_savedDecks[word.term] ?? const {}).isNotEmpty;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 36,
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isSaved ? Colors.white12 : _accent,
+          disabledBackgroundColor: isSaved
+              ? Colors.white12
+              : _accent.withValues(alpha: 0.6),
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
         ),
-      ],
+        // Đã lưu vẫn bấm được để lưu thêm vào bộ khác.
+        onPressed: _isSaving ? null : () => _chooseAndSave(word),
+        icon: _isSaving
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Icon(
+                isSaved ? Icons.check_rounded : Icons.add_rounded,
+                size: 18,
+                color: isSaved ? Colors.white70 : Colors.white,
+              ),
+        label: Text(
+          isSaved ? 'Đã lưu · Lưu vào bộ khác' : 'Lưu vào Flashcard',
+          style: TextStyle(
+            color: isSaved ? Colors.white70 : Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 13.5,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/localization/locale_manager.dart';
 
 /// Tab indices: 0 Home, 1 Explore, 2 Create (+), 3 Flashcard, 4 Profile.
+///
+/// Ở tab Trang chủ (video tràn viền) thanh menu trong suốt, chỉ có dải
+/// gradient đen mờ phía sau để giữ độ tương phản; các tab khác dùng nền đen đặc.
 class BottomNavDock extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
@@ -15,6 +19,23 @@ class BottomNavDock extends StatelessWidget {
   });
 
   static const int createIndex = 2;
+
+  /// Chiều cao hàng icon + nhãn.
+  static const double rowHeight = 46.0;
+
+  /// Vạch cử chỉ giả (chỉ có ý nghĩa khi chạy trên web/máy tính).
+  static const double _indicatorTopGap = 2.0;
+  static const double _indicatorHeight = 3.0;
+  static const double _indicatorBottomGap = 3.0;
+
+  /// Tổng chiều cao thanh menu, chưa tính vùng an toàn của thiết bị
+  /// (`MediaQuery.padding.bottom`). Dùng để các lớp phủ trên video né thanh menu.
+  static const double contentHeight =
+      rowHeight + _indicatorTopGap + _indicatorHeight + _indicatorBottomGap;
+
+  static const double _iconSize = 22.0;
+  static const double _labelSize = 10.0;
+  static const double _iconLabelGap = 2.0;
 
   static const List<_TabItemData> _tabs = [
     _TabItemData(
@@ -40,7 +61,10 @@ class BottomNavDock extends StatelessWidget {
   ];
 
   static const Color _activeColor = Colors.white;
-  static const Color _inactiveColor = Color(0xFF9E9E9E);
+  static const Color _inactiveSolidColor = Color(0xFF9E9E9E);
+
+  /// Menu nằm đè lên video (tab Trang chủ) thì trong suốt.
+  bool get _isOverlay => selectedIndex == 0;
 
   String _getTabLabel(int index) {
     return switch (index) {
@@ -54,55 +78,81 @@ class BottomNavDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 56.0,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: List.generate(_tabs.length, (index) {
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => onTabSelected(index),
-                      behavior: HitTestBehavior.opaque,
-                      child: Center(
-                        child: index == createIndex
-                            ? _buildCreateButton()
-                            : _buildTab(index),
-                      ),
+    // SafeArea chừa vạch cử chỉ thật của thiết bị, menu không bị che.
+    final content = SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: rowHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: List.generate(_tabs.length, (index) {
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => onTabSelected(index),
+                    behavior: HitTestBehavior.opaque,
+                    child: Center(
+                      child: index == createIndex
+                          ? _buildCreateButton()
+                          : _buildTab(index),
                     ),
-                  );
-                }),
-              ),
+                  ),
+                );
+              }),
             ),
+          ),
 
-            // Home Bar Indicator (iOS style)
-            Padding(
-              padding: const EdgeInsets.only(top: 6.0, bottom: 6.0),
-              child: Container(
-                width: 120.0,
-                height: 4.0,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(2.0),
-                ),
+          // Vạch cử chỉ (iOS style), mảnh và sát đáy
+          Padding(
+            padding: const EdgeInsets.only(
+              top: _indicatorTopGap,
+              bottom: _indicatorBottomGap,
+            ),
+            child: Container(
+              width: 100.0,
+              height: _indicatorHeight,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(2.0),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+
+    if (_isOverlay) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [
+              Colors.black.withValues(alpha: 0.5),
+              Colors.black.withValues(alpha: 0.0),
+            ],
+          ),
+        ),
+        child: content,
+      );
+    }
+
+    return ColoredBox(color: Colors.black, child: content);
   }
 
   Widget _buildTab(int index) {
     final tab = _tabs[index];
     final isSelected = selectedIndex == index;
-    final color = isSelected ? _activeColor : _inactiveColor;
+    // Trên video, chữ chưa chọn sáng hơn để đọc được trên nền động.
+    final inactive = _isOverlay
+        ? Colors.white.withValues(alpha: 0.75)
+        : _inactiveSolidColor;
+    final color = isSelected ? _activeColor : inactive;
+    final shadows = _isOverlay
+        ? const [Shadow(color: Color(0x66000000), blurRadius: 4.0)]
+        : null;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -110,20 +160,22 @@ class BottomNavDock extends StatelessWidget {
       children: [
         Icon(
           isSelected ? tab.activeIcon : tab.inactiveIcon,
-          size: 26.0,
+          size: _iconSize,
           color: color,
+          shadows: shadows,
         ),
-        const SizedBox(height: 3.0),
+        const SizedBox(height: _iconLabelGap),
         Text(
           _getTabLabel(index),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 11.0,
-            height: 1.2,
+            fontSize: _labelSize,
+            height: 1.1,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color: color,
+            shadows: shadows,
           ),
         ),
       ],
@@ -132,13 +184,15 @@ class BottomNavDock extends StatelessWidget {
 
   /// TikTok-style "+" button: white pill with cyan / pink offset edges.
   Widget _buildCreateButton() {
-    const double width = 46.0;
-    const double height = 30.0;
-    const double innerWidth = 40.0;
-    final radius = BorderRadius.circular(8.0);
+    const double width = 40.0;
+    const double height = 27.0;
+    const double innerWidth = 35.0;
+    final radius = BorderRadius.circular(7.0);
 
     return Tooltip(
-      message: isModerator ? appStrings.navApproveVideo : appStrings.navAddVideo,
+      message: isModerator
+          ? appStrings.navApproveVideo
+          : appStrings.navAddVideo,
       child: SizedBox(
         width: width,
         height: height,
@@ -170,7 +224,7 @@ class BottomNavDock extends StatelessWidget {
             ),
             Center(
               child: Container(
-                width: innerWidth - 6.0,
+                width: innerWidth - 5.0,
                 height: height,
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -178,7 +232,7 @@ class BottomNavDock extends StatelessWidget {
                 ),
                 child: Icon(
                   isModerator ? Icons.fact_check_rounded : Icons.add_rounded,
-                  size: 22.0,
+                  size: 20.0,
                   color: Colors.black,
                 ),
               ),
@@ -194,8 +248,5 @@ class _TabItemData {
   final IconData activeIcon;
   final IconData inactiveIcon;
 
-  const _TabItemData({
-    required this.activeIcon,
-    required this.inactiveIcon,
-  });
+  const _TabItemData({required this.activeIcon, required this.inactiveIcon});
 }

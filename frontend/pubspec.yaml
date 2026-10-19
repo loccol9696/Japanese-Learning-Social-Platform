@@ -28,3 +28,14 @@ flutter:
 
   assets:
     - assets/icons/
+
+  # Noto Sans JP (SIL OFL 1.1) đã cắt gọn còn ~8.000 ký tự thông dụng
+  # (kana, JIS X 0208, Latin/tiếng Việt). Đóng gói sẵn để chữ Hán không bị
+  # hiện ô vuông trong lúc Flutter web chờ tải font dự phòng từ mạng.
+  fonts:
+    - family: NotoSansJP
+      fonts:
+        - asset: assets/fonts/NotoSansJP-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSansJP-Bold.ttf
+          weight: 700

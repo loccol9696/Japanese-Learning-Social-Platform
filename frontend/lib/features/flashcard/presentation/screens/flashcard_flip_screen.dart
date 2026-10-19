@@ -850,12 +850,6 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                     ),
                     const SizedBox(height: 10),
                   ],
-                  if (card.reading != null && card.reading!.isNotEmpty)
-                    Text(
-                      card.reading!,
-                      style: const TextStyle(color: Color(0xFFFF5E7E), fontSize: 24, fontWeight: FontWeight.w600),
-                    ),
-                  const SizedBox(height: 8),
                   if (card.sinoVietnamese != null && card.sinoVietnamese!.isNotEmpty)
                     Text(
                       card.sinoVietnamese!,

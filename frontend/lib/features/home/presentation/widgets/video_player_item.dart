@@ -5,6 +5,7 @@ import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
+import 'bottom_nav_dock.dart';
 import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';
 import 'video_info_overlay.dart';
@@ -214,6 +215,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   Widget build(BuildContext context) {
     // Dynamic contrast theme based on background brightness
     final theme = AdaptiveVideoTheme(isLight: widget.post.isLightBackground);
+    // Chiều cao thanh menu dưới (kể cả vùng an toàn) để các lớp phủ né ra.
+    final navBarHeight =
+        BottomNavDock.contentHeight + MediaQuery.paddingOf(context).bottom;
     final activeCue = _activeSubtitle;
     final displayedSegments = widget.post.subtitleCues.isEmpty
         ? widget.post.rubySegments
@@ -256,18 +260,26 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
               ),
             ),
           ),
-          // Bottom Scrim
+          // Bottom Scrim (LinearGradient đen mờ ở phần đáy video để làm nổi bật phụ đề / script)
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            height: 380.0,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: theme.bottomScrimColors,
+            height: MediaQuery.sizeOf(context).height * 0.45,
+            child: IgnorePointer(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Color(0xDE000000),
+                      Color(0x99000000),
+                      Color(0x33000000),
+                      Colors.transparent,
+                    ],
+                    stops: [0.0, 0.40, 0.75, 1.0],
+                  ),
                 ),
               ),
             ),
@@ -335,13 +347,13 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           Positioned(
             left: 16.0,
             right: 88.0,
-            bottom: 95.0,
+            bottom: navBarHeight + 23.0,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                AnimatedCrossFade(
-                  firstChild: Padding(
+                if (_showSubtitles)
+                  Padding(
                     padding: const EdgeInsets.only(bottom: 10.0),
                     child: RubySubtitleWidget(
                       rubySegments: displayedSegments,
@@ -351,12 +363,6 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                       onLookupActiveChanged: _handleLookupActiveChanged,
                     ),
                   ),
-                  secondChild: const SizedBox.shrink(),
-                  crossFadeState: _showSubtitles
-                      ? CrossFadeState.showFirst
-                      : CrossFadeState.showSecond,
-                  duration: const Duration(milliseconds: 250),
-                ),
                 VideoInfoOverlay(post: widget.post, theme: theme),
               ],
             ),
@@ -364,7 +370,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
 
           // 8. Video Progress Scrubber Bar
           Positioned(
-            bottom: 84.0,
+            bottom: navBarHeight + 12.0,
             left: 0,
             right: 0,
             child: SizedBox(

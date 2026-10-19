@@ -112,6 +112,7 @@ public class DictionaryService {
         String reading = "";
         String meaningEn = "";
         String jlptLevel = "";
+        String partOfSpeech = "";
 
         JsonNode entry = fetchJishoEntry(term);
         if (entry != null) {
@@ -126,12 +127,20 @@ public class DictionaryService {
                 reading = japanese.get(0).path("reading").asText("");
             }
 
-            JsonNode firstSense = entry.path("senses").path(0).path("english_definitions");
+            JsonNode firstSenseNode = entry.path("senses").path(0);
+            JsonNode firstSense = firstSenseNode.path("english_definitions");
             List<String> definitions = new ArrayList<>();
-            for (int i = 0; i < firstSense.size() && i < 3; i++) {
-                definitions.add(firstSense.get(i).asText());
+            for (JsonNode definition : firstSense) {
+                String cleaned = cleanDefinition(definition.asText(""));
+                if (!cleaned.isEmpty() && !definitions.contains(cleaned)) {
+                    definitions.add(cleaned);
+                }
+                if (definitions.size() >= 2) {
+                    break;
+                }
             }
             meaningEn = String.join("; ", definitions);
+            partOfSpeech = toVietnamesePartOfSpeech(firstSenseNode.path("parts_of_speech"));
             jlptLevel = easiestJlptLevel(entry.path("jlpt"));
         }
 
@@ -156,6 +165,7 @@ public class DictionaryService {
                 .meaningVi(meaningVi)
                 .meaningEn(meaningEn)
                 .jlptLevel(jlptLevel)
+                .partOfSpeech(partOfSpeech)
                 .found(found)
                 .build();
 
@@ -217,12 +227,47 @@ public class DictionaryService {
             if (translated.equalsIgnoreCase(text)) {
                 return "";
             }
-            // Bỏ dấu câu thừa ở cuối (vd. "Quay lại!")
-            return translated.replaceAll("[!.。！]+$", "").trim();
+            // Bỏ dấu câu thừa ở cuối (vd. "Quay lại!") và các nghĩa trùng nhau sau khi dịch.
+            String cleaned = translated.replaceAll("[!.。！]+$", "").trim();
+            List<String> parts = new ArrayList<>();
+            for (String part : cleaned.split(";")) {
+                String piece = part.trim();
+                boolean duplicate = parts.stream().anyMatch(existing -> existing.equalsIgnoreCase(piece));
+                if (!piece.isEmpty() && !duplicate) {
+                    parts.add(piece);
+                }
+            }
+            return String.join("; ", parts);
         } catch (Exception e) {
             log.warn("Dịch MyMemory thất bại cho [{}]: {}", text, e.getMessage());
             return "";
         }
+    }
+
+    /** Bỏ phần chú thích trong ngoặc như "(e.g. half-way)" để nghĩa gọn và dịch chính xác hơn. */
+    private static String cleanDefinition(String definition) {
+        return definition
+                .replaceAll("\\s*\\([^)]*\\)", "")
+                .replaceAll("\\s{2,}", " ")
+                .trim();
+    }
+
+    /** Đổi từ loại tiếng Anh của Jisho sang nhãn tiếng Việt ngắn gọn (rỗng nếu không rõ). */
+    private static String toVietnamesePartOfSpeech(JsonNode partsOfSpeech) {
+        for (JsonNode part : partsOfSpeech) {
+            String value = part.asText("").toLowerCase();
+            // Phải kiểm tra "adverb" trước "verb" vì "adverb" chứa chuỗi "verb".
+            if (value.contains("adverb")) return "Phó từ";
+            if (value.contains("verb")) return "Động từ";
+            if (value.contains("adjective")) return "Tính từ";
+            if (value.contains("pronoun")) return "Đại từ";
+            if (value.contains("conjunction")) return "Liên từ";
+            if (value.contains("interjection")) return "Thán từ";
+            if (value.contains("counter")) return "Lượng từ";
+            if (value.contains("expression")) return "Cụm từ";
+            if (value.contains("noun")) return "Danh từ";
+        }
+        return "";
     }
 
     /** Jisho có thể trả nhiều cấp (vd. jlpt-n5, jlpt-n4) — lấy cấp dễ nhất. */

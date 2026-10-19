@@ -34,6 +34,7 @@ class WordLookup {
   final String meaningVi;
   final String meaningEn;
   final String jlptLevel;
+  final String partOfSpeech;
   final bool found;
 
   const WordLookup({
@@ -42,6 +43,7 @@ class WordLookup {
     required this.meaningVi,
     required this.meaningEn,
     required this.jlptLevel,
+    required this.partOfSpeech,
     required this.found,
   });
 
@@ -55,6 +57,7 @@ class WordLookup {
       meaningVi: json['meaningVi']?.toString() ?? '',
       meaningEn: json['meaningEn']?.toString() ?? '',
       jlptLevel: json['jlptLevel']?.toString() ?? '',
+      partOfSpeech: json['partOfSpeech']?.toString() ?? '',
       found: json['found'] == true,
     );
   }
