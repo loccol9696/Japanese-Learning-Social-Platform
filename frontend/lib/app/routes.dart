@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../features/auth/screens/forgot_password_screen.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/auth/screens/register_screen.dart';
-import '../features/home/presentation/screens/home_screen.dart';
 import '../features/flashcard/presentation/screens/deck_library_screen.dart';
 import '../features/video/presentation/screens/upload_video_screen.dart';
 import '../features/subscription/screens/subscription_screen.dart';
@@ -28,7 +27,6 @@ class AppRoutes {
   static const String moderationQueue = '/moderation-queue';
 
   static Map<String, WidgetBuilder> get routes => {
-    home: (context) => const HomeScreen(),
     login: (context) => const LoginScreen(),
     register: (context) => const RegisterScreen(),
     forgotPassword: (context) => const ForgotPasswordScreen(),

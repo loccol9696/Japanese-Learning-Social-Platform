@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/storage/token_storage.dart';
+import '../../../home/presentation/widgets/bottom_nav_dock.dart';
 
 class UploadVideoScreen extends StatefulWidget {
   const UploadVideoScreen({super.key});
@@ -80,7 +81,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
       if (videoUrl is! String || videoUrl.isEmpty) {
         throw Exception('Backend không trả về đường dẫn video.');
       }
-      await Navigator.of(context).push(
+      final result = await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => PublishVideoScreen(
             videoUrl: videoUrl,
@@ -91,6 +92,9 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
           ),
         ),
       );
+      if (mounted && result is int && result != 2) {
+        Navigator.of(context).pop(result);
+      }
     } catch (error) {
       if (mounted) {
         _showMessage(error.toString().replaceFirst('Exception: ', ''));
@@ -130,16 +134,18 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _handleNavigation(int index) {
+    if (index != 2 && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(index);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final youtube = _isYoutubeMode;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0E12),
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         title: const Text(
           'Tải video lên',
           style: TextStyle(fontWeight: FontWeight.w700),
@@ -182,6 +188,10 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                 : Text(youtube ? 'Nhập video từ YouTube' : 'Tải video lên'),
           ),
         ],
+      ),
+      bottomNavigationBar: BottomNavDock(
+        selectedIndex: 2,
+        onTabSelected: _handleNavigation,
       ),
     );
   }
@@ -564,9 +574,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     try {
       final userData = await TokenStorage.instance.getUserData();
       final userId = userData?['id'];
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-      };
+      final headers = <String, String>{'Content-Type': 'application/json'};
       if (userId != null) {
         headers['X-User-Id'] = userId.toString();
       }
@@ -629,15 +637,17 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _handleNavigation(int index) {
+    if (index != 2 && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(index);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0E12),
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-        ),
         title: const Text(
           'Đăng bài học',
           style: TextStyle(fontWeight: FontWeight.w700),
@@ -727,6 +737,10 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: BottomNavDock(
+        selectedIndex: 2,
+        onTabSelected: _isSubmitting ? (_) {} : _handleNavigation,
       ),
     );
   }

@@ -38,7 +38,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         widget.repository ??
         ProfileRepositoryImpl(remoteDataSource: ProfileRemoteDataSourceImpl());
     _loadProfile();
-    _loadMembershipStatus();
   }
 
   Future<void> _loadMembershipStatus() async {
@@ -117,7 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
-        backgroundColor: const Color(0xFF1C254E),
+        backgroundColor: AppColors.surfaceContainerHigh,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 3),
@@ -149,7 +148,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: Text(
           title,
           style: TextStyle(
-            color: titleColor ?? Colors.white,
+            color: titleColor ?? AppColors.onSurface,
             fontWeight: FontWeight.w600,
             fontSize: 14,
           ),
@@ -157,7 +156,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         subtitle: subtitle != null
             ? Text(
                 subtitle,
-                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
               )
             : null,
         trailing:
@@ -165,7 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const Icon(
               Icons.arrow_forward_ios_rounded,
               size: 14,
-              color: Color(0xFF64748B),
+              color: AppColors.textSecondary,
             ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         onTap: onTap,
@@ -174,13 +176,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showMoreMenu() {
+    final membership = _membershipStatus;
+    final hasMembership = membership != null
+        ? membership.hasActiveSubscription
+        : _profile.isVip;
+    final isLifetime = membership?.isLifetime == true;
+    final planName =
+        membership?.planName ?? _profile.subscriptionPlanName ?? 'Gói miễn phí';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Material(
-          color: const Color(0xFF131936),
+          color: AppColors.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           clipBehavior: Clip.antiAlias,
           child: Container(
@@ -189,7 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             decoration: const BoxDecoration(
               border: Border(
-                top: BorderSide(color: Color(0xFF28346A), width: 1),
+                top: BorderSide(color: AppColors.outlineVariant, width: 1),
               ),
             ),
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -206,7 +216,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         height: 4,
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
-                          color: Colors.white24,
+                          color: AppColors.textSecondary,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -219,7 +229,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const Text(
                           'Cài đặt & Tùy chọn',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.onSurface,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -228,7 +238,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onPressed: () => Navigator.of(ctx).pop(),
                           icon: const Icon(
                             Icons.close_rounded,
-                            color: Colors.white70,
+                            color: AppColors.textSecondary,
                             size: 20,
                           ),
                           constraints: const BoxConstraints(
@@ -241,21 +251,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Subscription Status Card
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1E244D), Color(0xFF2A1C4D)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
+                        color: const Color(0xFF1D2542),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _profile.isVip
-                              ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
-                              : AppColors.periwinkle.withValues(alpha: 0.4),
+                          color: hasMembership
+                              ? const Color(0xFFC99A3D)
+                              : const Color(0xFF394568),
                         ),
                       ),
                       child: Column(
@@ -266,20 +271,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: _profile.isVip
-                                      ? const Color(0xFFF59E0B)
-                                            .withValues(alpha: 0.2)
-                                      : AppColors.periwinkle.withValues(
-                                          alpha: 0.2,
-                                        ),
+                                  color: hasMembership
+                                      ? const Color(0xFF5B4720)
+                                      : const Color(0xFF303A62),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
-                                  _profile.isVip
-                                      ? Icons.stars_rounded
+                                  hasMembership
+                                      ? Icons.workspace_premium_outlined
                                       : Icons.workspace_premium_rounded,
-                                  color: _profile.isVip
-                                      ? const Color(0xFFF59E0B)
+                                  color: hasMembership
+                                      ? const Color(0xFFF0C866)
                                       : AppColors.periwinkle,
                                   size: 22,
                                 ),
@@ -292,16 +294,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     Row(
                                       children: [
                                         Text(
-                                          _profile.isVip
-                                              ? 'Gói VIP: ${_profile.subscriptionPlanName}'
-                                              : 'Gói Miễn Phí (Free)',
+                                          hasMembership
+                                              ? planName
+                                              : 'Gói miễn phí',
                                           style: const TextStyle(
-                                            color: Colors.white,
+                                            color: AppColors.onSurface,
                                             fontWeight: FontWeight.bold,
                                             fontSize: 15,
                                           ),
                                         ),
-                                        if (_profile.isVip) ...[
+                                        if (hasMembership) ...[
                                           const SizedBox(width: 6),
                                           Container(
                                             padding: const EdgeInsets.symmetric(
@@ -309,7 +311,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFFF59E0B),
+                                              color: const Color(0xFFC99A3D),
                                               borderRadius:
                                                   BorderRadius.circular(4),
                                             ),
@@ -327,12 +329,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      _profile.isVip &&
-                                              _profile.vipExpiresAt != null
-                                          ? 'Hạn dùng: ${_profile.vipExpiresAt!.split("T")[0]}'
-                                          : 'Mở khóa bài giảng không giới hạn & tính năng nâng cao',
+                                      hasMembership
+                                          ? (isLifetime
+                                                ? 'Đã kích hoạt vĩnh viễn'
+                                                : 'Đang hoạt động')
+                                          : 'Truy cập các bài học và tính năng cơ bản',
                                       style: TextStyle(
-                                        color: Colors.white.withValues(
+                                        color: AppColors.onSurface.withValues(
                                           alpha: 0.7,
                                         ),
                                         fontSize: 12,
@@ -349,26 +352,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: ElevatedButton.icon(
                               onPressed: () {
                                 Navigator.of(ctx).pop();
-                                _showFeatureComingSoon('Đăng ký gói VIP');
+                                _navigateToSubscription();
                               },
                               icon: const Icon(
-                                Icons.rocket_launch_rounded,
+                                Icons.arrow_forward_rounded,
                                 size: 16,
                               ),
                               label: Text(
-                                _profile.isVip
-                                    ? 'Gia hạn / Đổi gói VIP'
-                                    : 'Mua gói Subscription ngay',
+                                hasMembership
+                                    ? 'Xem quyền lợi gói'
+                                    : 'Xem các gói hội viên',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _profile.isVip
-                                    ? const Color(0xFFF59E0B)
+                                backgroundColor: hasMembership
+                                    ? const Color(0xFFC99A3D)
                                     : AppColors.periwinkle,
-                                foregroundColor: _profile.isVip
-                                    ? Colors.black
+                                foregroundColor: hasMembership
+                                    ? const Color(0xFF171B2E)
                                     : Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 10,
@@ -388,13 +391,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     // Menu list items
                     _buildMenuTile(
-                      icon: Icons.stars_rounded,
-                      iconColor: const Color(0xFFF59E0B),
-                      title: 'Xem các gói Subscription',
-                      subtitle: 'Bảng giá, quyền lợi hội viên và thanh toán',
+                      icon: Icons.card_membership_outlined,
+                      iconColor: const Color(0xFFF0C866),
+                      title: hasMembership
+                          ? 'Quản lý gói hội viên'
+                          : 'Xem các gói hội viên',
+                      subtitle: hasMembership
+                          ? 'Xem quyền lợi và thông tin gói hiện tại'
+                          : 'Bảng giá và quyền lợi hội viên',
                       onTap: () {
                         Navigator.of(ctx).pop();
-                        _showFeatureComingSoon('Gói Subscription');
+                        _navigateToSubscription();
                       },
                     ),
 
@@ -455,9 +462,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
 
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Divider(color: Color(0xFF28346A), height: 1),
+                      child: const Divider(
+                        color: AppColors.outlineVariant,
+                        height: 1,
+                      ),
                     ),
 
                     _buildMenuTile(
@@ -506,7 +516,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundCanvas,
       body: SafeArea(
         bottom: false,
         child: _isLoading
@@ -545,7 +555,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Text(
             'Hồ sơ',
             style: TextStyle(
-              color: Colors.black,
+              color: AppColors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
@@ -554,9 +564,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // 3-line hamburger menu button with clear, contrasting colors
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: AppColors.surfaceContainerLow,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: AppColors.outlineVariant),
             ),
             child: Stack(
               clipBehavior: Clip.none,
@@ -566,7 +576,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: const Icon(
                     Icons.menu_rounded,
                     size: 22,
-                    color: Color(0xFF1E293B),
+                    color: AppColors.onSurface,
                   ),
                   tooltip: 'Tùy chọn & Cài đặt',
                   constraints: const BoxConstraints(
@@ -625,7 +635,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: Colors.black,
+                              color: AppColors.textPrimary,
                               fontSize: 26,
                               fontWeight: FontWeight.w800,
                             ),
@@ -662,7 +672,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text(
                           username,
                           style: const TextStyle(
-                            color: Color(0xFF777777),
+                            color: AppColors.textSecondary,
                             fontSize: 14,
                           ),
                         ),
@@ -673,7 +683,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEEF2FF),
+                            color: AppColors.primaryFixed.withValues(
+                              alpha: 0.12,
+                            ),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
                               color: AppColors.periwinkle.withValues(
@@ -714,7 +726,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text(
               _profile.bio,
               style: const TextStyle(
-                color: Color(0xFF333333),
+                color: AppColors.onSurface,
                 fontSize: 14,
                 height: 1.4,
               ),
@@ -736,8 +748,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: const Icon(Icons.edit_outlined, size: 17),
               label: const Text('Chỉnh sửa'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.black87,
-                side: const BorderSide(color: Color(0xFFD9DEE8)),
+                foregroundColor: AppColors.onSurface,
+                side: const BorderSide(color: AppColors.outlineVariant),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -753,7 +765,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               label: const Text('Đăng video'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.periwinkle,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.onPrimary,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -774,12 +786,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           CircleAvatar(
             radius: 50,
-            backgroundColor: const Color(0xFFEDEDED),
+            backgroundColor: AppColors.surfaceContainerHighest,
             backgroundImage: _profile.avatarUrl.isNotEmpty
                 ? NetworkImage(_profile.avatarUrl)
                 : null,
             child: _profile.avatarUrl.isEmpty
-                ? const Icon(Icons.person, size: 55, color: Colors.black38)
+                ? const Icon(
+                    Icons.person,
+                    size: 55,
+                    color: AppColors.textSecondary,
+                  )
                 : null,
           ),
           Positioned(
@@ -793,7 +809,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2.5),
               ),
-              child: const Icon(Icons.edit, color: Colors.white, size: 16),
+              child: const Icon(
+                Icons.edit,
+                color: AppColors.onPrimary,
+                size: 16,
+              ),
             ),
           ),
         ],
@@ -809,7 +829,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(
             value,
             style: const TextStyle(
-              color: Colors.black,
+              color: AppColors.textPrimary,
               fontSize: 19,
               fontWeight: FontWeight.w800,
             ),
@@ -817,7 +837,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(color: Color(0xFF777777), fontSize: 13),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
           ),
         ],
       ),
@@ -845,7 +868,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+          colors: [AppColors.surfaceCardSubtle, AppColors.surfaceCard],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1022,7 +1045,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F2042), Color(0xFF1E3A8A)],
+          colors: [AppColors.surfaceContainerLow, AppColors.surfaceCard],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1117,7 +1140,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Container(
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E5E5))),
+        border: Border(bottom: BorderSide(color: AppColors.outlineVariant)),
       ),
       child: Row(
         children: List.generate(tabs.length, (index) {
@@ -1137,7 +1160,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icon(
                       icon,
                       size: 20,
-                      color: selected ? Colors.black : Colors.black45,
+                      color: selected
+                          ? AppColors.textPrimary
+                          : AppColors.textSecondary,
                     ),
                     const SizedBox(height: 3),
                     Text(
@@ -1145,7 +1170,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: selected ? Colors.black : Colors.black54,
+                        color: selected
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
                         fontWeight: selected
                             ? FontWeight.bold
                             : FontWeight.w500,
@@ -1157,7 +1184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       duration: const Duration(milliseconds: 180),
                       height: 2.5,
                       width: selected ? 32 : 0,
-                      color: Colors.black,
+                      color: AppColors.periwinkle,
                     ),
                   ],
                 ),
@@ -1213,16 +1240,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF1F5F9),
+                  color: AppColors.surfaceContainerLow,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(emptyIcon, size: 40, color: Colors.black38),
+                child: Icon(
+                  emptyIcon,
+                  size: 40,
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 14),
               Text(
                 emptyTitle,
                 style: const TextStyle(
-                  color: Colors.black87,
+                  color: AppColors.onSurface,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1231,7 +1262,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Text(
                 emptySubtitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black45, fontSize: 13),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
               ),
               if (showUploadBtn) ...[
                 const SizedBox(height: 18),
@@ -1242,7 +1276,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   label: const Text('Đăng video bài học'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.periwinkle,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppColors.onPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -1294,7 +1328,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return GestureDetector(
       onTap: _openMyVideosStatus,
       child: Container(
-        color: const Color(0xFF1E2235),
+        color: AppColors.surfaceCard,
         child: Stack(
           fit: StackFit.expand,
           children: [

@@ -97,12 +97,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onNavTabSelected(int index) {
+  Future<void> _onNavTabSelected(int index) async {
     if (index == 2) {
       if (_isModerator) {
-        Navigator.of(context).pushNamed(AppRoutes.moderationQueue);
+        await Navigator.of(context).pushNamed(AppRoutes.moderationQueue);
       } else {
-        Navigator.of(context).pushNamed(AppRoutes.upload);
+        final result = await Navigator.of(context).pushNamed(AppRoutes.upload);
+        if (!mounted) return;
+        if (result is int && result != 2) {
+          setState(() => _currentNavIndex = result);
+        }
       }
       return;
     }
