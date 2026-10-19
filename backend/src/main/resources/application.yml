@@ -9,7 +9,7 @@ spring:
   profiles:
     active: dev # <-- Đổi từ prod sang dev ở đây làm mặc định khi test
   datasource:
-    url: jdbc:postgresql://aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?user=postgres.cqonrpjxxluuukjujzbo&password=NaritaTopRoad2027
+    url: jdbc:postgresql://aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres?user=postgres.vbtfeembbhilwwboyqge&password=Loccol9696@1
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
