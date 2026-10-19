@@ -284,21 +284,24 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
               ),
             ),
 
-          // 6. Right Side Interaction Sidebar
+          // 6. Right Side Interaction Sidebar (căn giữa theo chiều dọc)
           Positioned(
             right: 12.0,
-            bottom: 150.0,
-            child: InteractionSidebar(
-              post: widget.post,
-              theme: theme,
-              isSubtitlesVisible: _showSubtitles,
-              onToggleSubtitles: () {
-                setState(() {
-                  _showSubtitles = !_showSubtitles;
-                });
-              },
-              onLikeToggle: widget.onLikeToggle,
-              onFollowToggle: widget.onFollowToggle,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: InteractionSidebar(
+                post: widget.post,
+                theme: theme,
+                isSubtitlesVisible: _showSubtitles,
+                onToggleSubtitles: () {
+                  setState(() {
+                    _showSubtitles = !_showSubtitles;
+                  });
+                },
+                onLikeToggle: widget.onLikeToggle,
+                onFollowToggle: widget.onFollowToggle,
+              ),
             ),
           ),
 

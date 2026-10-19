@@ -11,6 +11,7 @@ import '../../domain/repositories/home_repository.dart';
 import '../widgets/bottom_nav_dock.dart';
 import '../widgets/home_header.dart';
 import '../widgets/video_player_item.dart';
+import '../../../explore/presentation/explore_screen.dart';
 import '../../../flashcard/presentation/screens/deck_library_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 
@@ -127,6 +128,8 @@ class _HomeScreenState extends State<HomeScreen> {
     Widget mainContent;
     if (_currentNavIndex == 0) {
       mainContent = _buildVideoFeed();
+    } else if (_currentNavIndex == 1) {
+      mainContent = const ExploreScreen();
     } else if (_currentNavIndex == 3) {
       mainContent = const DeckLibraryScreen();
     } else if (_currentNavIndex == 4) {
@@ -154,15 +157,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   currentTab: _currentFeedTab,
                   theme: activeVideoTheme,
                   onTabChanged: _onFeedTabChanged,
-                  onSearchTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(appStrings.searchPlaceholder),
-                        backgroundColor: AppColors.surfaceContainerHigh,
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
-                  },
                 ),
               ),
             ),

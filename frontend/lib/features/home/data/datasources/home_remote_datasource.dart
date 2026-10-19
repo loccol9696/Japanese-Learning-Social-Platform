@@ -42,24 +42,26 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       );
     }
 
-    return content.whereType<Map<String, dynamic>>().map(_toVideoPost).toList();
+    return content.whereType<Map<String, dynamic>>().map(toVideoPost).toList();
   }
 
-  VideoPost _toVideoPost(Map<String, dynamic> json) {
+  /// Chuyển 1 VideoResponse của backend thành [VideoPost] (dùng chung cho Khám phá).
+  VideoPost toVideoPost(Map<String, dynamic> json) {
     final id = json['id']?.toString() ?? '';
-    final title = json['title']?.toString() ?? 'Video bài học';
+    final title = json['title']?.toString().trim() ?? '';
     final creatorName =
         (json['creatorDisplayName']?.toString().trim().isNotEmpty ?? false)
         ? json['creatorDisplayName'].toString()
         : (json['creatorUsername']?.toString() ?? 'JLSP Creator');
     final creatorUsername = json['creatorUsername']?.toString() ?? '';
-    final creatorTag = creatorUsername.startsWith('@')
+    final creatorTag =
+        creatorUsername.isEmpty || creatorUsername.startsWith('@')
         ? creatorUsername
         : '@$creatorUsername';
     final thumbnailUrl = json['thumbnailUrl']?.toString() ?? '';
     final videoUrl = json['videoUrl']?.toString() ?? '';
     final creatorAvatarUrl = json['creatorAvatarUrl']?.toString() ?? '';
-    final jlpt = json['jlptLevel']?.toString() ?? 'N5';
+    final jlpt = json['jlptLevel']?.toString().trim() ?? '';
     final subtitleCues = _parseSubtitles(json['subtitles']);
     final likes = _toInt(json['likeCount']);
     final views = _toInt(json['viewCount']);
@@ -71,8 +73,8 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       creatorName: creatorName,
       creatorTag: creatorTag,
       creatorAvatarUrl: creatorAvatarUrl,
-      accentInfo: 'Japanese Learning',
-      jlptLevel: jlpt.startsWith('JLPT') ? jlpt : 'JLPT $jlpt',
+      accentInfo: '',
+      jlptLevel: jlpt.isEmpty || jlpt.startsWith('JLPT') ? jlpt : 'JLPT $jlpt',
       topicTag: title,
       audioTitle: title,
       audioDiscImageUrl: creatorAvatarUrl.isNotEmpty

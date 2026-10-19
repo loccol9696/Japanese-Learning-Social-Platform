@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../../../core/network/api_exception.dart';
 import '../data/services/auth_service.dart';
 import 'login_screen.dart';
@@ -8,9 +10,14 @@ import 'login_screen.dart';
 class OtpVerificationScreen extends StatefulWidget {
   final String email;
 
+  /// true khi mở từ màn Đăng nhập (tài khoản chưa kích hoạt): mã cũ có thể
+  /// đã hết hạn nên gửi mã mới ngay khi mở màn hình.
+  final bool sendCodeOnOpen;
+
   const OtpVerificationScreen({
     super.key,
     required this.email,
+    this.sendCodeOnOpen = false,
   });
 
   @override
@@ -22,25 +29,43 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   bool _isLoading = false;
   bool _isResending = false;
 
-  int _resendCountdown = 60;
+  static const int _otpLength = 6;
+  static const int _resendCooldownSeconds = 60;
+
+  int _resendCountdown = 0;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _startCountdown();
+    if (widget.sendCodeOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _handleResendOtp());
+    } else {
+      _startCountdown();
+    }
   }
 
   void _startCountdown() {
-    setState(() => _resendCountdown = 60);
+    setState(() => _resendCountdown = _resendCooldownSeconds);
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       if (_resendCountdown > 0) {
         setState(() => _resendCountdown--);
       } else {
         timer.cancel();
       }
     });
+  }
+
+  void _goToLogin() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   @override
@@ -51,33 +76,41 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   Future<void> _handleVerifyOtp() async {
+    if (_isLoading) return;
     final otp = _otpController.text.trim();
     if (otp.isEmpty) {
       _showSnackBar('Vui lòng nhập mã OTP', isError: true);
       return;
     }
+    if (otp.length != _otpLength) {
+      _showSnackBar('Mã OTP gồm $_otpLength chữ số', isError: true);
+      return;
+    }
 
+    FocusScope.of(context).unfocus();
     setState(() => _isLoading = true);
 
     try {
-      await AuthService.instance.verifyOtp(
-        email: widget.email,
-        otp: otp,
-      );
+      await AuthService.instance.verifyOtp(email: widget.email, otp: otp);
 
       if (!mounted) return;
       _showSnackBar('Kích hoạt tài khoản thành công! Vui lòng đăng nhập.');
-
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
-      );
+      _goToLogin();
     } on ApiException catch (e) {
       if (!mounted) return;
-      _showSnackBar(e.message, isError: true);
+      _otpController.clear();
+      _showSnackBar(
+        e.statusCode == 400
+            ? 'Mã OTP không đúng hoặc đã hết hạn. Vui lòng thử lại.'
+            : e.message,
+        isError: true,
+      );
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar('Đã xảy ra lỗi khi xác thực OTP. Vui lòng thử lại.', isError: true);
+      _showSnackBar(
+        'Đã xảy ra lỗi khi xác thực OTP. Vui lòng thử lại.',
+        isError: true,
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -97,10 +130,23 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       _startCountdown();
     } on ApiException catch (e) {
       if (!mounted) return;
+      final message = e.message.toLowerCase();
+      if (message.contains('already activated')) {
+        _showSnackBar('Tài khoản đã được kích hoạt. Vui lòng đăng nhập.');
+        _goToLogin();
+        return;
+      }
+      if (e.statusCode == 404 || message.contains('not found')) {
+        _showSnackBar('Không tìm thấy tài khoản với email này.', isError: true);
+        return;
+      }
       _showSnackBar(e.message, isError: true);
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar('Không thể gửi lại mã OTP. Vui lòng thử lại sau.', isError: true);
+      _showSnackBar(
+        'Không thể gửi lại mã OTP. Vui lòng thử lại sau.',
+        isError: true,
+      );
     } finally {
       if (mounted) {
         setState(() => _isResending = false);
@@ -128,7 +174,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             ),
           ],
         ),
-        backgroundColor: isError ? const Color(0xFFE53935) : const Color(0xFF2E7D32),
+        backgroundColor: isError
+            ? const Color(0xFFE53935)
+            : const Color(0xFF2E7D32),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.all(16),
@@ -150,13 +198,19 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                icon: const Icon(Icons.arrow_back_ios, size: 20, color: Colors.black87),
+                icon: const Icon(
+                  Icons.arrow_back_ios,
+                  size: 20,
+                  color: Colors.black87,
+                ),
                 onPressed: () {
                   if (Navigator.of(context).canPop()) {
                     Navigator.of(context).pop();
                   } else {
                     Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
                     );
                   }
                 },
@@ -174,9 +228,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               const SizedBox(height: 10),
               RichText(
                 text: TextSpan(
-                  style: const TextStyle(fontSize: 14, color: Colors.black54, height: 1.4),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                    height: 1.4,
+                  ),
                   children: [
-                    const TextSpan(text: 'Mã xác thực gồm 6 chữ số đã được gửi tới email:\n'),
+                    const TextSpan(
+                      text: 'Mã xác thực gồm 6 chữ số đã được gửi tới email:\n',
+                    ),
                     TextSpan(
                       text: widget.email,
                       style: const TextStyle(
@@ -203,7 +263,16 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 controller: _otpController,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
-                maxLength: 6,
+                enabled: !_isLoading,
+                autofocus: true,
+                autofillHints: const [AutofillHints.oneTimeCode],
+                textInputAction: TextInputAction.done,
+                onChanged: (value) {
+                  // Tự xác thực khi nhập đủ 6 số
+                  if (value.length == _otpLength) _handleVerifyOtp();
+                },
+                onSubmitted: (_) => _handleVerifyOtp(),
+                maxLength: _otpLength,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 style: const TextStyle(
                   fontSize: 24,
@@ -232,7 +301,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF0D1B3E), width: 1.5),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF0D1B3E),
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),
@@ -271,7 +343,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                               ),
                             ),
                             SizedBox(width: 8),
-                            Icon(Icons.check_circle_outline, size: 20, color: Colors.white),
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 20,
+                              color: Colors.white,
+                            ),
                           ],
                         ),
                 ),
@@ -279,10 +355,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               const SizedBox(height: 24),
 
               Center(
-                child: _resendCountdown > 0
+                child: _resendCountdown > 0 || _isResending
                     ? Text(
-                        'Gửi lại mã sau $_resendCountdown giây',
-                        style: const TextStyle(fontSize: 14, color: Colors.black54),
+                        _isResending
+                            ? 'Đang gửi mã...'
+                            : 'Gửi lại mã sau $_resendCountdown giây',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
                       )
                     : TextButton(
                         onPressed: _isResending ? null : _handleResendOtp,
@@ -290,7 +371,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             ? const SizedBox(
                                 height: 18,
                                 width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text(
                                 'Gửi lại mã OTP',

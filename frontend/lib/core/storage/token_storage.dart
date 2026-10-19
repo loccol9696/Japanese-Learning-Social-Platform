@@ -50,7 +50,25 @@ class TokenStorage {
 
   Future<bool> isLoggedIn() async {
     final token = await getAccessToken();
-    return token != null && token.isNotEmpty;
+    return token != null && token.isNotEmpty && !isTokenExpired(token);
+  }
+
+  /// Đọc claim `exp` trong JWT. Token không đọc được coi như chưa hết hạn
+  /// để backend tự quyết định.
+  static bool isTokenExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      final exp = payload is Map ? payload['exp'] : null;
+      if (exp is! num) return false;
+      final expiry = DateTime.fromMillisecondsSinceEpoch(exp.toInt() * 1000);
+      return DateTime.now().isAfter(expiry);
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> saveRememberMe({required bool rememberMe, String? email}) async {

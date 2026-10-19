@@ -116,11 +116,11 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       children: [
         // 1. Creator Avatar & Follow Button
         _buildCreatorAvatar(activeTheme),
-        const SizedBox(height: 10.0),
+        const SizedBox(height: 14.0),
 
         // 2. Like / Heart Button
         _buildLikeButton(activeTheme),
-        const SizedBox(height: 8.0),
+        const SizedBox(height: 4.0),
 
         // 3. Comments Button
         _buildActionButton(
@@ -129,7 +129,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           countText: _formatCount(widget.post.commentCount),
           onTap: widget.onCommentTap,
         ),
-        const SizedBox(height: 8.0),
+        const SizedBox(height: 4.0),
 
         // 4. Share Button
         _buildActionButton(
@@ -138,7 +138,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           countText: _formatCount(widget.post.shareCount),
           onTap: widget.onShareTap,
         ),
-        const SizedBox(height: 8.0),
+        const SizedBox(height: 4.0),
 
         // 5. Subtitle Toggle Button (below share)
         _buildSubtitleToggleButton(activeTheme),
@@ -156,8 +156,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           onTap: widget.onToggleSubtitles,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
-            width: 44.0,
-            height: 44.0,
+            width: 38.0,
+            height: 38.0,
             child: Center(
               child: Icon(
                 isVisible
@@ -174,7 +174,6 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             ),
           ),
         ),
-        const SizedBox(height: 2.0),
         Text(
           appStrings.subtitle,
           style: TextStyle(
@@ -277,8 +276,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           child: ScaleTransition(
             scale: _likeScaleController,
             child: SizedBox(
-              width: 44.0,
-              height: 44.0,
+              width: 38.0,
+              height: 38.0,
               child: Center(
                 child: Icon(
                   _isLiked
@@ -301,7 +300,6 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             ),
           ),
         ),
-        const SizedBox(height: 2.0),
         Text(
           _formatCount(_likeCount),
           style: TextStyle(
@@ -328,8 +326,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
-            width: 44.0,
-            height: 44.0,
+            width: 38.0,
+            height: 38.0,
             child: Center(
               child: Icon(
                 icon,
@@ -340,7 +338,6 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             ),
           ),
         ),
-        const SizedBox(height: 2.0),
         Text(
           countText,
           style: TextStyle(
