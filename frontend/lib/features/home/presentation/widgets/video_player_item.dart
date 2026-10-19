@@ -7,7 +7,6 @@ import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
 import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';
-import 'streak_xp_badge.dart';
 import 'video_info_overlay.dart';
 
 class VideoPlayerItem extends StatefulWidget {
@@ -249,20 +248,6 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
             ),
           ),
 
-          // 4. Streak & XP Badge Pill (Top-left)
-          Positioned(
-            top: 60.0,
-            left: 16.0,
-            child: SafeArea(
-              bottom: false,
-              child: StreakXpBadge(
-                streakDays: widget.post.streakDays,
-                xp: widget.post.xp,
-                theme: theme,
-              ),
-            ),
-          ),
-
           // 5. Center Play / Pause Animated Ripple Icon
           if (_showRipple)
             Center(
@@ -302,7 +287,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           // 6. Right Side Interaction Sidebar
           Positioned(
             right: 12.0,
-            bottom: 100.0,
+            bottom: 150.0,
             child: InteractionSidebar(
               post: widget.post,
               theme: theme,

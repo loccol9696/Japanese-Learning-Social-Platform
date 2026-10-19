@@ -14,14 +14,14 @@ import java.util.Optional;
 @Repository
 public interface FlashcardSetRepository extends JpaRepository<FlashcardSet, Long> {
 
-    @Query("SELECT s FROM FlashcardSet s WHERE (s.user.id = :userId OR s.isPublic = true) " +
+    @Query("SELECT s FROM FlashcardSet s WHERE s.user.id = :userId " +
            "ORDER BY s.isVideoSaved DESC, s.createdAt DESC")
-    Page<FlashcardSet> findUserAndPublicSets(@Param("userId") Long userId, Pageable pageable);
+    Page<FlashcardSet> findUserSets(@Param("userId") Long userId, Pageable pageable);
 
-    @Query("SELECT s FROM FlashcardSet s WHERE (s.user.id = :userId OR s.isPublic = true) " +
+    @Query("SELECT s FROM FlashcardSet s WHERE s.user.id = :userId " +
            "AND LOWER(s.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "ORDER BY s.isVideoSaved DESC, s.createdAt DESC")
-    Page<FlashcardSet> searchUserAndPublicSets(@Param("userId") Long userId,
+    Page<FlashcardSet> searchUserSets(@Param("userId") Long userId,
                                                @Param("keyword") String keyword,
                                                Pageable pageable);
 

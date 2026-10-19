@@ -1,5 +1,6 @@
 package com.jlsp.backend.flashcard.controller;
 
+import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.flashcard.dto.request.*;
@@ -33,11 +34,11 @@ public class FlashcardController {
     private Long resolveUserId(Authentication authentication) {
         if (authentication == null || authentication.getName() == null
                 || "anonymousUser".equals(authentication.getName())) {
-            return userRepository.findAll().stream().findFirst().map(User::getId).orElse(1L);
+            throw new AppException(401, "Authentication required");
         }
         return userRepository.findByUsername(authentication.getName())
                 .map(User::getId)
-                .orElseGet(() -> userRepository.findAll().stream().findFirst().map(User::getId).orElse(1L));
+                .orElseThrow(() -> new AppException(401, "Authentication required"));
     }
 
     // 1. Lấy danh sách bộ thẻ (Thư viện thẻ)

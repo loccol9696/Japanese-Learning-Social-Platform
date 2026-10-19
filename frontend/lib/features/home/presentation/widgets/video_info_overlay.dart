@@ -136,34 +136,6 @@ class VideoInfoOverlay extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 6.0),
-
-        // Audio Info Footer with Music Note
-        Row(
-          children: [
-            Icon(
-              Icons.music_note_rounded,
-              size: 14.0,
-              color: activeTheme.isLight
-                  ? const Color(0xFF7C3AED)
-                  : AppColors.lavender,
-            ),
-            const SizedBox(width: 4.0),
-            Expanded(
-              child: Text(
-                post.audioTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.0,
-                  fontWeight: FontWeight.w500,
-                  color: activeTheme.textSecondary,
-                  shadows: activeTheme.textShadows,
-                ),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
