@@ -49,6 +49,10 @@ public class JwtUtils {
         return parseClaims(token).get("roles", List.class);
     }
 
+    public long extractExpirationMillis(String token) {
+        return parseClaims(token).getExpiration().getTime();
+    }
+
     public boolean validateToken(String token) {
         try {
             parseClaims(token);

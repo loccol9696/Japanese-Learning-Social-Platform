@@ -6,6 +6,7 @@ import com.jlsp.backend.auth.dto.response.AuthResponse;
 import com.jlsp.backend.auth.service.AuthService;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.security.CustomUserDetails;
+import com.jlsp.backend.common.security.ActiveSessionRegistry;
 import com.jlsp.backend.common.security.jwt.JwtUtils;
 import com.jlsp.backend.otp.service.EmailService;
 import com.jlsp.backend.otp.service.OtpRedisService;
@@ -38,6 +39,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
 
     private final JwtUtils jwtUtils;
+
+    private final ActiveSessionRegistry activeSessionRegistry;
 
     private final UserMapper userMapper;
 
@@ -99,6 +102,12 @@ public class AuthServiceImpl implements AuthService {
 
         CustomUserDetails userDetails = new CustomUserDetails(user);
         String accessToken = jwtUtils.generateToken(userDetails);
+        if (!activeSessionRegistry.tryRegister(
+                user.getUsername(),
+                accessToken,
+                jwtUtils.extractExpirationMillis(accessToken))) {
+            throw new AppException(409, "Tài khoản này đang được đăng nhập trên một thiết bị khác");
+        }
 
         UserResponse userResponse = userMapper.toResponse(user);
 
@@ -106,6 +115,11 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(accessToken)
                 .user(userResponse)
                 .build();
+    }
+
+    @Override
+    public void logout(String username, String token) {
+        activeSessionRegistry.logout(username, token);
     }
 
     @Transactional

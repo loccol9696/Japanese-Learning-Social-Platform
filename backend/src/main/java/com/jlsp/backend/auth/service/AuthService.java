@@ -12,6 +12,8 @@ public interface AuthService {
 
     AuthResponse login(LoginRequest request);
 
+    void logout(String username, String token);
+
     void verifyOtp(VerifyOtpRequest request);
 
     void resendOtp(ResendOtpRequest request);
