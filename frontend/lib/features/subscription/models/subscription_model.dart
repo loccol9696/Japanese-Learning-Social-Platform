@@ -1,8 +1,10 @@
 class SubscriptionPlan {
   final int id;
   final String name;
+  final String code;
   final String description;
   final double price;
+  final int dailyTokenLimit;
   final double? originalPrice;
   final int durationDays;
   final List<String> features;
@@ -14,8 +16,10 @@ class SubscriptionPlan {
   const SubscriptionPlan({
     required this.id,
     required this.name,
+    this.code = '',
     required this.description,
     required this.price,
+    this.dailyTokenLimit = 0,
     this.originalPrice,
     required this.durationDays,
     required this.features,
@@ -41,8 +45,10 @@ class SubscriptionPlan {
     return SubscriptionPlan(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
+      code: json['code'] as String? ?? '',
       description: json['description'] as String? ?? '',
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      dailyTokenLimit: (json['dailyTokenLimit'] as num?)?.toInt() ?? 0,
       originalPrice: (json['originalPrice'] as num?)?.toDouble(),
       durationDays: json['durationDays'] as int? ?? 0,
       features: parsedFeatures,
@@ -72,7 +78,7 @@ class SubscriptionPlan {
   }
 
   String get durationLabel {
-    if (durationDays >= 36500) return 'Trọn đời';
+    if (durationDays >= 3650) return 'Trọn đời';
     if (durationDays >= 365) return '${(durationDays / 365).round()} Năm';
     if (durationDays >= 30) return '${(durationDays / 30).round()} Tháng';
     return '$durationDays Ngày';
