@@ -7,14 +7,12 @@ enum FeedTab { following, forYou }
 class HomeHeader extends StatelessWidget {
   final FeedTab currentTab;
   final ValueChanged<FeedTab> onTabChanged;
-  final VoidCallback? onSearchTap;
   final AdaptiveVideoTheme? theme;
 
   const HomeHeader({
     super.key,
     required this.currentTab,
     required this.onTabChanged,
-    this.onSearchTap,
     this.theme,
   });
 
@@ -49,25 +47,6 @@ class HomeHeader extends StatelessWidget {
                     theme: activeTheme,
                   ),
                 ],
-              ),
-            ),
-          ),
-
-          // Right Search Action Button
-          Positioned(
-            right: 8.0,
-            child: SizedBox(
-              width: 40.0,
-              height: 40.0,
-              child: IconButton(
-                onPressed: onSearchTap,
-                icon: Icon(
-                  Icons.search_rounded,
-                  size: 26.0,
-                  color: activeTheme.headerSearchIcon,
-                ),
-                splashRadius: 22.0,
-                padding: EdgeInsets.zero,
               ),
             ),
           ),

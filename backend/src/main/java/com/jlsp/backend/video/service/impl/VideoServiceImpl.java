@@ -176,6 +176,23 @@ public class VideoServiceImpl implements VideoService {
             page = videoRepository.findByStatusAndModStatus(VideoStatus.PUBLIC, VideoModStatus.APPROVED, pageable);
         }
 
+        return toVideoPageResponse(page, currentUserId);
+    }
+
+    /**
+     * Tìm kiếm video công khai đã duyệt theo từ khoá (màn Khám phá).
+     */
+    private PageResponse<VideoResponse> searchVideos(Long currentUserId, String keyword, JLPTLevel jlptLevel,
+            Pageable pageable) {
+        Page<Video> page = jlptLevel != null
+                ? videoRepository.searchPublicVideosByJlptLevel(
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, keyword, pageable)
+                : videoRepository.searchPublicVideos(
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, keyword, pageable);
+        return toVideoPageResponse(page, currentUserId);
+    }
+
+    private PageResponse<VideoResponse> toVideoPageResponse(Page<Video> page, Long currentUserId) {
         List<VideoResponse> responseList = page.getContent().stream()
                 .map(v -> {
                     boolean isLiked = currentUserId != null
@@ -455,9 +472,12 @@ public class VideoServiceImpl implements VideoService {
      */
     @Override
     public PageResponse<VideoResponse> getAllVideos(Long currentUserId, String feed, JLPTLevel jlptLevel, Long userId,
-            Pageable pageable) {
+            String search, Pageable pageable) {
         if (userId != null) {
             return getVideosByUserId(userId, currentUserId, pageable);
+        }
+        if (search != null && !search.isBlank()) {
+            return searchVideos(currentUserId, search.trim(), jlptLevel, pageable);
         }
         if ("following".equalsIgnoreCase(feed)) {
             return getFollowingFeed(currentUserId, pageable);

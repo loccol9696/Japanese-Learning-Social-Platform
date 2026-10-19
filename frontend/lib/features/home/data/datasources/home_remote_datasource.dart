@@ -125,6 +125,8 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     );
   }
 
+  VideoPost toVideoPost(Map<String, dynamic> json) => _toVideoPost(json);
+
   List<SubtitleCue> _parseSubtitles(dynamic rawSubtitles) {
     if (rawSubtitles is! String || rawSubtitles.trim().isEmpty) {
       return const [];
