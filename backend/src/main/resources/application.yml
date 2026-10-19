@@ -82,6 +82,7 @@ spring:
     activate:
       on-profile: prod
 
+
   jpa:
     hibernate:
       ddl-auto: validate
