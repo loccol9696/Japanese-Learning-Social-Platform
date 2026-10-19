@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../auth/data/services/auth_service.dart';
 import '../models/subscription_model.dart';
 import '../services/subscription_service.dart';
@@ -8,10 +9,7 @@ import '../widgets/subscription_success_dialog.dart';
 class SubscriptionScreen extends StatefulWidget {
   final int userId;
 
-  const SubscriptionScreen({
-    super.key,
-    this.userId = 1,
-  });
+  const SubscriptionScreen({super.key, this.userId = 1});
 
   @override
   State<SubscriptionScreen> createState() => _SubscriptionScreenState();
@@ -22,6 +20,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   List<SubscriptionPlan> _plans = [];
   SubscriptionStatus? _userStatus;
   bool _isLoading = true;
+  String? _loadError;
   int _selectedPlanIndex = 0; // Default to "Trọn đời" (first / best plan)
   String? _appliedPromoCode;
   int? _resolvedUserId;
@@ -33,7 +32,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     try {
       int activeUserId = widget.userId;
       final currentUser = await AuthService.instance.getCurrentUser();
@@ -52,8 +54,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       // Sắp xếp các gói: Trọn đời lên đầu, rồi 1 Năm, rồi 3 Tháng (chuẩn như Mazii)
       final sortedPlans = List<SubscriptionPlan>.from(plans);
       sortedPlans.sort((a, b) {
-        if (a.durationDays >= 36500) return -1;
-        if (b.durationDays >= 36500) return 1;
+        if (a.durationDays >= 3650) return -1;
+        if (b.durationDays >= 3650) return 1;
         return b.durationDays.compareTo(a.durationDays);
       });
 
@@ -64,9 +66,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _loadError = error.toString();
+        });
       }
     }
   }
@@ -108,7 +113,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   SubscriptionPlan? get _currentSelectedPlan {
     final visible = _visiblePlans;
     if (visible.isEmpty) return null;
-    final basePlan = (_selectedPlanIndex >= 0 && _selectedPlanIndex < visible.length)
+    final basePlan =
+        (_selectedPlanIndex >= 0 && _selectedPlanIndex < visible.length)
         ? visible[_selectedPlanIndex]
         : visible.first;
     if (_appliedPromoCode != null && _appliedPromoCode!.isNotEmpty) {
@@ -116,8 +122,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       return SubscriptionPlan(
         id: basePlan.id,
         name: basePlan.name,
+        code: basePlan.code,
         description: basePlan.description,
         price: discountedPrice,
+        dailyTokenLimit: basePlan.dailyTokenLimit,
         originalPrice: basePlan.originalPrice ?? basePlan.price,
         durationDays: basePlan.durationDays,
         features: basePlan.features,
@@ -143,10 +151,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
     final plan = _currentSelectedPlan;
     if (plan == null) return;
-    if (_currentOwnedDurationDays > 0 && plan.durationDays <= _currentOwnedDurationDays) {
+    if (_currentOwnedDurationDays > 0 &&
+        plan.durationDays <= _currentOwnedDurationDays) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bạn đang sở hữu gói này. Vui lòng chọn gói cao hơn để nâng cấp!'),
+          content: Text(
+            'Bạn đang sở hữu gói này. Vui lòng chọn gói cao hơn để nâng cấp!',
+          ),
           backgroundColor: Color(0xFF10B981),
         ),
       );
@@ -195,7 +206,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             SizedBox(width: 8),
             Text(
               'Nhập mã khuyến mãi',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -215,10 +230,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               textCapitalization: TextCapitalization.characters,
               decoration: InputDecoration(
                 hintText: 'VD: KOTOBA2026, JLPTN1',
-                hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                hintStyle: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 13,
+                ),
                 filled: true,
                 fillColor: const Color(0xFF132247),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Color(0xFF223A66)),
@@ -229,7 +250,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF38BDF8),
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -238,12 +262,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Hủy', style: TextStyle(color: Color(0xFF94A3B8))),
+            child: const Text(
+              'Hủy',
+              style: TextStyle(color: Color(0xFF94A3B8)),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2563EB),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () {
               final code = controller.text.trim().toUpperCase();
@@ -258,7 +287,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 );
               }
             },
-            child: const Text('Áp dụng', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Áp dụng',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -291,14 +326,32 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 // 2. Main Scrollable Content
                 Expanded(
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF38BDF8),
+                          ),
+                        )
+                      : _loadError != null
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              _loadError!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Color(0xFFCBD5E1)),
+                            ),
+                          ),
+                        )
                       : RefreshIndicator(
                           onRefresh: _loadData,
                           color: const Color(0xFF38BDF8),
                           backgroundColor: const Color(0xFF0A192F),
                           child: SingleChildScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -311,7 +364,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                 const SizedBox(height: 22),
 
                                 // Current active VIP info if applicable
-                                if (_userStatus != null && _userStatus!.isVip) ...[
+                                if (_userStatus != null &&
+                                    _userStatus!.isVip) ...[
                                   _buildCurrentVipBadge(),
                                   const SizedBox(height: 16),
                                 ],
@@ -475,7 +529,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildCurrentVipBadge() {
-    if (_userStatus == null || !_userStatus!.isVip) return const SizedBox.shrink();
+    if (_userStatus == null || !_userStatus!.isVip) {
+      return const SizedBox.shrink();
+    }
 
     final isLifetime = _isUserLifetimeVip;
 
@@ -492,8 +548,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       child: Row(
         children: [
           Icon(
-            isLifetime ? Icons.workspace_premium_rounded : Icons.verified_rounded,
-            color: isLifetime ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
+            isLifetime
+                ? Icons.workspace_premium_rounded
+                : Icons.verified_rounded,
+            color: isLifetime
+                ? const Color(0xFF34D399)
+                : const Color(0xFFFBBF24),
             size: 26,
           ),
           const SizedBox(width: 12),
@@ -509,7 +569,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     fontSize: 11.5,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.5,
-                    color: isLifetime ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
+                    color: isLifetime
+                        ? const Color(0xFF34D399)
+                        : const Color(0xFFFBBF24),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -544,17 +606,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  Widget _buildPlanCardItem(SubscriptionPlan plan, {required int index, required bool isSelected}) {
-    final isLifetimePlan = plan.durationDays >= 36500;
+  Widget _buildPlanCardItem(
+    SubscriptionPlan plan, {
+    required int index,
+    required bool isSelected,
+  }) {
+    final isLifetimePlan = plan.durationDays >= 3650;
     final isYearlyPlan = plan.durationDays >= 360 && !isLifetimePlan;
     final userHasLifetime = _isUserLifetimeVip;
     final ownedDuration = _currentOwnedDurationDays;
 
-    final isPlanDisabled = ownedDuration > 0 && plan.durationDays < ownedDuration;
-    final isAlreadyOwned = (userHasLifetime && isLifetimePlan) ||
+    final isPlanDisabled =
+        ownedDuration > 0 && plan.durationDays < ownedDuration;
+    final isAlreadyOwned =
+        (userHasLifetime && isLifetimePlan) ||
         (ownedDuration > 0 && plan.durationDays == ownedDuration);
 
-    String subtitle = 'Gói học tiết kiệm';
+    String subtitle = plan.durationLabel;
     if (isAlreadyOwned) {
       subtitle = isLifetimePlan
           ? 'Đang sở hữu vĩnh viễn trên tài khoản này'
@@ -564,9 +632,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     } else if (isLifetimePlan) {
       subtitle = 'Phù hợp nhất dành cho bạn';
     } else if (isYearlyPlan) {
-      subtitle = 'Chỉ ~34.900 đ / tháng';
+      subtitle = plan.description.isNotEmpty
+          ? plan.description
+          : plan.durationLabel;
     } else {
-      subtitle = 'Linh hoạt theo kỳ học';
+      subtitle = plan.description.isNotEmpty
+          ? plan.description
+          : plan.durationLabel;
     }
 
     String? discountBadge = plan.badgeLabel;
@@ -596,7 +668,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           if (isPlanDisabled) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Bạn đang sở hữu gói cao hơn - Toàn bộ tính năng đã có sẵn!'),
+                content: Text(
+                  'Bạn đang sở hữu gói cao hơn - Toàn bộ tính năng đã có sẵn!',
+                ),
                 backgroundColor: Color(0xFF10B981),
                 duration: Duration(seconds: 2),
               ),
@@ -612,19 +686,26 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           decoration: BoxDecoration(
             color: isAlreadyOwned
                 ? const Color(0xFF0F2B20)
-                : (isSelected ? const Color(0xFF13284F) : const Color(0xFF0E1E3A)),
+                : (isSelected
+                      ? const Color(0xFF13284F)
+                      : const Color(0xFF0E1E3A)),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isAlreadyOwned
                   ? const Color(0xFF10B981)
-                  : (isSelected ? const Color(0xFF3B82F6) : const Color(0xFF1E3356)),
+                  : (isSelected
+                        ? const Color(0xFF3B82F6)
+                        : const Color(0xFF1E3356)),
               width: (isAlreadyOwned || isSelected) ? 2.0 : 1.2,
             ),
             boxShadow: (isAlreadyOwned || isSelected)
                 ? [
                     BoxShadow(
-                      color: (isAlreadyOwned ? const Color(0xFF10B981) : const Color(0xFF1E40AF))
-                          .withValues(alpha: 0.35),
+                      color:
+                          (isAlreadyOwned
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFF1E40AF))
+                              .withValues(alpha: 0.35),
                       blurRadius: 14,
                       offset: const Offset(0, 4),
                     ),
@@ -646,18 +727,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          plan.name,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                        Expanded(
+                          child: Text(
+                            plan.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         if (isAlreadyOwned) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2.5,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFF10B981),
                               borderRadius: BorderRadius.circular(10),
@@ -671,10 +759,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                               ),
                             ),
                           ),
-                        ] else if (discountBadge != null && !isPlanDisabled) ...[
+                        ] else if (discountBadge != null &&
+                            !isPlanDisabled) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2.5,
+                            ),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? const Color(0xFFFF4D4F)
@@ -686,7 +778,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: isSelected ? Colors.white : const Color(0xFF93C5FD),
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF93C5FD),
                               ),
                             ),
                           ),
@@ -700,9 +794,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                         fontSize: 12,
                         color: isAlreadyOwned
                             ? const Color(0xFF6EE7B7)
-                            : (isSelected ? const Color(0xFFBFDBFE) : const Color(0xFF8899B5)),
+                            : (isSelected
+                                  ? const Color(0xFFBFDBFE)
+                                  : const Color(0xFF8899B5)),
                       ),
                     ),
+                    if (plan.dailyTokenLimit > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${plan.dailyTokenLimit} token AI mỗi ngày',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -726,7 +832,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
-                        color: isSelected ? Colors.white : const Color(0xFFE2E8F0),
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFFE2E8F0),
                       ),
                     ),
                     if (plan.originalPrice != null) ...[
@@ -758,11 +866,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       child: Text(
         'Đăng ký tự động gia hạn khi tới cuối kỳ, trừ khi bạn huỷ đăng ký trước 24 giờ. Bạn có thể huỷ bất cứ lúc nào trong phần cài đặt tài khoản.',
         textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 11.5,
-          color: Color(0xFF7E8FA6),
-          height: 1.4,
-        ),
+        style: TextStyle(fontSize: 11.5, color: Color(0xFF7E8FA6), height: 1.4),
       ),
     );
   }
@@ -807,15 +911,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     Row(
                       children: [
                         Text(
-                          _appliedPromoCode != null ? 'Đã áp dụng: $_appliedPromoCode' : 'Nhập mã khuyến mãi',
+                          _appliedPromoCode != null
+                              ? 'Đã áp dụng: $_appliedPromoCode'
+                              : 'Nhập mã khuyến mãi',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: _appliedPromoCode != null ? const Color(0xFF34D399) : const Color(0xFF93C5FD),
+                            color: _appliedPromoCode != null
+                                ? const Color(0xFF34D399)
+                                : const Color(0xFF93C5FD),
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: Color(0xFF94A3B8)),
+                        const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 13,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ],
                     ),
                   ],
@@ -833,7 +945,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0F3227),
                       foregroundColor: const Color(0xFF34D399),
-                      side: const BorderSide(color: Color(0xFF10B981), width: 1.2),
+                      side: const BorderSide(
+                        color: Color(0xFF10B981),
+                        width: 1.2,
+                      ),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -842,7 +957,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     onPressed: () {
                       Navigator.of(context).pop();
                     },
-                    icon: const Icon(Icons.verified_rounded, color: Color(0xFF34D399), size: 22),
+                    icon: const Icon(
+                      Icons.verified_rounded,
+                      color: Color(0xFF34D399),
+                      size: 22,
+                    ),
                     label: const Text(
                       'Bạn đã sở hữu Gói Trọn Đời',
                       style: TextStyle(
@@ -857,7 +976,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       backgroundColor: const Color(0xFF2563EB),
                       foregroundColor: Colors.white,
                       elevation: 4,
-                      shadowColor: const Color(0xFF2563EB).withValues(alpha: 0.45),
+                      shadowColor: const Color(0xFF2563EB)
+                          .withValues(alpha: 0.45),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
