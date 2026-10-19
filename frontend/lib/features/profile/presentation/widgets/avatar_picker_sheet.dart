@@ -5,54 +5,56 @@ import '../../../../core/theme/app_colors.dart';
 class AvatarPickerSheet extends StatefulWidget {
   final String currentAvatarUrl;
   final ValueChanged<String> onAvatarSelected;
+  final VoidCallback? onPickFromDevice;
 
   const AvatarPickerSheet({
     super.key,
     required this.currentAvatarUrl,
     required this.onAvatarSelected,
+    this.onPickFromDevice,
   });
 
-  static const List<_PresetAvatar> presets = [
-    _PresetAvatar(
+  static const List<PresetAvatar> presets = [
+    PresetAvatar(
       id: 'sakura',
       name: 'Sakura Girl',
       url:
           'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
     ),
-    _PresetAvatar(
+    PresetAvatar(
       id: 'kenji',
       name: 'Kenji Sensei',
       url:
           'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80',
     ),
-    _PresetAvatar(
+    PresetAvatar(
       id: 'yuki',
       name: 'Yuki Anime',
       url:
           'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=256&q=80',
     ),
-    _PresetAvatar(
+    PresetAvatar(
       id: 'daiki',
       name: 'Daiki Otaku',
       url:
           'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=256&q=80',
     ),
-    _PresetAvatar(
+    PresetAvatar(
       id: 'bot_kenji',
       name: 'Kenji Bot',
       url: 'https://api.dicebear.com/7.x/bottts/png?seed=Kenji',
     ),
-    _PresetAvatar(
+    PresetAvatar(
       id: 'bot_sakura',
       name: 'Sakura Bot',
       url: 'https://api.dicebear.com/7.x/bottts/png?seed=Sakura',
     ),
-    _PresetAvatar(
+    PresetAvatar(
       id: 'bot_tokyo',
       name: 'Tokyo Neon',
       url: 'https://api.dicebear.com/7.x/bottts/png?seed=Tokyo',
     ),
-    _PresetAvatar(
+    PresetAvatar(
       id: 'bot_shiba',
       name: 'Inu Shiba',
       url: 'https://api.dicebear.com/7.x/bottts/png?seed=Shiba',
@@ -121,12 +123,16 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                appStrings.choosePresetAvatar,
-                style: const TextStyle(
-                  fontSize: 18.0,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+              Expanded(
+                child: Text(
+                  appStrings.choosePresetAvatar,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18.0,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
               IconButton(
@@ -136,6 +142,73 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
             ],
           ),
           const SizedBox(height: 14.0),
+
+          // Import image from device card
+          if (widget.onPickFromDevice != null) ...[
+            InkWell(
+              onTap: () {
+                Navigator.pop(context);
+                widget.onPickFromDevice!();
+              },
+              borderRadius: BorderRadius.circular(16.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                decoration: BoxDecoration(
+                  color: AppColors.periwinkle.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16.0),
+                  border: Border.all(
+                    color: AppColors.periwinkle.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8.0),
+                      decoration: BoxDecoration(
+                        color: AppColors.periwinkle.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.add_photo_alternate_rounded,
+                        color: AppColors.periwinkle,
+                        size: 20.0,
+                      ),
+                    ),
+                    const SizedBox(width: 12.0),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Tải ảnh từ máy / thiết bị',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.0,
+                            ),
+                          ),
+                          const SizedBox(height: 2.0),
+                          Text(
+                            'Chọn tệp ảnh từ thư viện hoặc bộ nhớ máy',
+                            style: TextStyle(
+                              color: AppColors.softSkyBlue.withValues(alpha: 0.8),
+                              fontSize: 12.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14.0,
+                      color: AppColors.periwinkle,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16.0),
+          ],
 
           // Preset Avatars Grid
           SizedBox(
@@ -181,7 +254,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
                           radius: 26.0,
                           backgroundColor: AppColors.surfaceCardSubtle,
                           backgroundImage: NetworkImage(preset.url),
-                          onBackgroundImageError: (_, __) {},
+                          onBackgroundImageError: (exception, stackTrace) {},
                           child: isSelected
                               ? Container(
                                   decoration: BoxDecoration(
@@ -308,12 +381,12 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
   }
 }
 
-class _PresetAvatar {
+class PresetAvatar {
   final String id;
   final String name;
   final String url;
 
-  const _PresetAvatar({
+  const PresetAvatar({
     required this.id,
     required this.name,
     required this.url,

@@ -26,4 +26,23 @@ public class UserResponse {
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    @Builder.Default
+    private Long followersCount = 0L;
+
+    @Builder.Default
+    private Long followingCount = 0L;
+
+    @Builder.Default
+    private Long likesCount = 0L;
+
+    @Builder.Default
+    private Long videosCount = 0L;
+
+    private LocalDateTime vipExpiresAt;
+    private String subscriptionPlanName;
+
+    public JLPTLevel getCurrentLevel() {
+        return this.jlptLevel;
+    }
 }

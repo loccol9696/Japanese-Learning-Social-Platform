@@ -19,15 +19,15 @@ class AuthService {
   }) async {
     final responseData = await _apiClient.post(
       ApiConstants.loginUrl,
-      body: {
-        'usernameOrEmail': usernameOrEmail.trim(),
-        'password': password,
-      },
+      body: {'usernameOrEmail': usernameOrEmail.trim(), 'password': password},
     );
 
-    final authResponse = AuthResponseModel.fromJson(responseData as Map<String, dynamic>);
+    final authResponse = AuthResponseModel.fromJson(
+      responseData as Map<String, dynamic>,
+    );
 
-    if (authResponse.accessToken != null && authResponse.accessToken!.isNotEmpty) {
+    if (authResponse.accessToken != null &&
+        authResponse.accessToken!.isNotEmpty) {
       await _storage.saveAuthData(
         accessToken: authResponse.accessToken!,
         refreshToken: authResponse.refreshToken,
@@ -55,7 +55,9 @@ class AuthService {
         'username': username.trim(),
         'email': email.trim().toLowerCase(),
         'password': password,
-        'displayName': displayName?.trim().isNotEmpty == true ? displayName!.trim() : username.trim(),
+        'displayName': displayName?.trim().isNotEmpty == true
+            ? displayName!.trim()
+            : username.trim(),
       },
     );
 
@@ -65,31 +67,26 @@ class AuthService {
     return const AuthResponseModel();
   }
 
-  Future<void> verifyOtp({
-    required String email,
-    required String otp,
-  }) async {
+  Future<void> verifyOtp({required String email, required String otp}) async {
     await _apiClient.post(
       ApiConstants.verifyOtpUrl,
-      body: {
-        'email': email.trim().toLowerCase(),
-        'otp': otp.trim(),
-      },
+      body: {'email': email.trim().toLowerCase(), 'otp': otp.trim()},
     );
   }
 
-  Future<void> resendOtp({
-    required String email,
-  }) async {
+  Future<void> resendOtp({required String email}) async {
     await _apiClient.post(
       ApiConstants.resendOtpUrl,
-      body: {
-        'email': email.trim().toLowerCase(),
-      },
+      body: {'email': email.trim().toLowerCase()},
     );
   }
 
   Future<void> logout() async {
+    try {
+      await _apiClient.post(ApiConstants.logoutUrl, withAuth: true);
+    } catch (_) {
+      // Always clear local credentials even when the server is unavailable.
+    }
     await _storage.clear();
   }
 

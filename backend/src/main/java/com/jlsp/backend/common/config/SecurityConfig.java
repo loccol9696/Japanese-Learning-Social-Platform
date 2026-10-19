@@ -45,7 +45,8 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         if (!securityEnabled) {
             // Môi trường DEV: Cho phép tất cả request không cần Token
@@ -54,12 +55,11 @@ public class SecurityConfig {
             // Môi trường PROD: Áp dụng phân quyền chuẩn
             http
                     .authorizeHttpRequests(auth -> auth
-                            .requestMatchers("/api/auth/**", "/api/v1/auth/**", "/api/v1/users/**", "/api/v1/media/**", "/api/v1/videos/**", "/api/v1/subscription-plans/**", "/api/v1/payments/**", "/api/speech/**", "/api/v1/admin/**").permitAll()
+                            .requestMatchers("/api/auth/**", "/api/v1/auth/**", "/api/v1/users/**", "/api/v1/media/**", "/api/v1/videos/**", "/api/v1/subscription-plans/**", "/api/v1/payments/**", "/api/speech/**", "/api/v1/admin/**", "/api/v1/profile/**", "/profile/**", "/api/v1/topics/**", "/topics/**").permitAll()
                             .requestMatchers("/api/admin/**").hasRole("ADMIN")
                             .requestMatchers("/api/moderator/**").hasRole("MODERATOR")
                             .anyRequest().authenticated())
-                    .authenticationProvider(authenticationProvider())
-                    .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                    .authenticationProvider(authenticationProvider());
         }
 
         return http.build();

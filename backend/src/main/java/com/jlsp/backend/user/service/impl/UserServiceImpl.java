@@ -25,6 +25,8 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final com.jlsp.backend.user.repository.FollowRepository followRepository;
+    private final com.jlsp.backend.video.repository.VideoRepository videoRepository;
 
     @Override
     public UserResponse createUser(CreateUserRequest request) {
@@ -67,14 +69,30 @@ public class UserServiceImpl implements UserService {
     public UserResponse getUserById(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException(404, "User not found with id: " + id));
-        return userMapper.toResponse(user);
+        UserResponse response = userMapper.toResponse(user);
+        enrichUserStats(response, id);
+        return response;
     }
 
     @Override
     public UserResponse getUserByUsername(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(404, "User not found with username: " + username));
-        return userMapper.toResponse(user);
+        UserResponse response = userMapper.toResponse(user);
+        enrichUserStats(response, user.getId());
+        return response;
+    }
+
+    private void enrichUserStats(UserResponse response, Long userId) {
+        if (response == null || userId == null) return;
+        try {
+            response.setFollowingCount(followRepository.countByIdFollowerId(userId));
+            response.setFollowersCount(followRepository.countByIdFollowingId(userId));
+            response.setLikesCount(videoRepository.sumLikesByUserId(userId));
+            response.setVideosCount(videoRepository.countByUserId(userId));
+        } catch (Exception e) {
+            log.warn("Failed to compute stats for user {}: {}", userId, e.getMessage());
+        }
     }
 
     @Override
@@ -179,7 +197,9 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new AppException(404, "User not found with id: " + id));
         applyUserUpdates(user, request);
         User saved = userRepository.save(user);
-        return userMapper.toResponse(saved);
+        UserResponse response = userMapper.toResponse(saved);
+        enrichUserStats(response, id);
+        return response;
     }
 
     @Override
@@ -190,7 +210,9 @@ public class UserServiceImpl implements UserService {
         applyUserUpdates(user, request);
         User saved = userRepository.save(user);
         log.info("Updated profile for user {}", currentUsername);
-        return userMapper.toResponse(saved);
+        UserResponse response = userMapper.toResponse(saved);
+        enrichUserStats(response, saved.getId());
+        return response;
     }
 
     private void applyUserUpdates(User user, UpdateUserRequest request) {
@@ -215,7 +237,7 @@ public class UserServiceImpl implements UserService {
         if (request.getDisplayName() != null) user.setDisplayName(request.getDisplayName().trim());
         if (request.getBio() != null) user.setBio(request.getBio());
         if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) user.setAvatarUrl(request.getAvatarUrl().trim());
-        if (request.getJlptLevel() != null) user.setJlptLevel(request.getJlptLevel());
+        if (request.getEffectiveLevel() != null) user.setJlptLevel(request.getEffectiveLevel());
     }
 
     @Override

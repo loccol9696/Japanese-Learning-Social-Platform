@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/storage/token_storage.dart';
+import '../../../home/presentation/widgets/bottom_nav_dock.dart';
 
 class UploadVideoScreen extends StatefulWidget {
   const UploadVideoScreen({super.key});
@@ -79,7 +81,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
       if (videoUrl is! String || videoUrl.isEmpty) {
         throw Exception('Backend không trả về đường dẫn video.');
       }
-      await Navigator.of(context).push(
+      final result = await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => PublishVideoScreen(
             videoUrl: videoUrl,
@@ -90,6 +92,9 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
           ),
         ),
       );
+      if (mounted && result is int && result != 2) {
+        Navigator.of(context).pop(result);
+      }
     } catch (error) {
       if (mounted) {
         _showMessage(error.toString().replaceFirst('Exception: ', ''));
@@ -129,16 +134,18 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _handleNavigation(int index) {
+    if (index != 2 && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(index);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final youtube = _isYoutubeMode;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0E12),
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         title: const Text(
           'Tải video lên',
           style: TextStyle(fontWeight: FontWeight.w700),
@@ -181,6 +188,10 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                 : Text(youtube ? 'Nhập video từ YouTube' : 'Tải video lên'),
           ),
         ],
+      ),
+      bottomNavigationBar: BottomNavDock(
+        selectedIndex: 2,
+        onTabSelected: _handleNavigation,
       ),
     );
   }
@@ -435,6 +446,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   bool _isPublic = true;
   bool _isSubmitting = false;
   bool _isTranscribing = false;
+  bool _isManualSubtitleMode = false;
 
   @override
   void initState() {
@@ -442,9 +454,6 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     final name = widget.fileName.replaceFirst(RegExp(r'\.[^.]+$'), '');
     _titleController.text = name;
     _thumbnailController.text = widget.thumbnailUrl;
-    if (widget.aiTaskId != null && widget.aiTaskId!.isNotEmpty) {
-      _loadAiSubtitles(widget.aiTaskId!);
-    }
   }
 
   @override
@@ -510,6 +519,29 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     }
   }
 
+  void _addManualSubtitle() {
+    setState(() {
+      _isManualSubtitleMode = true;
+      _subtitles.add(
+        _SubtitleDraft(
+          start: '00:00',
+          end: _formatTimestamp(widget.duration.clamp(1, 5).toDouble()),
+        ),
+      );
+    });
+  }
+
+  void _startAiSubtitleGeneration() {
+    final taskId = widget.aiTaskId;
+    if (taskId == null || taskId.isEmpty) {
+      _showMessage('Video chưa có tác vụ AI để tạo phụ đề.');
+      return;
+    }
+
+    setState(() => _isManualSubtitleMode = false);
+    _loadAiSubtitles(taskId);
+  }
+
   _SubtitleDraft _subtitleFromAi(Map<String, dynamic> segment) {
     final start = _formatTimestamp(
       (segment['startTime'] as num?)?.toDouble() ?? 0,
@@ -540,9 +572,16 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
 
     setState(() => _isSubmitting = true);
     try {
+      final userData = await TokenStorage.instance.getUserData();
+      final userId = userData?['id'];
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (userId != null) {
+        headers['X-User-Id'] = userId.toString();
+      }
+
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/videos'),
-        headers: {'Content-Type': 'application/json', 'X-User-Id': '1'},
+        headers: headers,
         body: jsonEncode({
           'title': _titleController.text.trim(),
           'description': _descriptionController.text.trim().isEmpty
@@ -598,15 +637,17 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _handleNavigation(int index) {
+    if (index != 2 && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(index);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0E12),
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-        ),
         title: const Text(
           'Đăng bài học',
           style: TextStyle(fontWeight: FontWeight.w700),
@@ -644,16 +685,18 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           const SizedBox(height: 22),
           _buildSectionTitle('Phụ đề & Lời thoại'),
           const SizedBox(height: 10),
+          _buildSubtitleModeSelector(),
+          const SizedBox(height: 12),
           if (_isTranscribing)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: LinearProgressIndicator(color: Color(0xFFFF2D55)),
             ),
-          if (!_isTranscribing && _subtitles.isEmpty)
+          if (!_isTranscribing && _subtitles.isEmpty && !_isManualSubtitleMode)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: Text(
-                'Chưa có phụ đề AI. Bạn có thể nhập thủ công bằng nút chỉnh sửa.',
+                'Bạn có thể tạo phụ đề bằng AI hoặc tự nhập lời thoại cho video.',
                 style: TextStyle(color: Colors.white60),
               ),
             ),
@@ -663,6 +706,15 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               child: _buildSubtitleCard(entry.key, entry.value),
             ),
           ),
+          if (_isManualSubtitleMode && !_isTranscribing)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _addManualSubtitle,
+                icon: const Icon(Icons.add),
+                label: const Text('Thêm đoạn phụ đề'),
+              ),
+            ),
           const SizedBox(height: 12),
           _buildSectionTitle('Quyền riêng tư'),
           const SizedBox(height: 10),
@@ -685,6 +737,10 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: BottomNavDock(
+        selectedIndex: 2,
+        onTabSelected: _isSubmitting ? (_) {} : _handleNavigation,
       ),
     );
   }
@@ -826,6 +882,85 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildSubtitleModeSelector() {
+    final aiAvailable = widget.aiTaskId?.isNotEmpty == true;
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF19181D),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _subtitleModeButton(
+              icon: Icons.auto_awesome_rounded,
+              label: 'Tạo bằng AI',
+              selected: !_isManualSubtitleMode,
+              enabled: aiAvailable && !_isTranscribing,
+              onTap: _startAiSubtitleGeneration,
+            ),
+          ),
+          Expanded(
+            child: _subtitleModeButton(
+              icon: Icons.edit_note_rounded,
+              label: 'Tự nhập',
+              selected: _isManualSubtitleMode,
+              enabled: !_isTranscribing,
+              onTap: _addManualSubtitle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _subtitleModeButton({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF48202D) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: enabled
+                  ? (selected ? const Color(0xFFFF2D55) : Colors.white60)
+                  : Colors.white24,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: enabled
+                      ? (selected ? Colors.white : Colors.white60)
+                      : Colors.white24,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
