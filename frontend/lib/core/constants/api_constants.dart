@@ -48,12 +48,13 @@ class ApiConstants {
       '${baseUrl.replaceFirst('/api/v1', '/api')}/speech/status/$taskId';
 
   // Subscription endpoints
+  static String get subscriptionPlansBaseUrl => '$baseUrl/subscription-plans';
+  static String get subscriptionPlansUrl => subscriptionPlansBaseUrl;
   static String get subscriptionBaseUrl => '$baseUrl/subscriptions';
-  static String get subscriptionPlansUrl => '$baseUrl/subscriptions/plans';
   static String get subscriptionCheckoutUrl =>
       '$baseUrl/subscriptions/checkout';
   static String subscriptionStatusUrl(int userId) =>
-      '$baseUrl/subscriptions/my-status?userId=$userId';
+      '$baseUrl/payments/my-quota?userId=$userId';
 
   // Profile endpoints
   static String get profileUrl => '$baseUrl/profile';

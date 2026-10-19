@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../auth/data/services/auth_service.dart';
 import '../models/subscription_model.dart';
@@ -29,7 +30,7 @@ class SubscriptionService {
     try {
       final token = await TokenStorage.instance.getAccessToken();
       final response = await _client.get(
-        Uri.parse('$baseUrl/plans'),
+        Uri.parse(ApiConstants.subscriptionPlansUrl),
         headers: {
           'Content-Type': 'application/json',
           if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
@@ -39,15 +40,22 @@ class SubscriptionService {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         final List list = json['data'] as List? ?? [];
-        if (list.isNotEmpty) {
-          return list
-              .map((e) => SubscriptionPlan.fromJson(e as Map<String, dynamic>))
-              .where((p) => p.price > 0)
-              .toList();
-        }
+        return list
+            .map((e) => SubscriptionPlan.fromJson(e as Map<String, dynamic>))
+            .where((p) => p.isActive && p.price > 0)
+            .toList();
       }
-    } catch (_) {}
-    return _getFallbackPlans();
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: 'Không thể tải danh sách gói hội viên từ máy chủ.',
+      );
+    } catch (error) {
+      if (error is ApiException) rethrow;
+      throw ApiException(
+        statusCode: 503,
+        message: 'Không thể kết nối để tải danh sách gói hội viên.',
+      );
+    }
   }
 
   Future<PaymentResponse> checkout({
@@ -243,59 +251,4 @@ class SubscriptionService {
     return null;
   }
 
-  List<SubscriptionPlan> _getFallbackPlans() {
-    return const [
-      SubscriptionPlan(
-        id: 3,
-        name: 'Gói 1 Năm',
-        description: 'Gói cơ bản trả 499.000 đ\n419.000 đ mỗi 12 tháng',
-        price: 419000,
-        originalPrice: 499000,
-        durationDays: 365,
-        features: [
-          'Học không giới hạn Flashcard Premium',
-          'Luyện Shadowing AI chuẩn bản xứ',
-          'Kho đề luyện thi JLPT N5 - N1',
-          'Không quảng cáo làm phiền',
-        ],
-        isActive: true,
-        displayOrder: 1,
-        badgeLabel: 'Giảm 16%',
-        discountPercent: 16,
-      ),
-      SubscriptionPlan(
-        id: 2,
-        name: 'Gói Trọn Đời',
-        description: 'Gói bán chạy trả 999.000 đ\n699.000 đ cho dịch vụ trọn đời',
-        price: 699000,
-        originalPrice: 999000,
-        durationDays: 36500,
-        features: [
-          'Toàn bộ đặc quyền Premium cao cấp nhất',
-          'Phân tích ngữ pháp AI chuyên sâu',
-          'Tải bài học offline không giới hạn',
-          'Huy hiệu Premium danh dự',
-          'Sử dụng vĩnh viễn, không cần gia hạn',
-        ],
-        isActive: true,
-        displayOrder: 2,
-        badgeLabel: 'Giảm 30%',
-        discountPercent: 30,
-      ),
-      SubscriptionPlan(
-        id: 1,
-        name: 'Gói 3 Tháng',
-        description: 'Gói cơ bản trả 299.000 đ\nmỗi 3 tháng',
-        price: 299000,
-        durationDays: 90,
-        features: [
-          'Học không giới hạn Flashcard Premium',
-          'Luyện Shadowing AI chuẩn bản xứ',
-          'Không quảng cáo làm phiền',
-        ],
-        isActive: true,
-        displayOrder: 3,
-      ),
-    ];
-  }
 }
