@@ -10,6 +10,8 @@ import '../../data/datasources/profile_remote_datasource.dart';
 import '../../data/repositories/profile_repository_impl.dart';
 import '../../domain/models/user_profile_model.dart';
 import '../../domain/repositories/profile_repository.dart';
+import '../../../subscription/models/subscription_model.dart';
+import '../../../subscription/services/subscription_service.dart';
 import 'profile_update_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -24,6 +26,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   late final ProfileRepository _repository;
   UserProfileModel _profile = const UserProfileModel();
+  SubscriptionStatus? _membershipStatus;
   List<UserVideoModel> _videos = [];
   bool _isLoading = true;
   int _selectedTab = 0; // 0: Video public, 1: Video riêng tư, 2: Video đã lưu, 3: Video đăng lại
@@ -35,6 +38,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
         widget.repository ??
         ProfileRepositoryImpl(remoteDataSource: ProfileRemoteDataSourceImpl());
     _loadProfile();
+    _loadMembershipStatus();
+  }
+
+  Future<void> _loadMembershipStatus() async {
+    try {
+      final status = await SubscriptionService.instance.getMySubscriptionStatus(
+        _profile.id,
+      );
+      if (mounted) {
+        setState(() {
+          _membershipStatus = status;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _navigateToSubscription() async {
+    await Navigator.of(context).pushNamed(AppRoutes.subscription);
+    await _loadMembershipStatus();
   }
 
   Future<void> _loadProfile() async {
@@ -49,6 +71,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _videos = results[1] as List<UserVideoModel>;
         _isLoading = false;
       });
+      await _loadMembershipStatus();
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -78,12 +101,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.info_outline_rounded, color: AppColors.softSkyBlue),
+            const Icon(
+              Icons.info_outline_rounded,
+              color: AppColors.softSkyBlue,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 '$featureName: Tính năng sẽ được hoàn thiện trong thời gian tới',
-                style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -128,13 +157,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         subtitle: subtitle != null
             ? Text(
                 subtitle,
-                style: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
               )
             : null,
-        trailing: trailing ??
+        trailing:
+            trailing ??
             const Icon(
               Icons.arrow_forward_ios_rounded,
               size: 14,
@@ -167,259 +194,296 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             child: SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Handle bar
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-
-                  // Header title
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Cài đặt & Tùy chọn',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Handle bar
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                      IconButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
-                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        padding: EdgeInsets.zero,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Subscription Status Card
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1E244D), Color(0xFF2A1C4D)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: _profile.isVip
-                            ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
-                            : AppColors.periwinkle.withValues(alpha: 0.4),
-                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+
+                    // Header title
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: _profile.isVip
-                                    ? const Color(0xFFF59E0B).withValues(alpha: 0.2)
-                                    : AppColors.periwinkle.withValues(alpha: 0.2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                _profile.isVip ? Icons.stars_rounded : Icons.workspace_premium_rounded,
-                                color: _profile.isVip ? const Color(0xFFF59E0B) : AppColors.periwinkle,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        _profile.isVip
-                                            ? 'Gói VIP: ${_profile.subscriptionPlanName}'
-                                            : 'Gói Miễn Phí (Free)',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      if (_profile.isVip) ...[
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFF59E0B),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: const Text(
-                                            'VIP',
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    _profile.isVip && _profile.vipExpiresAt != null
-                                        ? 'Hạn dùng: ${_profile.vipExpiresAt!.split("T")[0]}'
-                                        : 'Mở khóa bài giảng không giới hạn & tính năng nâng cao',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.7),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.of(ctx).pop();
-                              _showFeatureComingSoon('Đăng ký gói VIP');
-                            },
-                            icon: const Icon(Icons.rocket_launch_rounded, size: 16),
-                            label: Text(
-                              _profile.isVip ? 'Gia hạn / Đổi gói VIP' : 'Mua gói Subscription ngay',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _profile.isVip ? const Color(0xFFF59E0B) : AppColors.periwinkle,
-                              foregroundColor: _profile.isVip ? Colors.black : Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              elevation: 0,
-                            ),
+                        const Text(
+                          'Cài đặt & Tùy chọn',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                          padding: EdgeInsets.zero,
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 12),
 
-                  const SizedBox(height: 8),
+                    // Subscription Status Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF1E244D), Color(0xFF2A1C4D)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _profile.isVip
+                              ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
+                              : AppColors.periwinkle.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: _profile.isVip
+                                      ? const Color(0xFFF59E0B)
+                                            .withValues(alpha: 0.2)
+                                      : AppColors.periwinkle.withValues(
+                                          alpha: 0.2,
+                                        ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  _profile.isVip
+                                      ? Icons.stars_rounded
+                                      : Icons.workspace_premium_rounded,
+                                  color: _profile.isVip
+                                      ? const Color(0xFFF59E0B)
+                                      : AppColors.periwinkle,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          _profile.isVip
+                                              ? 'Gói VIP: ${_profile.subscriptionPlanName}'
+                                              : 'Gói Miễn Phí (Free)',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        if (_profile.isVip) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF59E0B),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: const Text(
+                                              'VIP',
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      _profile.isVip &&
+                                              _profile.vipExpiresAt != null
+                                          ? 'Hạn dùng: ${_profile.vipExpiresAt!.split("T")[0]}'
+                                          : 'Mở khóa bài giảng không giới hạn & tính năng nâng cao',
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.of(ctx).pop();
+                                _showFeatureComingSoon('Đăng ký gói VIP');
+                              },
+                              icon: const Icon(
+                                Icons.rocket_launch_rounded,
+                                size: 16,
+                              ),
+                              label: Text(
+                                _profile.isVip
+                                    ? 'Gia hạn / Đổi gói VIP'
+                                    : 'Mua gói Subscription ngay',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _profile.isVip
+                                    ? const Color(0xFFF59E0B)
+                                    : AppColors.periwinkle,
+                                foregroundColor: _profile.isVip
+                                    ? Colors.black
+                                    : Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
-                  // Menu list items
-                  _buildMenuTile(
-                    icon: Icons.stars_rounded,
-                    iconColor: const Color(0xFFF59E0B),
-                    title: 'Xem các gói Subscription',
-                    subtitle: 'Bảng giá, quyền lợi hội viên và thanh toán',
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _showFeatureComingSoon('Gói Subscription');
-                    },
-                  ),
+                    const SizedBox(height: 8),
 
-                  _buildMenuTile(
-                    icon: Icons.cloud_upload_outlined,
-                    iconColor: AppColors.softSkyBlue,
-                    title: 'Quản lý upload',
-                    subtitle: '${_videos.length} bài học ($_pendingCount chờ duyệt)',
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _openMyVideosStatus();
-                    },
-                  ),
-
-                  if (_profile.isModerator)
+                    // Menu list items
                     _buildMenuTile(
-                      icon: Icons.fact_check_rounded,
-                      iconColor: AppColors.periwinkle,
-                      title: 'Duyệt video bài học',
-                      subtitle: 'Quyền Moderator / Admin',
+                      icon: Icons.stars_rounded,
+                      iconColor: const Color(0xFFF59E0B),
+                      title: 'Xem các gói Subscription',
+                      subtitle: 'Bảng giá, quyền lợi hội viên và thanh toán',
                       onTap: () {
                         Navigator.of(ctx).pop();
-                        _openModerationQueue();
+                        _showFeatureComingSoon('Gói Subscription');
                       },
                     ),
 
-                  _buildMenuTile(
-                    icon: Icons.manage_accounts_outlined,
-                    iconColor: const Color(0xFF94A3B8),
-                    title: 'Cài đặt tài khoản',
-                    subtitle: 'Bảo mật, thông báo và thông tin đăng nhập',
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _showFeatureComingSoon('Cài đặt tài khoản');
-                    },
-                  ),
+                    _buildMenuTile(
+                      icon: Icons.cloud_upload_outlined,
+                      iconColor: AppColors.softSkyBlue,
+                      title: 'Quản lý upload',
+                      subtitle:
+                          '${_videos.length} bài học ($_pendingCount chờ duyệt)',
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _openMyVideosStatus();
+                      },
+                    ),
 
-                  _buildMenuTile(
-                    icon: Icons.palette_outlined,
-                    iconColor: AppColors.lavender,
-                    title: 'Cá nhân hóa',
-                    subtitle: 'Giao diện, chủ đề và tùy chỉnh trải nghiệm',
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _showFeatureComingSoon('Cá nhân hóa');
-                    },
-                  ),
+                    if (_profile.isModerator)
+                      _buildMenuTile(
+                        icon: Icons.fact_check_rounded,
+                        iconColor: AppColors.periwinkle,
+                        title: 'Duyệt video bài học',
+                        subtitle: 'Quyền Moderator / Admin',
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          _openModerationQueue();
+                        },
+                      ),
 
-                  _buildMenuTile(
-                    icon: Icons.edit_note_rounded,
-                    iconColor: AppColors.warmPeach,
-                    title: 'Chỉnh sửa hồ sơ',
-                    subtitle: 'Tên hiển thị, tiểu sử, cấp độ JLPT',
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _openEditProfile();
-                    },
-                  ),
+                    _buildMenuTile(
+                      icon: Icons.manage_accounts_outlined,
+                      iconColor: const Color(0xFF94A3B8),
+                      title: 'Cài đặt tài khoản',
+                      subtitle: 'Bảo mật, thông báo và thông tin đăng nhập',
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _showFeatureComingSoon('Cài đặt tài khoản');
+                      },
+                    ),
 
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Divider(color: Color(0xFF28346A), height: 1),
-                  ),
+                    _buildMenuTile(
+                      icon: Icons.palette_outlined,
+                      iconColor: AppColors.lavender,
+                      title: 'Cá nhân hóa',
+                      subtitle: 'Giao diện, chủ đề và tùy chỉnh trải nghiệm',
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _showFeatureComingSoon('Cá nhân hóa');
+                      },
+                    ),
 
-                  _buildMenuTile(
-                    icon: Icons.logout_rounded,
-                    iconColor: const Color(0xFFEF4444),
-                    title: 'Đăng xuất',
-                    titleColor: const Color(0xFFEF4444),
-                    onTap: () async {
-                      Navigator.of(ctx).pop();
-                      await AuthService.instance.logout();
-                      if (!mounted) return;
-                      Navigator.of(context).pushNamedAndRemoveUntil(
-                        AppRoutes.login,
-                        (route) => false,
-                      );
-                    },
-                  ),
-                ],
+                    _buildMenuTile(
+                      icon: Icons.edit_note_rounded,
+                      iconColor: AppColors.warmPeach,
+                      title: 'Chỉnh sửa hồ sơ',
+                      subtitle: 'Tên hiển thị, tiểu sử, cấp độ JLPT',
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _openEditProfile();
+                      },
+                    ),
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(color: Color(0xFF28346A), height: 1),
+                    ),
+
+                    _buildMenuTile(
+                      icon: Icons.logout_rounded,
+                      iconColor: const Color(0xFFEF4444),
+                      title: 'Đăng xuất',
+                      titleColor: const Color(0xFFEF4444),
+                      onTap: () async {
+                        Navigator.of(ctx).pop();
+                        await AuthService.instance.logout();
+                        if (!mounted) return;
+                        Navigator.of(context).pushNamedAndRemoveUntil(
+                          AppRoutes.login,
+                          (route) => false,
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   List<UserVideoModel> get _tabVideos {
     if (_selectedTab == 0) {
@@ -450,7 +514,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircularProgressIndicator(color: AppColors.periwinkle),
               )
             : RefreshIndicator(
-                onRefresh: _loadProfile,
+                onRefresh: () async {
+                  await Future.wait([_loadProfile(), _loadMembershipStatus()]);
+                },
                 color: AppColors.periwinkle,
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(
@@ -459,6 +525,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   slivers: [
                     SliverToBoxAdapter(child: _buildTopBar()),
                     SliverToBoxAdapter(child: _buildProfileHeader()),
+                    SliverToBoxAdapter(child: _buildActionRow()),
+                    SliverToBoxAdapter(child: _buildMembershipCard()),
                     SliverToBoxAdapter(child: _buildTabBar()),
                     _buildVideoContent(),
                   ],
@@ -495,9 +563,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 IconButton(
                   onPressed: _showMoreMenu,
-                  icon: const Icon(Icons.menu_rounded, size: 22, color: Color(0xFF1E293B)),
+                  icon: const Icon(
+                    Icons.menu_rounded,
+                    size: 22,
+                    color: Color(0xFF1E293B),
+                  ),
                   tooltip: 'Tùy chọn & Cài đặt',
-                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
                   padding: EdgeInsets.zero,
                 ),
                 if (_pendingCount > 0)
@@ -559,9 +634,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         if (_profile.isModerator) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: AppColors.periwinkle.withValues(alpha: 0.15),
+                              color: AppColors.periwinkle.withValues(
+                                alpha: 0.15,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -588,11 +668,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFEEF2FF),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppColors.periwinkle.withValues(alpha: 0.3)),
+                            border: Border.all(
+                              color: AppColors.periwinkle.withValues(
+                                alpha: 0.3,
+                              ),
+                            ),
                           ),
                           child: Text(
                             _profile.currentLevel,
@@ -633,6 +720,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionRow() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _openEditProfile,
+              icon: const Icon(Icons.edit_outlined, size: 17),
+              label: const Text('Chỉnh sửa'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.black87,
+                side: const BorderSide(color: Color(0xFFD9DEE8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.upload),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Đăng video'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.periwinkle,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -696,24 +824,295 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildMembershipCard() {
+    final status = _membershipStatus;
+    final isVip = status?.hasActiveSubscription == true;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
+      child: isVip ? _buildVipCard(status!) : _buildFreeCard(),
+    );
+  }
+
+  Widget _buildVipCard(SubscriptionStatus status) {
+    final isLifetime = status.isLifetime;
+    final planName = status.planName ?? 'Gói VIP';
+    final expiryText = isLifetime
+        ? 'Thời hạn: Vĩnh viễn (Trọn đời)'
+        : 'Hết hạn: ${status.formattedExpiryDate} (Còn ${status.daysRemaining} ngày)';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFD700), Color(0xFFF59E0B)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Color(0xFF0A192F),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'KOTOBA VIP',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            color: Color(0xFFFFD700),
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981)
+                                .withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFF10B981),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.circle,
+                                color: Color(0xFF10B981),
+                                size: 7,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'ĐANG DÙNG',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF10B981),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      planName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0A192F).withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.schedule_rounded,
+                  color: Color(0xFFF59E0B),
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    expiryText,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFFDE68A),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 38,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFF59E0B), width: 1.2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                backgroundColor: const Color(0xFFF59E0B)
+                    .withValues(alpha: 0.12),
+              ),
+              onPressed: _navigateToSubscription,
+              icon: Icon(
+                isLifetime
+                    ? Icons.workspace_premium_rounded
+                    : Icons.upgrade_rounded,
+                size: 16,
+                color: const Color(0xFFFFD700),
+              ),
+              label: Text(
+                isLifetime
+                    ? 'Xem chi tiết đặc quyền VIP'
+                    : 'Nâng cấp lên Gói Trọn Đời',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFFFD700),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFreeCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F2042), Color(0xFF1E3A8A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFF38BDF8).withValues(alpha: 0.4),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Color(0xFFFFD54F),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Kotoba Premium',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      'Gói hiện tại: Miễn phí (Free Tier)',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '✓ Mở khóa toàn bộ AI (Chat AI, Giải thích ngữ pháp, Shadowing AI)\n✓ Không giới hạn lưu từ vựng & Flashcard\n✓ Học tập tập trung, không quảng cáo',
+            style: TextStyle(fontSize: 12, color: Colors.white, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 40,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF38BDF8),
+                foregroundColor: const Color(0xFF0A192F),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 0,
+              ),
+              onPressed: _navigateToSubscription,
+              child: const Text(
+                'Nâng cấp Kotoba Premium ngay',
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTabBar() {
     final tabs = [
-      {
-        'label': 'Video public',
-        'icon': Icons.public_rounded,
-      },
-      {
-        'label': 'Video riêng tư',
-        'icon': Icons.lock_outline_rounded,
-      },
-      {
-        'label': 'Video đã lưu',
-        'icon': Icons.bookmark_outline_rounded,
-      },
-      {
-        'label': 'Video đăng lại',
-        'icon': Icons.repeat_rounded,
-      },
+      {'label': 'Video public', 'icon': Icons.public_rounded},
+      {'label': 'Video riêng tư', 'icon': Icons.lock_outline_rounded},
+      {'label': 'Video đã lưu', 'icon': Icons.bookmark_outline_rounded},
+      {'label': 'Video đăng lại', 'icon': Icons.repeat_rounded},
     ];
 
     return Container(
@@ -747,7 +1146,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: selected ? Colors.black : Colors.black54,
-                        fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                        fontWeight: selected
+                            ? FontWeight.bold
+                            : FontWeight.w500,
                         fontSize: 11,
                       ),
                     ),
@@ -787,7 +1188,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         case 1:
           emptyIcon = Icons.lock_outline_rounded;
           emptyTitle = 'Không có video riêng tư nào';
-          emptySubtitle = 'Chỉ bạn mới có thể xem các video được đặt ở chế độ riêng tư';
+          emptySubtitle =
+              'Chỉ bạn mới có thể xem các video được đặt ở chế độ riêng tư';
           break;
         case 2:
           emptyIcon = Icons.bookmark_outline_rounded;
@@ -829,22 +1231,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Text(
                 emptySubtitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.black45,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(color: Colors.black45, fontSize: 13),
               ),
               if (showUploadBtn) ...[
                 const SizedBox(height: 18),
                 ElevatedButton.icon(
-                  onPressed: () => Navigator.of(context).pushNamed(AppRoutes.upload),
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.upload),
                   icon: const Icon(Icons.add_rounded, size: 18),
                   label: const Text('Đăng video bài học'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.periwinkle,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
                   ),
                 ),
               ],
@@ -898,12 +1303,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 video.thumbnailUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Icon(Icons.play_circle_outline_rounded, color: Colors.white30, size: 36),
+                  child: Icon(
+                    Icons.play_circle_outline_rounded,
+                    color: Colors.white30,
+                    size: 36,
+                  ),
                 ),
               )
             else
               const Center(
-                child: Icon(Icons.play_circle_outline_rounded, color: Colors.white30, size: 36),
+                child: Icon(
+                  Icons.play_circle_outline_rounded,
+                  color: Colors.white30,
+                  size: 36,
+                ),
               ),
 
             // Top Status Badge (if not approved or private)
@@ -912,7 +1325,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 left: 6,
                 top: 6,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: badgeColor!.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(4),
@@ -956,7 +1372,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               bottom: 6,
               child: Row(
                 children: [
-                  const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
+                  const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                   const SizedBox(width: 2),
                   Text(
                     '${video.viewCount}',

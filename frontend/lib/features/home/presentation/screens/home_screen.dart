@@ -66,16 +66,25 @@ class _HomeScreenState extends State<HomeScreen> {
       _isLoading = true;
     });
 
-    final posts = _currentFeedTab == FeedTab.forYou
-        ? await _repository.getForYouFeed()
-        : await _repository.getFollowingFeed();
+    try {
+      final posts = _currentFeedTab == FeedTab.forYou
+          ? await _repository.getForYouFeed()
+          : await _repository.getFollowingFeed();
 
-    if (mounted) {
-      setState(() {
-        _posts = posts;
-        _currentPostIndex = 0;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _posts = posts;
+          _currentPostIndex = 0;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _posts = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -141,6 +150,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   currentTab: _currentFeedTab,
                   theme: activeVideoTheme,
                   onTabChanged: _onFeedTabChanged,
+                  onSubscriptionSuccess: () {
+                    setState(() {
+                      _currentNavIndex = 4;
+                    });
+                  },
                   onSearchTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
