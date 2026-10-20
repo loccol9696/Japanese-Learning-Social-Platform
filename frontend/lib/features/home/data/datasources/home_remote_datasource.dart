@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/storage/token_storage.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../../domain/models/video_post.dart';
 
@@ -30,11 +29,9 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
   }
 
   Future<List<VideoPost>> _fetchFeed(String feed) async {
-    final userData = await TokenStorage.instance.getUserData();
-    final userId = userData?['id'];
+    // Người xem (để biết đã thích / đã lưu) do server lấy từ access token.
     final response = await _apiClient.get(
-      '${ApiConstants.baseUrl}/videos?feed=$feed&size=20'
-      '${userId != null ? '&currentUserId=$userId' : ''}',
+      '${ApiConstants.baseUrl}/videos?feed=$feed&size=20',
     );
 
     if (response is! Map<String, dynamic>) {
@@ -53,24 +50,16 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
 
   @override
   Future<bool> toggleLike(String postId) async {
-    final userData = await TokenStorage.instance.getUserData();
-    final userId = userData?['id'];
     final response = await _apiClient.post(
-      '${ApiConstants.baseUrl}/videos/$postId/like'
-      '${userId != null ? '?currentUserId=$userId' : ''}',
-      withAuth: true,
+      '${ApiConstants.baseUrl}/videos/$postId/like',
     );
     return response is bool ? response : true;
   }
 
   @override
   Future<bool> toggleSave(String postId) async {
-    final userData = await TokenStorage.instance.getUserData();
-    final userId = userData?['id'];
     final response = await _apiClient.post(
-      '${ApiConstants.baseUrl}/videos/$postId/save'
-      '${userId != null ? '?currentUserId=$userId' : ''}',
-      withAuth: true,
+      '${ApiConstants.baseUrl}/videos/$postId/save',
     );
     return response is bool ? response : true;
   }

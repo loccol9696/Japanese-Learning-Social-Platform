@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../data/services/auth_service.dart';
+import 'auth_layout.dart';
 import 'login_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
@@ -99,12 +100,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       _otpController.clear();
-      _showSnackBar(
-        e.statusCode == 400
-            ? 'Mã OTP không đúng hoặc đã hết hạn. Vui lòng thử lại.'
-            : e.message,
-        isError: true,
-      );
+      // 409: tài khoản đã kích hoạt từ trước -> chỉ cần đăng nhập.
+      if (e.statusCode == 409) {
+        _showSnackBar(e.message);
+        _goToLogin();
+        return;
+      }
+      // 400: sai mã (kèm số lần thử còn lại); 429: sai quá nhiều lần, cần mã mới.
+      _showSnackBar(e.message, isError: true);
     } catch (e) {
       if (!mounted) return;
       _showSnackBar(
@@ -130,16 +133,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       _startCountdown();
     } on ApiException catch (e) {
       if (!mounted) return;
-      final message = e.message.toLowerCase();
-      if (message.contains('already activated')) {
-        _showSnackBar('Tài khoản đã được kích hoạt. Vui lòng đăng nhập.');
+      if (e.statusCode == 409) {
+        _showSnackBar(e.message);
         _goToLogin();
         return;
       }
-      if (e.statusCode == 404 || message.contains('not found')) {
-        _showSnackBar('Không tìm thấy tài khoản với email này.', isError: true);
-        return;
-      }
+      // 404: không có tài khoản; 429: gửi quá nhanh / quá nhiều; 503: mail lỗi.
       _showSnackBar(e.message, isError: true);
     } catch (e) {
       if (!mounted) return;
@@ -191,7 +190,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: authPagePadding(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

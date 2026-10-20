@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../data/services/auth_service.dart';
+import 'auth_layout.dart';
 import 'login_screen.dart';
 import 'otp_verification_screen.dart';
 
@@ -294,7 +295,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: authPagePadding(context),
           child: Form(
             key: _formKey,
             child: AutofillGroup(

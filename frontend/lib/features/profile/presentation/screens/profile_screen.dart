@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/data/services/auth_service.dart';
+import '../../../auth/data/auth_session.dart';
 import '../../../video/domain/models/user_video_model.dart';
 import '../../../video/presentation/screens/moderation_queue_screen.dart';
 import '../../../video/presentation/screens/my_videos_status_screen.dart';
@@ -483,7 +483,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       titleColor: const Color(0xFFEF4444),
                       onTap: () async {
                         Navigator.of(ctx).pop();
-                        await AuthService.instance.logout();
+                        await AuthSession.instance.logout();
                         if (!mounted) return;
                         Navigator.of(context).pushNamedAndRemoveUntil(
                           AppRoutes.login,

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
-import '../../../../core/storage/token_storage.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../home/presentation/widgets/bottom_nav_dock.dart';
 
 class UploadVideoScreen extends StatefulWidget {
@@ -43,31 +43,24 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
 
   Future<void> _uploadVideo() async {
     final file = _selectedFile;
-    if (file?.bytes == null) {
+    final bytes = file?.bytes;
+    if (file == null || bytes == null) {
       _showMessage('Vui lòng chọn tệp video trước khi tải lên.');
       return;
     }
 
     setState(() => _isUploading = true);
     try {
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${ApiConstants.baseUrl}/media/upload?folder=jlsp/videos'),
+      // Tải video lớn nên không đặt giới hạn thời gian; ApiClient tự gắn token.
+      final response = await ApiClient.instance.sendMultipart(
+        () => http.MultipartRequest(
+          'POST',
+          Uri.parse('${ApiConstants.baseUrl}/media/upload?folder=jlsp/videos'),
+        )..files.add(
+            http.MultipartFile.fromBytes('file', bytes, filename: file.name),
+          ),
       );
-      request.files.add(
-        http.MultipartFile.fromBytes('file', file!.bytes!, filename: file.name),
-      );
-
-      final response = await request.send();
-      final responseBody = jsonDecode(
-        await response.stream.bytesToString(),
-      ) as Map<String, dynamic>;
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception(responseBody['message'] ?? 'Không thể tải video lên.');
-      }
-
-      final data = responseBody['data'];
+      final data = ApiClient.decodeResponse(response);
       final videoUrl = data is Map<String, dynamic>
           ? (data['secureUrl'] ?? data['secure_url'] ?? data['url'])
           : null;
@@ -474,15 +467,13 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
 
     try {
       for (var attempt = 0; attempt < 60; attempt++) {
-        final response = await http.get(
-          Uri.parse(ApiConstants.speechStatusUrl(taskId)),
+        final result = await ApiClient.instance.get(
+          ApiConstants.speechStatusUrl(taskId),
         );
-        if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (result is! Map<String, dynamic>) {
           throw Exception('Không thể kiểm tra kết quả AI.');
         }
-
-        final body =
-            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final body = result;
         final status = body['status']?.toString();
         if (status == 'COMPLETED') {
           final segments = body['segments'];
@@ -572,17 +563,10 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final userData = await TokenStorage.instance.getUserData();
-      final userId = userData?['id'];
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (userId != null) {
-        headers['X-User-Id'] = userId.toString();
-      }
-
-      final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/videos'),
-        headers: headers,
-        body: jsonEncode({
+      // Người đăng do server lấy từ access token.
+      await ApiClient.instance.post(
+        '${ApiConstants.baseUrl}/videos',
+        body: {
           'title': _titleController.text.trim(),
           'description': _descriptionController.text.trim().isEmpty
               ? null
@@ -593,14 +577,8 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           'videoUrl': widget.videoUrl,
           'subtitles': _subtitleJson(),
           'status': asDraft ? 'PRIVATE' : (_isPublic ? 'PUBLIC' : 'PRIVATE'),
-        }),
+        },
       );
-      final responseBody = response.body.isEmpty
-          ? <String, dynamic>{}
-          : jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception(responseBody['message'] ?? 'Không thể đăng bài học.');
-      }
 
       if (!mounted) return;
       _showMessage('Đăng video bài học thành công.');

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/datasources/profile_remote_datasource.dart';
@@ -127,22 +128,25 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
       // Upload to Cloudinary media endpoint
       try {
         final uri = Uri.parse('${ApiConstants.baseUrl}/media/upload?folder=jlsp/avatars');
-        final request = http.MultipartRequest('POST', uri);
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'file',
-            bytes,
-            filename: file.name.isNotEmpty ? file.name : 'avatar.png',
-          ),
+        // ApiClient tự gắn access token (API upload yêu cầu đăng nhập).
+        final imageBytes = bytes;
+        final response = await ApiClient.instance.sendMultipart(
+          () => http.MultipartRequest('POST', uri)
+            ..files.add(
+              http.MultipartFile.fromBytes(
+                'file',
+                imageBytes,
+                filename: file.name.isNotEmpty ? file.name : 'avatar.png',
+              ),
+            ),
+          timeout: const Duration(seconds: 60),
         );
 
-        final streamedResponse = await request.send();
-        final response = await http.Response.fromStream(streamedResponse);
-
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          final jsonBody = jsonDecode(response.body);
-          final data = jsonBody['data'];
-          final uploadedUrl = data != null ? (data['secureUrl'] ?? data['url']) as String? : null;
+        {
+          final data = ApiClient.decodeResponse(response);
+          final uploadedUrl = data is Map
+              ? (data['secureUrl'] ?? data['url']) as String?
+              : null;
 
           if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
             if (!mounted) return;

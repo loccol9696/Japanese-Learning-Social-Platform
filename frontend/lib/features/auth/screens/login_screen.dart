@@ -4,7 +4,8 @@ import 'package:flutter/services.dart';
 import '../../../app/routes.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/storage/token_storage.dart';
-import '../data/services/auth_service.dart';
+import '../data/auth_session.dart';
+import 'auth_layout.dart';
 import 'forgot_password_screen.dart';
 import 'otp_verification_screen.dart';
 import 'register_screen.dart';
@@ -78,8 +79,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await AuthService.instance.login(
-        usernameOrEmail: identifier,
+      final response = await AuthSession.instance.login(
+        email: identifier,
         password: password,
         rememberMe: _rememberMe,
       );
@@ -96,9 +97,9 @@ class _LoginScreenState extends State<LoginScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
 
-      // If user account is not active, guide to OTP verification
-      if (e.message.toLowerCase().contains('inactive') ||
-          e.message.toLowerCase().contains('activate')) {
+      // 403 = mật khẩu đúng nhưng tài khoản chưa kích hoạt: hướng dẫn xác thực OTP.
+      // (Sai email/mật khẩu là 401, bị khoá tạm vì sai nhiều lần là 429.)
+      if (e.statusCode == 403) {
         _showInactiveDialog(identifier);
       } else {
         _showSnackBar(e.message, isError: true);
@@ -243,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: authPagePadding(context),
           child: AutofillGroup(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,8 +442,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           : () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (context) =>
-                                      const ForgotPasswordScreen(),
+                                  builder: (context) => ForgotPasswordScreen(
+                                    initialEmail: _emailController.text.trim(),
+                                  ),
                                 ),
                               );
                             },
