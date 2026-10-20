@@ -2,15 +2,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/video_post.dart';
+import 'subtitle_mode.dart';
 
 class InteractionSidebar extends StatefulWidget {
   final VideoPost post;
   final AdaptiveVideoTheme? theme;
-  final bool isSubtitlesVisible;
+  final SubtitleMode subtitleMode;
   final VoidCallback? onToggleSubtitles;
   final VoidCallback? onLikeToggle;
   final VoidCallback? onSaveToggle;
@@ -23,7 +23,7 @@ class InteractionSidebar extends StatefulWidget {
     super.key,
     required this.post,
     this.theme,
-    this.isSubtitlesVisible = true,
+    this.subtitleMode = SubtitleMode.bilingual,
     this.onToggleSubtitles,
     this.onLikeToggle,
     this.onSaveToggle,
@@ -188,7 +188,12 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   }
 
   Widget _buildSubtitleToggleButton(AdaptiveVideoTheme theme) {
-    final isVisible = widget.isSubtitlesVisible;
+    final isVisible = widget.subtitleMode != SubtitleMode.off;
+    final label = switch (widget.subtitleMode) {
+      SubtitleMode.bilingual => 'Song ngữ',
+      SubtitleMode.japaneseOnly => 'Tiếng Nhật',
+      SubtitleMode.off => 'Tắt',
+    };
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -216,7 +221,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           ),
         ),
         Text(
-          appStrings.subtitle,
+          label,
           style: TextStyle(
             fontSize: 10.0,
             fontWeight: isVisible ? FontWeight.bold : FontWeight.w500,

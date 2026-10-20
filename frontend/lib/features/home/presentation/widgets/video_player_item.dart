@@ -9,6 +9,7 @@ import '../../domain/models/ruby_segment.dart';
 import 'bottom_nav_dock.dart';
 import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';
+import 'subtitle_mode.dart';
 import 'video_info_overlay.dart';
 
 class VideoPlayerItem extends StatefulWidget {
@@ -33,12 +34,24 @@ class VideoPlayerItem extends StatefulWidget {
 
 class _VideoPlayerItemState extends State<VideoPlayerItem> {
   bool _isPlaying = true;
-  bool _showSubtitles = true;
+  SubtitleMode _subtitleMode = SubtitleMode.bilingual;
   bool _isSeeking = false;
   double _videoProgress = 0.0;
 
   VideoPlayerController? _videoController;
   SubtitleCue? _activeSubtitle;
+
+  bool get _showSubtitles => _subtitleMode != SubtitleMode.off;
+
+  void _cycleSubtitleMode() {
+    setState(() {
+      _subtitleMode = switch (_subtitleMode) {
+        SubtitleMode.bilingual => SubtitleMode.japaneseOnly,
+        SubtitleMode.japaneseOnly => SubtitleMode.off,
+        SubtitleMode.off => SubtitleMode.bilingual,
+      };
+    });
+  }
 
   @override
   void initState() {
@@ -280,12 +293,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                 child: InteractionSidebar(
                   post: widget.post,
                   theme: theme,
-                  isSubtitlesVisible: _showSubtitles,
-                  onToggleSubtitles: () {
-                    setState(() {
-                      _showSubtitles = !_showSubtitles;
-                    });
-                  },
+                  subtitleMode: _subtitleMode,
+                  onToggleSubtitles: _cycleSubtitleMode,
                   onLikeToggle: widget.onLikeToggle,
                   onSaveToggle: widget.onSaveToggle,
                   onFollowToggle: widget.onFollowToggle,
@@ -308,7 +317,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                       padding: const EdgeInsets.only(bottom: 10.0),
                       child: RubySubtitleWidget(
                         rubySegments: displayedSegments,
-                        translation: displayedTranslation,
+                        translation: _subtitleMode == SubtitleMode.bilingual
+                            ? displayedTranslation
+                            : '',
                         theme: theme,
                         sentence: activeCue?.text,
                         onLookupActiveChanged: _handleLookupActiveChanged,
@@ -454,7 +465,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                                   padding: const EdgeInsets.only(bottom: 10),
                                   child: RubySubtitleWidget(
                                     rubySegments: displayedSegments,
-                                    translation: displayedTranslation,
+                                    translation:
+                                        _subtitleMode == SubtitleMode.bilingual
+                                        ? displayedTranslation
+                                        : '',
                                     theme: theme,
                                     sentence: activeCue?.text,
                                     onLookupActiveChanged:
@@ -483,12 +497,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                 child: InteractionSidebar(
                   post: widget.post,
                   theme: theme,
-                  isSubtitlesVisible: _showSubtitles,
-                  onToggleSubtitles: () {
-                    setState(() {
-                      _showSubtitles = !_showSubtitles;
-                    });
-                  },
+                  subtitleMode: _subtitleMode,
+                  onToggleSubtitles: _cycleSubtitleMode,
                   onLikeToggle: widget.onLikeToggle,
                   onSaveToggle: widget.onSaveToggle,
                   onFollowToggle: widget.onFollowToggle,
