@@ -144,11 +144,11 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       children: [
         // 1. Creator Avatar & Follow Button
         _buildCreatorAvatar(activeTheme),
-        const SizedBox(height: 14.0),
+        const SizedBox(height: 2.0),
 
         // 2. Like / Heart Button
         _buildLikeButton(activeTheme),
-        const SizedBox(height: 4.0),
+        const SizedBox(height: 2.0),
 
         // 3. Comments Button
         _buildActionButton(
@@ -157,7 +157,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           countText: _formatCount(widget.post.commentCount),
           onTap: widget.onCommentTap,
         ),
-        const SizedBox(height: 8.0),
+        const SizedBox(height: 2.0),
         _buildActionButton(
           theme: activeTheme,
           icon: _isSaved
@@ -166,7 +166,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           countText: null,
           onTap: _handleSave,
         ),
-        const SizedBox(height: 8.0),
+        const SizedBox(height: 2.0),
 
         // 4. Share Button
         _buildActionButton(
@@ -175,7 +175,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           countText: _formatCount(widget.post.shareCount),
           onTap: widget.onShareTap,
         ),
-        const SizedBox(height: 4.0),
+        const SizedBox(height: 2.0),
 
         // 5. Subtitle Toggle Button (below share)
         _buildSubtitleToggleButton(activeTheme),
@@ -193,14 +193,14 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           onTap: widget.onToggleSubtitles,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
-            width: 38.0,
-            height: 38.0,
+            width: 22.0,
+            height: 22.0,
             child: Center(
               child: Icon(
                 isVisible
                     ? Icons.subtitles_rounded
                     : Icons.subtitles_off_rounded,
-                size: 28.0,
+                size: 22.0,
                 color: isVisible
                     ? (theme.isLight ? theme.primaryAdaptive : Colors.white)
                     : (theme.isLight
@@ -214,7 +214,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
         Text(
           appStrings.subtitle,
           style: TextStyle(
-            fontSize: 11.0,
+            fontSize: 7.0,
             fontWeight: isVisible ? FontWeight.bold : FontWeight.w500,
             color: isVisible
                 ? (theme.isLight ? theme.primaryAdaptive : Colors.white)
@@ -234,8 +234,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       clipBehavior: Clip.none,
       children: [
         Container(
-          width: 48.0,
-          height: 48.0,
+          width: 22.0,
+          height: 22.0,
           padding: const EdgeInsets.all(2.5),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
@@ -273,8 +273,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             onTap: _handleFollow,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              width: 22.0,
-              height: 22.0,
+              width: 14.0,
+              height: 14.0,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: _isFollowing
@@ -293,7 +293,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
               ),
               child: Icon(
                 _isFollowing ? Icons.check_rounded : Icons.add_rounded,
-                size: 16.0,
+                size: 10.0,
                 color: Colors.white,
               ),
             ),
@@ -313,14 +313,14 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           child: ScaleTransition(
             scale: _likeScaleController,
             child: SizedBox(
-              width: 38.0,
-              height: 38.0,
+              width: 22.0,
+              height: 22.0,
               child: Center(
                 child: Icon(
                   _isLiked
                       ? Icons.favorite_rounded
                       : Icons.favorite_border_rounded,
-                  size: 30.0,
+                  size: 22.0,
                   color: _isLiked
                       ? AppColors.sakuraPink
                       : (theme.isLight ? theme.primaryAdaptive : Colors.white),
@@ -340,7 +340,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
         Text(
           _formatCount(_likeCount),
           style: TextStyle(
-            fontSize: 12.0,
+            fontSize: 7.0,
             fontWeight: FontWeight.w600,
             color: theme.isLight ? theme.primaryAdaptive : Colors.white,
             shadows: theme.textShadows,
@@ -363,24 +363,24 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
-            width: 38.0,
-            height: 38.0,
+            width: 22.0,
+            height: 22.0,
             child: Center(
               child: Icon(
                 icon,
-                size: 28.0,
+                size: 22.0,
                 color: theme.isLight ? theme.primaryAdaptive : Colors.white,
                 shadows: theme.textShadows,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 2.0),
+        const SizedBox(height: 1.0),
         if (countText != null)
           Text(
             countText,
             style: TextStyle(
-              fontSize: 12.0,
+              fontSize: 7.0,
               fontWeight: FontWeight.w600,
               color: theme.isLight ? theme.primaryAdaptive : Colors.white,
               shadows: theme.textShadows,

@@ -432,32 +432,6 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                             ),
                           ),
                           _buildPlaybackOverlay(),
-                          Positioned(
-                            right: 12,
-                            bottom: 20,
-                            child: SizedBox(
-                              width: 58,
-                              height: math.max(0.0, videoHeight - 20),
-                              child: FittedBox(
-                                fit: BoxFit.contain,
-                                child: InteractionSidebar(
-                                  post: widget.post,
-                                  theme: theme,
-                                  isSubtitlesVisible: _showSubtitles,
-                                  onToggleSubtitles: () {
-                                    setState(() {
-                                      _showSubtitles = !_showSubtitles;
-                                    });
-                                  },
-                                  onLikeToggle: widget.onLikeToggle,
-                                  onSaveToggle: widget.onSaveToggle,
-                                  onFollowToggle: widget.onFollowToggle,
-                                  allowAccountActions:
-                                      widget.allowAccountActions,
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -471,35 +445,54 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                         horizontal: 16,
                         vertical: 12,
                       ),
-                      child: Column(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Expanded(
-                            child: Align(
-                              alignment: Alignment.bottomLeft,
-                              child: SingleChildScrollView(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (_showSubtitles)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 10,
-                                        ),
-                                        child: RubySubtitleWidget(
-                                          rubySegments: displayedSegments,
-                                          translation: displayedTranslation,
-                                          theme: theme,
-                                          sentence: activeCue?.text,
-                                          onLookupActiveChanged:
-                                              _handleLookupActiveChanged,
-                                        ),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (_showSubtitles)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 10,
                                       ),
-                                    VideoInfoOverlay(
-                                      post: widget.post,
-                                      theme: theme,
+                                      child: RubySubtitleWidget(
+                                        rubySegments: displayedSegments,
+                                        translation: displayedTranslation,
+                                        theme: theme,
+                                        sentence: activeCue?.text,
+                                        onLookupActiveChanged:
+                                            _handleLookupActiveChanged,
+                                      ),
                                     ),
-                                  ],
-                                ),
+                                  VideoInfoOverlay(
+                                    post: widget.post,
+                                    theme: theme,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 58,
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: InteractionSidebar(
+                                post: widget.post,
+                                theme: theme,
+                                isSubtitlesVisible: _showSubtitles,
+                                onToggleSubtitles: () {
+                                  setState(() {
+                                    _showSubtitles = !_showSubtitles;
+                                  });
+                                },
+                                onLikeToggle: widget.onLikeToggle,
+                                onSaveToggle: widget.onSaveToggle,
+                                onFollowToggle: widget.onFollowToggle,
+                                allowAccountActions: widget.allowAccountActions,
                               ),
                             ),
                           ),
