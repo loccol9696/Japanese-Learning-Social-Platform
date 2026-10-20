@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/auth/auth_guard.dart';
+import '../../../auth/data/auth_session.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../../data/services/flashcard_store.dart';
@@ -23,6 +26,9 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   @override
   void initState() {
     super.initState();
+    AuthSession.instance.addListener(_onAuthChanged);
+    _store.addListener(_onStoreUpdated);
+    if (!AuthSession.instance.isAuthenticated) return;
     // Cache-First: Lấy ngay từ RAM hiển thị trong 0ms nếu đã có dữ liệu
     _decks = _store.cachedSets ?? [];
     _isLoading = !_store.hasCachedSets();
@@ -33,9 +39,18 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
 
   @override
   void dispose() {
+    AuthSession.instance.removeListener(_onAuthChanged);
     _store.removeListener(_onStoreUpdated);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onAuthChanged() {
+    if (!mounted) return;
+    setState(() {});
+    if (AuthSession.instance.isAuthenticated && !_store.hasCachedSets()) {
+      _loadDecks();
+    }
   }
 
   void _onStoreUpdated() {
@@ -61,7 +76,8 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
       search: query,
       forceRefresh: forceRefresh,
       onBackgroundUpdated: (updatedList) {
-        if (mounted && (_searchController.text.trim().isEmpty || query != null)) {
+        if (mounted &&
+            (_searchController.text.trim().isEmpty || query != null)) {
           setState(() {
             _decks = updatedList;
             _isLoading = false;
@@ -82,9 +98,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   void _openDeckEditor(FlashcardSetModel deck) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => DeckEditorScreen(deck: deck),
-      ),
+      MaterialPageRoute(builder: (context) => DeckEditorScreen(deck: deck)),
     );
   }
 
@@ -92,9 +106,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   void _openCreateDeck() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const DeckEditorScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const DeckEditorScreen()),
     );
   }
 
@@ -106,10 +118,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
         backgroundColor: const Color(0xFF1E1F28),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(
-            color: Color(0xFF323344),
-            width: 1,
-          ),
+          side: const BorderSide(color: Color(0xFF323344), width: 1),
         ),
         title: Row(
           children: [
@@ -211,10 +220,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
         backgroundColor: const Color(0xFF1E1F28),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(
-            color: Color(0xFF323344),
-            width: 1,
-          ),
+          side: const BorderSide(color: Color(0xFF323344), width: 1),
         ),
         title: const Text(
           'Tạo bộ từ vựng mới',
@@ -288,6 +294,10 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AuthSession.instance.isAuthenticated) {
+      return _buildAuthenticationRequired();
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       body: SafeArea(
@@ -320,7 +330,11 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                       ),
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.add, color: Colors.white, size: 22),
+                      icon: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 22,
+                      ),
                       onPressed: _openCreateDeck,
                       splashRadius: 20,
                     ),
@@ -336,9 +350,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E1F28),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.06),
-                  ),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
                 ),
                 child: TextField(
                   controller: _searchController,
@@ -356,8 +368,10 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                       size: 22,
                     ),
                     border: InputBorder.none,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                   ),
                 ),
               ),
@@ -368,70 +382,116 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             Expanded(
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFFFF2D55)),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFFF2D55),
+                      ),
                     )
                   : _decks.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.folder_open_outlined,
-                                size: 64,
-                                color: Colors.white.withOpacity(0.3),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Chưa có bộ từ vựng nào',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Bấm nút + ở góc phải trên để tạo bộ thẻ đầu tiên',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.folder_open_outlined,
+                            size: 64,
+                            color: Colors.white.withOpacity(0.3),
                           ),
-                        )
-                      : RefreshIndicator(
-                          color: const Color(0xFFFF2D55),
-                          backgroundColor: const Color(0xFF1E1F28),
-                          onRefresh: () =>
-                              _loadDecks(query: _searchController.text, forceRefresh: true),
-                          child: ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 90),
-                            itemCount: _decks.length,
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final deck = _decks[index];
-                              return DeckCardItem(
-                                deck: deck,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          DeckOverviewScreen(deck: deck),
-                                    ),
-                                  );
-                                },
-                                onEdit: () => _openDeckEditor(deck),
-                                onDelete: () =>
-                                  _showDeleteDeckConfirmDialog(deck),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Chưa có bộ từ vựng nào',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Bấm nút + ở góc phải trên để tạo bộ thẻ đầu tiên',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      color: const Color(0xFFFF2D55),
+                      backgroundColor: const Color(0xFF1E1F28),
+                      onRefresh: () => _loadDecks(
+                        query: _searchController.text,
+                        forceRefresh: true,
+                      ),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 90),
+                        itemCount: _decks.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final deck = _decks[index];
+                          return DeckCardItem(
+                            deck: deck,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      DeckOverviewScreen(deck: deck),
+                                ),
                               );
                             },
-                          ),
-                        ),
+                            onEdit: () => _openDeckEditor(deck),
+                            onDelete: () => _showDeleteDeckConfirmDialog(deck),
+                          );
+                        },
+                      ),
+                    ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAuthenticationRequired() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.lock_outline_rounded,
+                color: Colors.white54,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Đăng nhập để sử dụng Flashcard',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Bộ thẻ và tiến trình học của bạn chỉ hiển thị sau khi đăng nhập.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white60),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: () async {
+                  await requireAuthentication(context);
+                },
+                child: const Text('Đăng nhập ngay'),
+              ),
+            ],
+          ),
         ),
       ),
     );

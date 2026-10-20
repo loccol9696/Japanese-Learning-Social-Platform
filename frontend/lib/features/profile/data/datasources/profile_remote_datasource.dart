@@ -38,22 +38,6 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
 
   static const String _storageKey = 'jlsp_user_profile_data';
 
-  static const UserProfileModel _defaultProfile = UserProfileModel(
-    id: 1,
-    username: 'nihongo_pro',
-    email: 'learner@jlsp.com',
-    displayName: 'Sakura Learner',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
-    currentLevel: 'N3',
-    bio: 'Konnichiwa! Đang học N3 để chuẩn bị du học Tokyo vào mùa xuân.',
-    interests: ['Anime & Manga', 'Giao tiếp hằng ngày', 'Luyện thi JLPT'],
-    topics: [
-      TopicModel(id: 1, name: 'Anime & Manga'),
-      TopicModel(id: 2, name: 'Giao tiếp hằng ngày'),
-      TopicModel(id: 3, name: 'Luyện thi JLPT'),
-    ],
-  );
-
   static const List<TopicModel> _defaultTopics = [
     TopicModel(id: 1, name: 'Anime & Manga'),
     TopicModel(id: 2, name: 'Giao tiếp hằng ngày'),
@@ -124,7 +108,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       return stored;
     }
 
-    return _defaultProfile;
+    return const UserProfileModel();
   }
 
   @override

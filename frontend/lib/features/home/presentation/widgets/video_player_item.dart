@@ -441,62 +441,30 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                     child: Container(
                       width: double.infinity,
                       color: Colors.black,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (_showSubtitles)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 10,
-                                      ),
-                                      child: RubySubtitleWidget(
-                                        rubySegments: displayedSegments,
-                                        translation: displayedTranslation,
-                                        theme: theme,
-                                        sentence: activeCue?.text,
-                                        onLookupActiveChanged:
-                                            _handleLookupActiveChanged,
-                                      ),
-                                    ),
-                                  VideoInfoOverlay(
-                                    post: widget.post,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 78, 16),
+                      child: Align(
+                        alignment: Alignment.bottomLeft,
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (_showSubtitles)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: RubySubtitleWidget(
+                                    rubySegments: displayedSegments,
+                                    translation: displayedTranslation,
                                     theme: theme,
+                                    sentence: activeCue?.text,
+                                    onLookupActiveChanged:
+                                        _handleLookupActiveChanged,
                                   ),
-                                ],
-                              ),
-                            ),
+                                ),
+                              VideoInfoOverlay(post: widget.post, theme: theme),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 58,
-                            child: Align(
-                              alignment: Alignment.bottomCenter,
-                              child: InteractionSidebar(
-                                post: widget.post,
-                                theme: theme,
-                                isSubtitlesVisible: _showSubtitles,
-                                onToggleSubtitles: () {
-                                  setState(() {
-                                    _showSubtitles = !_showSubtitles;
-                                  });
-                                },
-                                onLikeToggle: widget.onLikeToggle,
-                                onSaveToggle: widget.onSaveToggle,
-                                onFollowToggle: widget.onFollowToggle,
-                                allowAccountActions: widget.allowAccountActions,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -508,6 +476,24 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                 right: 0,
                 bottom: bottomReservedHeight,
                 child: _buildProgressBar(theme),
+              ),
+              Positioned(
+                right: 8,
+                bottom: bottomReservedHeight + 16,
+                child: InteractionSidebar(
+                  post: widget.post,
+                  theme: theme,
+                  isSubtitlesVisible: _showSubtitles,
+                  onToggleSubtitles: () {
+                    setState(() {
+                      _showSubtitles = !_showSubtitles;
+                    });
+                  },
+                  onLikeToggle: widget.onLikeToggle,
+                  onSaveToggle: widget.onSaveToggle,
+                  onFollowToggle: widget.onFollowToggle,
+                  allowAccountActions: widget.allowAccountActions,
+                ),
               ),
             ],
           );

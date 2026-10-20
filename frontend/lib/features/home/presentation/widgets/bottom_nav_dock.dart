@@ -155,62 +155,23 @@ class BottomNavDock extends StatelessWidget {
     );
   }
 
-  /// TikTok-style "+" button: white pill with cyan / pink offset edges.
+  /// Minimalist branded action button for uploading a video.
   Widget _buildCreateButton() {
-    const double width = 40.0;
-    const double height = 27.0;
-    const double innerWidth = 35.0;
-    final radius = BorderRadius.circular(7.0);
-
     return Tooltip(
       message: isModerator
           ? appStrings.navApproveVideo
           : appStrings.navAddVideo,
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: innerWidth,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF25F4EE),
-                  borderRadius: radius,
-                ),
-              ),
-            ),
-            Positioned(
-              right: 0,
-              top: 0,
-              bottom: 0,
-              width: innerWidth,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFE2C55),
-                  borderRadius: radius,
-                ),
-              ),
-            ),
-            Center(
-              child: Container(
-                width: innerWidth - 5.0,
-                height: height,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: radius,
-                ),
-                child: Icon(
-                  isModerator ? Icons.fact_check_rounded : Icons.add_rounded,
-                  size: 20.0,
-                  color: Colors.black,
-                ),
-              ),
-            ),
-          ],
+      child: Container(
+        width: 52.0,
+        height: 34.0,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12.0),
+          color: Colors.white,
+        ),
+        child: Icon(
+          isModerator ? Icons.fact_check_rounded : Icons.add_rounded,
+          size: 27.0,
+          color: Colors.black,
         ),
       ),
     );
