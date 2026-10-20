@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../flashcard/data/models/flashcard_set_model.dart';
 import '../../../flashcard/data/services/flashcard_service.dart';
 import '../../../flashcard/data/services/flashcard_store.dart';
@@ -104,15 +105,7 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+    AppToast.showError(message, context: context);
   }
 
   Future<String?> _askDeckTitle() {

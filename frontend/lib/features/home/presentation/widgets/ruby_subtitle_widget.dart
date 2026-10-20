@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/tts_service.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../flashcard/data/services/flashcard_service.dart';
 import '../../../flashcard/data/services/flashcard_store.dart';
 import '../../data/services/dictionary_service.dart';
@@ -348,24 +349,20 @@ class _WordLookupCardState extends State<_WordLookupCard> {
       if (!mounted) return;
       _showSnackBar('Đã lưu "${word.term}" vào "${choice.title}"');
     } on ApiException catch (e) {
-      if (mounted) _showSnackBar(e.message);
+      if (mounted) _showSnackBar(e.message, isError: true);
     } catch (_) {
-      if (mounted) _showSnackBar('Không lưu được từ. Vui lòng thử lại.');
+      if (mounted) _showSnackBar('Không lưu được từ. Vui lòng thử lại.', isError: true);
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (isError) {
+      AppToast.showError(message, context: context);
+    } else {
+      AppToast.showSuccess(message, context: context);
+    }
   }
 
   @override

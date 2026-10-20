@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../app/routes.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/storage/token_storage.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../data/auth_session.dart';
 import 'auth_layout.dart';
 import 'forgot_password_screen.dart';
@@ -89,11 +90,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final displayName =
           response.user?.displayName ?? response.user?.username ?? 'bạn';
-      _showSnackBar('Đăng nhập thành công! Chào mừng $displayName');
+
+      // Clear any pending snackbars before navigation
+      ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
 
       // Navigate to Home screen
       Navigator.of(context)
           .pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+
+      AppToast.showSuccess('Đăng nhập thành công! Chào mừng $displayName');
     } on ApiException catch (e) {
       if (!mounted) return;
 
@@ -208,34 +213,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(fontSize: 14, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: isError
-            ? const Color(0xFFE53935)
-            : const Color(0xFF2E7D32),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    if (isError) {
+      AppToast.showError(message, context: context);
+    } else {
+      AppToast.showSuccess(message, context: context);
+    }
   }
 
   @override

@@ -14,7 +14,7 @@ import '../widgets/video_player_item.dart';
 import '../../../explore/presentation/explore_screen.dart';
 import '../../../flashcard/presentation/screens/deck_library_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
-
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/storage/token_storage.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -228,14 +228,11 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (error) {
       if (!mounted) return;
       _updatePostLikeState(post.id, previousLiked);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Không thể cập nhật lượt thích: $error'),
-          backgroundColor: AppColors.error,
-        ),
+      AppToast.showError(
+        'Không thể cập nhật lượt thích: $error',
+        context: context,
       );
     }
-
   }
 
   Future<void> _handleSaveToggle(VideoPost post) async {
@@ -245,15 +242,17 @@ class _HomeScreenState extends State<HomeScreen> {
       final confirmedSaved = await _repository.toggleSave(post.id);
       if (mounted) {
         _updatePostSaveState(post.id, confirmedSaved);
+        AppToast.showSuccess(
+          confirmedSaved ? 'Đã lưu video' : 'Đã bỏ lưu video',
+          context: context,
+        );
       }
     } catch (error) {
       if (!mounted) return;
       _updatePostSaveState(post.id, previousSaved);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Không thể cập nhật video đã lưu: $error'),
-          backgroundColor: AppColors.error,
-        ),
+      AppToast.showError(
+        'Không thể cập nhật video đã lưu: $error',
+        context: context,
       );
     }
   }

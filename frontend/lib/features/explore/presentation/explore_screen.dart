@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../data/explore_service.dart';
 import '../data/explore_video.dart';
 import 'explore_video_player_screen.dart';
@@ -103,7 +104,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       });
     } catch (e) {
       if (!mounted || token != _requestToken) return;
-      _showSnackBar(_messageOf(e));
+      _showSnackBar(_messageOf(e), isError: true);
     } finally {
       if (mounted && token == _requestToken) {
         setState(() => _isLoadingMore = false);
@@ -164,7 +165,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       if (current != -1) {
         setState(() => _videos[current] = video.copyWith(isSaved: !newSaved));
       }
-      _showSnackBar(_messageOf(e));
+      _showSnackBar(_messageOf(e), isError: true);
     }
   }
 
@@ -181,16 +182,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return 'Không tải được video. Vui lòng thử lại.';
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (isError) {
+      AppToast.showError(message, context: context);
+    } else {
+      AppToast.showSuccess(message, context: context);
+    }
   }
 
   @override

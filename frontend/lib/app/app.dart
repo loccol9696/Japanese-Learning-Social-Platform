@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../core/constants/app_constants.dart';
 import '../core/localization/locale_manager.dart';
 import '../core/theme/app_theme.dart';
+import '../core/widgets/app_toast.dart';
 import '../features/auth/data/auth_session.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/home/presentation/screens/home_screen.dart';
@@ -40,9 +41,6 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  final GlobalKey<ScaffoldMessengerState> _messengerKey =
-      GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<void>? _expiredSubscription;
 
   @override
@@ -50,18 +48,11 @@ class _AppState extends State<App> {
     super.initState();
     // Phiên hết hạn ở bất kỳ màn nào: về màn Đăng nhập và báo cho người dùng.
     _expiredSubscription = AuthSession.instance.sessionExpired.listen((_) {
-      _navigatorKey.currentState?.pushAndRemoveUntil(
+      AppToast.navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
         (route) => false,
       );
-      _messengerKey.currentState
-        ?..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      AppToast.showInfo('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
     });
   }
 
@@ -79,8 +70,7 @@ class _AppState extends State<App> {
         return MaterialApp(
           title: AppConstants.appName,
           debugShowCheckedModeBanner: false,
-          navigatorKey: _navigatorKey,
-          scaffoldMessengerKey: _messengerKey,
+          navigatorKey: AppToast.navigatorKey,
           theme: AppTheme.darkTheme,
           scrollBehavior: const AppScrollBehavior(),
           home: const AuthGate(),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../data/services/auth_service.dart';
 import 'auth_layout.dart';
 
@@ -159,35 +160,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                isError ? Icons.error_outline : Icons.check_circle_outline,
-                color: Colors.white,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(fontSize: 14, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: isError
-              ? const Color(0xFFE53935)
-              : const Color(0xFF2E7D32),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 4),
-        ),
-      );
+    if (isError) {
+      AppToast.showError(message, context: context);
+    } else {
+      AppToast.showSuccess(message, context: context);
+    }
   }
 
   InputDecoration _decoration({
