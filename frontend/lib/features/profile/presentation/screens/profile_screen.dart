@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../../video/domain/models/user_video_model.dart';
@@ -485,10 +486,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Navigator.of(ctx).pop();
                         await AuthSession.instance.logout();
                         if (!mounted) return;
-                        Navigator.of(context).pushNamedAndRemoveUntil(
-                          AppRoutes.login,
-                          (route) => false,
-                        );
+                        await navigateToGuestHome(context);
                       },
                     ),
                   ],

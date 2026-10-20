@@ -16,6 +16,8 @@ import '../../../flashcard/presentation/screens/deck_library_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/storage/token_storage.dart';
+import '../../../../core/auth/auth_guard.dart';
+import '../../../auth/data/auth_session.dart';
 
 class HomeScreen extends StatefulWidget {
   final HomeRepository? repository;
@@ -28,7 +30,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final HomeRepository _repository;
-  late final PageController _pageController;
+  late final PageController _tabPageController;
+  late final PageController _feedPageController;
 
   FeedTab _currentFeedTab = FeedTab.forYou;
   int _currentNavIndex = 0;
@@ -43,7 +46,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _repository =
         widget.repository ??
         HomeRepositoryImpl(remoteDataSource: HomeRemoteDataSourceImpl());
-    _pageController = PageController();
+    _tabPageController = PageController();
+    _feedPageController = PageController();
     _checkRole();
     _loadFeed();
   }
@@ -58,7 +62,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _tabPageController.dispose();
+    _feedPageController.dispose();
     super.dispose();
   }
 
@@ -89,7 +94,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onFeedTabChanged(FeedTab tab) {
+  Future<void> _onFeedTabChanged(FeedTab tab) async {
+    if (tab == FeedTab.following && !AuthSession.instance.isAuthenticated) {
+      if (await requireAuthentication(context) &&
+          mounted &&
+          AuthSession.instance.isAuthenticated) {
+        setState(() => _currentFeedTab = tab);
+        _loadFeed();
+      }
+      return;
+    }
     if (_currentFeedTab != tab) {
       setState(() {
         _currentFeedTab = tab;
@@ -99,21 +113,57 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _onNavTabSelected(int index) async {
+    if (index == 2 || index == 3 || index == 4) {
+      final authenticated = await requireAuthentication(context);
+      if (!mounted || !authenticated) return;
+    }
     if (index == 2) {
       if (_isModerator) {
         await Navigator.of(context).pushNamed(AppRoutes.moderationQueue);
       } else {
         final result = await Navigator.of(context).pushNamed(AppRoutes.upload);
         if (!mounted) return;
-        if (result is int && result != 2) {
-          setState(() => _currentNavIndex = result);
+        if (result is int && result != BottomNavDock.createIndex) {
+          _selectTab(result);
         }
       }
       return;
     }
-    setState(() {
-      _currentNavIndex = index;
-    });
+    _selectTab(index);
+  }
+
+  void _selectTab(int navIndex) {
+    final pageIndex = _pageIndexForNavIndex(navIndex);
+    if (pageIndex == null) return;
+    if (_tabPageController.hasClients) {
+      _tabPageController.animateToPage(
+        pageIndex,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      setState(() => _currentNavIndex = navIndex);
+    }
+  }
+
+  int? _pageIndexForNavIndex(int navIndex) {
+    return switch (navIndex) {
+      0 => 0,
+      1 => 1,
+      3 => 2,
+      4 => 3,
+      _ => null,
+    };
+  }
+
+  int _navIndexForPageIndex(int pageIndex) {
+    return switch (pageIndex) {
+      0 => 0,
+      1 => 1,
+      2 => 3,
+      3 => 4,
+      _ => 0,
+    };
   }
 
   @override
@@ -125,25 +175,26 @@ class _HomeScreenState extends State<HomeScreen> {
       isLight: currentPost?.isLightBackground ?? false,
     );
 
-    Widget mainContent;
-    if (_currentNavIndex == 0) {
-      mainContent = _buildVideoFeed();
-    } else if (_currentNavIndex == 1) {
-      mainContent = const ExploreScreen();
-    } else if (_currentNavIndex == 3) {
-      mainContent = const DeckLibraryScreen();
-    } else if (_currentNavIndex == 4) {
-      mainContent = const ProfileScreen();
-    } else {
-      mainContent = _buildPlaceholderTab(_currentNavIndex);
-    }
-
     return Scaffold(
       backgroundColor: AppColors.backgroundCanvas,
       body: Stack(
         children: [
-          // 1. Main Content based on Nav Tab
-          mainContent,
+          // Horizontal tab navigation; the feed inside the first page keeps
+          // its own vertical PageView controller.
+          PageView(
+            controller: _tabPageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentNavIndex = _navIndexForPageIndex(index);
+              });
+            },
+            children: [
+              _KeepAlivePage(child: _buildVideoFeed()),
+              const _KeepAlivePage(child: ExploreScreen()),
+              const _KeepAlivePage(child: DeckLibraryScreen()),
+              const _KeepAlivePage(child: ProfileScreen()),
+            ],
+          ),
 
           // 2. Fixed Top Header (Only on Home Feed)
           if (_currentNavIndex == 0)
@@ -194,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return PageView.builder(
-      controller: _pageController,
+      controller: _feedPageController,
       scrollDirection: Axis.vertical,
       itemCount: _posts.length,
       onPageChanged: (index) {
@@ -209,13 +260,19 @@ class _HomeScreenState extends State<HomeScreen> {
           post: post,
           onLikeToggle: () => _handleLikeToggle(post),
           onSaveToggle: () => _handleSaveToggle(post),
-          onFollowToggle: () => _repository.toggleFollow(post.creatorTag),
+          onFollowToggle: () => _handleFollowToggle(post),
+          allowAccountActions: AuthSession.instance.isAuthenticated,
         );
       },
     );
   }
 
   Future<void> _handleLikeToggle(VideoPost post) async {
+    if (!AuthSession.instance.isAuthenticated) {
+      if (!await requireAuthentication(context)) return;
+      if (!mounted) return;
+      setState(() {});
+    }
     final previousLiked = post.isLiked;
     final optimisticLiked = !previousLiked;
     _updatePostLikeState(post.id, optimisticLiked);
@@ -236,6 +293,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleSaveToggle(VideoPost post) async {
+    if (!AuthSession.instance.isAuthenticated) {
+      if (!await requireAuthentication(context)) return;
+      if (!mounted) return;
+      setState(() {});
+    }
     final previousSaved = post.isSaved;
     _updatePostSaveState(post.id, !previousSaved);
     try {
@@ -252,6 +314,23 @@ class _HomeScreenState extends State<HomeScreen> {
       _updatePostSaveState(post.id, previousSaved);
       AppToast.showError(
         'Không thể cập nhật video đã lưu: $error',
+        context: context,
+      );
+    }
+  }
+
+  Future<void> _handleFollowToggle(VideoPost post) async {
+    if (!AuthSession.instance.isAuthenticated) {
+      if (!await requireAuthentication(context)) return;
+      if (!mounted) return;
+      setState(() {});
+    }
+    try {
+      await _repository.toggleFollow(post.creatorTag);
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.showError(
+        'Không thể cập nhật theo dõi: $error',
         context: context,
       );
     }
@@ -279,51 +358,25 @@ class _HomeScreenState extends State<HomeScreen> {
       _posts[index] = post.copyWith(isLiked: isLiked, likeCount: likeCount);
     });
   }
+}
 
-  Widget _buildPlaceholderTab(int index) {
-    final titles = [
-      appStrings.navHome,
-      appStrings.navExplore,
-      appStrings.navAddVideo,
-      appStrings.navFlashcards,
-      appStrings.navProfile,
-    ];
-    final icons = [
-      Icons.home_rounded,
-      Icons.search_rounded,
-      Icons.add_rounded,
-      Icons.layers_rounded,
-      Icons.person_rounded,
-    ];
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
 
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icons[index],
-            size: 64.0,
-            color: AppColors.periwinkle.withValues(alpha: 0.8),
-          ),
-          const SizedBox(height: 16.0),
-          Text(
-            titles[index],
-            style: const TextStyle(
-              fontSize: 20.0,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8.0),
-          Text(
-            appStrings.featureUnderDevelopment,
-            style: const TextStyle(
-              fontSize: 14.0,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
+  const _KeepAlivePage({required this.child});
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin<_KeepAlivePage> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

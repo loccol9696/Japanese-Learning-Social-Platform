@@ -17,6 +17,7 @@ class InteractionSidebar extends StatefulWidget {
   final VoidCallback? onFollowToggle;
   final VoidCallback? onCommentTap;
   final VoidCallback? onShareTap;
+  final bool allowAccountActions;
 
   const InteractionSidebar({
     super.key,
@@ -29,6 +30,7 @@ class InteractionSidebar extends StatefulWidget {
     this.onFollowToggle,
     this.onCommentTap,
     this.onShareTap,
+    this.allowAccountActions = true,
   });
 
   @override
@@ -63,7 +65,11 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   @override
   void didUpdateWidget(covariant InteractionSidebar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.post.id != widget.post.id) {
+    if (oldWidget.post.id != widget.post.id ||
+        oldWidget.post.isLiked != widget.post.isLiked ||
+        oldWidget.post.isSaved != widget.post.isSaved ||
+        oldWidget.post.isFollowing != widget.post.isFollowing ||
+        oldWidget.post.likeCount != widget.post.likeCount) {
       _isLiked = widget.post.isLiked;
       _isSaved = widget.post.isSaved;
       _isFollowing = widget.post.isFollowing;
@@ -78,6 +84,10 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   }
 
   void _handleLike() {
+    if (!widget.allowAccountActions) {
+      widget.onLikeToggle?.call();
+      return;
+    }
     setState(() {
       _isLiked = !_isLiked;
       if (_isLiked) {
@@ -95,6 +105,10 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   }
 
   void _handleFollow() {
+    if (!widget.allowAccountActions) {
+      widget.onFollowToggle?.call();
+      return;
+    }
     setState(() {
       _isFollowing = !_isFollowing;
     });
@@ -102,6 +116,10 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   }
 
   void _handleSave() {
+    if (!widget.allowAccountActions) {
+      widget.onSaveToggle?.call();
+      return;
+    }
     setState(() => _isSaved = !_isSaved);
     widget.onSaveToggle?.call();
   }

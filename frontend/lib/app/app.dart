@@ -83,7 +83,7 @@ class _AppState extends State<App> {
   }
 }
 
-/// Màn khởi đầu: khôi phục phiên đã lưu rồi vào Home hoặc Đăng nhập.
+/// Màn khởi đầu: khôi phục phiên đã lưu rồi vào Home, kể cả khi là guest.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -114,7 +114,7 @@ class _AuthGateState extends State<AuthGate> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        return snapshot.data == true ? const HomeScreen() : const LoginScreen();
+        return const HomeScreen();
       },
     );
   }

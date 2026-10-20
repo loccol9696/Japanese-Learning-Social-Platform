@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/auth/auth_guard.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../data/explore_service.dart';
 import '../data/explore_video.dart';
-import 'explore_video_player_screen.dart';
+import '../../home/presentation/widgets/video_player_item.dart';
 
 /// Màn Khám phá: tìm kiếm + lọc + lưới video, dữ liệu lấy hoàn toàn từ backend.
 class ExploreScreen extends StatefulWidget {
@@ -36,6 +37,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   bool _isLoading = false;
   bool _isLoadingMore = false;
   String? _error;
+  int? _selectedVideoIndex;
+  PageController? _videoFeedController;
 
   /// Tăng mỗi lần đổi bộ lọc/từ khoá để bỏ qua kết quả của request cũ.
   int _requestToken = 0;
@@ -52,6 +55,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _searchDebounce?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
+    _videoFeedController?.dispose();
     super.dispose();
   }
 
@@ -150,6 +154,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _toggleSave(ExploreVideo video) async {
+    if (!await requireAuthentication(context)) return;
     final index = _videos.indexWhere((v) => v.id == video.id);
     if (index == -1) return;
     final newSaved = !video.isSaved;
@@ -169,12 +174,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  void _openVideo(ExploreVideo video) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ExploreVideoPlayerScreen(post: video.post),
-      ),
-    );
+  void _openVideo(int index) {
+    _videoFeedController?.dispose();
+    setState(() {
+      _selectedVideoIndex = index;
+      _videoFeedController = PageController(initialPage: index);
+    });
+  }
+
+  void _closeVideoFeed() {
+    _videoFeedController?.dispose();
+    setState(() {
+      _videoFeedController = null;
+      _selectedVideoIndex = null;
+    });
   }
 
   String _messageOf(Object e) {
@@ -192,18 +205,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_selectedVideoIndex != null) {
+      return _buildVideoFeed();
+    }
+
     // Chừa chỗ cho thanh menu dưới (nằm đè lên nội dung trong HomeScreen).
     final bottomInset = MediaQuery.of(context).padding.bottom + 84.0;
 
     return ColoredBox(
       color: _background,
       child: SafeArea(
+        top: true,
         bottom: false,
         child: Column(
           children: [
-            const SizedBox(height: 8),
             _buildSearchBar(),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             _buildFilterChips(),
             const SizedBox(height: 12),
             Expanded(child: _buildBody(bottomInset)),
@@ -213,31 +230,78 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
+  Widget _buildVideoFeed() {
+    final controller = _videoFeedController;
+    if (controller == null || _videos.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return ColoredBox(
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          PageView.builder(
+            controller: controller,
+            scrollDirection: Axis.vertical,
+            itemCount: _videos.length,
+            itemBuilder: (context, index) {
+              final video = _videos[index];
+              return VideoPlayerItem(key: ValueKey(video.id), post: video.post);
+            },
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: IconButton(
+                  tooltip: 'Quay lại danh sách',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black38,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                  onPressed: _closeVideoFeed,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: TextField(
-        controller: _searchController,
-        onChanged: _onSearchChanged,
-        textInputAction: TextInputAction.search,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
-        cursorColor: _accent,
-        decoration: InputDecoration(
-          hintText: 'Tìm video theo tiêu đề, nội dung...',
-          hintStyle: const TextStyle(color: _textMuted, fontSize: 14),
-          prefixIcon: const Icon(Icons.search_rounded, color: _textMuted),
-          suffixIcon: _searchController.text.isEmpty
-              ? null
-              : IconButton(
-                  icon: const Icon(Icons.close_rounded, color: _textMuted),
-                  onPressed: _clearSearch,
-                ),
-          filled: true,
-          fillColor: _surface,
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide.none,
+      padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
+      child: SizedBox(
+        height: 46,
+        child: TextField(
+          controller: _searchController,
+          onChanged: _onSearchChanged,
+          textInputAction: TextInputAction.search,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          cursorColor: _accent,
+          decoration: InputDecoration(
+            hintText: 'Tìm video theo tiêu đề, nội dung...',
+            hintStyle: const TextStyle(color: _textMuted, fontSize: 14),
+            prefixIcon: const Icon(Icons.search_rounded, color: _textMuted),
+            suffixIcon: _searchController.text.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close_rounded, color: _textMuted),
+                    onPressed: _clearSearch,
+                  ),
+            filled: true,
+            fillColor: _surface,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
       ),
@@ -326,18 +390,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 0.56,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 0.72,
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, index) => _ExploreVideoCard(
                   video: _videos[index],
-                  onTap: () => _openVideo(_videos[index]),
+                  onTap: () => _openVideo(index),
                   onToggleSave: () => _toggleSave(_videos[index]),
                 ),
                 childCount: _videos.length,
@@ -423,7 +487,7 @@ class _ExploreVideoCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: const Color(0xFF1E1E1E),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -485,7 +549,7 @@ class _ExploreVideoCard extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                colors: [Colors.black54, Colors.transparent],
+                colors: [Colors.black45, Colors.transparent],
               ),
             ),
           ),
@@ -554,12 +618,18 @@ class _ExploreVideoCard extends StatelessWidget {
 
   Widget _thumbnailFallback() {
     return Container(
-      color: const Color(0xFF2A2A2A),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF424242), Color(0xFF212121)],
+        ),
+      ),
       alignment: Alignment.center,
       child: const Icon(
         Icons.play_circle_outline_rounded,
         size: 36,
-        color: Colors.white24,
+        color: Colors.white30,
       ),
     );
   }

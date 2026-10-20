@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/tts_service.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
@@ -55,6 +56,8 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
   Future<List<SubtitleToken>>? _tokensFuture;
   SubtitleToken? _selected;
   int? _selectedIndex;
+  final GlobalKey _selectedWordKey = GlobalKey();
+  OverlayEntry? _lookupOverlay;
 
   @override
   void initState() {
@@ -73,6 +76,7 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
 
   @override
   void dispose() {
+    _removeLookupOverlay();
     if (_selected != null) widget.onLookupActiveChanged?.call(false);
     super.dispose();
   }
@@ -87,11 +91,15 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
   void _select(SubtitleToken token, int index) {
     if (_selectedIndex == index) return;
     final wasActive = _selected != null;
+    _removeLookupOverlay();
     setState(() {
       _selected = token;
       _selectedIndex = index;
     });
     if (!wasActive) widget.onLookupActiveChanged?.call(true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _selected != null) _showLookupOverlay();
+    });
   }
 
   void _toggle(SubtitleToken token, int index) {
@@ -104,6 +112,7 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
 
   void _clearSelection() {
     if (_selected == null) return;
+    _removeLookupOverlay();
     setState(() {
       _selected = null;
       _selectedIndex = null;
@@ -111,30 +120,87 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
     widget.onLookupActiveChanged?.call(false);
   }
 
+  void _showLookupOverlay() {
+    _removeLookupOverlay();
+    final selected = _selected;
+    if (selected == null) return;
+
+    final renderObject = _selectedWordKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return;
+    final targetOffset = renderObject.localToGlobal(Offset.zero);
+    final targetSize = renderObject.size;
+    final screenSize = MediaQuery.sizeOf(context);
+    const cardWidth = 280.0;
+    const maxCardHeight = 260.0;
+    const edgePadding = 8.0;
+    const subtitleGap = 14.0;
+    final left = (targetOffset.dx + (targetSize.width - cardWidth) / 2).clamp(
+      edgePadding,
+      screenSize.width - cardWidth - edgePadding,
+    );
+    final availableHeight = targetOffset.dy - subtitleGap - edgePadding;
+    final cardMaxHeight = availableHeight.clamp(0.0, maxCardHeight).toDouble();
+    final bottom = screenSize.height - targetOffset.dy + subtitleGap;
+
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _lookupOverlay = OverlayEntry(
+      builder: (context) {
+        return Positioned(
+          left: left,
+          bottom: bottom,
+          width: cardWidth,
+          child: Material(
+            color: Colors.transparent,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: cardMaxHeight),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.96, end: 1.0),
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOutCubic,
+                builder: (context, scale, child) {
+                  return Opacity(
+                    opacity: ((scale - 0.96) / 0.04).clamp(0.0, 1.0),
+                    child: Transform.scale(
+                      scale: scale,
+                      alignment: Alignment.bottomCenter,
+                      child: child,
+                    ),
+                  );
+                },
+                child: SingleChildScrollView(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {},
+                    child: _WordLookupCard(
+                      key: ValueKey(selected.baseForm),
+                      token: selected,
+                      sentence: widget.sentence ?? '',
+                      onClose: _clearSelection,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    overlay.insert(_lookupOverlay!);
+  }
+
+  void _removeLookupOverlay() {
+    _lookupOverlay?.remove();
+    _lookupOverlay = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme ?? const AdaptiveVideoTheme(isLight: false);
-    final selected = _selected;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        if (selected != null) ...[
-          // Chặn chạm vào vùng trống của bảng để không bật/tắt video.
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {},
-            child: _WordLookupCard(
-              key: ValueKey(selected.baseForm),
-              token: selected,
-              sentence: widget.sentence ?? '',
-              onClose: _clearSelection,
-            ),
-          ),
-          const SizedBox(height: 8.0),
-        ],
-        // Giới hạn khu vực phụ đề không chiếm quá 35% chiều cao màn hình
+        // Giữ nguyên kích thước subtitle zone; bảng tra từ không được tham
+        // gia vào layout để không đẩy video, progress bar hoặc navigation.
         ConstrainedBox(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.sizeOf(context).height * 0.35,
@@ -216,6 +282,7 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
         behavior: HitTestBehavior.opaque,
         onTap: () => _toggle(token, index),
         child: Container(
+          key: isSelected ? _selectedWordKey : null,
           padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 1.0),
           decoration: BoxDecoration(
             color: isSelected
@@ -313,6 +380,14 @@ class _WordLookupCardState extends State<_WordLookupCard> {
   /// Mở bảng chọn bộ thẻ, rồi lưu từ vào bộ được chọn.
   Future<void> _chooseAndSave(WordLookup word) async {
     if (_isSaving) return;
+    if (!await requireAuthentication(
+      context,
+      message: 'Bạn cần đăng nhập để lưu từ vựng vào bộ thẻ Flashcard và đồng bộ tiến trình học.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+
     final choice = await showSaveToDeckSheet(
       context,
       savedKeys: (_savedDecks[word.term] ?? const {}).keys.toSet(),
@@ -351,7 +426,9 @@ class _WordLookupCardState extends State<_WordLookupCard> {
     } on ApiException catch (e) {
       if (mounted) _showSnackBar(e.message, isError: true);
     } catch (_) {
-      if (mounted) _showSnackBar('Không lưu được từ. Vui lòng thử lại.', isError: true);
+      if (mounted) {
+        _showSnackBar('Không lưu được từ. Vui lòng thử lại.', isError: true);
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -632,9 +709,8 @@ class _WordLookupCardState extends State<_WordLookupCard> {
   Widget _buildSaveButton(WordLookup word) {
     final isSaved = (_savedDecks[word.term] ?? const {}).isNotEmpty;
 
-    return SizedBox(
-      width: double.infinity,
-      height: 36,
+    return Align(
+      alignment: Alignment.centerLeft,
       child: ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
           backgroundColor: isSaved ? Colors.white12 : _accent,
@@ -642,17 +718,19 @@ class _WordLookupCardState extends State<_WordLookupCard> {
               ? Colors.white12
               : _accent.withValues(alpha: 0.6),
           elevation: 0,
-          padding: EdgeInsets.zero,
+          minimumSize: const Size(0, 38),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
           ),
         ),
         // Đã lưu vẫn bấm được để lưu thêm vào bộ khác.
         onPressed: _isSaving ? null : () => _chooseAndSave(word),
         icon: _isSaving
             ? const SizedBox(
-                width: 14,
-                height: 14,
+                width: 16,
+                height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: Colors.white,
@@ -660,14 +738,14 @@ class _WordLookupCardState extends State<_WordLookupCard> {
               )
             : Icon(
                 isSaved ? Icons.check_rounded : Icons.add_rounded,
-                size: 18,
+                size: 17,
                 color: isSaved ? Colors.white70 : Colors.white,
               ),
         label: Text(
           isSaved ? 'Đã lưu · Lưu vào bộ khác' : 'Lưu vào Flashcard',
           style: TextStyle(
             color: isSaved ? Colors.white70 : Colors.white,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             fontSize: 13.5,
           ),
         ),
