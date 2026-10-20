@@ -40,7 +40,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   static final RegExp _usernameRegex = RegExp(r'^[A-Za-z0-9._]+$');
   static final RegExp _whitespace = RegExp(r'\s');
 
-  bool _agreeTerms = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
@@ -121,14 +120,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final password = _passwordController.text;
 
     if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
-
-    if (!_agreeTerms) {
-      _showSnackBar(
-        'Vui lòng đồng ý với Điều khoản & Chính sách quyền riêng tư',
-        isError: true,
-      );
       return;
     }
 
@@ -280,30 +271,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Nút quay lại
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: const Icon(
-                      Icons.arrow_back_ios,
-                      size: 20,
-                      color: Colors.black87,
-                    ),
-                    onPressed: () {
-                      if (Navigator.of(context).canPop()) {
-                        Navigator.of(context).pop();
-                      } else {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (context) => const LoginScreen(),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
 
-                  // 2. Tiêu đề
+                  // Tiêu đề
                   const Text(
                     'Tạo tài khoản',
                     style: TextStyle(
@@ -420,59 +390,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 28),
 
-                  // 7. Checkbox Đồng ý điều khoản
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: Checkbox(
-                          value: _agreeTerms,
-                          activeColor: const Color(0xFF0D1B3E),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          onChanged: _isLoading
-                              ? null
-                              : (val) {
-                                  setState(() {
-                                    _agreeTerms = val ?? false;
-                                  });
-                                },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: RichText(
-                          text: const TextSpan(
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.black87,
-                            ),
-                            children: [
-                              TextSpan(text: 'Tôi đồng ý với '),
-                              TextSpan(
-                                text: 'Điều khoản',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              TextSpan(text: ' & '),
-                              TextSpan(
-                                text: 'Chính sách quyền riêng tư',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              TextSpan(text: ' của Kotoba'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // 8. Nút Tạo tài khoản
+                  // Nút Tạo tài khoản
                   SizedBox(
                     width: double.infinity,
                     height: 52,
