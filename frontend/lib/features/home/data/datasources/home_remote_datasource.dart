@@ -105,7 +105,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
           ? subtitleCues.first.translation
           : json['description']?.toString() ?? '',
       likeCount: likes,
-      commentCount: 0,
+      commentCount: _toInt(json['commentCount']),
       shareCount: views,
       isLiked: json['isLiked'] == true,
       isSaved: json['isSaved'] == true,

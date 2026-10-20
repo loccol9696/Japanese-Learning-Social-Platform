@@ -11,6 +11,7 @@ import '../../domain/repositories/home_repository.dart';
 import '../widgets/bottom_nav_dock.dart';
 import '../widgets/home_header.dart';
 import '../widgets/video_player_item.dart';
+import '../widgets/comments_sheet.dart';
 import '../../../explore/presentation/explore_screen.dart';
 import '../../../flashcard/presentation/screens/deck_library_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
@@ -451,6 +452,11 @@ class _HomeScreenState extends State<HomeScreen> {
           onLikeToggle: () => _handleLikeToggle(post),
           onSaveToggle: () => _handleSaveToggle(post),
           onFollowToggle: () => _handleFollowToggle(post),
+          onCommentTap: () => showCommentsSheet(
+            context,
+            videoId: post.id,
+            initialCount: post.commentCount,
+          ),
           allowAccountActions: AuthSession.instance.isAuthenticated,
         );
       },

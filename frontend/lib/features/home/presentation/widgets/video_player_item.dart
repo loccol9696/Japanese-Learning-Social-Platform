@@ -20,6 +20,7 @@ class VideoPlayerItem extends StatefulWidget {
   final VoidCallback? onLikeToggle;
   final VoidCallback? onSaveToggle;
   final VoidCallback? onFollowToggle;
+  final VoidCallback? onCommentTap;
   final bool allowAccountActions;
 
   const VideoPlayerItem({
@@ -28,6 +29,7 @@ class VideoPlayerItem extends StatefulWidget {
     this.onLikeToggle,
     this.onSaveToggle,
     this.onFollowToggle,
+    this.onCommentTap,
     this.allowAccountActions = true,
   });
 
@@ -422,6 +424,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                       onLikeToggle: widget.onLikeToggle,
                       onSaveToggle: widget.onSaveToggle,
                       onFollowToggle: widget.onFollowToggle,
+                      onCommentTap: widget.onCommentTap,
                       allowAccountActions: widget.allowAccountActions,
                     ),
                   ),
@@ -634,6 +637,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     onLikeToggle: widget.onLikeToggle,
                     onSaveToggle: widget.onSaveToggle,
                     onFollowToggle: widget.onFollowToggle,
+                    onCommentTap: widget.onCommentTap,
                     allowAccountActions: widget.allowAccountActions,
                   ),
                 ),

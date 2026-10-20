@@ -61,6 +61,8 @@ public class VideoResponse {
      */
     private Integer saveCount;
 
+    private Long commentCount;
+
     /**
      * Trạng thái hiển thị (PUBLIC, PRIVATE...)
      */
