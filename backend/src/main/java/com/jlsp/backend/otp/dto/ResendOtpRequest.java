@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ResendOtpRequest {
 
-    @NotBlank(message = "Email is empty")
-    @Email(message = "Email is not valid")
+    @NotBlank(message = "Vui lòng nhập email")
+    @Email(message = "Định dạng email không hợp lệ")
     private String email;
 }

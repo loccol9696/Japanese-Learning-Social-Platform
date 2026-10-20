@@ -2,6 +2,7 @@ package com.jlsp.backend.video.controller;
 
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.response.PageResponse;
+import com.jlsp.backend.common.security.CurrentUser;
 import com.jlsp.backend.user.entity.JLPTLevel;
 import com.jlsp.backend.video.dto.request.CreateVideoRequest;
 import com.jlsp.backend.video.dto.request.ShadowingSubmissionRequest;
@@ -30,16 +31,6 @@ public class VideoController {
     private final VideoService videoService;
 
     /**
-     * Helper phân giải ID người dùng hiện tại từ Header 'X-User-Id' hoặc query
-     * param 'currentUserId'.
-     * Giúp thuận tiện kiểm thử qua Postman / Client trước khi module JWT hoàn
-     * thiện.
-     */
-    private Long resolveUserId(Long headerId, Long paramId) {
-        return headerId != null ? headerId : paramId;
-    }
-
-    /**
      * Hỗ trợ lọc theo loại feed ("for-you", "following"), cấp độ JLPT, hoặc Creator
      * ID qua Query Parameters.
      * GET /api/v1/videos
@@ -50,11 +41,9 @@ public class VideoController {
             @RequestParam(value = "jlptLevel", required = false) JLPTLevel jlptLevel,
             @RequestParam(value = "userId", required = false) Long targetUserId,
             @RequestParam(value = "search", required = false) String search,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        Long currentUserId = resolveUserId(headerUserId, paramUserId);
+        Long currentUserId = CurrentUser.idOrNull();
         PageResponse<VideoResponse> response = videoService.getAllVideos(currentUserId, feed, jlptLevel, targetUserId,
                 search, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -65,14 +54,9 @@ public class VideoController {
      */
     @PostMapping
     public ResponseEntity<ApiResponse<VideoDetailResponse>> createVideo(
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @Valid @RequestBody CreateVideoRequest request) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L; // Fallback mặc định cho môi trường dev khi chưa có JWT
-        }
+        Long userId = CurrentUser.requireId();
 
         VideoDetailResponse response = videoService.createVideo(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -85,11 +69,9 @@ public class VideoController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<VideoDetailResponse>> getVideoById(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
+            @PathVariable Long id) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
+        Long userId = CurrentUser.idOrNull();
         VideoDetailResponse response = videoService.getVideoById(id, userId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -102,14 +84,9 @@ public class VideoController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<VideoDetailResponse>> updateVideo(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @Valid @RequestBody UpdateVideoRequest request) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         VideoDetailResponse response = videoService.updateVideo(id, userId, request);
         return ResponseEntity.ok(ApiResponse.success(200, "Cập nhật video thành công", response));
@@ -121,14 +98,9 @@ public class VideoController {
     @PatchMapping("/{id}")
     public ResponseEntity<ApiResponse<VideoDetailResponse>> patchVideo(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @RequestBody UpdateVideoRequest request) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         VideoDetailResponse response = videoService.updateVideo(id, userId, request);
         return ResponseEntity.ok(ApiResponse.success(200, "Cập nhật thông tin video thành công", response));
@@ -140,14 +112,9 @@ public class VideoController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteVideo(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
+            @PathVariable Long id) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         videoService.deleteVideo(id, userId);
         return ResponseEntity.ok(ApiResponse.success(200, "Xóa video thành công", null));
@@ -158,14 +125,9 @@ public class VideoController {
      */
     @PostMapping("/{id}/likes")
     public ResponseEntity<ApiResponse<Void>> likeVideo(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
+            @PathVariable Long id) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         videoService.likeVideo(id, userId);
         return ResponseEntity.ok(ApiResponse.success(200, "Đã thích video", null));
@@ -176,14 +138,9 @@ public class VideoController {
      */
     @DeleteMapping("/{id}/likes")
     public ResponseEntity<ApiResponse<Void>> unlikeVideo(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
+            @PathVariable Long id) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         videoService.unlikeVideo(id, userId);
         return ResponseEntity.ok(ApiResponse.success(200, "Đã hủy thích video", null));
@@ -195,14 +152,9 @@ public class VideoController {
      */
     @PostMapping("/{id}/like")
     public ResponseEntity<ApiResponse<Boolean>> toggleLike(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
+            @PathVariable Long id) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         boolean isLiked = videoService.toggleLike(id, userId);
         String message = isLiked ? "Đã thích video" : "Đã hủy thích video";
@@ -215,14 +167,9 @@ public class VideoController {
      */
     @PostMapping("/{id}/saves")
     public ResponseEntity<ApiResponse<Void>> saveVideo(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
+            @PathVariable Long id) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         videoService.saveVideo(id, userId);
         return ResponseEntity.ok(ApiResponse.success(200, "Đã lưu video vào bộ sưu tập", null));
@@ -234,14 +181,9 @@ public class VideoController {
      */
     @DeleteMapping("/{id}/saves")
     public ResponseEntity<ApiResponse<Void>> unsaveVideo(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
+            @PathVariable Long id) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         videoService.unsaveVideo(id, userId);
         return ResponseEntity.ok(ApiResponse.success(200, "Đã bỏ lưu video", null));
@@ -253,14 +195,9 @@ public class VideoController {
      */
     @PostMapping("/{id}/save")
     public ResponseEntity<ApiResponse<Boolean>> toggleSave(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
+            @PathVariable Long id) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         boolean isSaved = videoService.toggleSave(id, userId);
         String message = isSaved ? "Đã lưu video vào bộ sưu tập" : "Đã bỏ lưu video";
@@ -295,14 +232,9 @@ public class VideoController {
     @PutMapping("/{id}/subtitles")
     public ResponseEntity<ApiResponse<VideoDetailResponse>> updateSubtitles(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @Valid @RequestBody UpdateSubtitlesRequest request) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         VideoDetailResponse response = videoService.updateSubtitles(id, userId, request.getSubtitles());
         return ResponseEntity.ok(ApiResponse.success(200, "Cập nhật phụ đề thành công", response));
@@ -315,14 +247,9 @@ public class VideoController {
     @PostMapping("/{id}/shadowing-practices")
     public ResponseEntity<ApiResponse<ShadowingPracticeResponse>> submitShadowingPractice(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @Valid @RequestBody ShadowingSubmissionRequest request) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         ShadowingPracticeResponse response = videoService.submitShadowing(id, userId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -336,14 +263,9 @@ public class VideoController {
      */
     @GetMapping("/{id}/shadowing-practices")
     public ResponseEntity<ApiResponse<List<ShadowingPracticeResponse>>> getShadowingPractices(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
+            @PathVariable Long id) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         List<ShadowingPracticeResponse> response = videoService.getShadowingHistory(id, userId);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -356,10 +278,8 @@ public class VideoController {
     @PostMapping("/{id}/shadowing")
     public ResponseEntity<ApiResponse<ShadowingPracticeResponse>> submitShadowingLegacy(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @Valid @RequestBody ShadowingSubmissionRequest request) {
-        return submitShadowingPractice(id, headerUserId, paramUserId, request);
+        return submitShadowingPractice(id, request);
     }
 
     /**
@@ -368,10 +288,8 @@ public class VideoController {
      */
     @GetMapping("/{id}/shadowing/history")
     public ResponseEntity<ApiResponse<List<ShadowingPracticeResponse>>> getShadowingHistoryLegacy(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
-        return getShadowingPractices(id, headerUserId, paramUserId);
+            @PathVariable Long id) {
+        return getShadowingPractices(id);
     }
 
     /**
@@ -381,11 +299,9 @@ public class VideoController {
     @GetMapping("/feed/for-you")
     public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getForYouFeed(
             @RequestParam(value = "jlptLevel", required = false) JLPTLevel jlptLevel,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
+        Long userId = CurrentUser.idOrNull();
         PageResponse<VideoResponse> response = videoService.getForYouFeed(userId, jlptLevel, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -396,14 +312,9 @@ public class VideoController {
      */
     @GetMapping("/feed/following")
     public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getFollowingFeed(
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         PageResponse<VideoResponse> response = videoService.getFollowingFeed(userId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -416,32 +327,24 @@ public class VideoController {
     @GetMapping("/user/{userId}")
     public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getVideosByUserId(
             @PathVariable Long userId,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        Long viewerId = resolveUserId(headerUserId, paramUserId);
+        Long viewerId = CurrentUser.idOrNull();
         PageResponse<VideoResponse> response = videoService.getVideosByUserId(userId, viewerId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/liked")
     public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getLikedVideos(
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "userId", required = false) Long paramUserId,
             @PageableDefault(size = 30, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) userId = 1L;
+        Long userId = CurrentUser.requireId();
         return ResponseEntity.ok(ApiResponse.success(videoService.getLikedVideos(userId, pageable)));
     }
 
     @GetMapping("/saved")
     public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getSavedVideos(
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "userId", required = false) Long paramUserId,
             @PageableDefault(size = 30, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) userId = 1L;
+        Long userId = CurrentUser.requireId();
         return ResponseEntity.ok(ApiResponse.success(videoService.getSavedVideos(userId, pageable)));
     }
 
@@ -466,14 +369,9 @@ public class VideoController {
      */
     @PostMapping("/{id}/approve")
     public ResponseEntity<ApiResponse<VideoDetailResponse>> approveVideo(
-            @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId) {
+            @PathVariable Long id) {
 
-        Long moderatorId = resolveUserId(headerUserId, paramUserId);
-        if (moderatorId == null) {
-            moderatorId = 1L;
-        }
+        Long moderatorId = CurrentUser.requireId();
 
         VideoDetailResponse response = videoService.approveVideo(id, moderatorId);
         return ResponseEntity.ok(ApiResponse.success(200, "Đã phê duyệt video thành công", response));
@@ -486,14 +384,9 @@ public class VideoController {
     @PostMapping("/{id}/reject")
     public ResponseEntity<ApiResponse<VideoDetailResponse>> rejectVideo(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @Valid @RequestBody com.jlsp.backend.video.dto.request.RejectVideoRequest request) {
 
-        Long moderatorId = resolveUserId(headerUserId, paramUserId);
-        if (moderatorId == null) {
-            moderatorId = 1L;
-        }
+        Long moderatorId = CurrentUser.requireId();
 
         VideoDetailResponse response = videoService.rejectVideo(id, moderatorId, request.getReason());
         return ResponseEntity.ok(ApiResponse.success(200, "Đã từ chối video do vi phạm", response));
@@ -505,14 +398,9 @@ public class VideoController {
      */
     @GetMapping("/my-status")
     public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getMyVideosStatus(
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        Long userId = resolveUserId(headerUserId, paramUserId);
-        if (userId == null) {
-            userId = 1L;
-        }
+        Long userId = CurrentUser.requireId();
 
         PageResponse<VideoResponse> response = videoService.getMyVideosStatus(userId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
