@@ -89,13 +89,14 @@ class ExploreService {
     final username = json['creatorUsername']?.toString().trim() ?? '';
     final post = _mapper.toVideoPost(json);
 
+    final thumbnailUrl = json['thumbnailUrl']?.toString().trim() ?? '';
+
     return ExploreVideo(
       id: id,
       title: json['title']?.toString().trim() ?? '',
       // Ưu tiên thumbnail thật; nếu không có thì dùng khung hình trích từ video.
-      thumbnailUrl:
-          (json['thumbnailUrl']?.toString().trim().isNotEmpty ?? false)
-          ? json['thumbnailUrl'].toString()
+      thumbnailUrl: thumbnailUrl.isNotEmpty
+          ? thumbnailUrl
           : post.backgroundImageUrl,
       viewCount: _toInt(json['viewCount']) ?? 0,
       jlptLevel: json['jlptLevel']?.toString() ?? '',

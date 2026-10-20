@@ -2,8 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/data/auth_session.dart';
 import '../../domain/models/video_post.dart';
 import 'subtitle_mode.dart';
 
@@ -11,6 +13,8 @@ class InteractionSidebar extends StatefulWidget {
   final VideoPost post;
   final AdaptiveVideoTheme? theme;
   final SubtitleMode subtitleMode;
+  final bool? isLikedOverride;
+  final int? likeCountOverride;
   final VoidCallback? onToggleSubtitles;
   final VoidCallback? onLikeToggle;
   final VoidCallback? onSaveToggle;
@@ -24,6 +28,8 @@ class InteractionSidebar extends StatefulWidget {
     required this.post,
     this.theme,
     this.subtitleMode = SubtitleMode.bilingual,
+    this.isLikedOverride,
+    this.likeCountOverride,
     this.onToggleSubtitles,
     this.onLikeToggle,
     this.onSaveToggle,
@@ -83,11 +89,15 @@ class _InteractionSidebarState extends State<InteractionSidebar>
     super.dispose();
   }
 
-  void _handleLike() {
-    if (!widget.allowAccountActions) {
-      widget.onLikeToggle?.call();
+  Future<void> _handleLike() async {
+    if (!AuthSession.instance.isAuthenticated) {
+      await requireAuthentication(
+        context,
+        message: 'Vui lòng đăng nhập để thả tim video này.',
+      );
       return;
     }
+
     setState(() {
       _isLiked = !_isLiked;
       if (_isLiked) {
@@ -153,11 +163,10 @@ class _InteractionSidebarState extends State<InteractionSidebar>
         // 3. Comments Button
         _buildActionButton(
           theme: activeTheme,
-          icon: Icons.chat_bubble_rounded,
+          icon: null,
           countText: _formatCount(widget.post.commentCount),
           onTap: widget.onCommentTap,
-          iconSize: 28.0,
-          iconColor: Colors.white,
+          customIcon: _buildCommentIcon(activeTheme),
           countFontSize: 10.0,
           countColor: Colors.white,
         ),
@@ -169,6 +178,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
               : Icons.bookmark_border_rounded,
           countText: null,
           onTap: _handleSave,
+          iconColor: _isSaved ? AppColors.saveYellow : Colors.white,
         ),
         const SizedBox(height: 8.0),
 
@@ -313,6 +323,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   }
 
   Widget _buildLikeButton(AdaptiveVideoTheme theme) {
+    final isLiked = widget.isLikedOverride ?? _isLiked;
+    final likeCount = widget.likeCountOverride ?? _likeCount;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -326,17 +339,17 @@ class _InteractionSidebarState extends State<InteractionSidebar>
               height: 36.0,
               child: Center(
                 child: Icon(
-                  _isLiked
+                  isLiked
                       ? Icons.favorite_rounded
                       : Icons.favorite_border_rounded,
                   size: 30.0,
-                  color: _isLiked
-                      ? AppColors.sakuraPink
+                  color: isLiked
+                      ? AppColors.likeRed
                       : (theme.isLight ? theme.primaryAdaptive : Colors.white),
                   shadows: _isLiked
                       ? [
                           const Shadow(
-                            color: AppColors.sakuraPink,
+                            color: AppColors.likeRed,
                             blurRadius: 10.0,
                           ),
                         ]
@@ -347,7 +360,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           ),
         ),
         Text(
-          _formatCount(_likeCount),
+          _formatCount(likeCount),
           style: TextStyle(
             fontSize: 10.0,
             fontWeight: FontWeight.w600,
@@ -361,9 +374,10 @@ class _InteractionSidebarState extends State<InteractionSidebar>
 
   Widget _buildActionButton({
     required AdaptiveVideoTheme theme,
-    required IconData icon,
+    IconData? icon,
     String? countText,
     VoidCallback? onTap,
+    Widget? customIcon,
     double iconSize = 28.0,
     Color? iconColor,
     double countFontSize = 10.0,
@@ -378,16 +392,18 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           child: SizedBox(
             width: 36.0,
             height: 36.0,
-            child: Center(
-              child: Icon(
-                icon,
-                size: iconSize,
-                color:
-                    iconColor ??
-                    (theme.isLight ? theme.primaryAdaptive : Colors.white),
-                shadows: theme.textShadows,
-              ),
-            ),
+            child:
+                customIcon ??
+                Center(
+                  child: Icon(
+                    icon,
+                    size: iconSize,
+                    color:
+                        iconColor ??
+                        (theme.isLight ? theme.primaryAdaptive : Colors.white),
+                    shadows: theme.textShadows,
+                  ),
+                ),
           ),
         ),
         const SizedBox(height: 2.0),
@@ -404,6 +420,30 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildCommentIcon(AdaptiveVideoTheme theme) {
+    final color = theme.isLight ? theme.primaryAdaptive : Colors.white;
+    return SizedBox(
+      width: 30.0,
+      height: 30.0,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_rounded,
+            size: 30.0,
+            color: color,
+            shadows: theme.textShadows,
+          ),
+          Icon(
+            Icons.more_horiz_rounded,
+            size: 16.0,
+            color: theme.isLight ? Colors.white : Colors.black,
+          ),
+        ],
+      ),
     );
   }
 }

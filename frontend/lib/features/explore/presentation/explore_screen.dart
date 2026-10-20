@@ -525,19 +525,16 @@ class _ExploreVideoCard extends StatelessWidget {
   }
 
   Widget _buildThumbnail() {
+    final thumbnailUrl = video.thumbnailUrl.trim();
+    final previewUrl = video.post.backgroundImageUrl.trim();
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (video.thumbnailUrl.isNotEmpty)
-          Image.network(
-            video.thumbnailUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => _thumbnailFallback(),
-            loadingBuilder: (context, child, progress) =>
-                progress == null ? child : _thumbnailFallback(),
-          )
-        else
-          _thumbnailFallback(),
+        _buildThumbnailImage(
+          thumbnailUrl: thumbnailUrl,
+          previewUrl: previewUrl,
+        ),
         // Gradient để chữ dưới đáy dễ đọc
         const Positioned(
           left: 0,
@@ -613,6 +610,33 @@ class _ExploreVideoCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildThumbnailImage({
+    required String thumbnailUrl,
+    required String previewUrl,
+  }) {
+    if (thumbnailUrl.isEmpty && previewUrl.isEmpty) {
+      return _thumbnailFallback();
+    }
+
+    final primaryUrl = thumbnailUrl.isNotEmpty ? thumbnailUrl : previewUrl;
+    final fallbackUrl = primaryUrl == previewUrl ? '' : previewUrl;
+
+    return Image.network(
+      primaryUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) {
+        if (fallbackUrl.isEmpty) return _thumbnailFallback();
+        return Image.network(
+          fallbackUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _thumbnailFallback(),
+        );
+      },
+      loadingBuilder: (context, child, progress) =>
+          progress == null ? child : _thumbnailFallback(),
     );
   }
 

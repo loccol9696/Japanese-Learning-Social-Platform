@@ -3,7 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../auth/data/auth_session.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
 import 'bottom_nav_dock.dart';
@@ -32,11 +35,26 @@ class VideoPlayerItem extends StatefulWidget {
   State<VideoPlayerItem> createState() => _VideoPlayerItemState();
 }
 
-class _VideoPlayerItemState extends State<VideoPlayerItem> {
+class _FloatingHeartEffect {
+  final Offset position;
+  final AnimationController controller;
+
+  const _FloatingHeartEffect({
+    required this.position,
+    required this.controller,
+  });
+}
+
+class _VideoPlayerItemState extends State<VideoPlayerItem>
+    with TickerProviderStateMixin {
   bool _isPlaying = true;
   SubtitleMode _subtitleMode = SubtitleMode.bilingual;
+  bool? _doubleTapLikedOverride;
+  int? _doubleTapLikeCountOverride;
   bool _isSeeking = false;
   double _videoProgress = 0.0;
+  Offset? _doubleTapPosition;
+  final List<_FloatingHeartEffect> _floatingHearts = [];
 
   VideoPlayerController? _videoController;
   SubtitleCue? _activeSubtitle;
@@ -53,6 +71,89 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
     });
   }
 
+  void _handleDoubleTapDown(TapDownDetails details) {
+    _doubleTapPosition = details.localPosition;
+  }
+
+  Future<void> _handleDoubleTap() async {
+    if (!AuthSession.instance.isAuthenticated) {
+      await requireAuthentication(
+        context,
+        message: 'Vui lòng đăng nhập để thả tim video này.',
+      );
+      return;
+    }
+
+    final isLiked = _doubleTapLikedOverride ?? widget.post.isLiked;
+    final likeCount = _doubleTapLikeCountOverride ?? widget.post.likeCount;
+
+    if (!isLiked) {
+      _doubleTapLikedOverride = true;
+      _doubleTapLikeCountOverride = likeCount + 1;
+      widget.onLikeToggle?.call();
+    }
+
+    final position = _doubleTapPosition;
+    if (position == null || !mounted) return;
+
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    final effect = _FloatingHeartEffect(
+      position: position,
+      controller: controller,
+    );
+    setState(() => _floatingHearts.add(effect));
+    controller.forward();
+    controller.addStatusListener((status) {
+      if (status != AnimationStatus.completed || !mounted) return;
+      setState(() => _floatingHearts.remove(effect));
+      controller.dispose();
+    });
+  }
+
+  Widget _buildFloatingHearts() {
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          for (final effect in _floatingHearts)
+            Positioned(
+              left: effect.position.dx - 48,
+              top: effect.position.dy - 48,
+              child: FadeTransition(
+                opacity: TweenSequence<double>([
+                  TweenSequenceItem(tween: ConstantTween(1.0), weight: 55),
+                  TweenSequenceItem(
+                    tween: Tween(begin: 1.0, end: 0.0),
+                    weight: 45,
+                  ),
+                ]).animate(effect.controller),
+                child: ScaleTransition(
+                  scale: TweenSequence<double>([
+                    TweenSequenceItem(
+                      tween: Tween(begin: 0.5, end: 1.2),
+                      weight: 35,
+                    ),
+                    TweenSequenceItem(
+                      tween: Tween(begin: 1.2, end: 1.0),
+                      weight: 25,
+                    ),
+                    TweenSequenceItem(tween: ConstantTween(1.0), weight: 40),
+                  ]).animate(effect.controller),
+                  child: const Icon(
+                    Icons.favorite,
+                    color: AppColors.likeRed,
+                    size: 96,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,8 +162,22 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
 
   @override
   void dispose() {
+    for (final effect in _floatingHearts) {
+      effect.controller.dispose();
+    }
     _videoController?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant VideoPlayerItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.id != widget.post.id ||
+        oldWidget.post.isLiked != widget.post.isLiked ||
+        oldWidget.post.likeCount != widget.post.likeCount) {
+      _doubleTapLikedOverride = null;
+      _doubleTapLikeCountOverride = null;
+    }
   }
 
   Future<void> _initializeVideo() async {
@@ -201,6 +316,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
     // Chiều cao thanh menu dưới (kể cả vùng an toàn) để các lớp phủ né ra.
     final navBarHeight =
         BottomNavDock.contentHeight + MediaQuery.paddingOf(context).bottom;
+    const actionBarRightShift = 6.0;
     final activeCue = _activeSubtitle;
     final displayedSegments = widget.post.subtitleCues.isEmpty
         ? widget.post.rubySegments
@@ -221,171 +337,178 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
       );
     }
 
-    return GestureDetector(
-      onTap: _handleTapToPlayPause,
-      behavior: HitTestBehavior.opaque,
-      child: ColoredBox(
-        color: Colors.black,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 1. Centered video on a solid black background.
-            _buildVideoBackground(theme),
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _handleTapToPlayPause,
-              ),
-            ),
-            _buildPlaybackOverlay(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tabWidth = constraints.maxWidth / 5;
+        return GestureDetector(
+          onTap: _handleTapToPlayPause,
+          behavior: HitTestBehavior.opaque,
+          child: ColoredBox(
+            color: Colors.black,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 1. Centered video on a solid black background.
+                _buildVideoBackground(theme),
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _handleTapToPlayPause,
+                    onDoubleTapDown: _handleDoubleTapDown,
+                    onDoubleTap: _handleDoubleTap,
+                  ),
+                ),
+                _buildPlaybackOverlay(),
 
-            // 2. Multi-tier Gradient Scrims
-            // Top Scrim
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 180.0,
-              child: IgnorePointer(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: theme.topScrimColors,
+                // 2. Multi-tier Gradient Scrims
+                // Top Scrim
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 180.0,
+                  child: IgnorePointer(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: theme.topScrimColors,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            // Bottom Scrim chỉ phủ khu vực caption và thông tin uploader, không
-            // lấn sâu xuống vùng navigation bar.
-            Positioned(
-              bottom: navBarHeight,
-              left: 0,
-              right: 0,
-              height: MediaQuery.sizeOf(context).height * 0.28,
-              child: IgnorePointer(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Color(0x80000000),
-                        Color(0x40000000),
-                        Color(0x14000000),
-                        Colors.transparent,
-                      ],
-                      stops: [0.0, 0.34, 0.68, 1.0],
+                // Bottom Scrim chỉ phủ khu vực caption và thông tin uploader, không
+                // lấn sâu xuống vùng navigation bar.
+                Positioned(
+                  bottom: navBarHeight,
+                  left: 0,
+                  right: 0,
+                  height: MediaQuery.sizeOf(context).height * 0.28,
+                  child: IgnorePointer(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Color(0x80000000),
+                            Color(0x40000000),
+                            Color(0x14000000),
+                            Colors.transparent,
+                          ],
+                          stops: [0.0, 0.34, 0.68, 1.0],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
 
-            // 4. Right Side Interaction Sidebar (căn giữa theo chiều dọc)
-            Positioned(
-              right: 12.0,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: InteractionSidebar(
-                  post: widget.post,
-                  theme: theme,
-                  subtitleMode: _subtitleMode,
-                  onToggleSubtitles: _cycleSubtitleMode,
-                  onLikeToggle: widget.onLikeToggle,
-                  onSaveToggle: widget.onSaveToggle,
-                  onFollowToggle: widget.onFollowToggle,
-                  allowAccountActions: widget.allowAccountActions,
-                ),
-              ),
-            ),
-
-            // 5. Bottom Subtitle & Video Metadata Overlay
-            Positioned(
-              left: 16.0,
-              right: 88.0,
-              bottom: navBarHeight + 10.0,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_showSubtitles)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10.0),
-                      child: RubySubtitleWidget(
-                        rubySegments: displayedSegments,
-                        translation: _subtitleMode == SubtitleMode.bilingual
-                            ? displayedTranslation
-                            : '',
-                        theme: theme,
-                        sentence: activeCue?.text,
-                        onLookupActiveChanged: _handleLookupActiveChanged,
-                      ),
+                // 4. Right Side Interaction Sidebar (căn giữa theo chiều dọc)
+                Positioned(
+                  right: -actionBarRightShift,
+                  top: 0,
+                  bottom: 0,
+                  width: tabWidth,
+                  child: Center(
+                    child: InteractionSidebar(
+                      post: widget.post,
+                      theme: theme,
+                      subtitleMode: _subtitleMode,
+                      isLikedOverride: _doubleTapLikedOverride,
+                      likeCountOverride: _doubleTapLikeCountOverride,
+                      onToggleSubtitles: _cycleSubtitleMode,
+                      onLikeToggle: widget.onLikeToggle,
+                      onSaveToggle: widget.onSaveToggle,
+                      onFollowToggle: widget.onFollowToggle,
+                      allowAccountActions: widget.allowAccountActions,
                     ),
-                  VideoInfoOverlay(post: widget.post, theme: theme),
-                ],
-              ),
-            ),
+                  ),
+                ),
+                Positioned.fill(child: _buildFloatingHearts()),
 
-            // 6. Video Progress Scrubber Bar
-            Positioned(
-              bottom: navBarHeight + 4.0,
-              left: 0,
-              right: 0,
-              child: SizedBox(
-                height: 22.0,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTapDown: (details) => _seekToFraction(
-                        (details.localPosition.dx / constraints.maxWidth).clamp(
-                          0.0,
-                          1.0,
-                        ),
-                      ),
-                      onHorizontalDragUpdate: (details) => _seekToFraction(
-                        (details.localPosition.dx / constraints.maxWidth).clamp(
-                          0.0,
-                          1.0,
-                        ),
-                      ),
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: SizedBox(
-                          height: 3.0,
-                          child: Stack(
-                            children: [
-                              Container(color: theme.progressTrack),
-                              FractionallySizedBox(
-                                widthFactor: _videoProgress,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: theme.progressActive,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: theme.progressGlow,
-                                        blurRadius: 8.0,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+                // 5. Bottom Subtitle & Video Metadata Overlay
+                Positioned(
+                  left: 16.0,
+                  right: 88.0,
+                  bottom: navBarHeight + 10.0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_showSubtitles)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10.0),
+                          child: RubySubtitleWidget(
+                            rubySegments: displayedSegments,
+                            translation: _subtitleMode == SubtitleMode.bilingual
+                                ? displayedTranslation
+                                : '',
+                            theme: theme,
+                            sentence: activeCue?.text,
+                            onLookupActiveChanged: _handleLookupActiveChanged,
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      VideoInfoOverlay(post: widget.post, theme: theme),
+                    ],
+                  ),
                 ),
-              ),
+
+                // 6. Video Progress Scrubber Bar
+                Positioned(
+                  bottom: navBarHeight + 4.0,
+                  left: 0,
+                  right: 0,
+                  child: SizedBox(
+                    height: 22.0,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTapDown: (details) => _seekToFraction(
+                            (details.localPosition.dx / constraints.maxWidth)
+                                .clamp(0.0, 1.0),
+                          ),
+                          onHorizontalDragUpdate: (details) => _seekToFraction(
+                            (details.localPosition.dx / constraints.maxWidth)
+                                .clamp(0.0, 1.0),
+                          ),
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: SizedBox(
+                              height: 3.0,
+                              child: Stack(
+                                children: [
+                                  Container(color: theme.progressTrack),
+                                  FractionallySizedBox(
+                                    widthFactor: _videoProgress,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: theme.progressActive,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: theme.progressGlow,
+                                            blurRadius: 8.0,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -411,6 +534,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
           final videoHeight = videoWidth / (16 / 9);
           final remainingHeight = math.max(0.0, contentHeight - videoHeight);
           final contentZoneHeight = math.min(220.0, remainingHeight);
+          final tabWidth = constraints.maxWidth / 5;
+          const actionBarRightShift = 6.0;
           final topVideoSpacer = math.max(
             0.0,
             remainingHeight - contentZoneHeight,
@@ -440,8 +565,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
                               onTap: _handleTapToPlayPause,
+                              onDoubleTapDown: _handleDoubleTapDown,
+                              onDoubleTap: _handleDoubleTap,
                             ),
                           ),
+                          Positioned.fill(child: _buildFloatingHearts()),
                           _buildPlaybackOverlay(),
                         ],
                       ),
@@ -492,17 +620,22 @@ class _VideoPlayerItemState extends State<VideoPlayerItem> {
                 child: _buildProgressBar(theme),
               ),
               Positioned(
-                right: 8,
+                right: -actionBarRightShift,
                 bottom: bottomReservedHeight + 16,
-                child: InteractionSidebar(
-                  post: widget.post,
-                  theme: theme,
-                  subtitleMode: _subtitleMode,
-                  onToggleSubtitles: _cycleSubtitleMode,
-                  onLikeToggle: widget.onLikeToggle,
-                  onSaveToggle: widget.onSaveToggle,
-                  onFollowToggle: widget.onFollowToggle,
-                  allowAccountActions: widget.allowAccountActions,
+                width: tabWidth,
+                child: Center(
+                  child: InteractionSidebar(
+                    post: widget.post,
+                    theme: theme,
+                    subtitleMode: _subtitleMode,
+                    isLikedOverride: _doubleTapLikedOverride,
+                    likeCountOverride: _doubleTapLikeCountOverride,
+                    onToggleSubtitles: _cycleSubtitleMode,
+                    onLikeToggle: widget.onLikeToggle,
+                    onSaveToggle: widget.onSaveToggle,
+                    onFollowToggle: widget.onFollowToggle,
+                    allowAccountActions: widget.allowAccountActions,
+                  ),
                 ),
               ),
             ],
