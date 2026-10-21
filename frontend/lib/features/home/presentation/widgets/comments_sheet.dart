@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/auth/auth_guard.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../data/models/video_comment.dart';
 import '../../data/services/comment_service.dart';
@@ -39,6 +38,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   bool _sending = false;
   String? _error;
   int? _replyTo;
+
+  /// Tổng số bình luận bao gồm cả reply lồng nhau.
+  int get _totalCommentCount =>
+      _comments.fold(0, (sum, c) => sum + 1 + c.replies.length);
 
   @override
   void initState() {
@@ -145,17 +148,17 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         child: Container(
           height: MediaQuery.sizeOf(context).height * 0.72,
           decoration: const BoxDecoration(
-            color: Color(0xFF17181C),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+            color: Color(0xFF131729),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
               const SizedBox(height: 10),
               Container(
-                width: 28,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppPalette.border,
+                  color: Colors.white.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -166,7 +169,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                     Expanded(
                       child: Center(
                         child: Text(
-                          '${_comments.length} bình luận',
+                          '${_loading ? widget.initialCount : _totalCommentCount} bình luận',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
@@ -229,13 +232,20 @@ class _CommentsSheetState extends State<_CommentsSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
-                radius: 16,
-                backgroundColor: AppColors.primary,
+                radius: 18,
+                backgroundColor: AppPalette.surfaceHigh,
                 backgroundImage: comment.avatarUrl.isNotEmpty
                     ? NetworkImage(comment.avatarUrl)
                     : null,
                 child: comment.avatarUrl.isEmpty
-                    ? Text(name.isEmpty ? '?' : name[0].toUpperCase())
+                    ? Text(
+                        name.isEmpty ? '?' : name[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      )
                     : null,
               ),
               const SizedBox(width: 9),
@@ -244,17 +254,22 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '@${comment.username}',
+                      name,
                       style: const TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 12,
+                        color: Colors.white,
+                        fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       comment.content,
-                      style: const TextStyle(color: Colors.white, height: 1.3),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                      ),
                     ),
                     Row(
                       children: [
@@ -320,34 +335,59 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 hintText: _replyTo == null
                     ? 'Thêm bình luận hoặc câu hỏi...'
                     : 'Đang trả lời bình luận',
-                hintStyle: const TextStyle(color: AppPalette.textSecondary),
+                hintStyle: const TextStyle(
+                  color: AppPalette.textSecondary,
+                  fontSize: 14,
+                ),
                 filled: true,
-                fillColor: AppPalette.border,
+                fillColor: AppPalette.surfaceHigh,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(
+                    color: AppPalette.accent.withValues(alpha: 0.5),
+                    width: 1.5,
+                  ),
+                ),
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
+                  horizontal: 18,
+                  vertical: 12,
                 ),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          IconButton(
-            onPressed: _sending ? null : _send,
-            style: IconButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppPalette.accent,
+              shape: BoxShape.circle,
             ),
-            icon: _sending
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.send_rounded),
+            child: IconButton(
+              onPressed: _sending ? null : _send,
+              icon: _sending
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+            ),
           ),
         ],
       ),

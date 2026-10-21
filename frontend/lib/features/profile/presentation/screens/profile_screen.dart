@@ -478,7 +478,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     parent: BouncingScrollPhysics(),
                   ),
                   slivers: [
-                    SliverToBoxAdapter(child: _buildTopBar()),
                     SliverToBoxAdapter(child: _buildProfileHeader()),
                     SliverToBoxAdapter(child: _buildActionRow()),
                     SliverToBoxAdapter(child: _buildMembershipCard()),
@@ -534,46 +533,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 10, 12, 0),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            IconButton(
-              onPressed: _showMoreMenu,
-              icon: const Icon(
-                Icons.menu_rounded,
-                size: 26,
-                color: AppPalette.textPrimary,
-              ),
-              tooltip: 'Tùy chọn & Cài đặt',
-            ),
-            if (_pendingCount > 0)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppPalette.background,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildProfileHeader() {
     final displayName = _profile.displayName.isNotEmpty
         ? _profile.displayName
@@ -586,14 +545,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         : username;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 6, 24, 20),
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Top row: avatar + name/handle + menu icon
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _buildAvatar(displayName),
-              const SizedBox(width: 18),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -607,7 +568,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: AppPalette.textPrimary,
-                              fontSize: 22,
+                              fontSize: 20,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -635,41 +596,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       handle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppPalette.textSecondary,
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                     ),
                   ],
                 ),
               ),
+              // Menu icon at top right
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    onPressed: _showMoreMenu,
+                    icon: const Icon(
+                      Icons.menu_rounded,
+                      size: 26,
+                      color: AppPalette.textPrimary,
+                    ),
+                    tooltip: 'Tùy chọn & Cài đặt',
+                  ),
+                  if (_pendingCount > 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppPalette.background,
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: 22),
-          Wrap(
-            spacing: 24,
-            runSpacing: 6,
-            children: [
-              _stat('${_profile.followingCount}', 'đang follow'),
-              _stat('${_profile.followersCount}', 'follower'),
-              _stat('${_profile.likesCount}', 'thích'),
-            ],
+          const SizedBox(height: 18),
+          // Stats row
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Wrap(
+              spacing: 20,
+              runSpacing: 6,
+              children: [
+                _stat('${_profile.followingCount}', 'đang follow'),
+                _stat('${_profile.followersCount}', 'follower'),
+                _stat('${_profile.likesCount}', 'thích'),
+              ],
+            ),
           ),
 
-          // Real Bio Display
+          // Bio
           if (_profile.bio.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Text(
-              _profile.bio,
-              style: const TextStyle(
-                color: AppPalette.textPrimary,
-                fontSize: 14,
-                height: 1.4,
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Text(
+                _profile.bio,
+                style: const TextStyle(
+                  color: AppPalette.textPrimary,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
               ),
             ),
           ],
