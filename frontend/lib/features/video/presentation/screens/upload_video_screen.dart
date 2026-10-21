@@ -21,13 +21,21 @@ class UploadVideoScreen extends StatefulWidget {
 class _UploadVideoScreenState extends State<UploadVideoScreen> {
   PlatformFile? _selectedFile;
   final _youtubeController = TextEditingController();
+  late final PageController _tabPageController;
   bool _isYoutubeMode = false;
   bool _isUploading = false;
   bool _notesExpanded = false;
 
   @override
+  void initState() {
+    super.initState();
+    _tabPageController = PageController();
+  }
+
+  @override
   void dispose() {
     _youtubeController.dispose();
+    _tabPageController.dispose();
     super.dispose();
   }
 
@@ -180,27 +188,53 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
           children: [
             _buildTabs(),
             Expanded(
-              child: CustomScrollView(
-                slivers: [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: _isYoutubeMode
-                                ? _buildYoutubeInput()
-                                : _buildFilePicker(),
+              child: PageView(
+                controller: _tabPageController,
+                onPageChanged: (index) {
+                  setState(() => _isYoutubeMode = index == 1);
+                },
+                children: [
+                  // Page 0: File upload
+                  CustomScrollView(
+                    slivers: [
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(child: _buildFilePicker()),
+                              const SizedBox(height: 16),
+                              _buildNotes(),
+                              const SizedBox(height: 16),
+                              _buildSubmitButton(),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          _buildNotes(),
-                          const SizedBox(height: 16),
-                          _buildSubmitButton(),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
+                  ),
+                  // Page 1: YouTube link
+                  CustomScrollView(
+                    slivers: [
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildYoutubeInput(),
+                              const Spacer(),
+                              _buildNotes(),
+                              const SizedBox(height: 16),
+                              _buildSubmitButton(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -254,10 +288,22 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
       ),
       child: Row(
         children: [
-          tab('Tải tệp lên', !_isYoutubeMode,
-              () => setState(() => _isYoutubeMode = false)),
-          tab('Liên kết YouTube', _isYoutubeMode,
-              () => setState(() => _isYoutubeMode = true)),
+          tab('Tải tệp lên', !_isYoutubeMode, () {
+            setState(() => _isYoutubeMode = false);
+            _tabPageController.animateToPage(
+              0,
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOut,
+            );
+          }),
+          tab('Liên kết YouTube', _isYoutubeMode, () {
+            setState(() => _isYoutubeMode = true);
+            _tabPageController.animateToPage(
+              1,
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOut,
+            );
+          }),
         ],
       ),
     );
