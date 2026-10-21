@@ -1,12 +1,15 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../home/presentation/widgets/bottom_nav_dock.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class UploadVideoScreen extends StatefulWidget {
   const UploadVideoScreen({super.key});
@@ -20,6 +23,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
   final _youtubeController = TextEditingController();
   bool _isYoutubeMode = false;
   bool _isUploading = false;
+  bool _notesExpanded = false;
 
   @override
   void dispose() {
@@ -124,96 +128,117 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _handleNavigation(int index) {
-    if (index != 2 && Navigator.of(context).canPop()) {
-      Navigator.of(context).pop(index);
-    }
+  /// Xanh dương nhạt cho gạch chân tab, icon tải lên và nút "Dán".
+  static const Color _linkBlue = Color(0xFF38BDF8);
+
+  bool get _hasYoutubeLink => _youtubeController.text.trim().isNotEmpty;
+
+  bool get _canSubmit =>
+      !_isUploading && (_isYoutubeMode ? _hasYoutubeLink : _selectedFile != null);
+
+  Future<void> _pasteYoutubeLink() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim();
+    if (!mounted || text == null || text.isEmpty) return;
+    setState(() => _youtubeController.text = text);
   }
 
   @override
   Widget build(BuildContext context) {
-    final youtube = _isYoutubeMode;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0E12),
+      backgroundColor: AppPalette.background,
       appBar: AppBar(
+        backgroundColor: AppPalette.background,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: AppPalette.textPrimary,
+                  size: 18,
+                ),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
         title: const Text(
           'Tải video lên',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _isUploading
-                ? null
-                : (youtube ? _importYoutubeVideo : _uploadVideo),
-            child: const Text(
-              'Lưu nháp',
-              style: TextStyle(color: Colors.white54),
-            ),
+          style: TextStyle(
+            color: AppPalette.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
           ),
-        ],
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        children: [
-          _buildTabs(),
-          const SizedBox(height: 20),
-          youtube ? _buildYoutubeInput() : _buildFilePicker(),
-          const SizedBox(height: 16),
-          if (youtube) _buildYoutubeNotice(),
-          if (!youtube) _buildNoticeCard(),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _isUploading
-                ? null
-                : (youtube ? _importYoutubeVideo : _uploadVideo),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(54),
-              backgroundColor: const Color(0xFFFF2D55),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTabs(),
+            Expanded(
+              child: CustomScrollView(
+                slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _isYoutubeMode
+                                ? _buildYoutubeInput()
+                                : _buildFilePicker(),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildNotes(),
+                          const SizedBox(height: 16),
+                          _buildSubmitButton(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: _isUploading
-                ? const CircularProgressIndicator(color: Colors.white)
-                : Text(youtube ? 'Nhập video từ YouTube' : 'Tải video lên'),
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavDock(
-        selectedIndex: 2,
-        onTabSelected: _handleNavigation,
+          ],
+        ),
       ),
     );
   }
 
+  /// Hai tab chữ, tab đang chọn có gạch chân xanh nhạt; có đường kẻ phía dưới.
   Widget _buildTabs() {
-    Widget tab(IconData icon, String label, bool active, VoidCallback onTap) {
+    Widget tab(String label, bool active, VoidCallback onTap) {
       return Expanded(
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            height: 40,
-            decoration: BoxDecoration(
-              color: active ? const Color(0xFF2A292E) : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+          child: SizedBox(
+            height: 46,
+            child: Stack(
               children: [
-                Icon(
-                  icon,
-                  size: 18,
-                  color: active ? const Color(0xFFFF2D55) : Colors.white54,
+                Center(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: active
+                          ? AppPalette.textPrimary
+                          : AppPalette.textSecondary,
+                      fontSize: 15,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 7),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: active ? Colors.white : Colors.white60,
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    height: 2,
+                    color: active ? _linkBlue : Colors.transparent,
                   ),
                 ),
               ],
@@ -224,190 +249,267 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        color: const Color(0xFF19181D),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppPalette.surface)),
       ),
       child: Row(
         children: [
-          tab(
-            Icons.upload_file_rounded,
-            'Tải tệp lên',
-            !_isYoutubeMode,
-            () => setState(() => _isYoutubeMode = false),
-          ),
-          tab(
-            Icons.ondemand_video_rounded,
-            'Liên kết YouTube',
-            _isYoutubeMode,
-            () => setState(() => _isYoutubeMode = true),
-          ),
+          tab('Tải tệp lên', !_isYoutubeMode,
+              () => setState(() => _isYoutubeMode = false)),
+          tab('Liên kết YouTube', _isYoutubeMode,
+              () => setState(() => _isYoutubeMode = true)),
         ],
       ),
     );
   }
 
+  /// Khung viền đứt nét chiếm hết chiều cao còn lại; chạm để chọn video.
   Widget _buildFilePicker() {
-    return InkWell(
-      onTap: _pickVideo,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.white24),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          children: [
-            const CircleAvatar(
-              radius: 35,
-              backgroundColor: Color(0xFF29272D),
-              child: Icon(
-                Icons.cloud_upload_outlined,
-                size: 36,
-                color: Color(0xFFFF2D55),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              _selectedFile?.name ?? 'Chạm để chọn tệp từ máy',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 7),
-            Text(
-              _selectedFile == null
-                  ? 'Tải video trực tiếp từ thư viện ảnh hoặc tệp'
-                  : 'Đã chọn video để tải lên',
-              style: const TextStyle(color: Colors.white60),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _pickVideo,
-              icon: const Icon(Icons.add_circle_outline),
-              label: Text(
-                _selectedFile == null ? 'Chọn từ thiết bị' : 'Chọn lại video',
-              ),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF2D55),
-                minimumSize: const Size.fromHeight(54),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
+    final file = _selectedFile;
+
+    return CustomPaint(
+      foregroundPainter: const _DashedBorderPainter(
+        color: AppPalette.border,
+        radius: 20,
+      ),
+      child: InkWell(
+        onTap: _isUploading ? null : _pickVideo,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.cloud_upload_outlined,
+                  size: 46,
+                  color: _linkBlue,
                 ),
-              ),
+                const SizedBox(height: 16),
+                Text(
+                  file?.name ?? 'Chạm để chọn video',
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  file == null
+                      ? 'MP4, MOV · Tối đa 500MB · Tỷ lệ 9:16 (dọc)'
+                      : 'Chạm để chọn lại video',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppPalette.textSecondary,
+                    fontSize: 13.5,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'MP4, MOV  •  Tối đa 500MB  •  Tỷ lệ 9:16 (dọc)',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildYoutubeInput() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151419),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Dán liên kết YouTube',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            'Hỗ trợ video Shorts bài học tiếng Nhật',
-            style: TextStyle(color: Colors.white60, fontSize: 12),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _youtubeController,
-            keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.link),
-              hintText: 'https://youtube.com/shorts/...',
-              filled: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildYoutubeNotice() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF151419),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white10),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.smart_display_rounded, color: Color(0xFFFF2D55)),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Nhập link YouTube Shorts\nHỗ trợ trích xuất phụ đề tự động',
-                  style: TextStyle(color: Colors.white70),
+        const Text(
+          'Liên kết YouTube',
+          style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _youtubeController,
+          keyboardType: TextInputType.url,
+          cursorColor: AppPalette.accent,
+          onChanged: (_) => setState(() {}),
+          style: const TextStyle(color: AppPalette.textPrimary, fontSize: 15),
+          decoration: InputDecoration(
+            hintText: 'Dán liên kết video',
+            hintStyle: const TextStyle(
+              color: AppPalette.textSecondary,
+              fontSize: 15,
+            ),
+            filled: true,
+            fillColor: AppPalette.surfaceHigh,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+            suffixIcon: TextButton(
+              onPressed: _pasteYoutubeLink,
+              child: const Text(
+                'Dán',
+                style: TextStyle(
+                  color: _linkBlue,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            ],
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppPalette.accent, width: 1.5),
+            ),
           ),
         ),
-        const SizedBox(height: 16),
-        _buildNoticeCard(),
       ],
     );
   }
 
-  Widget _buildNoticeCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF151419),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'LƯU Ý KHI ĐĂNG VIDEO',
-            style: TextStyle(
-              color: Colors.white70,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
+  /// "Lưu ý khi đăng video": gập / mở, nội dung là 3 đoạn chữ thường.
+  Widget _buildNotes() {
+    const notes = [
+      'Độ dài tối ưu dưới 60 giây giúp ghi nhớ ngắt quãng (SRS) hiệu quả hơn.',
+      'Phụ đề và Furigana được tạo tự động sau khi tải lên.',
+      'Tuân thủ bản quyền và tiêu chuẩn cộng đồng.',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _notesExpanded = !_notesExpanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Lưu ý khi đăng video',
+                    style: TextStyle(
+                      color: AppPalette.textPrimary,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                Icon(
+                  _notesExpanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  color: AppPalette.textPrimary,
+                  size: 22,
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 14),
-          Text(
-            '◷  Độ dài tối ưu: Dưới 60 giây (Shorts/Reels) giúp tối ưu hoá khả năng ghi nhớ ngắt quãng (SRS).',
-          ),
-          SizedBox(height: 10),
-          Text(
-            '▣  Phụ đề & Furigana: Hệ thống tự động tạo phụ đề và phiên âm Furigana sau khi tải lên.',
-          ),
-          SizedBox(height: 10),
-          Text(
-            '♢  Quy chuẩn nội dung: Tuân thủ bản quyền và tiêu chuẩn cộng đồng.',
-          ),
-        ],
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          alignment: Alignment.topCenter,
+          child: _notesExpanded
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final note in notes)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Text(
+                            note,
+                            style: const TextStyle(
+                              color: AppPalette.textPrimary,
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+      ],
+    );
+  }
+
+  /// Nút tải lên: mờ khi chưa chọn video / chưa nhập liên kết.
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      height: 50,
+      child: FilledButton(
+        onPressed: _canSubmit
+            ? (_isYoutubeMode ? _importYoutubeVideo : _uploadVideo)
+            : null,
+        style: FilledButton.styleFrom(
+          backgroundColor: AppPalette.accent,
+          foregroundColor: AppPalette.textPrimary,
+          disabledBackgroundColor:
+              _isUploading ? AppPalette.accent : AppPalette.navBar,
+          disabledForegroundColor: _isUploading
+              ? AppPalette.textPrimary
+              : AppPalette.textSecondary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        child: _isUploading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: AppPalette.textPrimary,
+                ),
+              )
+            : const Text('Tải video lên'),
       ),
     );
   }
+}
+
+/// Vẽ viền bo góc dạng nét đứt (Flutter không có sẵn).
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+
+  const _DashedBorderPainter({required this.color, required this.radius});
+
+  static const double _dashLength = 6;
+  static const double _gapLength = 5;
+  static const double _strokeWidth = 1.2;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _strokeWidth;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      );
+
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final end = math.min(distance + _dashLength, metric.length);
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance += _dashLength + _gapLength;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorderPainter old) =>
+      old.color != color || old.radius != radius;
 }
 
 class PublishVideoScreen extends StatefulWidget {
@@ -612,7 +714,8 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _handleNavigation(int index) {
@@ -624,7 +727,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0E12),
+      backgroundColor: AppPalette.background,
       appBar: AppBar(
         title: const Text(
           'Đăng bài học',
@@ -635,7 +738,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             onPressed: _isSubmitting ? null : () => _publish(asDraft: true),
             child: const Text(
               'Lưu nháp',
-              style: TextStyle(color: Colors.white54),
+              style: TextStyle(color: AppPalette.textSecondary),
             ),
           ),
         ],
@@ -668,14 +771,14 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           if (_isTranscribing)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
-              child: LinearProgressIndicator(color: Color(0xFFFF2D55)),
+              child: LinearProgressIndicator(color: AppPalette.accent),
             ),
           if (!_isTranscribing && _subtitles.isEmpty && !_isManualSubtitleMode)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: Text(
                 'Bạn có thể tạo phụ đề bằng AI hoặc tự nhập lời thoại cho video.',
-                style: TextStyle(color: Colors.white60),
+                style: TextStyle(color: AppPalette.textSecondary),
               ),
             ),
           ..._subtitles.asMap().entries.map(
@@ -708,7 +811,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                 : const Text('Đăng video bài học'),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(58),
-              backgroundColor: const Color(0xFFFF2D55),
+              backgroundColor: AppPalette.accent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -727,9 +830,9 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF19181D),
+        color: AppPalette.background,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AppPalette.border),
       ),
       child: Row(
         children: [
@@ -743,7 +846,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               errorBuilder: (_, _, _) => Container(
                 width: 118,
                 height: 78,
-                color: const Color(0xFF29272D),
+                color: AppPalette.surface,
                 child: const Icon(Icons.video_library_outlined),
               ),
             ),
@@ -762,7 +865,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                 const SizedBox(height: 8),
                 Text(
                   '${_formatDuration(widget.duration)} • Video đã tải lên',
-                  style: const TextStyle(color: Colors.white60),
+                  style: const TextStyle(color: AppPalette.textSecondary),
                 ),
               ],
             ),
@@ -789,7 +892,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               Text(
                 '${controller.text.length}/$maxLength',
                 style: const TextStyle(
-                  color: Colors.white54,
+                  color: AppPalette.textSecondary,
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
                 ),
@@ -806,14 +909,14 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           decoration: InputDecoration(
             counterText: '',
             filled: true,
-            fillColor: const Color(0xFF19181D),
+            fillColor: AppPalette.background,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Colors.white24),
+              borderSide: const BorderSide(color: AppPalette.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Colors.white24),
+              borderSide: const BorderSide(color: AppPalette.border),
             ),
           ),
         ),
@@ -843,16 +946,16 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: selected
-                      ? const Color(0xFFFF2D55)
-                      : const Color(0xFF19181D),
+                      ? AppPalette.accent
+                      : AppPalette.background,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white10),
+                  border: Border.all(color: AppPalette.border),
                 ),
                 child: Text(
                   level,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: selected ? Colors.white : Colors.white54,
+                    color: selected ? Colors.white : AppPalette.textSecondary,
                   ),
                 ),
               ),
@@ -868,9 +971,9 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     return Container(
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: const Color(0xFF19181D),
+        color: AppPalette.background,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AppPalette.border),
       ),
       child: Row(
         children: [
@@ -920,8 +1023,8 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               icon,
               size: 18,
               color: enabled
-                  ? (selected ? const Color(0xFFFF2D55) : Colors.white60)
-                  : Colors.white24,
+                  ? (selected ? AppPalette.accent : AppPalette.textSecondary)
+                  : AppPalette.border,
             ),
             const SizedBox(width: 6),
             Flexible(
@@ -930,8 +1033,8 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: enabled
-                      ? (selected ? Colors.white : Colors.white60)
-                      : Colors.white24,
+                      ? (selected ? Colors.white : AppPalette.textSecondary)
+                      : AppPalette.border,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                 ),
               ),
@@ -946,21 +1049,21 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A191E),
+        color: AppPalette.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AppPalette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.access_time, size: 15, color: Colors.white60),
+              const Icon(Icons.access_time, size: 15, color: AppPalette.textSecondary),
               const SizedBox(width: 5),
               Text(
                 '${subtitle.start} - ${subtitle.end}',
                 style: const TextStyle(
-                  color: Colors.white70,
+                  color: AppPalette.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -968,13 +1071,13 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               const Spacer(),
               Text(
                 '#${index + 1}',
-                style: const TextStyle(color: Colors.white54),
+                style: const TextStyle(color: AppPalette.textSecondary),
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
                 onPressed: () =>
                     setState(() => subtitle.editing = !subtitle.editing),
-                icon: const Icon(Icons.edit, size: 17, color: Colors.white60),
+                icon: const Icon(Icons.edit, size: 17, color: AppPalette.textSecondary),
               ),
             ],
           ),
@@ -993,7 +1096,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               subtitle.translation.text.isEmpty
                   ? 'Nhấn biểu tượng bút để nhập phụ đề'
                   : subtitle.translation.text,
-              style: const TextStyle(color: Colors.white60),
+              style: const TextStyle(color: AppPalette.textSecondary),
             ),
           ],
         ],
@@ -1011,7 +1114,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           hintText: hint,
           isDense: true,
           filled: true,
-          fillColor: const Color(0xFF0F0E12),
+          fillColor: AppPalette.background,
         ),
       ),
     );
@@ -1024,15 +1127,15 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF19181D),
+          color: AppPalette.background,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: AppPalette.border),
         ),
         child: Row(
           children: [
             Icon(
               _isPublic ? Icons.public : Icons.lock_outline,
-              color: Colors.white70,
+              color: AppPalette.textSecondary,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1072,12 +1175,12 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                     _isPublic
                         ? 'Mọi người đều có thể xem bài học và ôn tập'
                         : 'Chỉ bạn có thể xem bài học này',
-                    style: const TextStyle(color: Colors.white60),
+                    style: const TextStyle(color: AppPalette.textSecondary),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white54),
+            const Icon(Icons.chevron_right, color: AppPalette.textSecondary),
           ],
         ),
       ),

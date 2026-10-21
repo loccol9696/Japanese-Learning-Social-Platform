@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../data/models/video_comment.dart';
 import '../../data/services/comment_service.dart';
+import '../../../../core/theme/app_palette.dart';
 
 Future<void> showCommentsSheet(
   BuildContext context, {
@@ -154,7 +155,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 width: 28,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white30,
+                  color: AppPalette.border,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -175,7 +176,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Colors.white70),
+                      icon: const Icon(Icons.close, color: AppPalette.textSecondary),
                     ),
                   ],
                 ),
@@ -193,14 +194,14 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
       return Center(
-        child: Text(_error!, style: const TextStyle(color: Colors.white70)),
+        child: Text(_error!, style: const TextStyle(color: AppPalette.textSecondary)),
       );
     }
     if (_comments.isEmpty) {
       return const Center(
         child: Text(
           'Chưa có bình luận. Hãy là người đầu tiên!',
-          style: TextStyle(color: Colors.white60),
+          style: TextStyle(color: AppPalette.textSecondary),
         ),
       );
     }
@@ -245,7 +246,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                     Text(
                       '@${comment.username}',
                       style: const TextStyle(
-                        color: Colors.white70,
+                        color: AppPalette.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -268,7 +269,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                           child: const Text(
                             'Trả lời',
                             style: TextStyle(
-                              color: Colors.white54,
+                              color: AppPalette.textSecondary,
                               fontSize: 12,
                             ),
                           ),
@@ -285,7 +286,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                             child: const Text(
                               'Xóa',
                               style: TextStyle(
-                                color: Colors.white54,
+                                color: AppPalette.textSecondary,
                                 fontSize: 12,
                               ),
                             ),
@@ -319,9 +320,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 hintText: _replyTo == null
                     ? 'Thêm bình luận hoặc câu hỏi...'
                     : 'Đang trả lời bình luận',
-                hintStyle: const TextStyle(color: Colors.white38),
+                hintStyle: const TextStyle(color: AppPalette.textSecondary),
                 filled: true,
-                fillColor: Colors.white10,
+                fillColor: AppPalette.border,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(22),
                   borderSide: BorderSide.none,

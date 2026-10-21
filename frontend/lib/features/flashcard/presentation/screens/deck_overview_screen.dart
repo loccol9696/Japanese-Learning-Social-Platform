@@ -13,6 +13,7 @@ import 'flashcard_matching_screen.dart';
 import 'flashcard_quiz_screen.dart';
 import 'flashcard_typing_screen.dart';
 import '../widgets/study_options_bottom_sheet.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class DeckOverviewScreen extends StatefulWidget {
   final FlashcardSetModel deck;
@@ -115,45 +116,38 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     }
   }
 
+  /// Đỏ cho thao tác xóa trong bảng tùy chọn bộ thẻ.
+  static const Color _dangerRed = Color(0xFFFF5C6C);
+
   void _openDeckActionsSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-        decoration: const BoxDecoration(
-          color: Color(0xFF1E1F28),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
+      builder: (ctx) => Material(
+        // Material (không phải Container tô màu) để hiệu ứng chạm hiển thị.
+        color: AppPalette.navBar,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        clipBehavior: Clip.antiAlias,
         child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Thanh kéo drag handle
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+              // Thanh kéo (drag handle)
+              Container(
+                width: 38,
+                height: 4,
+                margin: const EdgeInsets.only(top: 10, bottom: 8),
+                decoration: BoxDecoration(
+                  color: AppPalette.textSecondary.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 16),
 
               // Dòng 1: Chỉnh sửa bộ thẻ
-              ListTile(
-                leading: const Icon(Icons.edit_outlined, color: Colors.white, size: 22),
-                title: const Text(
-                  'Chỉnh sửa bộ thẻ',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              _buildDeckActionRow(
+                icon: Icons.edit_outlined,
+                title: 'Chỉnh sửa bộ thẻ',
+                color: AppPalette.textPrimary,
                 onTap: () async {
                   Navigator.pop(ctx);
                   final result = await Navigator.push(
@@ -168,28 +162,54 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 },
               ),
 
-              const SizedBox(height: 4),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 28),
+                child: Divider(height: 1, color: AppPalette.border),
+              ),
 
               // Dòng 2: Xóa bộ thẻ
-              ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 22),
-                title: const Text(
-                  'Xóa bộ thẻ',
-                  style: TextStyle(
-                    color: Color(0xFFEF4444),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              _buildDeckActionRow(
+                icon: Icons.delete_outline_rounded,
+                title: 'Xóa bộ thẻ',
+                color: _dangerRed,
                 onTap: () {
                   Navigator.pop(ctx);
                   _confirmDeleteDeck();
                 },
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeckActionRow({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -199,7 +219,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1F28),
+        backgroundColor: AppPalette.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Xóa bộ thẻ vĩnh viễn?',
@@ -207,12 +227,12 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
         ),
         content: Text(
           'Bạn có chắc chắn muốn xóa bộ thẻ "${widget.deck.title}"? Hành động này không thể hoàn tác.',
-          style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+          style: const TextStyle(color: AppPalette.textSecondary, fontSize: 14, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Hủy', style: TextStyle(color: Colors.white60)),
+            child: const Text('Hủy', style: TextStyle(color: AppPalette.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -229,7 +249,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Không thể xóa bộ thẻ: $err'),
-                        backgroundColor: const Color(0xFFFF5A5F),
+                        backgroundColor: AppPalette.accent,
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -239,7 +259,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Đã xóa bộ thẻ thành công'),
-                  backgroundColor: Color(0xFF252632),
+                  backgroundColor: AppPalette.surface,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -289,7 +309,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Đã đặt lại tiến trình thẻ thành công'),
-        backgroundColor: Color(0xFF252632),
+        backgroundColor: AppPalette.surface,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -306,7 +326,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Không thể đặt lại tiến trình: $err'),
-              backgroundColor: const Color(0xFFFF5A5F),
+              backgroundColor: AppPalette.accent,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -352,7 +372,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Không thể cập nhật gắn sao: $err'),
-              backgroundColor: const Color(0xFFFF5A5F),
+              backgroundColor: AppPalette.accent,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -371,7 +391,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF161922),
+        color: AppPalette.background,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -420,13 +440,13 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0E14),
+      backgroundColor: AppPalette.background,
       body: SafeArea(
         child: ScrollConfiguration(
           behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
           child: RefreshIndicator(
-            color: const Color(0xFFFF2D55),
-            backgroundColor: const Color(0xFF1E1F28),
+            color: AppPalette.accent,
+            backgroundColor: AppPalette.surface,
             onRefresh: () => _loadCards(forceRefresh: true),
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -470,7 +490,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: _isLoading
                       ? const Center(
-                          child: CircularProgressIndicator(color: Color(0xFFFF2D55)),
+                          child: CircularProgressIndicator(color: AppPalette.accent),
                         )
                       : _cards.isEmpty
                           ? Container(
@@ -484,7 +504,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                                 _options.starredOnly
                                     ? 'Không có từ vựng nào được gắn sao'
                                     : 'Chưa có từ vựng trong bộ thẻ',
-                                style: const TextStyle(color: Colors.white54, fontSize: 15),
+                                style: const TextStyle(color: AppPalette.textSecondary, fontSize: 15),
                               ),
                             )
                           : PageView.builder(
@@ -539,7 +559,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                           child: Text(
                             '${_currentPage + 1} / ${_cards.length}',
                             style: const TextStyle(
-                              color: Colors.white70,
+                              color: AppPalette.textSecondary,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.5,
@@ -588,7 +608,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                       Text(
                         '${widget.deck.totalCards > 0 ? widget.deck.totalCards : _cards.length} thuật ngữ',
                         style: const TextStyle(
-                          color: Color(0xFF8E8E93),
+                          color: AppPalette.textSecondary,
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
@@ -637,7 +657,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                       ),
                       _buildModeTile(
                         icon: Icons.edit_note,
-                        iconColor: const Color(0xFF5E81F4),
+                        iconColor: AppPalette.accent,
                         iconBgColor: const Color(0xFF1D2444),
                         title: 'Tự luận',
                         onTap: () {
@@ -843,12 +863,12 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: _isPlayingAudio
-                ? const Color(0xFFFF5A5F).withValues(alpha: 0.18)
+                ? AppPalette.accent.withValues(alpha: 0.18)
                 : Colors.transparent,
             shape: BoxShape.circle,
             border: Border.all(
               color: _isPlayingAudio
-                  ? const Color(0xFFFF5A5F).withValues(alpha: 0.5)
+                  ? AppPalette.accent.withValues(alpha: 0.5)
                   : Colors.transparent,
               width: 1.5,
             ),
@@ -860,7 +880,7 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
             child: Icon(
               _isPlayingAudio ? Icons.volume_up_rounded : Icons.volume_up_outlined,
               color: _isPlayingAudio
-                  ? const Color(0xFFFF5A5F)
+                  ? AppPalette.accent
                   : Colors.white.withValues(alpha: 0.5),
               size: 22,
             ),
@@ -907,9 +927,9 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1F28), // Nền đặc Solid color #1E1F28 khử trong suốt
+        color: AppPalette.surface, // Nền đặc Solid color #1E1F28 khử trong suốt
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF323344), width: 1.2),
+        border: Border.all(color: AppPalette.border, width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.3),
@@ -968,9 +988,9 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1F28), // Nền đặc Solid color #1E1F28 khử trong suốt
+        color: AppPalette.surface, // Nền đặc Solid color #1E1F28 khử trong suốt
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF323344), width: 1.2),
+        border: Border.all(color: AppPalette.border, width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.3),

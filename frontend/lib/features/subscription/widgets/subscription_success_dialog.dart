@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/subscription_model.dart';
+import '../../../core/theme/app_palette.dart';
 
 class SubscriptionSuccessDialog extends StatelessWidget {
   final PaymentResponse payment;
@@ -19,7 +20,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.0)),
       elevation: 10,
-      backgroundColor: Colors.white,
+      backgroundColor: AppPalette.surface,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
         child: Column(
@@ -56,7 +57,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
               style: TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF0D1B3E),
+                color: AppPalette.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -65,7 +66,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13.5,
-                color: Colors.grey.shade600,
+                color: AppPalette.textSecondary,
                 height: 1.4,
               ),
             ),
@@ -95,7 +96,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D1B3E),
+                  backgroundColor: AppPalette.accent,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -136,7 +137,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 13,
-            color: Colors.grey.shade700,
+            color: AppPalette.textSecondary,
           ),
         ),
         Flexible(
@@ -146,7 +147,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF0D1B3E),
+              color: AppPalette.textPrimary,
             ),
           ),
         ),

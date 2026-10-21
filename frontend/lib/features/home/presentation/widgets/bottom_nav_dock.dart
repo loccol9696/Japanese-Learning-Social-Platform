@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/localization/locale_manager.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Tab indices: 0 Home, 1 Explore, 2 Create (+), 3 Flashcard, 4 Profile.
 ///
-/// Thanh menu dùng chung cho toàn bộ các tab và luôn có nền đen thuần.
+/// Thanh menu dùng chung cho toàn bộ các tab: cùng màu nền trang, có viền mảnh phía trên.
 class BottomNavDock extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
@@ -57,8 +58,8 @@ class BottomNavDock extends StatelessWidget {
     ),
   ];
 
-  static const Color _activeColor = Colors.white;
-  static const Color _inactiveSolidColor = Color(0xFF9E9E9E);
+  static const Color _activeColor = AppPalette.textPrimary;
+  static const Color _inactiveSolidColor = AppPalette.textSecondary;
 
   String _getTabLabel(int index) {
     return switch (index) {
@@ -108,7 +109,7 @@ class BottomNavDock extends StatelessWidget {
               width: 100.0,
               height: _indicatorHeight,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.35),
+                color: AppPalette.textSecondary.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(2.0),
               ),
             ),
@@ -117,7 +118,14 @@ class BottomNavDock extends StatelessWidget {
       ),
     );
 
-    return ColoredBox(color: Colors.black, child: content);
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppPalette.background,
+        // Cùng màu nền trang; chỉ có viền mảnh 1px ở mép trên để phân cách.
+        border: Border(top: BorderSide(color: AppPalette.surface, width: 1)),
+      ),
+      child: content,
+    );
   }
 
   Widget _buildTab(int index) {
@@ -166,12 +174,12 @@ class BottomNavDock extends StatelessWidget {
         height: 34.0,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12.0),
-          color: Colors.white,
+          color: AppPalette.accent,
         ),
         child: Icon(
           isModerator ? Icons.fact_check_rounded : Icons.add_rounded,
           size: 27.0,
-          color: Colors.black,
+          color: AppPalette.textPrimary,
         ),
       ),
     );

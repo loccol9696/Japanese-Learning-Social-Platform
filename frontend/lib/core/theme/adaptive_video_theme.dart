@@ -79,15 +79,15 @@ class AdaptiveVideoTheme {
           Colors.transparent,
         ]
       : [
-          const Color(0xFF080B18).withValues(alpha: 0.85),
-          const Color(0xFF080B18).withValues(alpha: 0.40),
+          const Color(0xFF0A092D).withValues(alpha: 0.85),
+          const Color(0xFF0A092D).withValues(alpha: 0.40),
           Colors.transparent,
         ];
 
   List<Color> get bottomScrimColors => const [
-        Color(0xDE000000),
-        Color(0x99000000),
-        Color(0x33000000),
+        Color(0xDE0A092D),
+        Color(0x990A092D),
+        Color(0x330A092D),
         Colors.transparent,
       ];
 

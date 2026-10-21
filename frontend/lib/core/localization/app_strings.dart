@@ -105,7 +105,7 @@ class ViStrings implements AppStrings {
   @override
   String get profileTitle => 'Hồ sơ người dùng';
   @override
-  String get editProfile => 'Cập nhật hồ sơ';
+  String get editProfile => 'Chỉnh sửa hồ sơ';
   @override
   String get saveChanges => 'Lưu thay đổi';
   @override
@@ -115,9 +115,9 @@ class ViStrings implements AppStrings {
   @override
   String get updateFailed => 'Cập nhật thất bại. Vui lòng thử lại!';
   @override
-  String get selectJlptLevel => 'Cấp độ JLPT mục tiêu';
+  String get selectJlptLevel => 'Trình độ JLPT';
   @override
-  String get selectInterests => 'Chủ đề & Sở thích (Topics)';
+  String get selectInterests => 'Sở thích';
   @override
   String get interestsHint => 'Chọn các chủ đề bạn yêu thích để nhận video phù hợp';
   @override
@@ -129,7 +129,7 @@ class ViStrings implements AppStrings {
   @override
   String get enterAvatarUrl => 'https://example.com/avatar.png';
   @override
-  String get displayName => 'Tên hiển thị';
+  String get displayName => 'Tên';
   @override
   String get displayNamePlaceholder => 'Nhập tên hiển thị của bạn';
   @override

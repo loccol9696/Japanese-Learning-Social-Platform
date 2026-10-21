@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'app_palette.dart';
+
 class AppColors {
   AppColors._();
 
-  // Official Brand Palette (Coolors: #6C7EE1, #92B9E3, #FFC4A4, #FBA2D0, #C688EB)
-  static const Color periwinkle = Color(0xFF6C7EE1); // Main Primary
+  // Màu chủ đạo (primary, viền focus, nút chính) lấy từ AppPalette.accent;
+  // nền, thẻ, chữ lấy từ AppPalette. Các màu trang trí còn lại giữ nguyên.
+  static const Color periwinkle = AppPalette.accent; // Main Primary
   static const Color softSkyBlue = Color(
     0xFF92B9E3,
   ); // Soft Sky / Secondary Blue
@@ -30,31 +33,31 @@ class AppColors {
   static const Color primaryContainer = Color(0xFF28367F);
 
   // Background & Surfaces (Harmonized Deep Midnight Indigo)
-  static const Color background = Color(0xFF0B0E1E);
-  static const Color backgroundCanvas = Color(0xFF070914);
-  static const Color surface = Color(0xFF0E1326);
-  static const Color surfaceDim = Color(0xFF080B18);
-  static const Color surfaceCard = Color(0xFF131936);
-  static const Color surfaceCardSubtle = Color(0xFF171F42);
-  static const Color surfaceContainer = Color(0xFF171F42);
-  static const Color surfaceContainerLow = Color(0xFF101630);
-  static const Color surfaceContainerHigh = Color(0xFF1C254E);
-  static const Color surfaceContainerHighest = Color(0xFF232E5E);
+  static const Color background = AppPalette.background;
+  static const Color backgroundCanvas = AppPalette.background;
+  static const Color surface = AppPalette.surface;
+  static const Color surfaceDim = AppPalette.background;
+  static const Color surfaceCard = AppPalette.surface;
+  static const Color surfaceCardSubtle = AppPalette.surface;
+  static const Color surfaceContainer = AppPalette.surface;
+  static const Color surfaceContainerLow = AppPalette.surface;
+  static const Color surfaceContainerHigh = AppPalette.surface;
+  static const Color surfaceContainerHighest = AppPalette.surface;
   static const Color surfaceOverlay = Color(
     0xBF0E1326,
   ); // rgba(14, 19, 38, 0.75)
-  static const Color dockBackground = Color(0xF2101630); // 95% opacity
+  static const Color dockBackground = AppPalette.surface; // 95% opacity
 
   // Outlines & Borders
-  static const Color outline = softSkyBlue;
-  static const Color outlineVariant = Color(0xFF28346A);
-  static const Color borderGlow = periwinkle;
+  static const Color outline = AppPalette.textSecondary;
+  static const Color outlineVariant = AppPalette.border;
+  static const Color borderGlow = AppPalette.accent;
 
   // Typography & On-Colors
-  static const Color onSurface = Color(0xFFF4F6FD);
-  static const Color onSurfaceVariant = Color(0xFFBAC4F5);
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFA0AEC0);
+  static const Color onSurface = AppPalette.textPrimary;
+  static const Color onSurfaceVariant = AppPalette.textSecondary;
+  static const Color textPrimary = AppPalette.textPrimary;
+  static const Color textSecondary = AppPalette.textSecondary;
   static const Color textInverse = Color(0xFFFFFFFF);
   static const Color onPrimary = Color(0xFFFFFFFF);
   static const Color onSecondary = Color(0xFF2B0E1E);

@@ -4,6 +4,7 @@ import '../../../profile/data/datasources/profile_remote_datasource.dart';
 import '../../../profile/data/repositories/profile_repository_impl.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../domain/models/user_video_model.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class ModerationQueueScreen extends StatefulWidget {
   final ProfileRepository? repository;
@@ -136,7 +137,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                                   style: TextStyle(
                                     color: reasonController.text == r
                                         ? AppColors.periwinkle
-                                        : Colors.white70,
+                                        : AppPalette.textSecondary,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -171,7 +172,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Hủy', style: TextStyle(color: Colors.white60)),
+                  child: const Text('Hủy', style: TextStyle(color: AppPalette.textSecondary)),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -353,9 +354,9 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                       fit: StackFit.expand,
                       children: [
                         if (video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty)
-                          Image.network(video.thumbnailUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.video_library_rounded, color: Colors.white24))
+                          Image.network(video.thumbnailUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.video_library_rounded, color: AppPalette.border))
                         else
-                          const Icon(Icons.video_library_rounded, color: Colors.white24),
+                          const Icon(Icons.video_library_rounded, color: AppPalette.border),
                         Positioned(
                           right: 4,
                           bottom: 4,
@@ -393,7 +394,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                           const Spacer(),
                           Text(
                             video.status,
-                            style: const TextStyle(color: Colors.white54, fontSize: 11),
+                            style: const TextStyle(color: AppPalette.textSecondary, fontSize: 11),
                           ),
                         ],
                       ),
@@ -422,7 +423,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                                   ? NetworkImage(video.userAvatarUrl!)
                                   : null,
                               child: video.userAvatarUrl == null || video.userAvatarUrl!.isEmpty
-                                  ? const Icon(Icons.person, size: 10, color: Colors.white54)
+                                  ? const Icon(Icons.person, size: 10, color: AppPalette.textSecondary)
                                   : null,
                             ),
                             const SizedBox(width: 6),
@@ -502,13 +503,13 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.fact_check_outlined, size: 54, color: Colors.white24),
+          const Icon(Icons.fact_check_outlined, size: 54, color: AppPalette.border),
           const SizedBox(height: 12),
           Text(
             _activeStatus == 'PENDING'
                 ? 'Không có video nào đang chờ duyệt'
                 : 'Hàng đợi trống',
-            style: const TextStyle(color: Colors.white70, fontSize: 15, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: AppPalette.textSecondary, fontSize: 15, fontWeight: FontWeight.bold),
           ),
         ],
       ),

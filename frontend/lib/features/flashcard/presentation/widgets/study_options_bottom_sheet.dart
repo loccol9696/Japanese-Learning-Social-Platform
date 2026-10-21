@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class StudyOptions {
   bool shuffle;
@@ -69,22 +70,22 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1F28),
+        backgroundColor: AppPalette.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFF323344), width: 1),
+          side: const BorderSide(color: AppPalette.border, width: 1),
         ),
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF5A5F).withOpacity(0.15),
+                color: AppPalette.accent.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.restart_alt_rounded,
-                color: Color(0xFFFF5A5F),
+                color: AppPalette.accent,
                 size: 22,
               ),
             ),
@@ -119,7 +120,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF5A5F),
+              backgroundColor: AppPalette.accent,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -144,254 +145,231 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
     );
   }
 
+  /// Xanh tím nhạt cho chữ và icon của nút đặt lại tiến trình.
+  static const Color _resetTint = Color(0xFF8F9BFF);
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E1F28),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    // Material (không phải Container tô màu) để hiệu ứng chạm hiển thị đúng.
+    return Material(
+      color: AppPalette.navBar,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Thanh kéo (Drag handle)
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 14),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Tùy chọn học',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Thanh kéo (Drag handle)
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: AppPalette.textSecondary.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
-                  onPressed: () => Navigator.pop(context),
-                  splashRadius: 20,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
+              ),
 
-            // Nhóm 1: CÀI ĐẶT ÔN TẬP
-            const Text(
-              'CÀI ĐẶT ÔN TẬP',
-              style: TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF151620),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.04)),
-              ),
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text(
-                      'Trộn thẻ ngẫu nhiên',
-                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
-                    ),
-                    value: _shuffle,
-                    activeColor: const Color(0xFFFF5A5F),
-                    onChanged: (val) {
-                      setState(() => _shuffle = val);
-                      _notifyChange();
-                    },
-                  ),
-                  Divider(height: 1, color: Colors.white.withOpacity(0.05)),
-                  SwitchListTile(
-                    title: const Text(
-                      'Chỉ học từ gắn sao',
-                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
-                    ),
-                    value: _starredOnly,
-                    activeColor: const Color(0xFFFF5A5F),
-                    onChanged: (val) {
-                      setState(() => _starredOnly = val);
-                      _notifyChange();
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // Nhóm 2: HIỂN THỊ
-            const Text(
-              'HIỂN THỊ',
-              style: TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF151620),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.04)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Mặt thẻ hiển thị trước',
+                    'Tùy chọn học',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w500,
+                      color: AppPalette.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF111219),
-                      borderRadius: BorderRadius.circular(12),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppPalette.textSecondary,
+                      size: 24,
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() => _displayFrontFace = 'term');
-                              _notifyChange();
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              padding: const EdgeInsets.symmetric(vertical: 9),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: _displayFrontFace == 'term'
-                                    ? const Color(0xFFFF5A5F)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(9),
-                              ),
-                              child: Text(
-                                'Thuật ngữ',
-                                style: TextStyle(
-                                  color: _displayFrontFace == 'term'
-                                      ? Colors.white
-                                      : const Color(0xFF8E8E93),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() => _displayFrontFace = 'definition');
-                              _notifyChange();
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              padding: const EdgeInsets.symmetric(vertical: 9),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: _displayFrontFace == 'definition'
-                                    ? const Color(0xFFFF5A5F)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(9),
-                              ),
-                              child: Text(
-                                'Định nghĩa',
-                                style: TextStyle(
-                                  color: _displayFrontFace == 'definition'
-                                      ? Colors.white
-                                      : const Color(0xFF8E8E93),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    tooltip: 'Đóng',
+                    onPressed: () => Navigator.pop(context),
+                    splashRadius: 20,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 18),
+              const SizedBox(height: 10),
 
-            // Nhóm 3: ĐẶT LẠI
-            const Text(
-              'ĐẶT LẠI',
-              style: TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+              // Nhóm 1: CÀI ĐẶT ÔN TẬP
+              _buildSectionLabel('CÀI ĐẶT ÔN TẬP'),
+              _buildSwitchRow(
+                title: 'Trộn thẻ ngẫu nhiên',
+                value: _shuffle,
+                onChanged: (val) {
+                  setState(() => _shuffle = val);
+                  _notifyChange();
+                },
               ),
-            ),
-            const SizedBox(height: 8),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _showResetConfirmDialog(context),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF151620),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withOpacity(0.04)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.restart_alt_rounded, color: Color(0xFFFF5A5F), size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Đặt lại tiến trình thẻ',
-                        style: TextStyle(
-                          color: Color(0xFFFF5A5F),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+              const Divider(height: 1, color: AppPalette.border),
+              _buildSwitchRow(
+                title: 'Chỉ học từ gắn sao',
+                value: _starredOnly,
+                onChanged: (val) {
+                  setState(() => _starredOnly = val);
+                  _notifyChange();
+                },
+              ),
+              const SizedBox(height: 22),
+
+              // Nhóm 2: HIỂN THỊ
+              _buildSectionLabel('HIỂN THỊ'),
+              const Divider(height: 1, color: AppPalette.border),
+              const Padding(
+                padding: EdgeInsets.only(top: 16, bottom: 12),
+                child: Text(
+                  'Mặt thẻ hiển thị trước',
+                  style: TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontSize: 16,
                   ),
                 ),
               ),
+              _buildFaceSegmentedControl(),
+              const SizedBox(height: 26),
+
+              // Đặt lại tiến trình
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    backgroundColor: AppPalette.accent.withValues(alpha: 0.2),
+                    foregroundColor: _resetTint,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () => _showResetConfirmDialog(context),
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                  label: const Text(
+                    'Đặt lại tiến trình thẻ',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 4),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppPalette.textSecondary,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+
+  /// Một hàng "tiêu đề + công tắc" (công tắc luôn có núm trắng).
+  Widget _buildSwitchRow({
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: AppPalette.textPrimary,
+                  fontSize: 16,
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              thumbColor: const WidgetStatePropertyAll(AppPalette.textPrimary),
+              trackColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? AppPalette.accent
+                    : AppPalette.surfaceHigh,
+              ),
+              trackOutlineColor: const WidgetStatePropertyAll(
+                Colors.transparent,
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// "Thuật ngữ | Định nghĩa": rãnh tối, mặt đang chọn nền màu nhấn.
+  Widget _buildFaceSegmentedControl() {
+    Widget segment(String label, String face) {
+      final selected = _displayFrontFace == face;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () {
+            setState(() => _displayFrontFace = face);
+            _notifyChange();
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? AppPalette.accent : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: selected
+                    ? AppPalette.textPrimary
+                    : AppPalette.textSecondary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppPalette.background,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          segment('Thuật ngữ', 'term'),
+          segment('Định nghĩa', 'definition'),
+        ],
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../../data/services/flashcard_service.dart';
 import '../widgets/learning_header.dart';
 import '../widgets/simple_empty_state.dart';
 import '../widgets/study_options_bottom_sheet.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class FlashcardTypingScreen extends StatefulWidget {
   final FlashcardSetModel deck;
@@ -195,13 +196,13 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161922),
+        backgroundColor: AppPalette.background,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hoàn thành bài tự luận!', style: TextStyle(color: Colors.white)),
-        content: const Text('Bạn đã hoàn tất tất cả câu hỏi tự luận.', style: TextStyle(color: Colors.white70)),
+        content: const Text('Bạn đã hoàn tất tất cả câu hỏi tự luận.', style: TextStyle(color: AppPalette.textSecondary)),
         actions: [
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF2D55)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.pop(context);
@@ -217,14 +218,14 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0C0E14),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFFF2D55))),
+        backgroundColor: AppPalette.background,
+        body: Center(child: CircularProgressIndicator(color: AppPalette.accent)),
       );
     }
 
     if (_cards.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0C0E14),
+        backgroundColor: AppPalette.background,
         body: SafeArea(
           child: Column(
             children: [
@@ -256,7 +257,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     final hintLabel = isInputTerm ? 'NHẬP THUẬT NGỮ' : 'NHẬP ĐỊNH NGHĨA';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0E14),
+      backgroundColor: AppPalette.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -277,7 +278,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1E2B),
+                color: AppPalette.surface,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
@@ -323,7 +324,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
                   child: const Text(
                     'Không biết',
                     style: TextStyle(
-                      color: Color(0xFF5E81F4),
+                      color: AppPalette.accent,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -354,10 +355,10 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
                     letterSpacing: 0.5,
                   ),
                   enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF5E81F4), width: 2),
+                    borderSide: BorderSide(color: AppPalette.accent, width: 2),
                   ),
                   focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFFF2D55), width: 2.5),
+                    borderSide: BorderSide(color: AppPalette.accent, width: 2.5),
                   ),
                 ),
               ),

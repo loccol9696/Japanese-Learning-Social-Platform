@@ -14,6 +14,7 @@ import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';
 import 'subtitle_mode.dart';
 import 'video_info_overlay.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class VideoPlayerItem extends StatefulWidget {
   final VideoPost post;
@@ -346,11 +347,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           onTap: _handleTapToPlayPause,
           behavior: HitTestBehavior.opaque,
           child: ColoredBox(
-            color: Colors.black,
+            color: AppPalette.background,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // 1. Centered video on a solid black background.
+                // 1. Video căn giữa trên nền chính (#0A092D).
                 _buildVideoBackground(theme),
                 Positioned.fill(
                   child: GestureDetector(
@@ -395,9 +396,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
-                            Color(0x80000000),
-                            Color(0x40000000),
-                            Color(0x14000000),
+                            Color(0x800A092D),
+                            Color(0x400A092D),
+                            Color(0x140A092D),
                             Colors.transparent,
                           ],
                           stops: [0.0, 0.34, 0.68, 1.0],
@@ -522,7 +523,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     required String displayedTranslation,
   }) {
     return ColoredBox(
-      color: Colors.black,
+      color: AppPalette.background,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final mediaPadding = MediaQuery.paddingOf(context);
@@ -561,7 +562,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                         fit: StackFit.expand,
                         children: [
                           ColoredBox(
-                            color: Colors.black,
+                            color: AppPalette.background,
                             child: VideoPlayer(_videoController!),
                           ),
                           Positioned.fill(
@@ -582,7 +583,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     height: contentZoneHeight,
                     child: Container(
                       width: double.infinity,
-                      color: Colors.black,
+                      color: AppPalette.background,
                       padding: const EdgeInsets.fromLTRB(16, 8, 78, 16),
                       child: Align(
                         alignment: Alignment.bottomLeft,
@@ -742,7 +743,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
 
       return ColoredBox(
-        color: Colors.black,
+        color: AppPalette.background,
         child: Center(
           child: AspectRatio(
             aspectRatio: aspectRatio,
@@ -757,7 +758,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
 
   Widget _videoPlaceholder(AdaptiveVideoTheme theme) {
     return Container(
-      color: Colors.black,
+      color: AppPalette.background,
       child: Center(
         child: Icon(
           Icons.video_library_outlined,
