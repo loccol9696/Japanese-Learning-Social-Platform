@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/routes.dart';
+import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/data/services/auth_service.dart';
+import '../../../auth/data/auth_session.dart';
 import '../../../video/domain/models/user_video_model.dart';
 import '../../../video/presentation/screens/moderation_queue_screen.dart';
 import '../../../video/presentation/screens/my_videos_status_screen.dart';
@@ -39,7 +40,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _repository =
         widget.repository ??
         ProfileRepositoryImpl(remoteDataSource: ProfileRemoteDataSourceImpl());
-    _loadProfile();
+    AuthSession.instance.addListener(_onAuthChanged);
+    if (AuthSession.instance.isAuthenticated || widget.repository != null) {
+      _loadProfile();
+    }
+  }
+
+  @override
+  void dispose() {
+    AuthSession.instance.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  void _onAuthChanged() {
+    if (!mounted) return;
+    if (AuthSession.instance.isAuthenticated) {
+      _loadProfile();
+    } else {
+      setState(() {
+        _profile = const UserProfileModel();
+        _videos = [];
+        _likedVideos = [];
+        _savedVideos = [];
+        _membershipStatus = null;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadMembershipStatus() async {
@@ -483,12 +509,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       titleColor: const Color(0xFFEF4444),
                       onTap: () async {
                         Navigator.of(ctx).pop();
-                        await AuthService.instance.logout();
+                        await AuthSession.instance.logout();
                         if (!mounted) return;
-                        Navigator.of(context).pushNamedAndRemoveUntil(
-                          AppRoutes.login,
-                          (route) => false,
-                        );
+                        await navigateToGuestHome(context);
                       },
                     ),
                   ],
@@ -522,6 +545,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AuthSession.instance.isAuthenticated && widget.repository == null) {
+      return _buildAuthenticationRequired();
+    }
+
     return Scaffold(
       backgroundColor: AppColors.backgroundCanvas,
       body: SafeArea(
@@ -549,6 +576,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildAuthenticationRequired() {
+    return Scaffold(
+      backgroundColor: AppColors.backgroundCanvas,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.lock_outline_rounded,
+                color: AppColors.textSecondary,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Đăng nhập để xem hồ sơ',
+                style: TextStyle(
+                  color: AppColors.onSurface,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Thông tin hồ sơ chỉ hiển thị cho tài khoản đã đăng nhập.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: () async {
+                  await requireAuthentication(context);
+                },
+                child: const Text('Đăng nhập ngay'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

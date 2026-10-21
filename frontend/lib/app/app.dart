@@ -1,12 +1,13 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/localization/locale_manager.dart';
-import '../core/storage/token_storage.dart';
 import '../core/theme/app_theme.dart';
-import '../features/auth/data/services/auth_service.dart';
+import '../core/widgets/app_toast.dart';
+import '../features/auth/data/auth_session.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import 'routes.dart';
@@ -32,8 +33,34 @@ class AppScrollBehavior extends MaterialScrollBehavior {
   };
 }
 
-class App extends StatelessWidget {
+class App extends StatefulWidget {
   const App({super.key});
+
+  @override
+  State<App> createState() => _AppState();
+}
+
+class _AppState extends State<App> {
+  StreamSubscription<void>? _expiredSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Phiên hết hạn ở bất kỳ màn nào: về màn Đăng nhập và báo cho người dùng.
+    _expiredSubscription = AuthSession.instance.sessionExpired.listen((_) {
+      AppToast.navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+      AppToast.showInfo('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+    });
+  }
+
+  @override
+  void dispose() {
+    _expiredSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,9 +70,10 @@ class App extends StatelessWidget {
         return MaterialApp(
           title: AppConstants.appName,
           debugShowCheckedModeBanner: false,
+          navigatorKey: AppToast.navigatorKey,
           theme: AppTheme.darkTheme,
           scrollBehavior: const AppScrollBehavior(),
-          home: const _AuthGate(),
+          home: const AuthGate(),
           routes: AppRoutes.routes,
           onUnknownRoute: (settings) =>
               MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -55,42 +83,25 @@ class App extends StatelessWidget {
   }
 }
 
-class _AuthGate extends StatefulWidget {
-  const _AuthGate();
+/// Màn khởi đầu: khôi phục phiên đã lưu rồi vào Home, kể cả khi là guest.
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
 
   @override
-  State<_AuthGate> createState() => _AuthGateState();
+  State<AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends State<_AuthGate> {
-  // Chỉ chạy một lần, tránh gọi logout lặp lại mỗi lần rebuild.
-  late final Future<bool> _sessionFuture = _resolveSession();
-
-  /// Chỉ vào thẳng Home khi còn token hợp lệ VÀ người dùng đã chọn
-  /// "Ghi nhớ đăng nhập". Ngược lại thì đăng xuất (giải phóng phiên trên
-  /// server để lần đăng nhập sau không bị báo "đang đăng nhập ở thiết bị khác").
-  ///
-  /// Kiểm tra "Ghi nhớ" chỉ áp dụng lần đầu khi mở app. Sau khi đăng nhập,
-  /// màn Login điều hướng về route '/' (chính là _AuthGate) nên lúc đó chỉ
-  /// cần token còn hạn.
+class _AuthGateState extends State<AuthGate> {
+  /// "Ghi nhớ đăng nhập" chỉ xét lúc mở app. Sau khi đăng nhập, màn Login
+  /// điều hướng về route '/' (chính là AuthGate) nên lúc đó chỉ cần phiên hợp lệ.
   static bool _launchChecked = false;
 
-  static Future<bool> _resolveSession() async {
-    final storage = TokenStorage.instance;
+  late final Future<bool> _sessionFuture = _restore();
+
+  static Future<bool> _restore() {
     final isAppLaunch = !_launchChecked;
     _launchChecked = true;
-
-    final hasToken = (await storage.getAccessToken())?.isNotEmpty ?? false;
-    if (!hasToken) return false;
-
-    final loggedIn = await storage.isLoggedIn();
-    if (loggedIn && !isAppLaunch) return true;
-
-    final rememberMe = await storage.getRememberMe();
-    if (loggedIn && rememberMe) return true;
-
-    await AuthService.instance.logout();
-    return false;
+    return AuthSession.instance.restore(isAppLaunch: isAppLaunch);
   }
 
   @override
@@ -103,7 +114,7 @@ class _AuthGateState extends State<_AuthGate> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        return snapshot.data == true ? const HomeScreen() : const LoginScreen();
+        return const HomeScreen();
       },
     );
   }

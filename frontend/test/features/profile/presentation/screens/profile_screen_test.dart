@@ -64,6 +64,12 @@ class _MockProfileRepository implements ProfileRepository {
   Future<List<UserVideoModel>> getMyVideosStatus() async => videos;
 
   @override
+  Future<List<UserVideoModel>> getLikedVideos() async => [];
+
+  @override
+  Future<List<UserVideoModel>> getSavedVideos() async => [];
+
+  @override
   Future<List<UserVideoModel>> getModerationVideos({String status = 'PENDING'}) async => [];
 
   @override
@@ -151,8 +157,9 @@ void main() {
 
     // Verify menu header and content
     expect(find.text('Cài đặt & Tùy chọn'), findsOneWidget);
-    expect(find.text('Gói VIP: Gói VIP 1 Tháng'), findsOneWidget);
-    expect(find.text('Xem các gói Subscription'), findsOneWidget);
+    expect(find.text('Gói VIP 1 Tháng'), findsWidgets);
+    // Tiêu đề mục này đổi theo việc người dùng đã có gói hay chưa.
+    expect(find.textContaining('gói hội viên'), findsWidgets);
     expect(find.text('Quản lý upload'), findsOneWidget);
     expect(find.text('Cài đặt tài khoản'), findsOneWidget);
     expect(find.text('Cá nhân hóa'), findsOneWidget);

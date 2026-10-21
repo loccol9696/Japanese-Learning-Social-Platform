@@ -5,10 +5,18 @@ class AppColors {
 
   // Official Brand Palette (Coolors: #6C7EE1, #92B9E3, #FFC4A4, #FBA2D0, #C688EB)
   static const Color periwinkle = Color(0xFF6C7EE1); // Main Primary
-  static const Color softSkyBlue = Color(0xFF92B9E3); // Soft Sky / Secondary Blue
+  static const Color softSkyBlue = Color(
+    0xFF92B9E3,
+  ); // Soft Sky / Secondary Blue
   static const Color warmPeach = Color(0xFFFFC4A4); // Warm Peach / Accent
-  static const Color sakuraPink = Color(0xFFFBA2D0); // Sakura Pink / Heart / Highlight
-  static const Color lavender = Color(0xFFC688EB); // Lavender Purple / Creative Accent
+  static const Color sakuraPink = Color(
+    0xFFFBA2D0,
+  ); // Sakura Pink / Heart / Highlight
+  static const Color lavender = Color(
+    0xFFC688EB,
+  ); // Lavender Purple / Creative Accent
+  static const Color likeRed = Color(0xFFFE2C55); // TikTok-style Like red
+  static const Color saveYellow = Color(0xFFFFD700); // TikTok-style Save yellow
 
   // Primary & Secondary Aliases
   static const Color primary = periwinkle; // #6C7EE1
@@ -32,7 +40,9 @@ class AppColors {
   static const Color surfaceContainerLow = Color(0xFF101630);
   static const Color surfaceContainerHigh = Color(0xFF1C254E);
   static const Color surfaceContainerHighest = Color(0xFF232E5E);
-  static const Color surfaceOverlay = Color(0xBF0E1326); // rgba(14, 19, 38, 0.75)
+  static const Color surfaceOverlay = Color(
+    0xBF0E1326,
+  ); // rgba(14, 19, 38, 0.75)
   static const Color dockBackground = Color(0xF2101630); // 95% opacity
 
   // Outlines & Borders

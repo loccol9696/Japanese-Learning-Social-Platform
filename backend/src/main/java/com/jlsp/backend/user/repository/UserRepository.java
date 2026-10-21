@@ -26,6 +26,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
+    /** Email so khớp không phân biệt hoa thường (dữ liệu cũ có thể còn chữ hoa). */
+    Optional<User> findByEmailIgnoreCase(String email);
+
+    boolean existsByEmailIgnoreCase(String email);
+
     Page<User> findByIsActiveTrue(Pageable pageable);
 
     @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE " +

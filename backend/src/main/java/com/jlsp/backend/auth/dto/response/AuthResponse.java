@@ -17,6 +17,9 @@ public class AuthResponse {
 
     private String accessToken;
 
+    /** Thời gian sống của access token (giây). */
+    private Long expiresIn;
+
     private String refreshToken;
 
     private UserResponse user;

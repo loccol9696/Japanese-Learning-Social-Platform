@@ -1,7 +1,10 @@
 package com.jlsp.backend.user.controller;
 
 import com.jlsp.backend.common.response.ApiResponse;
+import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.response.PageResponse;
+import com.jlsp.backend.common.security.AuthUser;
+import com.jlsp.backend.common.security.CurrentUser;
 import com.jlsp.backend.user.dto.request.CreateUserRequest;
 import com.jlsp.backend.user.dto.request.UpdateUserRequest;
 import com.jlsp.backend.user.dto.response.UserResponse;
@@ -86,6 +89,10 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserResponse>> updateProfileByUsername(
             @PathVariable String username,
             @Valid @RequestBody UpdateUserRequest request) {
+        AuthUser caller = CurrentUser.require();
+        if (!caller.username().equals(username) && !caller.hasRole("ADMIN")) {
+            throw new AppException(403, "Bạn chỉ có thể sửa hồ sơ của chính mình");
+        }
         UserResponse response = userService.updateProfileByUsername(username, request);
         return ResponseEntity.ok(ApiResponse.success(200, "Cập nhật hồ sơ thành công", response));
     }
@@ -102,11 +109,9 @@ public class UserController {
     @GetMapping("/{id}/videos")
     public ResponseEntity<ApiResponse<PageResponse<com.jlsp.backend.video.dto.response.VideoResponse>>> getVideosByUserId(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
-            @RequestParam(value = "currentUserId", required = false) Long paramUserId,
             @PageableDefault(size = 10, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
 
-        Long viewerId = headerUserId != null ? headerUserId : paramUserId;
+        Long viewerId = CurrentUser.idOrNull();
         PageResponse<com.jlsp.backend.video.dto.response.VideoResponse> response = videoService.getVideosByUserId(id,
                 viewerId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));

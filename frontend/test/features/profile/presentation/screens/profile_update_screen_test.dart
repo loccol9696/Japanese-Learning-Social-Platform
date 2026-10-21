@@ -60,6 +60,12 @@ class _FakeProfileRepository implements ProfileRepository {
   Future<List<UserVideoModel>> getMyVideosStatus() async => [];
 
   @override
+  Future<List<UserVideoModel>> getLikedVideos() async => [];
+
+  @override
+  Future<List<UserVideoModel>> getSavedVideos() async => [];
+
+  @override
   Future<List<UserVideoModel>> getModerationVideos({String status = 'PENDING'}) async => [];
 
   @override

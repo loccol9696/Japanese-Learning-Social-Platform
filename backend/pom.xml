@@ -136,6 +136,12 @@
 			<artifactId>cloudinary-http45</artifactId>
 			<version>1.39.0</version>
 		</dependency>
+		<!-- Tách từ tiếng Nhật + cách đọc (offline) cho tính năng tra từ trong phụ đề -->
+		<dependency>
+			<groupId>com.atilika.kuromoji</groupId>
+			<artifactId>kuromoji-ipadic</artifactId>
+			<version>0.9.0</version>
+		</dependency>
 	</dependencies>
 
 	<build>

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../auth/data/services/auth_service.dart';
@@ -14,9 +15,11 @@ class SubscriptionService {
   static String get defaultBaseUrl => ApiConstants.subscriptionBaseUrl;
 
   final String baseUrl;
-  final http.Client _client = http.Client();
+  final http.Client _client;
 
-  SubscriptionService({String? baseUrl}) : baseUrl = baseUrl ?? defaultBaseUrl;
+  SubscriptionService({String? baseUrl, http.Client? client})
+    : baseUrl = baseUrl ?? defaultBaseUrl,
+      _client = client ?? http.Client();
 
   Future<SubscriptionStatus> getMySubscriptionStatus([int? userId]) async {
     int? resolvedUserId = userId;
@@ -29,30 +32,14 @@ class SubscriptionService {
 
   Future<List<SubscriptionPlan>> getPlans() async {
     try {
-      final token = await TokenStorage.instance.getAccessToken();
-      final response = await _client
-          .get(
-            Uri.parse(ApiConstants.subscriptionPlansUrl),
-            headers: {
-              'Content-Type': 'application/json',
-              if (token != null && token.isNotEmpty)
-                'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 4));
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final List list = json['data'] as List? ?? [];
-        return list
-            .map((e) => SubscriptionPlan.fromJson(e as Map<String, dynamic>))
-            .where((p) => p.isActive && p.price > 0)
-            .toList();
-      }
-      throw ApiException(
-        statusCode: response.statusCode,
-        message: 'Không thể tải danh sách gói hội viên từ máy chủ.',
+      final data = await ApiClient.instance.get(
+        ApiConstants.subscriptionPlansUrl,
       );
+      final List list = data is List ? data : const [];
+      return list
+          .map((e) => SubscriptionPlan.fromJson(e as Map<String, dynamic>))
+          .where((p) => p.isActive && p.price > 0)
+          .toList();
     } catch (error) {
       if (error is ApiException) rethrow;
       throw ApiException(
@@ -86,26 +73,13 @@ class SubscriptionService {
 
     PaymentResponse? result;
     try {
-      final token = await TokenStorage.instance.getAccessToken();
-      final response = await _client
-          .post(
-            Uri.parse('$baseUrl/checkout'),
-            headers: {
-              'Content-Type': 'application/json',
-              if (token != null && token.isNotEmpty)
-                'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode({
-              'userId': effectiveUserId,
-              'planId': planId,
-              'paymentMethod': paymentMethod,
-            }),
-          )
-          .timeout(const Duration(seconds: 5));
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        result = PaymentResponse.fromJson(json['data'] as Map<String, dynamic>);
+      // Người mua do server lấy từ access token, không gửi userId.
+      final data = await ApiClient.instance.post(
+        '$baseUrl/checkout',
+        body: {'planId': planId, 'paymentMethod': paymentMethod},
+      );
+      if (data is Map<String, dynamic>) {
+        result = PaymentResponse.fromJson(data);
       }
     } catch (_) {}
 
@@ -263,23 +237,9 @@ class SubscriptionService {
     }
 
     try {
-      final token = await TokenStorage.instance.getAccessToken();
-      final response = await _client
-          .get(
-            Uri.parse('$baseUrl/my-status?userId=$effectiveUserId'),
-            headers: {
-              'Content-Type': 'application/json',
-              if (token != null && token.isNotEmpty)
-                'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 4));
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final status = SubscriptionStatus.fromJson(
-          json['data'] as Map<String, dynamic>,
-        );
+      final data = await ApiClient.instance.get('$baseUrl/my-status');
+      if (data is Map<String, dynamic>) {
+        final status = SubscriptionStatus.fromJson(data);
         if (status.isVip) {
           return status;
         }

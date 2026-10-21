@@ -26,6 +26,14 @@ class ApiConstants {
   static String get verifyOtpUrl => '$baseUrl/auth/verify-otp';
   static String get resendOtpUrl => '$baseUrl/auth/resend-otp';
   static String get logoutUrl => '$baseUrl/auth/logout';
+  static String get refreshUrl => '$baseUrl/auth/refresh';
+  static String get forgotPasswordUrl => '$baseUrl/auth/forgot-password';
+  static String get resetPasswordUrl => '$baseUrl/auth/reset-password';
+  static String get changePasswordUrl => '$baseUrl/auth/change-password';
+
+  // Dictionary endpoints (tra từ trong phụ đề)
+  static String get dictionaryTokenizeUrl => '$baseUrl/dictionary/tokenize';
+  static String get dictionaryLookupUrl => '$baseUrl/dictionary/lookup';
 
   // Flashcard endpoints
   static String get flashcardSetsUrl => '$baseUrl/flashcards/sets';
@@ -53,8 +61,8 @@ class ApiConstants {
   static String get subscriptionBaseUrl => '$baseUrl/subscriptions';
   static String get subscriptionCheckoutUrl =>
       '$baseUrl/subscriptions/checkout';
-  static String subscriptionStatusUrl(int userId) =>
-      '$baseUrl/payments/my-quota?userId=$userId';
+  /// Quota của người đang đăng nhập (server xác định qua access token).
+  static String get myQuotaUrl => '$baseUrl/payments/my-quota';
 
   // Profile endpoints
   static String get profileUrl => '$baseUrl/profile';

@@ -84,17 +84,12 @@ class AdaptiveVideoTheme {
           Colors.transparent,
         ];
 
-  List<Color> get bottomScrimColors => isLight
-      ? [
-          Colors.white.withValues(alpha: 0.95),
-          Colors.white.withValues(alpha: 0.60),
-          Colors.transparent,
-        ]
-      : [
-          const Color(0xFF080B18).withValues(alpha: 0.95),
-          const Color(0xFF080B18).withValues(alpha: 0.75),
-          Colors.transparent,
-        ];
+  List<Color> get bottomScrimColors => const [
+        Color(0xDE000000),
+        Color(0x99000000),
+        Color(0x33000000),
+        Colors.transparent,
+      ];
 
   // Header switcher
   Color get headerSelectedText =>

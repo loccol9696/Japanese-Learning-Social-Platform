@@ -1005,17 +1005,6 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
               child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (widget.card.reading != null && widget.card.reading!.isNotEmpty) ...[
-                  Text(
-                    widget.card.reading!,
-                    style: const TextStyle(
-                      color: Color(0xFFFF5E7E),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                ],
                 Text(
                   backText,
                   textAlign: TextAlign.center,
