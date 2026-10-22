@@ -55,6 +55,13 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   }
 
   void _onStoreUpdated() {
+    // Cache bị huỷ (vd. vừa lưu từ vựng từ video): nạp lại thay vì hiển thị rỗng.
+    if (mounted &&
+        !_store.hasCachedSets() &&
+        AuthSession.instance.isAuthenticated) {
+      _loadDecks();
+      return;
+    }
     if (mounted && _searchController.text.trim().isEmpty) {
       setState(() {
         _decks = _store.cachedSets ?? [];

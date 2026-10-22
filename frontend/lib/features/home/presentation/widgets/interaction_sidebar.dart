@@ -21,6 +21,7 @@ class InteractionSidebar extends StatefulWidget {
   final VoidCallback? onFollowToggle;
   final VoidCallback? onCommentTap;
   final VoidCallback? onShareTap;
+  final VoidCallback? onScriptTap;
   final bool allowAccountActions;
 
   const InteractionSidebar({
@@ -36,6 +37,7 @@ class InteractionSidebar extends StatefulWidget {
     this.onFollowToggle,
     this.onCommentTap,
     this.onShareTap,
+    this.onScriptTap,
     this.allowAccountActions = true,
   });
 
@@ -45,6 +47,8 @@ class InteractionSidebar extends StatefulWidget {
 
 class _InteractionSidebarState extends State<InteractionSidebar>
     with TickerProviderStateMixin {
+  static const Color _accentBlue = Color(0xFF38BDF8);
+
   late final AnimationController _likeScaleController;
 
   late bool _isLiked;
@@ -163,10 +167,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
         // 3. Comments Button
         _buildActionButton(
           theme: activeTheme,
-          icon: null,
           countText: _formatCount(widget.post.commentCount),
           onTap: widget.onCommentTap,
-          customIcon: _buildCommentIcon(activeTheme),
+          icon: Icons.chat_bubble_outline_rounded,
           countFontSize: 10.0,
           countColor: Colors.white,
         ),
@@ -176,22 +179,33 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           icon: _isSaved
               ? Icons.bookmark_rounded
               : Icons.bookmark_border_rounded,
-          countText: null,
+          countText: 'Lưu',
           onTap: _handleSave,
-          iconColor: _isSaved ? AppColors.saveYellow : Colors.white,
+          iconColor: _isSaved ? _accentBlue : Colors.white,
+          countColor: _isSaved ? _accentBlue : Colors.white,
         ),
         const SizedBox(height: 8.0),
 
         // 4. Share Button
         _buildActionButton(
           theme: activeTheme,
-          icon: Icons.reply_rounded,
+          icon: Icons.reply_outlined,
+          flipIcon: true,
           countText: _formatCount(widget.post.shareCount),
           onTap: widget.onShareTap,
         ),
         const SizedBox(height: 6.0),
 
-        // 5. Subtitle Toggle Button (below share)
+        // 5. Kịch bản (mở danh sách toàn bộ câu thoại)
+        _buildActionButton(
+          theme: activeTheme,
+          icon: Icons.article_outlined,
+          countText: 'Kịch bản',
+          onTap: widget.onScriptTap,
+        ),
+        const SizedBox(height: 6.0),
+
+        // 6. Subtitle Toggle Button (below script)
         _buildSubtitleToggleButton(activeTheme),
       ],
     );
@@ -217,9 +231,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             child: Center(
               child: Icon(
                 isVisible
-                    ? Icons.subtitles_rounded
-                    : Icons.subtitles_off_rounded,
-                size: 28.0,
+                    ? Icons.subtitles_outlined
+                    : Icons.subtitles_off_outlined,
+                size: 26.0,
                 color: isVisible
                     ? (theme.isLight ? theme.primaryAdaptive : Colors.white)
                     : (theme.isLight
@@ -342,7 +356,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
                   isLiked
                       ? Icons.favorite_rounded
                       : Icons.favorite_border_rounded,
-                  size: 30.0,
+                  size: 26.0,
                   color: isLiked
                       ? AppColors.likeRed
                       : (theme.isLight ? theme.primaryAdaptive : Colors.white),
@@ -378,7 +392,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
     String? countText,
     VoidCallback? onTap,
     Widget? customIcon,
-    double iconSize = 28.0,
+    double iconSize = 26.0,
+    bool flipIcon = false,
     Color? iconColor,
     double countFontSize = 10.0,
     Color? countColor,
@@ -395,13 +410,18 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             child:
                 customIcon ??
                 Center(
-                  child: Icon(
-                    icon,
-                    size: iconSize,
-                    color:
-                        iconColor ??
-                        (theme.isLight ? theme.primaryAdaptive : Colors.white),
-                    shadows: theme.textShadows,
+                  child: Transform.flip(
+                    flipX: flipIcon,
+                    child: Icon(
+                      icon,
+                      size: iconSize,
+                      color:
+                          iconColor ??
+                          (theme.isLight
+                              ? theme.primaryAdaptive
+                              : Colors.white),
+                      shadows: theme.textShadows,
+                    ),
                   ),
                 ),
           ),
@@ -420,30 +440,6 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildCommentIcon(AdaptiveVideoTheme theme) {
-    final color = theme.isLight ? theme.primaryAdaptive : Colors.white;
-    return SizedBox(
-      width: 30.0,
-      height: 30.0,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(
-            Icons.chat_bubble_rounded,
-            size: 30.0,
-            color: color,
-            shadows: theme.textShadows,
-          ),
-          Icon(
-            Icons.more_horiz_rounded,
-            size: 16.0,
-            color: theme.isLight ? Colors.white : Colors.black,
-          ),
-        ],
-      ),
     );
   }
 }

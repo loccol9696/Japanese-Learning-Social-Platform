@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/ruby_subtitle_widget.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/localization/locale_manager.dart';
@@ -243,6 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _selectTab(int navIndex) {
+    RubySubtitleWidget.dismissLookups();
     if (!AuthSession.instance.isAuthenticated && navIndex >= 3) {
       _requestAuthentication();
       return;
@@ -354,6 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? const NeverScrollableScrollPhysics()
                   : null,
               onPageChanged: (index) {
+                RubySubtitleWidget.dismissLookups();
                 if (!AuthSession.instance.isAuthenticated && index >= 2) {
                   _tabPageController.animateToPage(
                     1,

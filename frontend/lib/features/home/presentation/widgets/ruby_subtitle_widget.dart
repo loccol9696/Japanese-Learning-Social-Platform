@@ -49,6 +49,10 @@ class RubySubtitleWidget extends StatefulWidget {
     this.onLookupActiveChanged,
   });
 
+  /// Phát tín hiệu để mọi bảng tra từ đang mở tự đóng (vd. khi rời tab Home).
+  static final ValueNotifier<int> _dismissSignal = ValueNotifier<int>(0);
+  static void dismissLookups() => _dismissSignal.value++;
+
   @override
   State<RubySubtitleWidget> createState() => _RubySubtitleWidgetState();
 }
@@ -63,6 +67,7 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
   @override
   void initState() {
     super.initState();
+    RubySubtitleWidget._dismissSignal.addListener(_clearSelection);
     _loadTokens();
   }
 
@@ -77,6 +82,7 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
 
   @override
   void dispose() {
+    RubySubtitleWidget._dismissSignal.removeListener(_clearSelection);
     _removeLookupOverlay();
     if (_selected != null) widget.onLookupActiveChanged?.call(false);
     super.dispose();

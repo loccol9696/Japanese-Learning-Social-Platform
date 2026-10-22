@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
+import '../screens/video_script_screen.dart';
 import 'bottom_nav_dock.dart';
 import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';
@@ -72,6 +73,24 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
         SubtitleMode.off => SubtitleMode.bilingual,
       };
     });
+  }
+
+  /// Đổi giá trị này để dựng lại VideoPlayer sau khi màn Kịch bản (dùng chung
+  /// controller) đóng lại, tránh khung video bị đen.
+  int _playerEpoch = 0;
+
+  Future<void> _openScript() async {
+    RubySubtitleWidget.dismissLookups();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VideoScriptScreen(
+          cues: widget.post.subtitleCues,
+          controller: _videoController,
+          initialBilingual: _subtitleMode == SubtitleMode.bilingual,
+        ),
+      ),
+    );
+    if (mounted) setState(() => _playerEpoch++);
   }
 
   void _handleDoubleTapDown(TapDownDetails details) {
@@ -426,6 +445,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                       onSaveToggle: widget.onSaveToggle,
                       onFollowToggle: widget.onFollowToggle,
                       onCommentTap: widget.onCommentTap,
+                      onScriptTap: _openScript,
                       allowAccountActions: widget.allowAccountActions,
                     ),
                   ),
@@ -563,7 +583,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                         children: [
                           ColoredBox(
                             color: AppPalette.background,
-                            child: VideoPlayer(_videoController!),
+                            child: VideoPlayer(
+                              _videoController!,
+                              key: ValueKey(_playerEpoch),
+                            ),
                           ),
                           Positioned.fill(
                             child: GestureDetector(
@@ -639,6 +662,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     onSaveToggle: widget.onSaveToggle,
                     onFollowToggle: widget.onFollowToggle,
                     onCommentTap: widget.onCommentTap,
+                    onScriptTap: _openScript,
                     allowAccountActions: widget.allowAccountActions,
                   ),
                 ),
@@ -737,7 +761,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           child: SizedBox(
             width: controller.value.size.width,
             height: controller.value.size.height,
-            child: VideoPlayer(controller),
+            child: VideoPlayer(controller, key: ValueKey(_playerEpoch)),
           ),
         );
       }
@@ -747,7 +771,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
         child: Center(
           child: AspectRatio(
             aspectRatio: aspectRatio,
-            child: VideoPlayer(controller),
+            child: VideoPlayer(controller, key: ValueKey(_playerEpoch)),
           ),
         ),
       );

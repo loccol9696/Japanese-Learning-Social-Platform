@@ -383,54 +383,43 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
 
   Widget _buildModeTile({
     required IconData icon,
-    required Color iconColor,
-    required Color iconBgColor,
     required String title,
     required VoidCallback onTap,
+    bool showDivider = true,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppPalette.background,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: iconBgColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 22),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 22),
+          decoration: BoxDecoration(
+            border: showDivider
+                ? const Border(
+                    bottom: BorderSide(color: AppPalette.surface, width: 1),
+                  )
+                : null,
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: AppPalette.textSecondary, size: 24),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right,
-                  color: Colors.white.withOpacity(0.35),
-                  size: 20,
-                ),
-              ],
-            ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppPalette.textSecondary,
+                size: 22,
+              ),
+            ],
           ),
         ),
       ),
@@ -621,13 +610,11 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
 
                 // Mode Selection Tiles (Tự động mở rộng chiều cao tự nhiên, không cuộn lồng nhau)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     children: [
                       _buildModeTile(
                         icon: Icons.style_outlined,
-                        iconColor: const Color(0xFF4A90E2),
-                        iconBgColor: const Color(0xFF1E2840),
                         title: 'Thẻ ghi nhớ',
                         onTap: () {
                           Navigator.push(
@@ -639,9 +626,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                         },
                       ),
                       _buildModeTile(
-                        icon: Icons.sync_alt,
-                        iconColor: const Color(0xFF00C7B1),
-                        iconBgColor: const Color(0xFF143034),
+                        icon: Icons.checklist_rounded,
                         title: 'Trắc nghiệm',
                         onTap: () {
                           Navigator.push(
@@ -656,9 +641,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                         },
                       ),
                       _buildModeTile(
-                        icon: Icons.edit_note,
-                        iconColor: AppPalette.accent,
-                        iconBgColor: const Color(0xFF1D2444),
+                        icon: Icons.edit_outlined,
                         title: 'Tự luận',
                         onTap: () {
                           Navigator.push(
@@ -673,9 +656,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                         },
                       ),
                       _buildModeTile(
-                        icon: Icons.headphones_rounded,
-                        iconColor: const Color(0xFFFF9500),
-                        iconBgColor: const Color(0xFF332314),
+                        icon: Icons.headphones_outlined,
                         title: 'Luyện nghe',
                         onTap: () {
                           Navigator.push(
@@ -690,10 +671,9 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                         },
                       ),
                       _buildModeTile(
-                        icon: Icons.layers_outlined,
-                        iconColor: const Color(0xFF8B6BF6),
-                        iconBgColor: const Color(0xFF282148),
+                        icon: Icons.flip_to_front_outlined,
                         title: 'Ghép thẻ',
+                        showDivider: false,
                         onTap: () {
                           Navigator.push(
                             context,
