@@ -17,9 +17,10 @@ import '../widgets/study_options_bottom_sheet.dart';
 /// Học thẻ ghi nhớ theo kiểu ngắt quãng: thẻ bấm Xem lại / Khó / Ổn sẽ lặp lại
 /// trong phiên, chỉ bấm Dễ thì thẻ mới rời phiên và được hẹn ngày ôn kế tiếp.
 class SrsStudyScreen extends StatefulWidget {
-  final FlashcardSetModel deck;
+  /// Bộ thẻ cần học; null = ôn các thẻ đã tới hạn của mọi bộ.
+  final FlashcardSetModel? deck;
 
-  const SrsStudyScreen({super.key, required this.deck});
+  const SrsStudyScreen({super.key, this.deck});
 
   @override
   State<SrsStudyScreen> createState() => _SrsStudyScreenState();
@@ -84,7 +85,10 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       _error = null;
     });
     try {
-      final session = await _service.getStudySession(widget.deck.setId);
+      final deck = widget.deck;
+      final session = deck == null
+          ? await _service.getDueSession()
+          : await _service.getStudySession(deck.setId);
       var cards = session.cards;
       if (_options.starredOnly) {
         cards = cards.where((c) => c.card.isStarred).toList();
@@ -214,7 +218,8 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
           _loadSession();
         },
         onResetProgress: () async {
-          await _service.resetProgress(widget.deck.setId);
+          final deck = widget.deck;
+          if (deck != null) await _service.resetProgress(deck.setId);
           FlashcardStore.instance.invalidateAll();
           _loadSession();
         },

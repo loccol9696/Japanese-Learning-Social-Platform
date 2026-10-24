@@ -143,6 +143,14 @@ public class FlashcardController {
         return ResponseEntity.ok(ApiResponse.success(flashcardService.getStudySession(userId, setId, newLimit)));
     }
 
+    // 9b'. Phiên ôn các thẻ đã tới hạn của mọi bộ (không gồm thẻ mới)
+    @GetMapping("/study/due-session")
+    public ResponseEntity<ApiResponse<StudySessionResponse>> getDueSession(
+            @RequestParam(required = false, defaultValue = "50") Integer limit) {
+        Long userId = CurrentUser.requireId();
+        return ResponseEntity.ok(ApiResponse.success(flashcardService.getDueSession(userId, limit)));
+    }
+
     // 9c. Ghi nhận một lần đánh giá (Xem lại / Khó / Ổn / Dễ)
     @PostMapping("/study/review")
     public ResponseEntity<ApiResponse<ReviewResultResponse>> reviewCard(

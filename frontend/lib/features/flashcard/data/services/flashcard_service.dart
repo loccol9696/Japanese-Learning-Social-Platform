@@ -189,6 +189,15 @@ class FlashcardService {
     return StudySession.fromJson(res as Map<String, dynamic>);
   }
 
+  /// Phiên ôn các thẻ đã tới hạn của mọi bộ (không gồm thẻ mới).
+  Future<StudySession> getDueSession({int limit = 50}) async {
+    final res = await _api.get(
+      '${ApiConstants.flashcardDueSessionUrl}?limit=$limit',
+      withAuth: true,
+    );
+    return StudySession.fromJson(res as Map<String, dynamic>);
+  }
+
   /// Ghi nhận một lần đánh giá Xem lại / Khó / Ổn / Dễ.
   Future<ReviewResult> reviewCard(int cardId, ReviewRating rating) async {
     final res = await _api.post(

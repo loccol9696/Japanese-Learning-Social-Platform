@@ -31,6 +31,8 @@ public interface FlashcardService {
 
     StudySessionResponse getStudySession(Long userId, Long setId, Integer newLimit);
 
+    StudySessionResponse getDueSession(Long userId, Integer limit);
+
     ReviewResultResponse reviewCard(Long userId, ReviewCardRequest request);
 
     DueSummaryResponse getDueSummary(Long userId);

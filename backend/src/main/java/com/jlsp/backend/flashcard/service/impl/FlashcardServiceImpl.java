@@ -436,6 +436,24 @@ public class FlashcardServiceImpl implements FlashcardService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public StudySessionResponse getDueSession(Long userId, Integer limit) {
+        getUserOrThrow(userId);
+        int max = limit == null ? 50 : Math.max(1, Math.min(limit, 200));
+        List<StudyCardResponse> cards = progressRepository.findDueByUserId(userId, LocalDateTime.now()).stream()
+                .limit(max)
+                .map(p -> toStudyCard(p.getFlashcard(), p,
+                        p.getSrsState() == null ? CardState.NEW : p.getSrsState()))
+                .collect(Collectors.toList());
+        return StudySessionResponse.builder()
+                .setId(null)
+                .cards(cards)
+                .newCount(0)
+                .dueCount(cards.size())
+                .build();
+    }
+
+    @Override
     @Transactional
     public ReviewResultResponse reviewCard(Long userId, ReviewCardRequest request) {
         User user = getUserOrThrow(userId);

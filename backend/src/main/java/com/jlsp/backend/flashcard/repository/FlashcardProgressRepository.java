@@ -37,4 +37,7 @@ public interface FlashcardProgressRepository extends JpaRepository<FlashcardProg
 
     @Query("SELECT COUNT(p) FROM FlashcardProgress p WHERE p.user.id = :userId AND p.nextReviewAt >= :from AND p.nextReviewAt < :to")
     long countDueBetween(@Param("userId") Long userId, @Param("from") java.time.LocalDateTime from, @Param("to") java.time.LocalDateTime to);
+
+    @Query("SELECT p FROM FlashcardProgress p WHERE p.user.id = :userId AND p.nextReviewAt IS NOT NULL AND p.nextReviewAt <= :now ORDER BY p.nextReviewAt ASC")
+    List<FlashcardProgress> findDueByUserId(@Param("userId") Long userId, @Param("now") java.time.LocalDateTime now);
 }
