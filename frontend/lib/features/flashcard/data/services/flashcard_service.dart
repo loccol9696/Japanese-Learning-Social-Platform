@@ -4,6 +4,7 @@ import '../models/flashcard_item_model.dart';
 import '../models/flashcard_set_model.dart';
 import '../models/matching_game_model.dart';
 import '../models/quiz_question_model.dart';
+import '../models/study_session_model.dart';
 
 class FlashcardService {
   static FlashcardService? _instance;
@@ -177,6 +178,34 @@ class FlashcardService {
       body: {'cardId': cardId, 'isCorrect': isCorrect},
       withAuth: true,
     );
+  }
+
+  /// Phiên học ngắt quãng: thẻ đang học + thẻ đến hạn + thẻ mới.
+  Future<StudySession> getStudySession(int setId, {int newLimit = 20}) async {
+    final res = await _api.get(
+      '${ApiConstants.flashcardStudySessionUrl(setId)}?newLimit=$newLimit',
+      withAuth: true,
+    );
+    return StudySession.fromJson(res as Map<String, dynamic>);
+  }
+
+  /// Ghi nhận một lần đánh giá Xem lại / Khó / Ổn / Dễ.
+  Future<ReviewResult> reviewCard(int cardId, ReviewRating rating) async {
+    final res = await _api.post(
+      ApiConstants.flashcardReviewUrl,
+      body: {'cardId': cardId, 'rating': rating.apiName},
+      withAuth: true,
+    );
+    return ReviewResult.fromJson(res as Map<String, dynamic>);
+  }
+
+  /// Số thẻ cần ôn và thời điểm đến hạn gần nhất (cho huy hiệu, nhắc nhở).
+  Future<DueSummary> getDueSummary() async {
+    final res = await _api.get(
+      ApiConstants.flashcardDueSummaryUrl,
+      withAuth: true,
+    );
+    return DueSummary.fromJson(res as Map<String, dynamic>);
   }
 
   /// Lấy danh sách câu hỏi trắc nghiệm từ Backend API

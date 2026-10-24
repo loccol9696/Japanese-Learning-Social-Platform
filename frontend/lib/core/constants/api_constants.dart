@@ -49,6 +49,11 @@ class ApiConstants {
   static String flashcardStarUrl(int cardId) =>
       '$baseUrl/flashcards/cards/$cardId/star';
   static String get flashcardAnswerUrl => '$baseUrl/flashcards/study/answer';
+  static String flashcardStudySessionUrl(int setId) =>
+      '$baseUrl/flashcards/sets/$setId/study-session';
+  static String get flashcardReviewUrl => '$baseUrl/flashcards/study/review';
+  static String get flashcardDueSummaryUrl =>
+      '$baseUrl/flashcards/study/due-summary';
   static String get flashcardSaveVideoUrl => '$baseUrl/flashcards/video/save';
   static String get flashcardSaveVideoVocabUrl =>
       '$baseUrl/flashcards/video/save';

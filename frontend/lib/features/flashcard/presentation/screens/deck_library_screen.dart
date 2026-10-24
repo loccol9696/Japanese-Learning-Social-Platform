@@ -23,6 +23,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   final FlashcardService _service = FlashcardService.instance;
   List<FlashcardSetModel> _decks = [];
   bool _isLoading = false;
+  int _dueCount = 0;
 
   @override
   void initState() {
@@ -99,6 +100,20 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
         _decks = sets;
         _isLoading = false;
       });
+    }
+    _loadDueCount();
+  }
+
+  /// Số thẻ đã tới hạn ôn (mọi bộ) cho banner "Cần ôn".
+  Future<void> _loadDueCount() async {
+    if (!AuthSession.instance.isAuthenticated) return;
+    try {
+      final summary = await _service.getDueSummary();
+      if (mounted && summary.dueCount != _dueCount) {
+        setState(() => _dueCount = summary.dueCount);
+      }
+    } catch (_) {
+      // Không có banner nếu không lấy được; không ảnh hưởng danh sách bộ thẻ.
     }
   }
 
@@ -384,6 +399,29 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                 ),
               ),
             ),
+            if (_dueCount > 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppPalette.accentSoft,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    'Có $_dueCount thẻ cần ôn hôm nay',
+                    style: const TextStyle(
+                      color: AppPalette.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
             const SizedBox(height: 8),
 
             // Deck List
