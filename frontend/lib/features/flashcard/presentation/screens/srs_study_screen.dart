@@ -40,7 +40,10 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
   bool _isSettling = false;
 
   static const double _showThreshold = 36;
-  static const double _commitThreshold = 110;
+  static const double _commitThreshold = 90;
+
+  /// Kéo lệch lên/xuống quá tỉ lệ này so với chiều ngang thì tính là dọc.
+  static const double _verticalBias = 0.75;
 
   StudySessionController? _controller;
   StudyOptions _options = StudyOptions();
@@ -284,11 +287,12 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   // ------------------------------------------------------------ kéo thẻ
 
-  /// Mức đánh giá ứng với hướng kéo, bốn hướng chia đều (mỗi hướng một góc 90°):
-  /// phải = Dễ, trái = Khó, lên = Ổn, xuống = Xem lại.
+  /// Mức đánh giá ứng với hướng kéo: phải = Dễ, trái = Khó, lên = Ổn,
+  /// xuống = Xem lại. Thẻ cao và hẹp nên tay thường kéo ngang nhiều hơn; vùng
+  /// lên/xuống được mở rộng (≈106° mỗi hướng) để dễ chạm tới như hai hướng ngang.
   ReviewRating? _ratingForDrag(Offset d) {
     if (d.distance < _showThreshold) return null;
-    if (d.dx.abs() >= d.dy.abs()) {
+    if (d.dy.abs() <= d.dx.abs() * _verticalBias) {
       return d.dx > 0 ? ReviewRating.easy : ReviewRating.hard;
     }
     return d.dy < 0 ? ReviewRating.good : ReviewRating.again;
@@ -355,7 +359,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
     final angle = (_drag.dx / 300).clamp(-1.0, 1.0) * (15 * pi / 180);
     final overlayOpacity = rating == null
         ? 0.0
-        : ((_drag.distance - _showThreshold) / 50).clamp(0.0, 1.0);
+        : ((_drag.distance - _showThreshold) / 30).clamp(0.0, 1.0);
 
     return GestureDetector(
       onTap: _flip,
@@ -369,7 +373,12 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
           angle: angle,
           child: Stack(
             children: [
-              Positioned.fill(child: _buildFlipCard(study)),
+              Positioned.fill(
+                child: Opacity(
+                  opacity: 1 - overlayOpacity,
+                  child: _buildFlipCard(study),
+                ),
+              ),
               if (rating != null)
                 Positioned.fill(
                   child: Opacity(
