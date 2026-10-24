@@ -39,11 +39,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
   bool _isDragging = false;
   bool _isSettling = false;
 
-  static const double _showThreshold = 36;
-  static const double _commitThreshold = 90;
-
-  /// Kéo lệch lên/xuống quá tỉ lệ này so với chiều ngang thì tính là dọc.
-  static const double _verticalBias = 0.75;
+  static const double _showThreshold = 40;
 
   StudySessionController? _controller;
   StudyOptions _options = StudyOptions();
@@ -287,15 +283,17 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   // ------------------------------------------------------------ kéo thẻ
 
-  /// Mức đánh giá ứng với hướng kéo: phải = Dễ, trái = Khó, lên = Ổn,
-  /// xuống = Xem lại. Thẻ cao và hẹp nên tay thường kéo ngang nhiều hơn; vùng
-  /// lên/xuống được mở rộng (≈106° mỗi hướng) để dễ chạm tới như hai hướng ngang.
+  /// Mức đánh giá theo vị trí thẻ so với hàng nút bên dưới: kéo sang phải = Dễ;
+  /// kéo sang trái càng xa càng tiến về phía các nút bên trái: Ổn (gần) → Khó →
+  /// Xem lại (xa nhất). Chỉ dùng chiều ngang nên không phải kéo chéo.
   ReviewRating? _ratingForDrag(Offset d) {
-    if (d.distance < _showThreshold) return null;
-    if (d.dy.abs() <= d.dx.abs() * _verticalBias) {
-      return d.dx > 0 ? ReviewRating.easy : ReviewRating.hard;
-    }
-    return d.dy < 0 ? ReviewRating.good : ReviewRating.again;
+    if (d.dx.abs() < _showThreshold) return null;
+    if (d.dx > 0) return ReviewRating.easy;
+    final width = MediaQuery.sizeOf(context).width;
+    final shift = -d.dx;
+    if (shift < width * 0.2) return ReviewRating.good;
+    if (shift < width * 0.4) return ReviewRating.hard;
+    return ReviewRating.again;
   }
 
   static Color _ratingColor(ReviewRating r) => switch (r) {
@@ -325,7 +323,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
     if (!_isDragging) return;
     _isDragging = false;
     final rating = _ratingForDrag(_drag);
-    if (rating != null && _drag.distance > _commitThreshold) {
+    if (rating != null) {
       _flyOutAndRate(rating);
     } else {
       _animateDragTo(Offset.zero);
@@ -359,7 +357,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
     final angle = (_drag.dx / 300).clamp(-1.0, 1.0) * (15 * pi / 180);
     final overlayOpacity = rating == null
         ? 0.0
-        : ((_drag.distance - _showThreshold) / 30).clamp(0.0, 1.0);
+        : ((_drag.dx.abs() - _showThreshold) / 30).clamp(0.0, 1.0);
 
     return GestureDetector(
       onTap: _flip,
