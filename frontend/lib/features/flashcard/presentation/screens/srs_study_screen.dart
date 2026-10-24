@@ -41,7 +41,6 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   static const double _showThreshold = 36;
   static const double _commitThreshold = 110;
-  static const double _verticalSplit = 50;
 
   StudySessionController? _controller;
   StudyOptions _options = StudyOptions();
@@ -285,14 +284,14 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   // ------------------------------------------------------------ kéo thẻ
 
-  /// Mức đánh giá ứng với hướng kéo: phải = Dễ; trái = Ổn (lên) / Khó (ngang) /
-  /// Xem lại (xuống).
+  /// Mức đánh giá ứng với hướng kéo, bốn hướng chia đều (mỗi hướng một góc 90°):
+  /// phải = Dễ, trái = Khó, lên = Ổn, xuống = Xem lại.
   ReviewRating? _ratingForDrag(Offset d) {
     if (d.distance < _showThreshold) return null;
-    if (d.dx > 0) return ReviewRating.easy;
-    if (d.dy < -_verticalSplit) return ReviewRating.good;
-    if (d.dy > _verticalSplit) return ReviewRating.again;
-    return ReviewRating.hard;
+    if (d.dx.abs() >= d.dy.abs()) {
+      return d.dx > 0 ? ReviewRating.easy : ReviewRating.hard;
+    }
+    return d.dy < 0 ? ReviewRating.good : ReviewRating.again;
   }
 
   static Color _ratingColor(ReviewRating r) => switch (r) {
