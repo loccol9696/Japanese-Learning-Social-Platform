@@ -54,6 +54,8 @@ class ApiConstants {
       '$baseUrl/flashcards/video/save';
   static String speechStatusUrl(String taskId) =>
       '${baseUrl.replaceFirst('/api/v1', '/api')}/speech/status/$taskId';
+  static String get analyzeGrammarUrl =>
+      '${baseUrl.replaceFirst('/api/v1', '/api')}/speech/analyze-grammar';
 
   // Subscription endpoints
   static String get subscriptionPlansBaseUrl => '$baseUrl/subscription-plans';

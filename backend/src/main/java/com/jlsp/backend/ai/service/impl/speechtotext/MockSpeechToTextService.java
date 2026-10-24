@@ -1,7 +1,4 @@
-package com.jlsp.backend.googlestt.service.impl;
-
-import com.jlsp.backend.googlestt.dto.response.ScriptSegment;
-import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
+package com.jlsp.backend.ai.service.impl.speechtotext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +6,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.jlsp.backend.ai.dto.response.ScriptSegment;
+import com.jlsp.backend.ai.service.SpeechToTextServiceIntf;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;

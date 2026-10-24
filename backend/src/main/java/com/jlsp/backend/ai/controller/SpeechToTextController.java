@@ -1,15 +1,18 @@
-package com.jlsp.backend.googlestt.controller;
+package com.jlsp.backend.ai.controller;
 
+import com.jlsp.backend.ai.dto.request.AnalyzeGrammarRequest;
+import com.jlsp.backend.ai.dto.response.ScriptSegment;
+import com.jlsp.backend.ai.dto.response.SegmentGrammarAnalysis;
+import com.jlsp.backend.ai.dto.response.TranscriptionStatusResponse;
+import com.jlsp.backend.ai.dto.response.TranscriptionSubmitResponse;
+import com.jlsp.backend.ai.service.SpeechToTextServiceIntf;
+import com.jlsp.backend.ai.service.GrammarAnalysisServiceIntf;
+import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.security.CurrentUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import com.jlsp.backend.googlestt.dto.response.ScriptSegment;
-import com.jlsp.backend.googlestt.dto.response.TranscriptionStatusResponse;
-import com.jlsp.backend.googlestt.dto.response.TranscriptionSubmitResponse;
-import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,14 +25,17 @@ public class SpeechToTextController {
     private final SpeechToTextServiceIntf speechToTextService;
     private final com.jlsp.backend.subscription.service.SubscriptionService subscriptionService;
     private final com.jlsp.backend.subscription.service.SystemSettingService systemSettingService;
+    private final GrammarAnalysisServiceIntf grammarAnalysisService;
 
     public SpeechToTextController(
             SpeechToTextServiceIntf speechToTextService,
             com.jlsp.backend.subscription.service.SubscriptionService subscriptionService,
-            com.jlsp.backend.subscription.service.SystemSettingService systemSettingService) {
+            com.jlsp.backend.subscription.service.SystemSettingService systemSettingService,
+            GrammarAnalysisServiceIntf grammarAnalysisService) {
         this.speechToTextService = speechToTextService;
         this.subscriptionService = subscriptionService;
         this.systemSettingService = systemSettingService;
+        this.grammarAnalysisService = grammarAnalysisService;
     }
 
     @PostMapping("/transcribe")
@@ -61,6 +67,13 @@ public class SpeechToTextController {
                 .build();
 
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    @PostMapping("/analyze-grammar")
+    public ResponseEntity<ApiResponse<List<SegmentGrammarAnalysis>>> analyzeGrammar(
+            @RequestBody AnalyzeGrammarRequest request) throws Exception {
+                List<SegmentGrammarAnalysis> analyzedSegments = grammarAnalysisService.analyze(request.getSegments());
+                return ResponseEntity.ok(ApiResponse.success(analyzedSegments));
     }
 
     @GetMapping("/status/{taskId}")

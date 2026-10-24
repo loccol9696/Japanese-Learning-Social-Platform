@@ -1,4 +1,4 @@
-package com.jlsp.backend.googlestt.service.impl;
+package com.jlsp.backend.ai.service.impl.speechtotext;
 
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
@@ -7,7 +7,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
-import com.jlsp.backend.googlestt.service.VocalIsolationServiceIntf;
+import com.jlsp.backend.ai.service.VocalIsolationServiceIntf;
 
 @Service
 public class VocalIsolationService implements VocalIsolationServiceIntf {

@@ -1,4 +1,4 @@
-package com.jlsp.backend.googlestt.service.impl;
+package com.jlsp.backend.ai.service.impl.speechtotext;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,8 +8,8 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.protobuf.Duration;
-import com.jlsp.backend.googlestt.dto.response.ScriptSegment;
-import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
+import com.jlsp.backend.ai.dto.response.ScriptSegment;
+import com.jlsp.backend.ai.service.SpeechToTextServiceIntf;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;

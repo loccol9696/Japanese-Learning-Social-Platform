@@ -1,4 +1,4 @@
-package com.jlsp.backend.googlestt.dto.response;
+package com.jlsp.backend.ai.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;

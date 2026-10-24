@@ -1,4 +1,4 @@
-package com.jlsp.backend.googlestt.service;
+package com.jlsp.backend.ai.service;
 
 public interface VocalIsolationServiceIntf {
 

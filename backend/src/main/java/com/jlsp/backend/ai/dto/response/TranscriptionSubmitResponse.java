@@ -1,4 +1,4 @@
-package com.jlsp.backend.googlestt.dto.response;
+package com.jlsp.backend.ai.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

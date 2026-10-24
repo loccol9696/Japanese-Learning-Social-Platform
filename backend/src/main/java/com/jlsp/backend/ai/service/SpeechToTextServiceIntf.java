@@ -1,8 +1,9 @@
-package com.jlsp.backend.googlestt.service;
+package com.jlsp.backend.ai.service;
 
-import com.jlsp.backend.googlestt.dto.response.ScriptSegment;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.jlsp.backend.ai.dto.response.ScriptSegment;
 
 import java.util.List;
 

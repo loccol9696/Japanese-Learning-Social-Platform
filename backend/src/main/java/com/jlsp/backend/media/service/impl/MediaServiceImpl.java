@@ -1,8 +1,8 @@
 package com.jlsp.backend.media.service.impl;
 
 import com.cloudinary.Cloudinary;
+import com.jlsp.backend.ai.service.SpeechToTextServiceIntf;
 import com.jlsp.backend.common.exception.AppException;
-import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
 import com.jlsp.backend.media.dto.CloudinarySignatureResponse;
 import com.jlsp.backend.media.dto.CloudinaryUploadResponse;
 import com.jlsp.backend.media.service.MediaService;

@@ -16,11 +16,9 @@ spring:
   application:
     name: backend
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    active: ${SPRING_PROFILES_ACTIVE}
   datasource:
     url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -46,19 +44,18 @@ spring:
     host: smtp.gmail.com
     port: 587
     username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}         # App Password 16 ký tự từ Google
+    password: ${MAIL_PASSWORD} # App Password 16 ký tự từ Google
     properties:
       mail:
         smtp:
           auth: true
           starttls:
             enable: true
-  ai:
+ai:
   vocal-service:
     # Điền link từ Cloudflare / Ngrok của máy bạn
     url: untraitorous-huong-conversably.ngrok-free.dev/api/v1/separate-vocal
     enabled: true
-
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
@@ -83,7 +80,6 @@ jwt:
   issuer: jlsp-backend
   access-token-ttl: ${JWT_ACCESS_TTL:PT30M}
   refresh-token-ttl: ${JWT_REFRESH_TTL:P14D}
-
 ---
 # Cấu hình riêng khi chạy Profile: dev
 spring:
@@ -99,6 +95,14 @@ gcp:
 app:
   security:
     enabled: true
+
+ai-analysis:
+  mock:
+    delay-ms: 1500
+    enabled: true
+  api-key: "fake-key"
+  base-url: "https://fake-api.com"
+  
 
 ---
 # Cấu hình riêng cho môi trường Production
@@ -119,7 +123,7 @@ spring:
 
 app:
   security:
-    enabled: true          # Bắt buộc bật toàn bộ filter bảo mật và kiểm tra JWT
+    enabled: true # Bắt buộc bật toàn bộ filter bảo mật và kiểm tra JWT
 
 gcp:
   stt:
@@ -129,3 +133,10 @@ gcp:
     credentials-path: ${GCP_CREDENTIALS_PATH:classpath:credentials/credentials.json}
   storage:
     bucket-name: ${GCP_BUCKET_NAME:sptote_bucket_1}
+
+ai-analysis:
+  mock:
+    enabled: false
+  api-key: ${GEMINI_API_KEY}
+  base-url: "https://generativelanguage.googleapis.com/v1beta"
+  model: ${GEMINI_MODEL}
