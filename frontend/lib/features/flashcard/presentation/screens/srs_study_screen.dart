@@ -40,6 +40,10 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
   bool _isDragging = false;
   bool _isSettling = false;
 
+  /// Mức đã chốt khi thả tay; giữ nguyên trong lúc thẻ bay đi để bảng màu và
+  /// nút không đổi theo vị trí thẻ (bay xa qua vùng Dễ).
+  ReviewRating? _committedRating;
+
   static const double _showThreshold = 40;
 
   StudySessionController? _controller;
@@ -343,22 +347,28 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
   }
 
   void _flyOutAndRate(ReviewRating rating) {
-    setState(() => _isSettling = true);
+    setState(() {
+      _isSettling = true;
+      _committedRating = rating;
+    });
     final dir = _drag / _drag.distance;
     _animateDragTo(dir * 700, onDone: () async {
       setState(() {
         _drag = Offset.zero;
         _isSettling = false;
+        _committedRating = null;
       });
       await _rate(rating);
     });
   }
 
   Widget _buildDraggableCard(StudyCard study) {
-    final rating = _ratingForDrag(_drag);
+    final rating = _committedRating ?? _ratingForDrag(_drag);
     final angle = (_drag.dx / 300).clamp(-1.0, 1.0) * (15 * pi / 180);
     final overlayOpacity = rating == null
         ? 0.0
+        : _committedRating != null
+        ? 1.0
         : ((_drag.dx.abs() - _showThreshold) / 30).clamp(0.0, 1.0);
 
     return GestureDetector(
@@ -615,7 +625,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   Widget _buildRatingBar(StudyCard study) {
     const ratings = ReviewRating.values;
-    final pending = _ratingForDrag(_drag);
+    final pending = _committedRating ?? _ratingForDrag(_drag);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
