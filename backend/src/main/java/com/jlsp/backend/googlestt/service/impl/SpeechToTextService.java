@@ -10,6 +10,7 @@ import com.google.cloud.storage.Storage;
 import com.google.protobuf.Duration;
 import com.jlsp.backend.googlestt.dto.response.ScriptSegment;
 import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
+import com.jlsp.backend.googlestt.service.SubtitleSplitter;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +34,8 @@ import java.util.concurrent.ExecutionException;
 @Service
 @ConditionalOnProperty(name = "gcp.stt.enabled", havingValue = "true", matchIfMissing = true)
 public class SpeechToTextService implements SpeechToTextServiceIntf {
+
+    private static final SubtitleSplitter SUBTITLE_SPLITTER = new SubtitleSplitter();
 
     private final VocalIsolationService vocalIsolationService;
     private final SpeechClient speechClient;
@@ -150,26 +153,31 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
                 SpeechRecognitionAlternative alternative = result.getAlternatives(0);
                 List<WordInfo> words = alternative.getWordsList();
 
-                // System.out.println("-> Text: " + alternative.getTranscript());
-                // System.out.println("-> Words count: " + words.size());
                 if (!words.isEmpty()) {
-                    WordInfo firstWord = words.get(0);
-                    WordInfo lastWord = words.get(words.size() - 1);
+                    if (segments.isEmpty()) {
+                        // Ghi lại định dạng từ Google trả về để dễ chỉnh việc tách câu.
+                        log.info("STT mẫu: \"{}\" - các từ đầu: {}", alternative.getTranscript(),
+                                words.stream().limit(8).map(WordInfo::getWord).toList());
+                    }
 
-                    double start = toSeconds(firstWord.getStartTime());
-                    double end = toSeconds(lastWord.getEndTime());
+                    List<SubtitleSplitter.TimedWord> timedWords = new ArrayList<>();
+                    for (WordInfo w : words) {
+                        timedWords.add(new SubtitleSplitter.TimedWord(
+                                w.getWord(), toSeconds(w.getStartTime()), toSeconds(w.getEndTime())));
+                    }
+                    double start = timedWords.get(0).start();
+                    double end = timedWords.get(timedWords.size() - 1).end();
 
-                    String japaneseText = alternative.getTranscript().trim();
-                    String vietnameseText = translateToVi(alternative.getTranscript().trim());
-
-                    ScriptSegment seg = ScriptSegment.builder()
-                            .startTime(start)
-                            .endTime(end)
-                            .text(japaneseText)
-                            .translatedText(vietnameseText)
-                            .build();
-
-                    segments.add(seg);
+                    // Google hay gộp nhiều câu vào một kết quả: tách thành các câu ngắn, dịch từng câu.
+                    for (SubtitleSplitter.Piece piece : SUBTITLE_SPLITTER.split(
+                            alternative.getTranscript(), timedWords, start, end)) {
+                        segments.add(ScriptSegment.builder()
+                                .startTime(piece.start())
+                                .endTime(piece.end())
+                                .text(piece.text())
+                                .translatedText(translateToVi(piece.text()))
+                                .build());
+                    }
                 }
             }
 
