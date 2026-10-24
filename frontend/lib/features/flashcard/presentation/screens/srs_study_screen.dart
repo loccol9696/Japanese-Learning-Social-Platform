@@ -57,6 +57,9 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
   Timer? _audioTimeoutTimer;
   bool _finishHandled = false;
 
+  /// Luyện tập thêm ngoài lịch ôn: không gửi đánh giá, không đổi lịch ôn của thẻ.
+  bool _practice = false;
+
   @override
   void initState() {
     super.initState();
@@ -83,17 +86,37 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
     super.dispose();
   }
 
-  Future<void> _loadSession() async {
+  Future<void> _loadSession({bool practice = false}) async {
+    _practice = practice;
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
       final deck = widget.deck;
-      final session = deck == null
-          ? await _service.getDueSession()
-          : await _service.getStudySession(deck.setId);
-      var cards = session.cards;
+      List<StudyCard> cards;
+      if (practice && deck != null) {
+        final all = await _service.getCardsInSet(deck.setId);
+        cards = all
+            .map(
+              (c) => StudyCard(
+                card: c,
+                state: 'PRACTICE',
+                intervalLabels: const {
+                  'AGAIN': 'Lặp lại',
+                  'HARD': 'Lặp lại',
+                  'GOOD': 'Lặp lại',
+                  'EASY': 'Xong',
+                },
+              ),
+            )
+            .toList();
+      } else {
+        final session = deck == null
+            ? await _service.getDueSession()
+            : await _service.getStudySession(deck.setId);
+        cards = session.cards;
+      }
       if (_options.starredOnly) {
         cards = cards.where((c) => c.card.isStarred).toList();
       }
@@ -103,7 +126,9 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       _controller?.removeListener(_onControllerChanged);
       final controller = StudySessionController(
         cards: cards,
-        sendReview: (id, rating) => _service.reviewCard(id, rating),
+        sendReview: (id, rating) async {
+          if (!_practice) await _service.reviewCard(id, rating);
+        },
       )..addListener(_onControllerChanged);
 
       if (!mounted) return;
@@ -132,6 +157,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
   Future<void> _handleFinished() async {
     if (_finishHandled) return;
     _finishHandled = true;
+    if (_practice) return;
     FlashcardStore.instance.invalidateAll();
     try {
       final summary = await _service.getDueSummary();
@@ -405,7 +431,11 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   Widget _buildRatingOverlay(StudyCard study, ReviewRating rating) {
     final color = _ratingColor(rating);
-    final when = rating == ReviewRating.easy
+    final when = _practice
+        ? (rating == ReviewRating.easy
+              ? 'Đã nhớ, bỏ qua trong lượt này'
+              : 'Học lại trong lượt này')
+        : rating == ReviewRating.easy
         ? 'Quay lại sau ${study.labelFor(rating)}'
         : 'Quay lại sau tối đa ${study.labelFor(rating)}';
     return Container(
@@ -703,6 +733,8 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
                 Text(
                   nothingToStudy
                       ? 'Hôm nay không còn thẻ cần ôn'
+                      : _practice
+                      ? 'Hoàn thành lượt luyện tập!'
                       : 'Hoàn thành phiên học!',
                   style: const TextStyle(
                     color: AppPalette.textPrimary,
@@ -717,6 +749,17 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
                     style: const TextStyle(
                       color: AppPalette.textSecondary,
                       fontSize: 16,
+                    ),
+                  ),
+                if (_practice)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Lượt luyện tập không làm thay đổi lịch ôn của thẻ.',
+                      style: TextStyle(
+                        color: AppPalette.textSecondary,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 if (summary?.nextDueAt != null) ...[
@@ -734,6 +777,28 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
             ),
           ),
         ),
+        if (widget.deck != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppPalette.textPrimary,
+                  side: const BorderSide(color: AppPalette.border),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: () => _loadSession(practice: true),
+                child: const Text(
+                  'Ôn lại tất cả thẻ',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: SizedBox(

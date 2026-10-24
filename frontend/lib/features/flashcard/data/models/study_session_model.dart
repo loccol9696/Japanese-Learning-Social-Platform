@@ -61,6 +61,7 @@ class StudyCard {
   String get stateLabel => switch (state) {
     'LEARNING' => 'Đang học',
     'REVIEW' => 'Ôn tập',
+    'PRACTICE' => 'Luyện tập',
     _ => 'Mới',
   };
 }
