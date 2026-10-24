@@ -73,7 +73,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
         backgroundColor: AppPalette.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: AppPalette.border, width: 1),
+          side: BorderSide(color: AppPalette.border, width: 1),
         ),
         title: Row(
           children: [
@@ -83,18 +83,18 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
                 color: AppPalette.accent.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.restart_alt_rounded,
                 color: AppPalette.accent,
                 size: 22,
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Đặt lại tiến trình',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppPalette.onAccent,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
@@ -105,7 +105,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
         content: Text(
           'Bạn có chắc chắn muốn đặt lại toàn bộ tiến trình học của bộ thẻ này về 0 không?',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.75),
+            color: AppPalette.textPrimary.withValues(alpha: 0.75),
             fontSize: 14.5,
             height: 1.45,
           ),
@@ -115,7 +115,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               'Hủy',
-              style: TextStyle(color: Colors.white.withOpacity(0.65)),
+              style: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.65)),
             ),
           ),
           ElevatedButton(
@@ -132,10 +132,10 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
               Navigator.pop(context);
               widget.onResetProgress();
             },
-            child: const Text(
+            child: Text(
               'Đặt lại',
               style: TextStyle(
-                color: Colors.white,
+                color: AppPalette.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -146,7 +146,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
   }
 
   /// Xanh tím nhạt cho chữ và icon của nút đặt lại tiến trình.
-  static const Color _resetTint = Color(0xFF8F9BFF);
+  static Color get _resetTint => AppPalette.accent;
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +180,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Tùy chọn học',
                     style: TextStyle(
                       color: AppPalette.textPrimary,
@@ -189,7 +189,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       color: AppPalette.textSecondary,
                       size: 24,
@@ -217,7 +217,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
                   _notifyChange();
                 },
               ),
-              const Divider(height: 1, color: AppPalette.border),
+              Divider(height: 1, color: AppPalette.border),
               _buildSwitchRow(
                 title: 'Chỉ học từ gắn sao',
                 value: _starredOnly,
@@ -230,8 +230,8 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
 
               // Nhóm 2: HIỂN THỊ
               _buildSectionLabel('HIỂN THỊ'),
-              const Divider(height: 1, color: AppPalette.border),
-              const Padding(
+              Divider(height: 1, color: AppPalette.border),
+              Padding(
                 padding: EdgeInsets.only(top: 16, bottom: 12),
                 child: Text(
                   'Mặt thẻ hiển thị trước',
@@ -276,7 +276,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
       padding: const EdgeInsets.only(top: 6, bottom: 4),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppPalette.textSecondary,
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -301,7 +301,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppPalette.textPrimary,
                   fontSize: 16,
                 ),
@@ -310,7 +310,7 @@ class _StudyOptionsBottomSheetState extends State<StudyOptionsBottomSheet> {
             Switch(
               value: value,
               onChanged: onChanged,
-              thumbColor: const WidgetStatePropertyAll(AppPalette.textPrimary),
+              thumbColor: WidgetStatePropertyAll(AppPalette.textPrimary),
               trackColor: WidgetStateProperty.resolveWith(
                 (states) => states.contains(WidgetState.selected)
                     ? AppPalette.accent

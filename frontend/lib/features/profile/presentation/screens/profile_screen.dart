@@ -17,6 +17,7 @@ import 'profile_update_screen.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../../../core/localization/locale_manager.dart';
+import '../../../../core/theme/theme_manager.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ProfileRepository? repository;
@@ -29,7 +30,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   /// Xanh dương nhạt cho liên kết "Nâng cấp Premium" và gạch chân tab đang chọn.
-  static const Color _linkBlue = Color(0xFF38BDF8);
+  static Color get _linkBlue => AppPalette.info;
 
   late final ProfileRepository _repository;
   UserProfileModel _profile = const UserProfileModel();
@@ -146,9 +147,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Expanded(
               child: Text(
                 '$featureName: Tính năng sẽ được hoàn thiện trong thời gian tới',
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: AppPalette.textPrimary,
                 ),
               ),
             ),
@@ -163,7 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   /// Đỏ cho nút đăng xuất.
-  static const Color _dangerRed = Color(0xFFFF5C6C);
+  static Color get _dangerRed => AppPalette.error;
 
   void _showMoreMenu() {
     showModalBottomSheet(
@@ -220,6 +221,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onTap: () => _showLanguagePicker(sheetContext),
       ),
       _SettingsRowData(
+        icon: Icons.brightness_6_outlined,
+        title: 'Giao diện',
+        value: _themeModeLabel(themeManager.mode),
+        onTap: () => _showThemePicker(sheetContext),
+      ),
+      _SettingsRowData(
         icon: Icons.lock_outline_rounded,
         title: 'Quyền riêng tư',
         onTap: () {
@@ -268,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Cài đặt',
                         style: TextStyle(
@@ -281,7 +288,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     IconButton(
                       onPressed: () => Navigator.of(sheetContext).pop(),
                       tooltip: 'Đóng',
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.close_rounded,
                         color: AppPalette.textPrimary,
                       ),
@@ -340,7 +347,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Expanded(
                   child: Text(
                     row.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppPalette.textPrimary,
                       fontSize: 16,
                     ),
@@ -349,14 +356,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (row.value != null) ...[
                   Text(
                     row.value!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppPalette.textPrimary,
                       fontSize: 14,
                     ),
                   ),
                   const SizedBox(width: 8),
                 ],
-                const Icon(
+                Icon(
                   Icons.chevron_right_rounded,
                   size: 22,
                   color: AppPalette.textSecondary,
@@ -365,8 +372,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ),
-        if (showDivider) const Divider(height: 1, color: AppPalette.border),
+        if (showDivider) Divider(height: 1, color: AppPalette.border),
       ],
+    );
+  }
+
+  static String _themeModeLabel(ThemeMode mode) => switch (mode) {
+    ThemeMode.system => 'Theo hệ thống',
+    ThemeMode.light => 'Sáng',
+    ThemeMode.dark => 'Tối',
+  };
+
+  /// Chọn giao diện sáng / tối / theo hệ thống; đổi xong đóng cả hai bảng.
+  void _showThemePicker(BuildContext settingsSheetContext) {
+    const options = [
+      (ThemeMode.system, Icons.brightness_auto_outlined),
+      (ThemeMode.light, Icons.light_mode_outlined),
+      (ThemeMode.dark, Icons.dark_mode_outlined),
+    ];
+    showModalBottomSheet(
+      context: settingsSheetContext,
+      backgroundColor: Colors.transparent,
+      builder: (pickerContext) {
+        return Material(
+          color: AppPalette.navBar,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          clipBehavior: Clip.antiAlias,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'Giao diện',
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  for (final (mode, icon) in options)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(icon, color: AppPalette.textPrimary),
+                      title: Text(
+                        _themeModeLabel(mode),
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
+                          fontSize: 16,
+                        ),
+                      ),
+                      trailing: mode == themeManager.mode
+                          ? Icon(Icons.check_rounded, color: AppPalette.accent)
+                          : null,
+                      onTap: () {
+                        themeManager.setMode(mode);
+                        Navigator.of(pickerContext).pop();
+                        Navigator.of(settingsSheetContext).pop();
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -388,7 +464,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(bottom: 8),
                     child: Text(
                       'Ngôn ngữ',
@@ -408,13 +484,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       title: Text(
                         language.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppPalette.textPrimary,
                           fontSize: 16,
                         ),
                       ),
                       trailing: language == localeManager.currentLanguage
-                          ? const Icon(
+                          ? Icon(
                               Icons.check_rounded,
                               color: AppPalette.accent,
                             )
@@ -465,7 +541,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SafeArea(
         bottom: false,
         child: _isLoading
-            ? const Center(
+            ? Center(
                 child: CircularProgressIndicator(color: AppColors.periwinkle),
               )
             : RefreshIndicator(
@@ -499,13 +575,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.lock_outline_rounded,
                 color: AppColors.textSecondary,
                 size: 48,
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Đăng nhập để xem hồ sơ',
                 style: TextStyle(
                   color: AppColors.onSurface,
@@ -514,7 +590,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Thông tin hồ sơ chỉ hiển thị cho tài khoản đã đăng nhập.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textSecondary),
@@ -566,7 +642,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppPalette.textPrimary,
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
@@ -586,7 +662,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             child: Text(
                               _profile.isAdmin ? 'ADMIN' : 'MOD',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppPalette.accent,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
@@ -601,7 +677,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       handle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppPalette.textSecondary,
                         fontSize: 13,
                       ),
@@ -615,7 +691,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   IconButton(
                     onPressed: _showMoreMenu,
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.menu_rounded,
                       size: 26,
                       color: AppPalette.textPrimary,
@@ -630,7 +706,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: 9,
                         height: 9,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B),
+                          color: AppPalette.warning,
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: AppPalette.background,
@@ -665,7 +741,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.only(left: 8),
               child: Text(
                 _profile.bio,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppPalette.textPrimary,
                   fontSize: 14,
                   height: 1.4,
@@ -693,7 +769,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 minimumSize: const Size.fromHeight(46),
                 foregroundColor: AppPalette.textPrimary,
                 backgroundColor: AppPalette.background,
-                side: const BorderSide(color: AppPalette.surface),
+                side: BorderSide(color: AppPalette.surface),
                 shape: const RoundedRectangleBorder(borderRadius: radius),
                 textStyle: labelStyle,
               ),
@@ -708,7 +784,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size.fromHeight(46),
                 backgroundColor: AppPalette.accent,
-                foregroundColor: AppPalette.textPrimary,
+                foregroundColor: AppPalette.onAccent,
                 elevation: 0,
                 shape: const RoundedRectangleBorder(borderRadius: radius),
                 textStyle: labelStyle,
@@ -737,7 +813,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ? null
             : Text(
                 initial,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppPalette.textPrimary,
                   fontSize: 30,
                   fontWeight: FontWeight.w600,
@@ -754,7 +830,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           TextSpan(
             text: value,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppPalette.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w800,
@@ -762,7 +838,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           TextSpan(
             text: ' $label',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppPalette.textSecondary,
               fontSize: 15,
             ),
@@ -792,19 +868,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppColors.surfaceCardSubtle, AppColors.surfaceCard],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+          color: AppPalette.gold.withValues(alpha: 0.5),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+            color: AppPalette.gold.withValues(alpha: 0.15),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -818,12 +894,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFD700), Color(0xFFF59E0B)],
+                  gradient: LinearGradient(
+                    colors: [AppPalette.gold, AppPalette.warning],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.workspace_premium_rounded,
                   color: AppPalette.background,
                   size: 24,
@@ -836,13 +912,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Row(
                       children: [
-                        const Text(
+                        Text(
                           'KOTOBA VIP',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.8,
-                            color: Color(0xFFFFD700),
+                            color: AppPalette.gold,
                           ),
                         ),
                         const Spacer(),
@@ -852,20 +928,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF10B981)
+                            color: AppPalette.success
                                 .withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: const Color(0xFF10B981),
+                              color: AppPalette.success,
                               width: 1,
                             ),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 Icons.circle,
-                                color: Color(0xFF10B981),
+                                color: AppPalette.success,
                                 size: 7,
                               ),
                               SizedBox(width: 4),
@@ -874,7 +950,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF10B981),
+                                  color: AppPalette.success,
                                 ),
                               ),
                             ],
@@ -885,10 +961,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 2),
                     Text(
                       planName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppPalette.textPrimary,
                       ),
                     ),
                   ],
@@ -903,24 +979,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: AppPalette.background.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                color: AppPalette.warning.withValues(alpha: 0.3),
               ),
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.schedule_rounded,
-                  color: Color(0xFFF59E0B),
+                  color: AppPalette.warning,
                   size: 16,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     expiryText,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFFFDE68A),
+                      color: AppPalette.warning,
                     ),
                   ),
                 ),
@@ -933,11 +1009,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             height: 38,
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFF59E0B), width: 1.2),
+                side: BorderSide(color: AppPalette.warning, width: 1.2),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
-                backgroundColor: const Color(0xFFF59E0B)
+                backgroundColor: AppPalette.warning
                     .withValues(alpha: 0.12),
               ),
               onPressed: _navigateToSubscription,
@@ -946,16 +1022,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ? Icons.workspace_premium_rounded
                     : Icons.upgrade_rounded,
                 size: 16,
-                color: const Color(0xFFFFD700),
+                color: AppPalette.gold,
               ),
               label: Text(
                 isLifetime
                     ? 'Xem chi tiết đặc quyền VIP'
                     : 'Nâng cấp lên Gói Trọn Đời',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFFFFD700),
+                  color: AppPalette.gold,
                 ),
               ),
             ),
@@ -980,7 +1056,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: AppPalette.textSecondary.withValues(alpha: 0.25),
             ),
           ),
-          child: const Row(
+          child: Row(
             children: [
               Expanded(
                 child: Text(
@@ -1016,7 +1092,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ];
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border.symmetric(
           horizontal: BorderSide(color: AppPalette.surface),
         ),
@@ -1086,7 +1162,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppPalette.textSecondary, width: 2),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.play_arrow_rounded,
                   size: 28,
                   color: AppPalette.textSecondary,
@@ -1095,7 +1171,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
               Text(
                 emptyTitle,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppPalette.textSecondary,
                   fontSize: 15,
                 ),
@@ -1128,10 +1204,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String? badgeText;
 
     if (video.isPending) {
-      badgeColor = const Color(0xFFF59E0B);
+      badgeColor = AppPalette.warning;
       badgeText = 'Chờ duyệt';
     } else if (video.isRejected) {
-      badgeColor = const Color(0xFFEF4444);
+      badgeColor = AppPalette.error;
       badgeText = 'Từ chối';
     } else if (!video.isPublic) {
       badgeColor = AppPalette.textSecondary;
@@ -1149,7 +1225,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Image.network(
                 video.thumbnailUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Center(
+                errorBuilder: (context, error, stackTrace) => Center(
                   child: Icon(
                     Icons.play_circle_outline_rounded,
                     color: AppPalette.border,
@@ -1158,7 +1234,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               )
             else
-              const Center(
+              Center(
                 child: Icon(
                   Icons.play_circle_outline_rounded,
                   color: AppPalette.border,
@@ -1182,8 +1258,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: Text(
                     badgeText,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppPalette.onVideo,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1198,13 +1274,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
-                  color: Colors.black54,
+                  color: AppPalette.videoScrim.withValues(alpha: 0.54),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   video.jlptLevel,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppPalette.onVideo,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1219,16 +1295,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               bottom: 6,
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.play_arrow_rounded,
-                    color: Colors.white,
+                    color: AppPalette.onVideo,
                     size: 16,
                   ),
                   const SizedBox(width: 2),
                   Text(
                     '${video.viewCount}',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppPalette.onVideo,
                       fontWeight: FontWeight.w700,
                       fontSize: 11,
                     ),

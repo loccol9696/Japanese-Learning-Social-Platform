@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class AvatarPickerSheet extends StatefulWidget {
   final String currentAvatarUrl;
@@ -98,7 +99,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
         top: 16.0,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24.0,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28.0)),
       ),
@@ -128,7 +129,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
                   appStrings.choosePresetAvatar,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18.0,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
@@ -136,7 +137,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                icon: Icon(Icons.close, color: AppColors.textSecondary),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -168,7 +169,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
                         color: AppColors.periwinkle.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.add_photo_alternate_rounded,
                         color: AppColors.periwinkle,
                         size: 20.0,
@@ -179,10 +180,10 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Tải ảnh từ máy / thiết bị',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppPalette.onAccent,
                               fontWeight: FontWeight.bold,
                               fontSize: 14.0,
                             ),
@@ -198,7 +199,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
                         ],
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.arrow_forward_ios_rounded,
                       size: 14.0,
                       color: AppColors.periwinkle,
@@ -262,9 +263,9 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
                                     color: AppColors.periwinkle
                                         .withValues(alpha: 0.4),
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.check,
-                                    color: Colors.white,
+                                    color: AppPalette.onAccent,
                                     size: 20.0,
                                   ),
                                 )
@@ -297,7 +298,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
           // Custom URL Input
           Text(
             appStrings.customAvatarUrl,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
               fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
@@ -306,7 +307,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
           const SizedBox(height: 8.0),
           TextField(
             controller: _customUrlController,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 13.5,
             ),
@@ -315,7 +316,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
               hintStyle: TextStyle(
                 color: AppColors.softSkyBlue.withValues(alpha: 0.4),
               ),
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.link_rounded,
                 color: AppColors.periwinkle,
                 size: 20.0,
@@ -334,7 +335,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14.0),
-                borderSide: const BorderSide(
+                borderSide: BorderSide(
                   color: AppColors.periwinkle,
                   width: 1.5,
                 ),
@@ -355,7 +356,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.periwinkle,
-                foregroundColor: Colors.white,
+                foregroundColor: AppPalette.onAccent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14.0),
                 ),

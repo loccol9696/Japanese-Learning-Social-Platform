@@ -263,8 +263,8 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppPalette.background,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Hoàn thành xuất sắc!', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        title: Text('Hoàn thành xuất sắc!', style: TextStyle(color: AppPalette.textPrimary)),
+        content: Text(
           'Bạn đã hoàn thành lượt ôn tập cho bộ từ vựng này.',
           style: TextStyle(color: AppPalette.textSecondary),
         ),
@@ -275,7 +275,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
               Navigator.pop(ctx);
               Navigator.pop(context);
             },
-            child: const Text('Trở về', style: TextStyle(color: Colors.white)),
+            child: Text('Trở về', style: TextStyle(color: AppPalette.onAccent)),
           ),
         ],
       ),
@@ -346,7 +346,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
             // Giant Center Flashcard Stack (Quizlet Style Swipe)
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppPalette.accent))
+                  ? Center(child: CircularProgressIndicator(color: AppPalette.accent))
                   : currentCard == null
                       ? SimpleEmptyState(
                           message: _options.starredOnly
@@ -386,12 +386,12 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                     Expanded(
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                          side: BorderSide(color: AppPalette.textPrimary.withValues(alpha: 0.15)),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                         onPressed: () => _handleManualChoice(false),
-                        child: const Text('Chưa nhớ', style: TextStyle(color: AppPalette.textSecondary)),
+                        child: Text('Chưa nhớ', style: TextStyle(color: AppPalette.textSecondary)),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -403,7 +403,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                         onPressed: () => _handleManualChoice(true),
-                        child: const Text('Đã nhớ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: Text('Đã nhớ', style: TextStyle(color: AppPalette.onAccent, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
@@ -457,9 +457,9 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
     final badgeOpacity = (offset.dx.abs() / _swipeThreshold).clamp(0.0, 1.0);
 
     final Color? glowColor = isSwipingRight
-        ? const Color(0xFF34D399)
+        ? AppPalette.success
         : isSwipingLeft
-            ? const Color(0xFFF87171)
+            ? AppPalette.error
             : null;
 
     return Padding(
@@ -545,23 +545,23 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0F261C).withValues(alpha: 0.92),
+                            color: AppPalette.successContainer.withValues(alpha: 0.92),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: const Color(0xFF34D399),
+                              color: AppPalette.success,
                               width: 2.2,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF34D399).withValues(alpha: 0.4),
+                                color: AppPalette.success.withValues(alpha: 0.4),
                                 blurRadius: 12,
                               ),
                             ],
                           ),
-                          child: const Text(
+                          child: Text(
                             'ĐÃ THUỘC',
                             style: TextStyle(
-                              color: Color(0xFF34D399),
+                              color: AppPalette.success,
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.5,
@@ -584,23 +584,23 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2B1216).withValues(alpha: 0.92),
+                            color: AppPalette.errorContainer.withValues(alpha: 0.92),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: const Color(0xFFF87171),
+                              color: AppPalette.error,
                               width: 2.2,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFF87171).withValues(alpha: 0.4),
+                                color: AppPalette.error.withValues(alpha: 0.4),
                                 blurRadius: 12,
                               ),
                             ],
                           ),
-                          child: const Text(
+                          child: Text(
                             'CHƯA NHỚ',
                             style: TextStyle(
-                              color: Color(0xFFF87171),
+                              color: AppPalette.error,
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.5,
@@ -708,7 +708,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
               _isPlayingAudio ? Icons.volume_up_rounded : Icons.volume_up_outlined,
               color: _isPlayingAudio
                   ? AppPalette.accent
-                  : Colors.white.withValues(alpha: 0.6),
+                  : AppPalette.textPrimary.withValues(alpha: 0.6),
               size: 26,
             ),
           ),
@@ -741,7 +741,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
+            color: AppPalette.shadow,
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -760,7 +760,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
               child: IconButton(
                 icon: Icon(
                   card.isStarred ? Icons.star : Icons.star_border,
-                  color: card.isStarred ? const Color(0xFFFFCC00) : Colors.white.withValues(alpha: 0.4),
+                  color: card.isStarred ? AppPalette.gold : AppPalette.textPrimary.withValues(alpha: 0.4),
                   size: 26,
                 ),
                 onPressed: _toggleStar,
@@ -774,7 +774,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                   displayText,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppPalette.textPrimary,
                     fontSize: _options.displayFrontFace == 'term' ? 44 : 30,
                     fontWeight: FontWeight.w800,
                   ),
@@ -810,7 +810,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
+            color: AppPalette.shadow,
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -826,7 +826,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
             child: IconButton(
               icon: Icon(
                 card.isStarred ? Icons.star : Icons.star_border,
-                color: card.isStarred ? const Color(0xFFFFCC00) : Colors.white.withValues(alpha: 0.4),
+                color: card.isStarred ? AppPalette.gold : AppPalette.textPrimary.withValues(alpha: 0.4),
                 size: 26,
               ),
               onPressed: _toggleStar,
@@ -843,8 +843,8 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                     Text(
                       card.term,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
                         fontSize: 42,
                         fontWeight: FontWeight.w800,
                       ),
@@ -854,24 +854,24 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                   if (card.sinoVietnamese != null && card.sinoVietnamese!.isNotEmpty)
                     Text(
                       card.sinoVietnamese!,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.6), fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   if (isFrontTerm) ...[
                     const SizedBox(height: 12),
                     Text(
                       card.meaning,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700),
+                      style: TextStyle(color: AppPalette.textPrimary, fontSize: 26, fontWeight: FontWeight.w700),
                     ),
                   ],
                   if (card.example != null && card.example!.isNotEmpty) ...[
                     const SizedBox(height: 20),
-                    Divider(color: Colors.white.withValues(alpha: 0.1)),
+                    Divider(color: AppPalette.textPrimary.withValues(alpha: 0.1)),
                     const SizedBox(height: 12),
                     Text(
                       card.example!,
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14, fontStyle: FontStyle.italic),
+                      style: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.7), fontSize: 14, fontStyle: FontStyle.italic),
                     ),
                   ],
                 ],

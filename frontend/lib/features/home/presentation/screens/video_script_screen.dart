@@ -23,7 +23,7 @@ class VideoScriptScreen extends StatefulWidget {
 }
 
 class _VideoScriptScreenState extends State<VideoScriptScreen> {
-  static const Color _linkBlue = Color(0xFF38BDF8);
+  static Color get _linkBlue => AppPalette.info;
 
   late bool _bilingual = widget.initialBilingual;
   late final List<GlobalKey> _itemKeys = List.generate(
@@ -143,14 +143,14 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
             alignment: Alignment.centerLeft,
             child: IconButton(
               onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(
+              icon: Icon(
                 Icons.arrow_back_ios_new_rounded,
                 size: 18,
                 color: AppPalette.textPrimary,
               ),
             ),
           ),
-          const Text(
+          Text(
             'Kịch bản',
             style: TextStyle(
               fontSize: 16,
@@ -198,11 +198,11 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                   child: Container(
                     width: 56,
                     height: 56,
-                    decoration: const BoxDecoration(
-                      color: Color(0x66939BB4),
+                    decoration: BoxDecoration(
+                      color: AppPalette.textSecondary.withValues(alpha: 0.40),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.play_arrow_rounded,
                       size: 34,
                       color: AppPalette.textPrimary,
@@ -247,7 +247,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
             children: [
               Text(
                 '${_format(position)} / ${_format(duration)}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   color: AppPalette.textSecondary,
                 ),
@@ -260,7 +260,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Text(
                     _bilingual ? 'Song ngữ' : 'Tiếng Nhật',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: _linkBlue,
@@ -277,7 +277,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
 
   Widget _buildList(int activeIndex) {
     if (widget.cues.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'Video này chưa có kịch bản',
           style: TextStyle(color: AppPalette.textSecondary, fontSize: 14),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../widgets/ruby_subtitle_widget.dart';
 
 import '../../../../app/routes.dart';
@@ -272,7 +273,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-
   int? _pageIndexForNavIndex(int navIndex) {
     return switch (navIndex) {
       0 => 0,
@@ -431,7 +431,7 @@ class _HomeScreenState extends State<HomeScreen> {
         : _forYouFeedPageController;
 
     if (isLoading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: AppColors.periwinkle),
       );
     }
@@ -440,7 +440,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return Center(
         child: Text(
           appStrings.noVideos,
-          style: const TextStyle(color: AppColors.textSecondary),
+          style: TextStyle(color: AppColors.textSecondary),
         ),
       );
     }

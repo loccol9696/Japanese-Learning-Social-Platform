@@ -74,7 +74,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Cổng Thanh Toán VNPay',
                           style: TextStyle(
                             fontSize: 17,
@@ -95,7 +95,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(false),
-                    icon: const Icon(Icons.close, size: 20, color: AppPalette.textSecondary),
+                    icon: Icon(Icons.close, size: 20, color: AppPalette.textSecondary),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -116,7 +116,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
+                        Row(
                           children: [
                             Icon(Icons.link_rounded, size: 16, color: AppPalette.accent),
                             SizedBox(width: 6),
@@ -140,7 +140,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                               ),
                             );
                           },
-                          child: const Row(
+                          child: Row(
                             children: [
                               Icon(Icons.copy, size: 13, color: AppPalette.accent),
                               SizedBox(width: 3),
@@ -164,7 +164,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                         url,
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: AppPalette.accent,
                           decoration: TextDecoration.underline,
@@ -180,16 +180,16 @@ class VNPayInstructionDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0x26FFC107),
+                  color: AppPalette.warning.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0x66FFC107)),
+                  border: Border.all(color: AppPalette.warning.withValues(alpha: 0.40)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.info_outline, size: 16, color: Color(0xFFFCD34D)),
+                        Icon(Icons.info_outline, size: 16, color: AppPalette.warning),
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -197,7 +197,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12.5,
-                              color: Color(0xFFFCD34D),
+                              color: AppPalette.warning,
                             ),
                           ),
                         ),
@@ -223,7 +223,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                 label: const Text('Mở trang thanh toán VNPay Sandbox'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppPalette.accent,
-                  side: const BorderSide(color: AppPalette.accent, width: 1.2),
+                  side: BorderSide(color: AppPalette.accent, width: 1.2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -234,7 +234,7 @@ class VNPayInstructionDialog extends StatelessWidget {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppPalette.accent,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppPalette.onAccent,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -266,7 +266,7 @@ class VNPayInstructionDialog extends StatelessWidget {
           children: [
             SelectableText(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12.5,
                 color: AppPalette.textPrimary,
@@ -283,7 +283,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                   ),
                 );
               },
-              child: const Icon(Icons.copy, size: 14, color: AppPalette.textSecondary),
+              child: Icon(Icons.copy, size: 14, color: AppPalette.textSecondary),
             ),
           ],
         ),
@@ -342,7 +342,7 @@ class _VNPaySandboxWebPortalDialogState
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       clipBehavior: Clip.antiAlias,
       child: Container(
-        color: Colors.white,
+        color: AppPalette.textPrimary,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -351,19 +351,19 @@ class _VNPaySandboxWebPortalDialogState
               // Browser Address Bar showing VNPay URL
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                color: const Color(0xFFF1F5F9),
+                color: AppPalette.surfaceHigh,
                 child: Row(
                   children: [
-                    const Icon(Icons.lock_rounded, size: 15, color: Color(0xFF10B981)),
+                    Icon(Icons.lock_rounded, size: 15, color: AppPalette.success),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         widget.url,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF334155),
+                          color: AppPalette.textSecondary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -371,7 +371,7 @@ class _VNPaySandboxWebPortalDialogState
                     const SizedBox(width: 6),
                     InkWell(
                       onTap: () => Navigator.of(context).pop(false),
-                      child: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+                      child: Icon(Icons.close, size: 18, color: AppPalette.textSecondary),
                     ),
                   ],
                 ),
@@ -381,19 +381,19 @@ class _VNPaySandboxWebPortalDialogState
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF005BAA), Color(0xFF0072CE)],
+                    colors: [AppColors.vnpayBlue, AppColors.vnpayBlueLight],
                   ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Column(
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'VNPAY PAYMENT GATEWAY',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppPalette.textPrimary,
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.5,
@@ -402,20 +402,20 @@ class _VNPaySandboxWebPortalDialogState
                         SizedBox(height: 2),
                         Text(
                           'Thẻ nội địa và tài khoản ngân hàng (NCB)',
-                          style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                          style: TextStyle(color: AppPalette.textSecondary, fontSize: 11.5),
                         ),
                       ],
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: AppPalette.textPrimary.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
+                      child: Text(
                         'SANDBOX',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppPalette.textPrimary,
                           fontSize: 10.5,
                           fontWeight: FontWeight.bold,
                         ),
@@ -432,9 +432,9 @@ class _VNPaySandboxWebPortalDialogState
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: AppPalette.surface,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: AppPalette.border),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -444,18 +444,18 @@ class _VNPaySandboxWebPortalDialogState
                             children: [
                               Text(
                                 'Đơn hàng: ${widget.plan.name}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13.5,
-                                  color: Color(0xFF0F172A),
+                                  color: AppPalette.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 'Mã GD: ${widget.transactionRef}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11.5,
-                                  color: Color(0xFF64748B),
+                                  color: AppPalette.textSecondary,
                                 ),
                               ),
                             ],
@@ -465,7 +465,7 @@ class _VNPaySandboxWebPortalDialogState
                             style: const TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 16,
-                              color: Color(0xFF005BAA),
+                              color: AppColors.vnpayBlue,
                             ),
                           ),
                         ],
@@ -495,19 +495,19 @@ class _VNPaySandboxWebPortalDialogState
                       height: 46,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF005BAA),
-                          foregroundColor: Colors.white,
+                          backgroundColor: AppColors.vnpayBlue,
+                          foregroundColor: AppPalette.onAccent,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                         onPressed: _isProcessing ? null : _submitPayment,
                         child: _isProcessing
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 22,
                                 height: 22,
                                 child: CircularProgressIndicator(
-                                  color: Colors.white,
+                                  color: AppPalette.textPrimary,
                                   strokeWidth: 2.5,
                                 ),
                               )
@@ -536,32 +536,32 @@ class _VNPaySandboxWebPortalDialogState
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF475569),
+            color: AppPalette.textSecondary,
           ),
         ),
         const SizedBox(height: 4),
         TextField(
           controller: controller,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13.5,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF0F172A),
+            color: AppPalette.textPrimary,
           ),
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             filled: true,
-            fillColor: const Color(0xFFF8FAFC),
+            fillColor: AppPalette.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+              borderSide: BorderSide(color: AppPalette.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+              borderSide: BorderSide(color: AppPalette.border),
             ),
           ),
         ),

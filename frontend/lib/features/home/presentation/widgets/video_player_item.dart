@@ -366,7 +366,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           onTap: _handleTapToPlayPause,
           behavior: HitTestBehavior.opaque,
           child: ColoredBox(
-            color: AppPalette.background,
+            color: AppPalette.videoScrim,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -410,14 +410,14 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                   height: MediaQuery.sizeOf(context).height * 0.28,
                   child: IgnorePointer(
                     child: Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
-                            Color(0x800A092D),
-                            Color(0x400A092D),
-                            Color(0x140A092D),
+                            AppPalette.videoScrim.withValues(alpha: 0.50),
+                            AppPalette.videoScrim.withValues(alpha: 0.25),
+                            AppPalette.videoScrim.withValues(alpha: 0.08),
                             Colors.transparent,
                           ],
                           stops: [0.0, 0.34, 0.68, 1.0],
@@ -543,7 +543,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     required String displayedTranslation,
   }) {
     return ColoredBox(
-      color: AppPalette.background,
+      color: AppPalette.videoScrim,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final mediaPadding = MediaQuery.paddingOf(context);
@@ -582,7 +582,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                         fit: StackFit.expand,
                         children: [
                           ColoredBox(
-                            color: AppPalette.background,
+                            color: AppPalette.videoScrim,
                             child: VideoPlayer(
                               _videoController!,
                               key: ValueKey(_playerEpoch),
@@ -606,7 +606,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     height: contentZoneHeight,
                     child: Container(
                       width: double.infinity,
-                      color: AppPalette.background,
+                      color: AppPalette.videoScrim,
                       padding: const EdgeInsets.fromLTRB(16, 8, 78, 16),
                       child: Align(
                         alignment: Alignment.bottomLeft,
@@ -734,13 +734,13 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
               width: 84,
               height: 84,
               decoration: BoxDecoration(
-                color: Colors.black38,
+                color: AppPalette.videoScrim.withValues(alpha: 0.38),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.play_arrow_rounded,
                 size: 64,
-                color: Colors.white,
+                color: AppPalette.onVideo,
               ),
             ),
           ),
@@ -767,7 +767,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
 
       return ColoredBox(
-        color: AppPalette.background,
+        color: AppPalette.videoScrim,
         child: Center(
           child: AspectRatio(
             aspectRatio: aspectRatio,
@@ -782,7 +782,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
 
   Widget _videoPlaceholder(AdaptiveVideoTheme theme) {
     return Container(
-      color: AppPalette.background,
+      color: AppPalette.videoScrim,
       child: Center(
         child: Icon(
           Icons.video_library_outlined,

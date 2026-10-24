@@ -58,8 +58,8 @@ class BottomNavDock extends StatelessWidget {
     ),
   ];
 
-  static const Color _activeColor = AppPalette.textPrimary;
-  static const Color _inactiveSolidColor = AppPalette.textSecondary;
+  static Color get _activeColor => AppPalette.textPrimary;
+  static Color get _inactiveSolidColor => AppPalette.textSecondary;
 
   String _getTabLabel(int index) {
     return switch (index) {
@@ -119,7 +119,7 @@ class BottomNavDock extends StatelessWidget {
     );
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppPalette.background,
         // Cùng màu nền trang; chỉ có viền mảnh 1px ở mép trên để phân cách.
         border: Border(top: BorderSide(color: AppPalette.surface, width: 1)),
@@ -179,7 +179,7 @@ class BottomNavDock extends StatelessWidget {
         child: Icon(
           isModerator ? Icons.fact_check_rounded : Icons.add_rounded,
           size: 27.0,
-          color: AppPalette.textPrimary,
+          color: AppPalette.onAccent,
         ),
       ),
     );
