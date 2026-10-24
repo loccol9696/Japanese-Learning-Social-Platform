@@ -7,7 +7,9 @@ import com.jlsp.backend.common.security.AuthUser;
 import com.jlsp.backend.common.security.CurrentUser;
 import com.jlsp.backend.user.dto.request.CreateUserRequest;
 import com.jlsp.backend.user.dto.request.UpdateUserRequest;
+import com.jlsp.backend.user.dto.response.FollowStatusResponse;
 import com.jlsp.backend.user.dto.response.UserResponse;
+import com.jlsp.backend.user.service.FollowService;
 import com.jlsp.backend.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final FollowService followService;
     private final com.jlsp.backend.video.service.VideoService videoService;
 
     @PostMapping
@@ -101,6 +104,26 @@ public class UserController {
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Long id) {
         userService.deactivateUser(id);
         return ResponseEntity.ok(ApiResponse.success(200, "User deactivated successfully", null));
+    }
+
+    /** POST /api/v1/users/{id}/follow — theo dõi người dùng. */
+    @PostMapping("/{id}/follow")
+    public ResponseEntity<ApiResponse<FollowStatusResponse>> follow(@PathVariable Long id) {
+        FollowStatusResponse response = followService.follow(CurrentUser.requireId(), id);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã theo dõi", response));
+    }
+
+    /** DELETE /api/v1/users/{id}/follow — bỏ theo dõi. */
+    @DeleteMapping("/{id}/follow")
+    public ResponseEntity<ApiResponse<FollowStatusResponse>> unfollow(@PathVariable Long id) {
+        FollowStatusResponse response = followService.unfollow(CurrentUser.requireId(), id);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã bỏ theo dõi", response));
+    }
+
+    /** GET /api/v1/users/{id}/follow-status */
+    @GetMapping("/{id}/follow-status")
+    public ResponseEntity<ApiResponse<FollowStatusResponse>> getFollowStatus(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(followService.getStatus(CurrentUser.requireId(), id)));
     }
 
     /**

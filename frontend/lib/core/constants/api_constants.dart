@@ -61,6 +61,7 @@ class ApiConstants {
   static String get subscriptionBaseUrl => '$baseUrl/subscriptions';
   static String get subscriptionCheckoutUrl =>
       '$baseUrl/subscriptions/checkout';
+
   /// Quota của người đang đăng nhập (server xác định qua access token).
   static String get myQuotaUrl => '$baseUrl/payments/my-quota';
 
@@ -76,6 +77,27 @@ class ApiConstants {
       '$baseUrl/videos/$videoId/approve';
   static String rejectVideoUrl(int videoId) =>
       '$baseUrl/videos/$videoId/reject';
+
+  // Follow endpoints (chỉ follow lẫn nhau mới nhắn tin được)
+  static String followUrl(int userId) => '$baseUrl/users/$userId/follow';
+
+  // Chat endpoints
+  static String get chatContactsUrl => '$baseUrl/chat/contacts';
+  static String get chatConversationsUrl => '$baseUrl/chat/conversations';
+  static String chatConversationUrl(int id) =>
+      '$baseUrl/chat/conversations/$id';
+  static String chatMessagesUrl(int id) =>
+      '$baseUrl/chat/conversations/$id/messages';
+  static String chatReadUrl(int id) => '$baseUrl/chat/conversations/$id/read';
+  static String get chatUnreadCountUrl => '$baseUrl/chat/unread-count';
+  static String shareVideoUrl(int videoId) => '$baseUrl/videos/$videoId/share';
+  static String videoDetailUrl(String videoId) => '$baseUrl/videos/$videoId';
+
+  /// Server Socket.IO của chat: cùng host với API nhưng port riêng (9092).
+  static String get socketUrl {
+    final uri = Uri.parse(baseUrl);
+    return Uri(scheme: uri.scheme, host: uri.host, port: 9092).toString();
+  }
 
   // Timeouts
   static const Duration connectTimeout = Duration(seconds: 15);

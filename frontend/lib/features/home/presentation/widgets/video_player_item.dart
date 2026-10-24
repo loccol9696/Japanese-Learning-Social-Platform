@@ -7,6 +7,7 @@ import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../chat/presentation/widgets/share_video_sheet.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../screens/video_script_screen.dart';
@@ -25,6 +26,9 @@ class VideoPlayerItem extends StatefulWidget {
   final VoidCallback? onCommentTap;
   final bool allowAccountActions;
 
+  /// Mở video tại mốc này (vd. khi mở video được bạn bè chia sẻ kèm câu phụ đề).
+  final Duration? initialPosition;
+
   const VideoPlayerItem({
     super.key,
     required this.post,
@@ -33,6 +37,7 @@ class VideoPlayerItem extends StatefulWidget {
     this.onFollowToggle,
     this.onCommentTap,
     this.allowAccountActions = true,
+    this.initialPosition,
   });
 
   @override
@@ -91,6 +96,29 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       ),
     );
     if (mounted) setState(() => _playerEpoch++);
+  }
+
+  /// Chia sẻ video cho bạn bè (follow lẫn nhau). Mốc thời gian gợi ý là câu phụ
+  /// đề đang hiển thị, nếu không có thì là vị trí đang phát.
+  Future<void> _handleShare() async {
+    if (!await requireAuthentication(
+      context,
+      message: 'Vui lòng đăng nhập để chia sẻ video cho bạn bè.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    final position =
+        _activeSubtitle?.start ??
+        _videoController?.value.position ??
+        Duration.zero;
+    await showShareVideoSheet(
+      context,
+      videoId: widget.post.id,
+      title: widget.post.topicTag,
+      thumbnailUrl: widget.post.backgroundImageUrl,
+      startMs: position.inMilliseconds,
+    );
   }
 
   void _handleDoubleTapDown(TapDownDetails details) {
@@ -221,6 +249,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       await controller.initialize();
       await controller.setLooping(true);
       await controller.setVolume(0);
+      final startAt = widget.initialPosition;
+      if (startAt != null && startAt < controller.value.duration) {
+        await controller.seekTo(startAt);
+      }
       controller.addListener(_updateActiveSubtitle);
       if (!mounted || _videoController != controller) return;
       setState(() {});
@@ -445,6 +477,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                       onSaveToggle: widget.onSaveToggle,
                       onFollowToggle: widget.onFollowToggle,
                       onCommentTap: widget.onCommentTap,
+                      onShareTap: _handleShare,
                       onScriptTap: _openScript,
                       allowAccountActions: widget.allowAccountActions,
                     ),
@@ -662,6 +695,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     onSaveToggle: widget.onSaveToggle,
                     onFollowToggle: widget.onFollowToggle,
                     onCommentTap: widget.onCommentTap,
+                    onShareTap: _handleShare,
                     onScriptTap: _openScript,
                     allowAccountActions: widget.allowAccountActions,
                   ),

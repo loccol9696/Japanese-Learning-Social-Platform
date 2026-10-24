@@ -142,6 +142,12 @@
 			<artifactId>kuromoji-ipadic</artifactId>
 			<version>0.9.0</version>
 		</dependency>
+		<!-- Server Socket.IO (chat realtime), chạy port riêng, hỗ trợ client Socket.IO 1.x - 4.x -->
+		<dependency>
+			<groupId>com.corundumstudio.socketio</groupId>
+			<artifactId>netty-socketio</artifactId>
+			<version>2.0.13</version>
+		</dependency>
 	</dependencies>
 
 	<build>

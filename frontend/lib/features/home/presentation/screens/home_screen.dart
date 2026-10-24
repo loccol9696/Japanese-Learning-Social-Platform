@@ -21,6 +21,7 @@ import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/auth/auth_guard.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../chat/presentation/screens/inbox_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final HomeRepository? repository;
@@ -401,6 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   currentTab: _currentFeedTab,
                   theme: activeVideoTheme,
                   onTabChanged: _onFeedTabChanged,
+                  onInboxTap: _openInbox,
                 ),
               ),
             ),
@@ -535,15 +537,46 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {});
     }
+    final creatorId = post.creatorId;
+    if (creatorId == null) return;
+
+    // Giao diện đã đảo trạng thái; ghi nhận ngay rồi đối chiếu với server.
+    final follow = !post.isFollowing;
+    _updateFollowState(creatorId, follow);
     try {
-      await _repository.toggleFollow(post.creatorTag);
+      final confirmed = await _repository.setFollow(creatorId, follow: follow);
+      if (!mounted) return;
+      _updateFollowState(creatorId, confirmed);
+      if (confirmed) {
+        AppToast.showSuccess(
+          'Đã theo dõi. Khi họ theo dõi lại bạn, hai bạn có thể nhắn tin.',
+          context: context,
+        );
+      }
     } catch (error) {
       if (!mounted) return;
+      _updateFollowState(creatorId, !follow);
       AppToast.showError(
         'Không thể cập nhật theo dõi: $error',
         context: context,
       );
     }
+  }
+
+  void _updateFollowState(int creatorId, bool isFollowing) {
+    setState(() {
+      VideoPost update(VideoPost post) => post.creatorId == creatorId
+          ? post.copyWith(isFollowing: isFollowing)
+          : post;
+      _followingPosts = _followingPosts.map(update).toList();
+      _forYouPosts = _forYouPosts.map(update).toList();
+    });
+  }
+
+  Future<void> _openInbox() async {
+    if (!await _requestAuthenticationAndGetResult() || !mounted) return;
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const InboxScreen()));
   }
 
   void _updatePostSaveState(String postId, bool isSaved) {

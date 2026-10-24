@@ -4,6 +4,7 @@ class VideoPost {
   final String id;
   final String backgroundImageUrl;
   final String videoUrl;
+  final int? creatorId;
   final String creatorName;
   final String creatorTag;
   final String creatorAvatarUrl;
@@ -30,6 +31,7 @@ class VideoPost {
     required this.id,
     required this.backgroundImageUrl,
     this.videoUrl = '',
+    this.creatorId,
     required this.creatorName,
     required this.creatorTag,
     required this.creatorAvatarUrl,
@@ -57,6 +59,7 @@ class VideoPost {
     String? id,
     String? backgroundImageUrl,
     String? videoUrl,
+    int? creatorId,
     String? creatorName,
     String? creatorTag,
     String? creatorAvatarUrl,
@@ -83,6 +86,7 @@ class VideoPost {
       id: id ?? this.id,
       backgroundImageUrl: backgroundImageUrl ?? this.backgroundImageUrl,
       videoUrl: videoUrl ?? this.videoUrl,
+      creatorId: creatorId ?? this.creatorId,
       creatorName: creatorName ?? this.creatorName,
       creatorTag: creatorTag ?? this.creatorTag,
       creatorAvatarUrl: creatorAvatarUrl ?? this.creatorAvatarUrl,
@@ -112,6 +116,7 @@ class VideoPost {
       id: json['id'] as String? ?? '',
       backgroundImageUrl: json['backgroundImageUrl'] as String? ?? '',
       videoUrl: json['videoUrl'] as String? ?? '',
+      creatorId: (json['creatorId'] as num?)?.toInt(),
       creatorName: json['creatorName'] as String? ?? '',
       creatorTag: json['creatorTag'] as String? ?? '',
       creatorAvatarUrl: json['creatorAvatarUrl'] as String? ?? '',
@@ -143,6 +148,7 @@ class VideoPost {
       'id': id,
       'backgroundImageUrl': backgroundImageUrl,
       'videoUrl': videoUrl,
+      'creatorId': creatorId,
       'creatorName': creatorName,
       'creatorTag': creatorTag,
       'creatorAvatarUrl': creatorAvatarUrl,

@@ -12,9 +12,22 @@ VALUES
     'https://ik.imagekit.io/jlsp_demo/avatars/admin.png', 
     'N1', 
     'Tài khoản quản trị viên hệ thống JLSP', 
-    'ADMIN', 
-    true, 
-    NOW(), 
+    'ADMIN',
+    true,
+    NOW(),
+    NOW()
+),
+(
+    'admin_test',
+    'admin_test@jlsp.com',
+    '$2b$10$jToJKMMdp8pAqjfcCIlG6eL80uGcJO6AzszF9qv6bdAe05hu1mHJC',
+    'Admin Test',
+    'https://ik.imagekit.io/jlsp_demo/avatars/admin.png',
+    'N1',
+    'Tài khoản admin dùng để test',
+    'ADMIN',
+    true,
+    NOW(),
     NOW()
 ),
 (

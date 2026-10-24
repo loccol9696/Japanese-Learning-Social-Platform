@@ -199,7 +199,11 @@ public class VideoServiceImpl implements VideoService {
                             && videoLikeRepository.existsByIdUserIdAndIdVideoId(currentUserId, v.getId());
                     boolean isSaved = currentUserId != null
                             && videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, v.getId());
-                    return videoMapper.toVideoResponse(v, isLiked, isSaved);
+                    VideoResponse response = videoMapper.toVideoResponse(v, isLiked, isSaved);
+                    response.setIsFollowing(currentUserId != null && response.getCreatorId() != null
+                            && followRepository.existsByIdFollowerIdAndIdFollowingId(currentUserId,
+                                    response.getCreatorId()));
+                    return response;
                 })
                 .collect(Collectors.toList());
 
@@ -240,7 +244,9 @@ public class VideoServiceImpl implements VideoService {
                 .map(v -> {
                     boolean isLiked = videoLikeRepository.existsByIdUserIdAndIdVideoId(currentUserId, v.getId());
                     boolean isSaved = videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, v.getId());
-                    return videoMapper.toVideoResponse(v, isLiked, isSaved);
+                    VideoResponse response = videoMapper.toVideoResponse(v, isLiked, isSaved);
+                    response.setIsFollowing(true);
+                    return response;
                 })
                 .collect(Collectors.toList());
 
