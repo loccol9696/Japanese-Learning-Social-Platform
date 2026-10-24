@@ -6,6 +6,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../follow/presentation/screens/user_profile_screen.dart';
 import '../../data/models/chat_models.dart';
 import '../../data/services/chat_hub.dart';
 import '../../data/services/chat_service.dart';
@@ -396,43 +397,72 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
+  /// Mở trang cá nhân người đang chat cùng. Không hiện nút Nhắn tin vì đang ở trong
+  /// khung chat; quay lại thì làm mới hội thoại vì có thể vừa bỏ theo dõi (khoá chat).
+  Future<void> _openProfile() async {
+    final user = _conversation.otherUser;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(
+          userId: user.id,
+          initialName: user.name,
+          showMessageButton: false,
+        ),
+      ),
+    );
+    if (mounted) unawaited(_refreshConversation());
+  }
+
+  Future<void> _refreshConversation() async {
+    try {
+      final conversation = await _service.fetchConversation(_conversationId);
+      if (mounted) setState(() => _conversation = conversation);
+    } on ApiException catch (_) {
+      // Giữ trạng thái cũ; lần mở lại hội thoại sẽ làm mới.
+    }
+  }
+
   PreferredSizeWidget _buildAppBar() {
     final user = _conversation.otherUser;
     return AppBar(
       backgroundColor: AppPalette.background,
       elevation: 0,
       titleSpacing: 0,
-      title: Row(
-        children: [
-          ChatAvatar(user: user, radius: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+      title: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _openProfile,
+        child: Row(
+          children: [
+            ChatAvatar(user: user, radius: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppPalette.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                Text(
-                  _otherTyping ? 'đang nhập...' : '@${user.username}',
-                  style: TextStyle(
-                    color: _otherTyping
-                        ? AppPalette.accent
-                        : AppPalette.textSecondary,
-                    fontSize: 12,
+                  Text(
+                    _otherTyping ? 'đang nhập...' : '@${user.username}',
+                    style: TextStyle(
+                      color: _otherTyping
+                          ? AppPalette.accent
+                          : AppPalette.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
-import '../../../chat/data/services/chat_hub.dart';
-import '../../../../core/theme/app_palette.dart';
 
 enum FeedTab { following, forYou }
 
@@ -12,15 +10,15 @@ class HomeHeader extends StatelessWidget {
   final ValueChanged<FeedTab> onTabChanged;
   final AdaptiveVideoTheme? theme;
 
-  /// Mở hộp thư (tin nhắn). Null thì ẩn icon.
-  final VoidCallback? onInboxTap;
+  /// Mở màn Khám phá. Null thì ẩn icon.
+  final VoidCallback? onExploreTap;
 
   const HomeHeader({
     super.key,
     required this.currentTab,
     required this.onTabChanged,
     this.theme,
-    this.onInboxTap,
+    this.onExploreTap,
   });
 
   @override
@@ -57,10 +55,10 @@ class HomeHeader extends StatelessWidget {
               ),
             ),
           ),
-          if (onInboxTap != null)
+          if (onExploreTap != null)
             Positioned(
               right: 4,
-              child: _InboxButton(theme: activeTheme, onTap: onInboxTap!),
+              child: _ExploreButton(theme: activeTheme, onTap: onExploreTap!),
             ),
         ],
       ),
@@ -118,60 +116,24 @@ class HomeHeader extends StatelessWidget {
   }
 }
 
-/// Icon tin nhắn ở góc phải header, kèm số tin chưa đọc.
-class _InboxButton extends StatelessWidget {
+/// Icon khám phá (tìm kiếm) ở góc phải header.
+class _ExploreButton extends StatelessWidget {
   final AdaptiveVideoTheme theme;
   final VoidCallback onTap;
 
-  const _InboxButton({required this.theme, required this.onTap});
+  const _ExploreButton({required this.theme, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<int>(
-      valueListenable: ChatHub.instance.unreadCount,
-      builder: (context, unread, _) {
-        return IconButton(
-          tooltip: 'Tin nhắn',
-          onPressed: onTap,
-          icon: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Icon(
-                Icons.chat_bubble_outline_rounded,
-                size: 26,
-                color: theme.headerSelectedText,
-                shadows: theme.textShadows,
-              ),
-              if (unread > 0)
-                Positioned(
-                  right: -8,
-                  top: -6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 1,
-                    ),
-                    constraints: const BoxConstraints(minWidth: 16),
-                    decoration: BoxDecoration(
-                      color: AppPalette.like,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      unread > 99 ? '99+' : '$unread',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppPalette.onAccent,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
+    return IconButton(
+      tooltip: appStrings.navExplore,
+      onPressed: onTap,
+      icon: Icon(
+        Icons.search_rounded,
+        size: 28,
+        color: theme.headerSelectedText,
+        shadows: theme.textShadows,
+      ),
     );
   }
 }

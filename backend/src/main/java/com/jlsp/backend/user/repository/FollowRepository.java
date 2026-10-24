@@ -47,6 +47,22 @@ public interface FollowRepository extends JpaRepository<Follow, FollowId> {
      */
     long countByIdFollowingId(Long followingId);
 
+    /** ID những người đang theo dõi userId. */
+    @Query("SELECT f.id.followerId FROM Follow f WHERE f.id.followingId = :userId")
+    List<Long> findFollowerIdsByFollowingId(@Param("userId") Long userId);
+
+    /** Những người đang theo dõi userId (chỉ tài khoản đang hoạt động), mới nhất trước. */
+    @Query("SELECT f FROM Follow f JOIN FETCH f.follower u " +
+            "WHERE f.id.followingId = :userId AND u.isActive = true " +
+            "ORDER BY f.createdAt DESC")
+    List<Follow> findFollowersOf(@Param("userId") Long userId);
+
+    /** Những người userId đang theo dõi (chỉ tài khoản đang hoạt động), mới nhất trước. */
+    @Query("SELECT f FROM Follow f JOIN FETCH f.following u " +
+            "WHERE f.id.followerId = :userId AND u.isActive = true " +
+            "ORDER BY f.createdAt DESC")
+    List<Follow> findFollowingOf(@Param("userId") Long userId);
+
     /**
      * Những người dùng (đang hoạt động) mà userId và họ follow lẫn nhau.
      * Chỉ những người này mới được nhắn tin / nhận video share từ userId.

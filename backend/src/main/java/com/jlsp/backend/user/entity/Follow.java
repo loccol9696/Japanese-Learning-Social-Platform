@@ -5,8 +5,13 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+/**
+ * Khóa chính (follower_id, following_id) chỉ phục vụ truy vấn theo người theo dõi; index thứ hai
+ * phục vụ các truy vấn theo người được theo dõi (đếm / liệt kê follower, kiểm tra follow lẫn nhau).
+ */
 @Entity
-@Table(name = "follows")
+@Table(name = "follows",
+        indexes = @Index(name = "idx_follows_following_id", columnList = "following_id"))
 @Getter
 @Setter
 @NoArgsConstructor

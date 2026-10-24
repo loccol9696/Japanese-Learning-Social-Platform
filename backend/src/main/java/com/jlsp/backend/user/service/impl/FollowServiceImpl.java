@@ -3,6 +3,7 @@ package com.jlsp.backend.user.service.impl;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
 import com.jlsp.backend.user.dto.response.FollowStatusResponse;
+import com.jlsp.backend.user.dto.response.FollowUserResponse;
 import com.jlsp.backend.user.entity.Follow;
 import com.jlsp.backend.user.entity.FollowId;
 import com.jlsp.backend.user.entity.User;
@@ -14,7 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -82,5 +85,34 @@ public class FollowServiceImpl implements FollowService {
     @Override
     public List<User> getMutualFollows(Long userId) {
         return followRepository.findMutualFollows(userId);
+    }
+
+    @Override
+    public List<FollowUserResponse> getFollowers(Long userId) {
+        Set<Long> followingIds = new HashSet<>(followRepository.findFollowingIdsByFollowerId(userId));
+        return followRepository.findFollowersOf(userId).stream()
+                .map(f -> toFollowUser(f.getFollower(), f, followingIds.contains(f.getFollower().getId()), true))
+                .toList();
+    }
+
+    @Override
+    public List<FollowUserResponse> getFollowing(Long userId) {
+        Set<Long> followerIds = new HashSet<>(followRepository.findFollowerIdsByFollowingId(userId));
+        return followRepository.findFollowingOf(userId).stream()
+                .map(f -> toFollowUser(f.getFollowing(), f, true, followerIds.contains(f.getFollowing().getId())))
+                .toList();
+    }
+
+    private static FollowUserResponse toFollowUser(User user, Follow follow, boolean isFollowing, boolean isFollowedBy) {
+        return FollowUserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .displayName(user.getDisplayName())
+                .avatarUrl(user.getAvatarUrl())
+                .jlptLevel(user.getJlptLevel())
+                .isFollowing(isFollowing)
+                .isFollowedBy(isFollowedBy)
+                .followedAt(follow.getCreatedAt())
+                .build();
     }
 }

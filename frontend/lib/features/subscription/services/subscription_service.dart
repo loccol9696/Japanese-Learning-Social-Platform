@@ -49,6 +49,25 @@ class SubscriptionService {
     }
   }
 
+  /// Thông tin mô tả của một gói: theo [planId] (gói đang dùng), hoặc gói FREE nếu không truyền.
+  /// Trả về null khi không tải được hoặc không tìm thấy gói.
+  Future<SubscriptionPlan?> getPlanDetail({int? planId}) async {
+    try {
+      final data = await ApiClient.instance.get(
+        ApiConstants.subscriptionPlansUrl,
+      );
+      final List list = data is List ? data : const [];
+      for (final item in list) {
+        final plan = SubscriptionPlan.fromJson(item as Map<String, dynamic>);
+        final matches = planId != null
+            ? plan.id == planId
+            : plan.code.toUpperCase() == 'FREE';
+        if (matches) return plan;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<PaymentResponse> checkout({
     required int userId,
     required int planId,

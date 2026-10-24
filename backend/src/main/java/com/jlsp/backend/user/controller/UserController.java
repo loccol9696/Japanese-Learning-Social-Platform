@@ -8,6 +8,8 @@ import com.jlsp.backend.common.security.CurrentUser;
 import com.jlsp.backend.user.dto.request.CreateUserRequest;
 import com.jlsp.backend.user.dto.request.UpdateUserRequest;
 import com.jlsp.backend.user.dto.response.FollowStatusResponse;
+import com.jlsp.backend.user.dto.response.FollowUserResponse;
+import com.jlsp.backend.user.dto.response.PublicProfileResponse;
 import com.jlsp.backend.user.dto.response.UserResponse;
 import com.jlsp.backend.user.service.FollowService;
 import com.jlsp.backend.user.service.UserService;
@@ -18,6 +20,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -118,6 +122,24 @@ public class UserController {
     public ResponseEntity<ApiResponse<FollowStatusResponse>> unfollow(@PathVariable Long id) {
         FollowStatusResponse response = followService.unfollow(CurrentUser.requireId(), id);
         return ResponseEntity.ok(ApiResponse.success(200, "Đã bỏ theo dõi", response));
+    }
+
+    /** GET /api/v1/users/me/followers — những người đang theo dõi mình. */
+    @GetMapping("/me/followers")
+    public ResponseEntity<ApiResponse<List<FollowUserResponse>>> getMyFollowers() {
+        return ResponseEntity.ok(ApiResponse.success(followService.getFollowers(CurrentUser.requireId())));
+    }
+
+    /** GET /api/v1/users/me/following — những người mình đang theo dõi. */
+    @GetMapping("/me/following")
+    public ResponseEntity<ApiResponse<List<FollowUserResponse>>> getMyFollowing() {
+        return ResponseEntity.ok(ApiResponse.success(followService.getFollowing(CurrentUser.requireId())));
+    }
+
+    /** GET /api/v1/users/{id}/public-profile — trang cá nhân công khai (không lộ email). */
+    @GetMapping("/{id}/public-profile")
+    public ResponseEntity<ApiResponse<PublicProfileResponse>> getPublicProfile(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(userService.getPublicProfile(CurrentUser.requireId(), id)));
     }
 
     /** GET /api/v1/users/{id}/follow-status */

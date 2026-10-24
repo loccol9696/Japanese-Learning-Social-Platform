@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'app_motion.dart';
 import 'theme_palette.dart';
 
 /// Dựng [ThemeData] từ [ThemePalette]. Không có màu nào được viết cứng ở đây:
@@ -48,6 +49,7 @@ class AppTheme {
       dividerTheme: DividerThemeData(color: p.border, thickness: 1),
       cardTheme: CardThemeData(color: p.surface, elevation: 0),
       dialogTheme: DialogThemeData(backgroundColor: p.surface),
+      pageTransitionsTheme: AppMotion.pageTransitions,
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: p.surface,
         modalBarrierColor: p.scrim,

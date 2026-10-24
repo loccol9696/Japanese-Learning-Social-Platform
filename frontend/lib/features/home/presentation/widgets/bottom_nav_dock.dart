@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../chat/data/services/chat_hub.dart';
 
-/// Tab indices: 0 Home, 1 Explore, 2 Create (+), 3 Flashcard, 4 Profile.
+/// Tab indices: 0 Home, 1 Messages, 2 Create (+), 3 Flashcard, 4 Profile.
 ///
 /// Thanh menu dùng chung cho toàn bộ các tab: cùng màu nền trang, có viền mảnh phía trên.
 class BottomNavDock extends StatelessWidget {
@@ -18,6 +19,7 @@ class BottomNavDock extends StatelessWidget {
     this.isModerator = false,
   });
 
+  static const int messagesIndex = 1;
   static const int createIndex = 2;
 
   /// Chiều cao nội dung thanh menu, chưa tính vùng an toàn phía dưới.
@@ -41,8 +43,8 @@ class BottomNavDock extends StatelessWidget {
       inactiveIcon: Icons.home_outlined,
     ),
     _TabItemData(
-      activeIcon: Icons.search_rounded,
-      inactiveIcon: Icons.search_rounded,
+      activeIcon: Icons.chat_bubble_rounded,
+      inactiveIcon: Icons.chat_bubble_outline_rounded,
     ),
     _TabItemData(
       activeIcon: Icons.add_rounded,
@@ -64,7 +66,7 @@ class BottomNavDock extends StatelessWidget {
   String _getTabLabel(int index) {
     return switch (index) {
       0 => appStrings.navHome,
-      1 => appStrings.navExplore,
+      1 => appStrings.navMessages,
       3 => appStrings.navFlashcards,
       4 => appStrings.navProfile,
       _ => '',
@@ -139,12 +141,14 @@ class BottomNavDock extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          isSelected ? tab.activeIcon : tab.inactiveIcon,
-          size: _iconSize,
-          color: color,
-          shadows: shadows,
-        ),
+        index == messagesIndex
+            ? _buildMessagesIcon(isSelected ? tab.activeIcon : tab.inactiveIcon, color)
+            : Icon(
+                isSelected ? tab.activeIcon : tab.inactiveIcon,
+                size: _iconSize,
+                color: color,
+                shadows: shadows,
+              ),
         const SizedBox(height: _iconLabelGap),
         Text(
           _getTabLabel(index),
@@ -160,6 +164,44 @@ class BottomNavDock extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// Icon tin nhắn kèm số tin chưa đọc.
+  Widget _buildMessagesIcon(IconData icon, Color color) {
+    return ValueListenableBuilder<int>(
+      valueListenable: ChatHub.instance.unreadCount,
+      builder: (context, unread, _) {
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(icon, size: _iconSize, color: color),
+            if (unread > 0)
+              Positioned(
+                right: -8,
+                top: -5,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  constraints: const BoxConstraints(minWidth: 15),
+                  decoration: BoxDecoration(
+                    color: AppPalette.like,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    unread > 99 ? '99+' : '$unread',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppPalette.onAccent,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

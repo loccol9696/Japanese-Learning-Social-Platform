@@ -6,6 +6,7 @@ import '../../../../app/routes.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../data/datasources/home_remote_datasource.dart';
 import '../../data/repositories/home_repository_impl.dart';
 import '../../domain/models/video_post.dart';
@@ -21,7 +22,7 @@ import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/auth/auth_guard.dart';
 import '../../../auth/data/auth_session.dart';
-import '../../../chat/presentation/screens/inbox_screen.dart';
+import '../../../chat/presentation/screens/messages_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   final HomeRepository? repository;
@@ -141,8 +142,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_homeTabController.hasClients) {
       _homeTabController.animateToPage(
         index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+        duration: AppMotion.page,
+        curve: AppMotion.pageCurve,
       );
     }
   }
@@ -154,8 +155,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_homeTabController.hasClients) {
         _homeTabController.animateToPage(
           1,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
+          duration: AppMotion.quick,
+          curve: AppMotion.quickCurve,
         );
       }
       await requireAuthentication(context);
@@ -198,10 +199,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       return;
     }
-    if (_currentNavIndex == 1 && distance > 0) {
-      _selectTab(0);
-      return;
-    }
     await _requestAuthentication();
   }
 
@@ -216,7 +213,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _onNavTabSelected(int index) async {
-    if (index == 2 || index == 3 || index == 4) {
+    if (index == BottomNavDock.messagesIndex ||
+        index == 2 ||
+        index == 3 ||
+        index == 4) {
       final authenticated = await _requestAuthenticationAndGetResult();
       if (!mounted || !authenticated) return;
     }
@@ -227,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final result = await Navigator.of(context).pushNamed(AppRoutes.upload);
         if (!mounted) return;
         if (result is int && result != BottomNavDock.createIndex) {
-          _selectTab(result);
+          await _onNavTabSelected(result);
         }
       }
       return;
@@ -247,7 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _selectTab(int navIndex) {
     RubySubtitleWidget.dismissLookups();
-    if (!AuthSession.instance.isAuthenticated && navIndex >= 3) {
+    if (!AuthSession.instance.isAuthenticated && navIndex >= 1) {
       _requestAuthentication();
       return;
     }
@@ -265,8 +265,8 @@ class _HomeScreenState extends State<HomeScreen> {
       // Kề nhau → animation slide mượt như cũ
       _tabPageController.animateToPage(
         pageIndex,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+        duration: AppMotion.page,
+        curve: AppMotion.pageCurve,
       );
     } else {
       // Xa nhau → nhảy thẳng, không lướt qua trang trung gian
@@ -309,6 +309,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final activeVideoTheme = AdaptiveVideoTheme(
       isLight: currentPost?.isLightBackground ?? false,
     );
+
+    // Đang soạn tin nhắn: ẩn thanh menu để bàn phím và ô nhập không bị chồng lên nó.
+    final hideDockForKeyboard =
+        _currentNavIndex == BottomNavDock.messagesIndex &&
+        MediaQuery.viewInsetsOf(context).bottom > 0;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundCanvas,
@@ -358,11 +363,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   : null,
               onPageChanged: (index) {
                 RubySubtitleWidget.dismissLookups();
-                if (!AuthSession.instance.isAuthenticated && index >= 2) {
+                if (!AuthSession.instance.isAuthenticated && index >= 1) {
                   _tabPageController.animateToPage(
-                    1,
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOut,
+                    0,
+                    duration: AppMotion.quick,
+                    curve: AppMotion.quickCurve,
                   );
                   _requestAuthentication();
                   return;
@@ -383,7 +388,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                const _KeepAlivePage(child: ExploreScreen()),
+                _KeepAlivePage(
+                  child: MessagesTab(
+                    bottomInset: hideDockForKeyboard
+                        ? 0
+                        : BottomNavDock.contentHeight +
+                              MediaQuery.paddingOf(context).bottom,
+                  ),
+                ),
                 const _KeepAlivePage(child: DeckLibraryScreen()),
                 const _KeepAlivePage(child: ProfileScreen()),
               ],
@@ -402,22 +414,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   currentTab: _currentFeedTab,
                   theme: activeVideoTheme,
                   onTabChanged: _onFeedTabChanged,
-                  onInboxTap: _openInbox,
+                  onExploreTap: _openExplore,
                 ),
               ),
             ),
 
           // 3. Floating Bottom Nav Dock
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: BottomNavDock(
-              selectedIndex: _currentNavIndex,
-              onTabSelected: _onNavTabSelected,
-              isModerator: _isModerator,
+          if (!hideDockForKeyboard)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: BottomNavDock(
+                selectedIndex: _currentNavIndex,
+                onTabSelected: _onNavTabSelected,
+                isModerator: _isModerator,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -468,6 +481,13 @@ class _HomeScreenState extends State<HomeScreen> {
           onLikeToggle: () => _handleLikeToggle(post),
           onSaveToggle: () => _handleSaveToggle(post),
           onFollowToggle: () => _handleFollowToggle(post),
+          // Đã theo dõi / bỏ theo dõi ngay trên trang cá nhân của người đăng.
+          onCreatorFollowChanged: (following) {
+            final creatorId = post.creatorId;
+            if (creatorId != null && mounted) {
+              _updateFollowState(creatorId, following);
+            }
+          },
           onCommentTap: () => showCommentsSheet(
             context,
             videoId: post.id,
@@ -573,10 +593,16 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _openInbox() async {
-    if (!await _requestAuthenticationAndGetResult() || !mounted) return;
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const InboxScreen()));
+  Future<void> _openExplore() async {
+    RubySubtitleWidget.dismissLookups();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: AppColors.backgroundCanvas,
+          body: const ExploreScreen(showBackButton: true),
+        ),
+      ),
+    );
   }
 
   void _updatePostSaveState(String postId, bool isSaved) {

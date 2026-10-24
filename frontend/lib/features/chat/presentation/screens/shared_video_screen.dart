@@ -154,6 +154,10 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
               onLikeToggle: _toggleLike,
               onSaveToggle: _toggleSave,
               onFollowToggle: _toggleFollow,
+              // Đã theo dõi / bỏ theo dõi ngay trên trang cá nhân của người đăng.
+              onCreatorFollowChanged: (following) {
+                if (mounted) _update((p) => p.copyWith(isFollowing: following));
+              },
               onCommentTap: () => showCommentsSheet(
                 context,
                 videoId: post.id,

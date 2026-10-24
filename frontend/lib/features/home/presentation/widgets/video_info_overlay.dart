@@ -9,10 +9,14 @@ class VideoInfoOverlay extends StatelessWidget {
   final VideoPost post;
   final AdaptiveVideoTheme? theme;
 
+  /// Bấm vào @username để mở trang cá nhân người đăng.
+  final VoidCallback? onCreatorTap;
+
   const VideoInfoOverlay({
     super.key,
     required this.post,
     this.theme,
+    this.onCreatorTap,
   });
 
   @override
@@ -38,21 +42,27 @@ class VideoInfoOverlay extends StatelessWidget {
             children: [
               if (hasCreator)
                 Flexible(
-                  child: Text(
-                    post.creatorTag,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 15.0,
-                      fontWeight: FontWeight.bold,
-                      color: AppPalette.onVideo,
-                      shadows: [
-                        Shadow(
-                          color: AppPalette.videoScrim.withValues(alpha: 0.60),
-                          offset: Offset(0, 1),
-                          blurRadius: 4.0,
-                        ),
-                      ],
+                  child: GestureDetector(
+                    onTap: onCreatorTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: Text(
+                      post.creatorTag,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15.0,
+                        fontWeight: FontWeight.bold,
+                        color: AppPalette.onVideo,
+                        shadows: [
+                          Shadow(
+                            color: AppPalette.videoScrim.withValues(
+                              alpha: 0.60,
+                            ),
+                            offset: Offset(0, 1),
+                            blurRadius: 4.0,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

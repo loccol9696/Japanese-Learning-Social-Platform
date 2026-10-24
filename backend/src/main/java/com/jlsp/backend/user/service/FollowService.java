@@ -1,6 +1,7 @@
 package com.jlsp.backend.user.service;
 
 import com.jlsp.backend.user.dto.response.FollowStatusResponse;
+import com.jlsp.backend.user.dto.response.FollowUserResponse;
 import com.jlsp.backend.user.entity.User;
 
 import java.util.List;
@@ -17,4 +18,10 @@ public interface FollowService {
     boolean isMutual(Long userId, Long otherUserId);
 
     List<User> getMutualFollows(Long userId);
+
+    /** Những người đang theo dõi userId; isFollowing cho biết userId đã theo dõi lại chưa. */
+    List<FollowUserResponse> getFollowers(Long userId);
+
+    /** Những người userId đang theo dõi. */
+    List<FollowUserResponse> getFollowing(Long userId);
 }

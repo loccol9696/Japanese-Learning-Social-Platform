@@ -12,7 +12,10 @@ import '../../home/presentation/widgets/video_player_item.dart';
 
 /// Màn Khám phá: tìm kiếm + lọc + lưới video, dữ liệu lấy hoàn toàn từ backend.
 class ExploreScreen extends StatefulWidget {
-  const ExploreScreen({super.key});
+  /// Hiện nút quay lại cạnh ô tìm kiếm khi màn được mở riêng (không nằm trong thanh menu).
+  final bool showBackButton;
+
+  const ExploreScreen({super.key, this.showBackButton = false});
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
@@ -211,7 +214,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     // Chừa chỗ cho thanh menu dưới (nằm đè lên nội dung trong HomeScreen).
-    final bottomInset = MediaQuery.of(context).padding.bottom + 84.0;
+    final bottomInset =
+        MediaQuery.of(context).padding.bottom +
+        (widget.showBackButton ? 16.0 : 84.0);
 
     return ColoredBox(
       color: _background,
@@ -276,9 +281,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
-      child: SizedBox(
+    final searchField = SizedBox(
         height: 46,
         child: TextField(
           controller: _searchController,
@@ -308,7 +311,26 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           ),
         ),
-      ),
+      );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
+      child: widget.showBackButton
+          ? Row(
+              children: [
+                IconButton(
+                  tooltip: 'Quay lại',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: AppPalette.textPrimary,
+                    size: 20,
+                  ),
+                ),
+                Expanded(child: searchField),
+              ],
+            )
+          : searchField,
     );
   }
 

@@ -80,6 +80,10 @@ class ApiConstants {
 
   // Follow endpoints (chỉ follow lẫn nhau mới nhắn tin được)
   static String followUrl(int userId) => '$baseUrl/users/$userId/follow';
+  static String get myFollowersUrl => '$baseUrl/users/me/followers';
+  static String get myFollowingUrl => '$baseUrl/users/me/following';
+  static String publicProfileUrl(int userId) =>
+      '$baseUrl/users/$userId/public-profile';
 
   // Chat endpoints
   static String get chatContactsUrl => '$baseUrl/chat/contacts';
