@@ -10,6 +10,7 @@ import com.google.cloud.storage.Storage;
 import com.google.protobuf.Duration;
 import com.jlsp.backend.googlestt.dto.response.ScriptSegment;
 import com.jlsp.backend.googlestt.service.SpeechToTextServiceIntf;
+import com.jlsp.backend.googlestt.service.JaViTranslator;
 import com.jlsp.backend.googlestt.service.SubtitleSplitter;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -50,14 +51,15 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
     private final Map<String, String> taskStatusMap = new ConcurrentHashMap<>();
     private final Map<String, List<ScriptSegment>> taskResultMap = new ConcurrentHashMap<>();
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JaViTranslator translator;
 
     public SpeechToTextService(
             VocalIsolationService vocalIsolationService,
+            JaViTranslator translator,
             ObjectProvider<SpeechClient> speechClientProvider,
             ObjectProvider<Storage> storageProvider) {
 
+        this.translator = translator;
         this.vocalIsolationService = vocalIsolationService;
         this.speechClient = speechClientProvider.getIfAvailable();
         this.storage = storageProvider.getIfAvailable();
@@ -175,7 +177,7 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
                                 .startTime(piece.start())
                                 .endTime(piece.end())
                                 .text(piece.text())
-                                .translatedText(translateToVi(piece.text()))
+                                .translatedText(translator.translate(piece.text()))
                                 .build());
                     }
                 }
@@ -195,39 +197,5 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
 
     private double toSeconds(Duration duration) {
         return duration.getSeconds() + (duration.getNanos() / 1_000_000_000.0);
-    }
-
-    private String translateToVi(String japaneseText) {
-        if (japaneseText == null || japaneseText.isBlank()) {
-            return "";
-        }
-        try {
-            URI uri = UriComponentsBuilder.fromUriString("https://api.mymemory.translated.net/get")
-                    .queryParam("q", japaneseText)
-                    .queryParam("langpair", "ja|vi")
-                    .queryParam("de", "minedung2005@gmail.com") // Đổi thành email hợp lệ để tăng hạn mức
-                    .encode(StandardCharsets.UTF_8)
-                    .build()
-                    .toUri();
-
-            String rawResponse = restTemplate.getForObject(uri, String.class);
-            if (rawResponse == null || rawResponse.isBlank()) {
-                return "";
-            }
-
-            JsonNode root = objectMapper.readTree(rawResponse);
-            int status = root.path("responseStatus").asInt(0);
-
-            // 200 là thành công, 429/403 là hết quota
-            if (status == 200 && root.has("responseData")) {
-                return root.get("responseData").path("translatedText").asText("").trim();
-            } else {
-                log.warn("MyMemory lỗi phản hồi mã {}: {}", status, rawResponse);
-                return "";
-            }
-        } catch (Exception e) {
-            log.error("Lỗi khi dịch tiếng Nhật sang tiếng Việt: [{}] - {}", japaneseText, e.getMessage());
-            return "";
-        }
     }
 }
