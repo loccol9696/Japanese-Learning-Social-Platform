@@ -2,33 +2,43 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/localization/locale_manager.dart';
+import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/data/auth_session.dart';
 import '../../domain/models/video_post.dart';
+import 'subtitle_mode.dart';
 
 class InteractionSidebar extends StatefulWidget {
   final VideoPost post;
   final AdaptiveVideoTheme? theme;
-  final bool isSubtitlesVisible;
+  final SubtitleMode subtitleMode;
+  final bool? isLikedOverride;
+  final int? likeCountOverride;
   final VoidCallback? onToggleSubtitles;
   final VoidCallback? onLikeToggle;
   final VoidCallback? onSaveToggle;
   final VoidCallback? onFollowToggle;
   final VoidCallback? onCommentTap;
   final VoidCallback? onShareTap;
+  final VoidCallback? onScriptTap;
+  final bool allowAccountActions;
 
   const InteractionSidebar({
     super.key,
     required this.post,
     this.theme,
-    this.isSubtitlesVisible = true,
+    this.subtitleMode = SubtitleMode.bilingual,
+    this.isLikedOverride,
+    this.likeCountOverride,
     this.onToggleSubtitles,
     this.onLikeToggle,
     this.onSaveToggle,
     this.onFollowToggle,
     this.onCommentTap,
     this.onShareTap,
+    this.onScriptTap,
+    this.allowAccountActions = true,
   });
 
   @override
@@ -37,6 +47,8 @@ class InteractionSidebar extends StatefulWidget {
 
 class _InteractionSidebarState extends State<InteractionSidebar>
     with TickerProviderStateMixin {
+  static const Color _accentBlue = Color(0xFF38BDF8);
+
   late final AnimationController _likeScaleController;
 
   late bool _isLiked;
@@ -63,7 +75,11 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   @override
   void didUpdateWidget(covariant InteractionSidebar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.post.id != widget.post.id) {
+    if (oldWidget.post.id != widget.post.id ||
+        oldWidget.post.isLiked != widget.post.isLiked ||
+        oldWidget.post.isSaved != widget.post.isSaved ||
+        oldWidget.post.isFollowing != widget.post.isFollowing ||
+        oldWidget.post.likeCount != widget.post.likeCount) {
       _isLiked = widget.post.isLiked;
       _isSaved = widget.post.isSaved;
       _isFollowing = widget.post.isFollowing;
@@ -77,7 +93,15 @@ class _InteractionSidebarState extends State<InteractionSidebar>
     super.dispose();
   }
 
-  void _handleLike() {
+  Future<void> _handleLike() async {
+    if (!AuthSession.instance.isAuthenticated) {
+      await requireAuthentication(
+        context,
+        message: 'Vui lòng đăng nhập để thả tim video này.',
+      );
+      return;
+    }
+
     setState(() {
       _isLiked = !_isLiked;
       if (_isLiked) {
@@ -95,6 +119,10 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   }
 
   void _handleFollow() {
+    if (!widget.allowAccountActions) {
+      widget.onFollowToggle?.call();
+      return;
+    }
     setState(() {
       _isFollowing = !_isFollowing;
     });
@@ -102,6 +130,10 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   }
 
   void _handleSave() {
+    if (!widget.allowAccountActions) {
+      widget.onSaveToggle?.call();
+      return;
+    }
     setState(() => _isSaved = !_isSaved);
     widget.onSaveToggle?.call();
   }
@@ -126,18 +158,20 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       children: [
         // 1. Creator Avatar & Follow Button
         _buildCreatorAvatar(activeTheme),
-        const SizedBox(height: 14.0),
+        const SizedBox(height: 8.0),
 
         // 2. Like / Heart Button
         _buildLikeButton(activeTheme),
-        const SizedBox(height: 4.0),
+        const SizedBox(height: 6.0),
 
         // 3. Comments Button
         _buildActionButton(
           theme: activeTheme,
-          icon: Icons.chat_bubble_rounded,
           countText: _formatCount(widget.post.commentCount),
           onTap: widget.onCommentTap,
+          icon: Icons.chat_bubble_outline_rounded,
+          countFontSize: 10.0,
+          countColor: Colors.white,
         ),
         const SizedBox(height: 8.0),
         _buildActionButton(
@@ -145,28 +179,45 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           icon: _isSaved
               ? Icons.bookmark_rounded
               : Icons.bookmark_border_rounded,
-          countText: null,
+          countText: 'Lưu',
           onTap: _handleSave,
+          iconColor: _isSaved ? _accentBlue : Colors.white,
+          countColor: _isSaved ? _accentBlue : Colors.white,
         ),
         const SizedBox(height: 8.0),
 
         // 4. Share Button
         _buildActionButton(
           theme: activeTheme,
-          icon: Icons.reply_rounded,
+          icon: Icons.reply_outlined,
+          flipIcon: true,
           countText: _formatCount(widget.post.shareCount),
           onTap: widget.onShareTap,
         ),
-        const SizedBox(height: 4.0),
+        const SizedBox(height: 6.0),
 
-        // 5. Subtitle Toggle Button (below share)
+        // 5. Kịch bản (mở danh sách toàn bộ câu thoại)
+        _buildActionButton(
+          theme: activeTheme,
+          icon: Icons.article_outlined,
+          countText: 'Kịch bản',
+          onTap: widget.onScriptTap,
+        ),
+        const SizedBox(height: 6.0),
+
+        // 6. Subtitle Toggle Button (below script)
         _buildSubtitleToggleButton(activeTheme),
       ],
     );
   }
 
   Widget _buildSubtitleToggleButton(AdaptiveVideoTheme theme) {
-    final isVisible = widget.isSubtitlesVisible;
+    final isVisible = widget.subtitleMode != SubtitleMode.off;
+    final label = switch (widget.subtitleMode) {
+      SubtitleMode.bilingual => 'Song ngữ',
+      SubtitleMode.japaneseOnly => 'Tiếng Nhật',
+      SubtitleMode.off => 'Tắt',
+    };
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -175,14 +226,14 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           onTap: widget.onToggleSubtitles,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
-            width: 38.0,
-            height: 38.0,
+            width: 36.0,
+            height: 36.0,
             child: Center(
               child: Icon(
                 isVisible
-                    ? Icons.subtitles_rounded
-                    : Icons.subtitles_off_rounded,
-                size: 28.0,
+                    ? Icons.subtitles_outlined
+                    : Icons.subtitles_off_outlined,
+                size: 26.0,
                 color: isVisible
                     ? (theme.isLight ? theme.primaryAdaptive : Colors.white)
                     : (theme.isLight
@@ -194,9 +245,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           ),
         ),
         Text(
-          appStrings.subtitle,
+          label,
           style: TextStyle(
-            fontSize: 11.0,
+            fontSize: 10.0,
             fontWeight: isVisible ? FontWeight.bold : FontWeight.w500,
             color: isVisible
                 ? (theme.isLight ? theme.primaryAdaptive : Colors.white)
@@ -255,8 +306,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             onTap: _handleFollow,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              width: 22.0,
-              height: 22.0,
+              width: 20.0,
+              height: 20.0,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: _isFollowing
@@ -275,7 +326,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
               ),
               child: Icon(
                 _isFollowing ? Icons.check_rounded : Icons.add_rounded,
-                size: 16.0,
+                size: 14.0,
                 color: Colors.white,
               ),
             ),
@@ -286,6 +337,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   }
 
   Widget _buildLikeButton(AdaptiveVideoTheme theme) {
+    final isLiked = widget.isLikedOverride ?? _isLiked;
+    final likeCount = widget.likeCountOverride ?? _likeCount;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -295,21 +349,21 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           child: ScaleTransition(
             scale: _likeScaleController,
             child: SizedBox(
-              width: 38.0,
-              height: 38.0,
+              width: 36.0,
+              height: 36.0,
               child: Center(
                 child: Icon(
-                  _isLiked
+                  isLiked
                       ? Icons.favorite_rounded
                       : Icons.favorite_border_rounded,
-                  size: 30.0,
-                  color: _isLiked
-                      ? AppColors.sakuraPink
+                  size: 26.0,
+                  color: isLiked
+                      ? AppColors.likeRed
                       : (theme.isLight ? theme.primaryAdaptive : Colors.white),
                   shadows: _isLiked
                       ? [
                           const Shadow(
-                            color: AppColors.sakuraPink,
+                            color: AppColors.likeRed,
                             blurRadius: 10.0,
                           ),
                         ]
@@ -320,9 +374,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           ),
         ),
         Text(
-          _formatCount(_likeCount),
+          _formatCount(likeCount),
           style: TextStyle(
-            fontSize: 12.0,
+            fontSize: 10.0,
             fontWeight: FontWeight.w600,
             color: theme.isLight ? theme.primaryAdaptive : Colors.white,
             shadows: theme.textShadows,
@@ -334,9 +388,15 @@ class _InteractionSidebarState extends State<InteractionSidebar>
 
   Widget _buildActionButton({
     required AdaptiveVideoTheme theme,
-    required IconData icon,
+    IconData? icon,
     String? countText,
     VoidCallback? onTap,
+    Widget? customIcon,
+    double iconSize = 26.0,
+    bool flipIcon = false,
+    Color? iconColor,
+    double countFontSize = 10.0,
+    Color? countColor,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -345,16 +405,25 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
-            width: 38.0,
-            height: 38.0,
-            child: Center(
-              child: Icon(
-                icon,
-                size: 28.0,
-                color: theme.isLight ? theme.primaryAdaptive : Colors.white,
-                shadows: theme.textShadows,
-              ),
-            ),
+            width: 36.0,
+            height: 36.0,
+            child:
+                customIcon ??
+                Center(
+                  child: Transform.flip(
+                    flipX: flipIcon,
+                    child: Icon(
+                      icon,
+                      size: iconSize,
+                      color:
+                          iconColor ??
+                          (theme.isLight
+                              ? theme.primaryAdaptive
+                              : Colors.white),
+                      shadows: theme.textShadows,
+                    ),
+                  ),
+                ),
           ),
         ),
         const SizedBox(height: 2.0),
@@ -362,9 +431,11 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           Text(
             countText,
             style: TextStyle(
-              fontSize: 12.0,
+              fontSize: countFontSize,
               fontWeight: FontWeight.w600,
-              color: theme.isLight ? theme.primaryAdaptive : Colors.white,
+              color:
+                  countColor ??
+                  (theme.isLight ? theme.primaryAdaptive : Colors.white),
               shadows: theme.textShadows,
             ),
           ),

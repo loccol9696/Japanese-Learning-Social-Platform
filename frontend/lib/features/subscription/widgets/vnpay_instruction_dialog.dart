@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/subscription_model.dart';
 import 'url_helper.dart';
+import '../../../core/theme/app_palette.dart';
 
 class VNPayInstructionDialog extends StatelessWidget {
   final PaymentResponse payment;
@@ -46,7 +47,7 @@ class VNPayInstructionDialog extends StatelessWidget {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.0)),
-      backgroundColor: Colors.white,
+      backgroundColor: AppPalette.surface,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 22.0, vertical: 24.0),
         child: SingleChildScrollView(
@@ -78,7 +79,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0D1B3E),
+                            color: AppPalette.textPrimary,
                           ),
                         ),
                         Text(
@@ -94,7 +95,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(false),
-                    icon: const Icon(Icons.close, size: 20, color: Colors.black54),
+                    icon: const Icon(Icons.close, size: 20, color: AppPalette.textSecondary),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -105,9 +106,9 @@ class VNPayInstructionDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: AppPalette.accentSoft,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF93C5FD)),
+                  border: Border.all(color: AppPalette.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,14 +118,14 @@ class VNPayInstructionDialog extends StatelessWidget {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.link_rounded, size: 16, color: Color(0xFF2563EB)),
+                            Icon(Icons.link_rounded, size: 16, color: AppPalette.accent),
                             SizedBox(width: 6),
                             Text(
                               'Đường link thanh toán VNPay:',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E40AF),
+                                color: AppPalette.textPrimary,
                               ),
                             ),
                           ],
@@ -141,14 +142,14 @@ class VNPayInstructionDialog extends StatelessWidget {
                           },
                           child: const Row(
                             children: [
-                              Icon(Icons.copy, size: 13, color: Color(0xFF2563EB)),
+                              Icon(Icons.copy, size: 13, color: AppPalette.accent),
                               SizedBox(width: 3),
                               Text(
                                 'Copy link',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2563EB),
+                                  color: AppPalette.accent,
                                 ),
                               ),
                             ],
@@ -165,7 +166,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF2563EB),
+                          color: AppPalette.accent,
                           decoration: TextDecoration.underline,
                           fontWeight: FontWeight.w600,
                           height: 1.35,
@@ -179,16 +180,16 @@ class VNPayInstructionDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
+                  color: const Color(0x26FFC107),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.amber.shade200),
+                  border: Border.all(color: const Color(0x66FFC107)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.info_outline, size: 16, color: Color(0xFFB78103)),
+                        Icon(Icons.info_outline, size: 16, color: Color(0xFFFCD34D)),
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -196,7 +197,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12.5,
-                              color: Color(0xFFB78103),
+                              color: Color(0xFFFCD34D),
                             ),
                           ),
                         ),
@@ -221,8 +222,8 @@ class VNPayInstructionDialog extends StatelessWidget {
                 icon: const Icon(Icons.open_in_new_rounded, size: 18),
                 label: const Text('Mở trang thanh toán VNPay Sandbox'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF2563EB),
-                  side: const BorderSide(color: Color(0xFF2563EB), width: 1.2),
+                  foregroundColor: AppPalette.accent,
+                  side: const BorderSide(color: AppPalette.accent, width: 1.2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -232,7 +233,7 @@ class VNPayInstructionDialog extends StatelessWidget {
               const SizedBox(height: 10),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D1B3E),
+                  backgroundColor: AppPalette.accent,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -259,7 +260,7 @@ class VNPayInstructionDialog extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+          style: TextStyle(fontSize: 12, color: AppPalette.textSecondary),
         ),
         Row(
           children: [
@@ -268,7 +269,7 @@ class VNPayInstructionDialog extends StatelessWidget {
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12.5,
-                color: Color(0xFF0D1B3E),
+                color: AppPalette.textPrimary,
               ),
             ),
             const SizedBox(width: 4),
@@ -282,7 +283,7 @@ class VNPayInstructionDialog extends StatelessWidget {
                   ),
                 );
               },
-              child: const Icon(Icons.copy, size: 14, color: Colors.grey),
+              child: const Icon(Icons.copy, size: 14, color: AppPalette.textSecondary),
             ),
           ],
         ),

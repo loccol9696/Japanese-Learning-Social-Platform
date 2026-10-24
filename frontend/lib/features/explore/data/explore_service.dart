@@ -1,6 +1,5 @@
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
-import '../../../core/storage/token_storage.dart';
 import '../../home/data/datasources/home_remote_datasource.dart';
 import 'explore_video.dart';
 
@@ -41,21 +40,12 @@ class ExploreService {
   final ApiClient _api = ApiClient.instance;
   final HomeRemoteDataSourceImpl _mapper = HomeRemoteDataSourceImpl();
 
-  /// API video của backend xác định người dùng qua `currentUserId`
-  /// (để trả về `isSaved` và để lưu video).
-  Future<int?> _currentUserId() async {
-    final user = await TokenStorage.instance.getUserData();
-    final id = user?['id'];
-    if (id is int) return id;
-    return int.tryParse(id?.toString() ?? '');
-  }
-
   Future<ExplorePage> fetchVideos({
     required ExploreFilter filter,
     String search = '',
     int page = 0,
   }) async {
-    final userId = await _currentUserId();
+    // Người xem (để biết đã lưu chưa) do server lấy từ access token.
     final query = <String, String>{
       'feed': 'for-you',
       'page': '$page',
@@ -63,7 +53,6 @@ class ExploreService {
       'sort': filter.sort,
       if (filter.jlptLevel != null) 'jlptLevel': filter.jlptLevel!,
       if (search.trim().isNotEmpty) 'search': search.trim(),
-      if (userId != null) 'currentUserId': '$userId',
     };
     final uri = Uri.parse('${ApiConstants.baseUrl}/videos')
         .replace(queryParameters: query);
@@ -84,12 +73,9 @@ class ExploreService {
 
   /// Lưu / bỏ lưu video (POST / DELETE `/videos/{id}/saves`).
   Future<void> setSaved(int videoId, bool saved) async {
-    final userId = await _currentUserId();
-    final url =
-        '${ApiConstants.baseUrl}/videos/$videoId/saves'
-        '${userId != null ? '?currentUserId=$userId' : ''}';
+    final url = '${ApiConstants.baseUrl}/videos/$videoId/saves';
     if (saved) {
-      await _api.post(url, withAuth: true);
+      await _api.post(url);
     } else {
       await _api.delete(url);
     }
@@ -103,13 +89,14 @@ class ExploreService {
     final username = json['creatorUsername']?.toString().trim() ?? '';
     final post = _mapper.toVideoPost(json);
 
+    final thumbnailUrl = json['thumbnailUrl']?.toString().trim() ?? '';
+
     return ExploreVideo(
       id: id,
       title: json['title']?.toString().trim() ?? '',
       // Ưu tiên thumbnail thật; nếu không có thì dùng khung hình trích từ video.
-      thumbnailUrl:
-          (json['thumbnailUrl']?.toString().trim().isNotEmpty ?? false)
-          ? json['thumbnailUrl'].toString()
+      thumbnailUrl: thumbnailUrl.isNotEmpty
+          ? thumbnailUrl
           : post.backgroundImageUrl,
       viewCount: _toInt(json['viewCount']) ?? 0,
       jlptLevel: json['jlptLevel']?.toString() ?? '',

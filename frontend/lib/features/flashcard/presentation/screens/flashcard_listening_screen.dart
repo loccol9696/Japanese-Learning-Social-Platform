@@ -7,6 +7,7 @@ import '../../data/services/flashcard_service.dart';
 import '../widgets/learning_header.dart';
 import '../widgets/simple_empty_state.dart';
 import '../widgets/study_options_bottom_sheet.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class FlashcardListeningScreen extends StatefulWidget {
   final FlashcardSetModel deck;
@@ -272,16 +273,16 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161922),
+        backgroundColor: AppPalette.background,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hoàn thành bài luyện nghe!', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Bạn đã hoàn tất tất cả câu hỏi luyện nghe trong bộ thẻ.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AppPalette.textSecondary),
         ),
         actions: [
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF5A5F)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.pop(context);
@@ -297,14 +298,14 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0C0E14),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFFF5A5F))),
+        backgroundColor: AppPalette.background,
+        body: Center(child: CircularProgressIndicator(color: AppPalette.accent)),
       );
     }
 
     if (_cards.isEmpty) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0C0E14),
+        backgroundColor: AppPalette.background,
         body: SafeArea(
           child: Column(
             children: [
@@ -329,7 +330,7 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0E14),
+      backgroundColor: AppPalette.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -349,7 +350,7 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
               height: 250,
               margin: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1F28),
+                color: AppPalette.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                 boxShadow: [
@@ -388,7 +389,7 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                          color: const Color(0xFFFF5A5F).withValues(alpha: waveOpacity),
+                                          color: AppPalette.accent.withValues(alpha: waveOpacity),
                                           width: 2.0,
                                         ),
                                       ),
@@ -415,14 +416,14 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
                                       color: const Color(0xFF232634),
                                       border: Border.all(
                                         color: _isPlayingAudio
-                                            ? const Color(0xFFFF5A5F)
+                                            ? AppPalette.accent
                                             : Colors.white.withValues(alpha: 0.12),
                                         width: _isPlayingAudio ? 2.5 : 1.5,
                                       ),
                                       boxShadow: [
                                         BoxShadow(
                                           color: _isPlayingAudio
-                                              ? const Color(0xFFFF5A5F).withValues(alpha: 0.35)
+                                              ? AppPalette.accent.withValues(alpha: 0.35)
                                               : Colors.black.withValues(alpha: 0.3),
                                           blurRadius: _isPlayingAudio ? 24 : 12,
                                           spreadRadius: _isPlayingAudio ? 3 : 0,
@@ -433,7 +434,7 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
                                       child: Icon(
                                         Icons.volume_up_rounded,
                                         size: 46,
-                                        color: Color(0xFFFF5A5F),
+                                        color: AppPalette.accent,
                                       ),
                                     ),
                                   ),
@@ -449,7 +450,7 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
                         const Text(
                           'Chạm để nghe',
                           style: TextStyle(
-                            color: Color(0xFF8E8E93),
+                            color: AppPalette.textSecondary,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -477,7 +478,7 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
                         child: Text(
                           _speechRate == 0.7 ? '0.7x' : '1.0x',
                           style: const TextStyle(
-                            color: Color(0xFF8E8E93),
+                            color: AppPalette.textSecondary,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.4,
@@ -517,7 +518,7 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
                   child: const Text(
                     'Không biết',
                     style: TextStyle(
-                      color: Color(0xFF5E81F4),
+                      color: AppPalette.accent,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -550,10 +551,10 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
                     letterSpacing: 0.5,
                   ),
                   enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF5E81F4), width: 2),
+                    borderSide: BorderSide(color: AppPalette.accent, width: 2),
                   ),
                   focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFFF5A5F), width: 2.5),
+                    borderSide: BorderSide(color: AppPalette.accent, width: 2.5),
                   ),
                 ),
               ),

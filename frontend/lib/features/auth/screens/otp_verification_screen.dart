@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../data/services/auth_service.dart';
+import 'auth_layout.dart';
 import 'login_screen.dart';
+import '../../../core/theme/app_palette.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String email;
@@ -99,12 +102,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       _otpController.clear();
-      _showSnackBar(
-        e.statusCode == 400
-            ? 'Mã OTP không đúng hoặc đã hết hạn. Vui lòng thử lại.'
-            : e.message,
-        isError: true,
-      );
+      // 409: tài khoản đã kích hoạt từ trước -> chỉ cần đăng nhập.
+      if (e.statusCode == 409) {
+        _showSnackBar(e.message);
+        _goToLogin();
+        return;
+      }
+      // 400: sai mã (kèm số lần thử còn lại); 429: sai quá nhiều lần, cần mã mới.
+      _showSnackBar(e.message, isError: true);
     } catch (e) {
       if (!mounted) return;
       _showSnackBar(
@@ -130,16 +135,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       _startCountdown();
     } on ApiException catch (e) {
       if (!mounted) return;
-      final message = e.message.toLowerCase();
-      if (message.contains('already activated')) {
-        _showSnackBar('Tài khoản đã được kích hoạt. Vui lòng đăng nhập.');
+      if (e.statusCode == 409) {
+        _showSnackBar(e.message);
         _goToLogin();
         return;
       }
-      if (e.statusCode == 404 || message.contains('not found')) {
-        _showSnackBar('Không tìm thấy tài khoản với email này.', isError: true);
-        return;
-      }
+      // 404: không có tài khoản; 429: gửi quá nhanh / quá nhiều; 503: mail lỗi.
       _showSnackBar(e.message, isError: true);
     } catch (e) {
       if (!mounted) return;
@@ -155,43 +156,20 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(fontSize: 14, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: isError
-            ? const Color(0xFFE53935)
-            : const Color(0xFF2E7D32),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    if (isError) {
+      AppToast.showError(message, context: context);
+    } else {
+      AppToast.showSuccess(message, context: context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppPalette.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: authPagePadding(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -201,7 +179,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 icon: const Icon(
                   Icons.arrow_back_ios,
                   size: 20,
-                  color: Colors.black87,
+                  color: AppPalette.textPrimary,
                 ),
                 onPressed: () {
                   if (Navigator.of(context).canPop()) {
@@ -222,7 +200,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D1B3E),
+                  color: AppPalette.textPrimary,
                 ),
               ),
               const SizedBox(height: 10),
@@ -230,7 +208,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 text: TextSpan(
                   style: const TextStyle(
                     fontSize: 14,
-                    color: Colors.black54,
+                    color: AppPalette.textSecondary,
                     height: 1.4,
                   ),
                   children: [
@@ -241,7 +219,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       text: widget.email,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0D1B3E),
+                        color: AppPalette.textPrimary,
                       ),
                     ),
                   ],
@@ -254,7 +232,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
-                  color: Colors.black87,
+                  color: AppPalette.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -278,7 +256,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   fontSize: 24,
                   letterSpacing: 8,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D1B3E),
+                  color: AppPalette.textPrimary,
                 ),
                 decoration: InputDecoration(
                   counterText: '',
@@ -286,23 +264,23 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   hintStyle: TextStyle(
                     fontSize: 24,
                     letterSpacing: 8,
-                    color: Colors.grey.shade300,
+                    color: AppPalette.textSecondary,
                   ),
                   filled: true,
-                  fillColor: const Color(0xFFF9FAFB),
+                  fillColor: AppPalette.surface,
                   contentPadding: const EdgeInsets.symmetric(vertical: 18),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade200),
+                    borderSide: BorderSide(color: AppPalette.border),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade200),
+                    borderSide: BorderSide(color: AppPalette.border),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(
-                      color: Color(0xFF0D1B3E),
+                      color: AppPalette.accent,
                       width: 1.5,
                     ),
                   ),
@@ -315,7 +293,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 height: 52,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D1B3E),
+                    backgroundColor: AppPalette.accent,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -362,7 +340,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             : 'Gửi lại mã sau $_resendCountdown giây',
                         style: const TextStyle(
                           fontSize: 14,
-                          color: Colors.black54,
+                          color: AppPalette.textSecondary,
                         ),
                       )
                     : TextButton(
@@ -380,7 +358,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0D1B3E),
+                                  color: AppPalette.textPrimary,
                                 ),
                               ),
                       ),

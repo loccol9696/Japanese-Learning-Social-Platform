@@ -17,6 +17,7 @@ dependencies:
   video_player: ^2.9.2
   video_player_web: ^2.4.0
   video_player_platform_interface: ^6.9.0
+  flutter_secure_storage: ^10.3.4
 
 dev_dependencies:
   flutter_test:
@@ -28,3 +29,14 @@ flutter:
 
   assets:
     - assets/icons/
+
+  # Noto Sans JP (SIL OFL 1.1) đã cắt gọn còn ~8.000 ký tự thông dụng
+  # (kana, JIS X 0208, Latin/tiếng Việt). Đóng gói sẵn để chữ Hán không bị
+  # hiện ô vuông trong lúc Flutter web chờ tải font dự phòng từ mạng.
+  fonts:
+    - family: NotoSansJP
+      fonts:
+        - asset: assets/fonts/NotoSansJP-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSansJP-Bold.ttf
+          weight: 700

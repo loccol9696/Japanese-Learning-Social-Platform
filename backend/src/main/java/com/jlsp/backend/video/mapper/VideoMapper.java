@@ -8,6 +8,7 @@ import com.jlsp.backend.video.dto.response.VideoResponse;
 import com.jlsp.backend.video.entity.ShadowingPractice;
 import com.jlsp.backend.video.entity.Video;
 import com.jlsp.backend.video.entity.VideoStatus;
+import com.jlsp.backend.video.repository.VideoCommentRepository;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,6 +16,11 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class VideoMapper {
+    private final VideoCommentRepository videoCommentRepository;
+
+    public VideoMapper(VideoCommentRepository videoCommentRepository) {
+        this.videoCommentRepository = videoCommentRepository;
+    }
 
     /**
      * Chuyển đổi từ CreateVideoRequest và User creator sang Video Entity.
@@ -72,6 +78,7 @@ public class VideoMapper {
                 .viewCount(video.getViewCount())
                 .likeCount(video.getLikeCount())
                 .saveCount(video.getSaveCount())
+                .commentCount(videoCommentRepository.countByVideoId(video.getId()))
                 .status(video.getStatus())
                 .modStatus(video.getModStatus())
                 .creatorId(creator != null ? creator.getId() : null)

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../data/services/auth_service.dart';
+import 'auth_layout.dart';
 import 'login_screen.dart';
 import 'otp_verification_screen.dart';
+import '../../../core/theme/app_palette.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -38,7 +41,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   static final RegExp _usernameRegex = RegExp(r'^[A-Za-z0-9._]+$');
   static final RegExp _whitespace = RegExp(r'\s');
 
-  bool _agreeTerms = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
@@ -122,14 +124,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (!_agreeTerms) {
-      _showSnackBar(
-        'Vui lòng đồng ý với Điều khoản & Chính sách quyền riêng tư',
-        isError: true,
-      );
-      return;
-    }
-
     setState(() => _isLoading = true);
 
     try {
@@ -166,34 +160,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(fontSize: 14, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: isError
-            ? const Color(0xFFE53935)
-            : const Color(0xFF2E7D32),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    if (isError) {
+      AppToast.showError(message, context: context);
+    } else {
+      AppToast.showSuccess(message, context: context);
+    }
   }
 
   Widget _buildInputField({
@@ -221,7 +192,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: Colors.black87,
+            color: AppPalette.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -242,31 +213,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
           onFieldSubmitted: onFieldSubmitted,
           enabled: !_isLoading,
           style: const TextStyle(
-            color: Color(0xFF0D1B3E),
+            color: AppPalette.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.w500,
           ),
-          cursorColor: const Color(0xFF0D1B3E),
+          cursorColor: AppPalette.accent,
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-            prefixIcon: Icon(prefixIcon, size: 20, color: Colors.grey),
+            hintStyle: TextStyle(color: AppPalette.textSecondary, fontSize: 14),
+            prefixIcon: Icon(prefixIcon, size: 20, color: AppPalette.textSecondary),
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: const Color(0xFFF9FAFB),
+            fillColor: AppPalette.surface,
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(color: AppPalette.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(color: AppPalette.border),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(
-                color: Color(0xFF0D1B3E),
+                color: AppPalette.accent,
                 width: 1.5,
               ),
             ),
@@ -291,46 +262,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppPalette.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: authPagePadding(context),
           child: Form(
             key: _formKey,
             child: AutofillGroup(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Nút quay lại
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: const Icon(
-                      Icons.arrow_back_ios,
-                      size: 20,
-                      color: Colors.black87,
-                    ),
-                    onPressed: () {
-                      if (Navigator.of(context).canPop()) {
-                        Navigator.of(context).pop();
-                      } else {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (context) => const LoginScreen(),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
 
-                  // 2. Tiêu đề
+                  // Tiêu đề
                   const Text(
                     'Tạo tài khoản',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0D1B3E),
+                      color: AppPalette.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -401,7 +351,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
                         size: 20,
-                        color: Colors.grey,
+                        color: AppPalette.textSecondary,
                       ),
                       onPressed: () {
                         setState(() {
@@ -432,7 +382,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
                         size: 20,
-                        color: Colors.grey,
+                        color: AppPalette.textSecondary,
                       ),
                       onPressed: () {
                         setState(() {
@@ -441,65 +391,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 28),
 
-                  // 7. Checkbox Đồng ý điều khoản
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: Checkbox(
-                          value: _agreeTerms,
-                          activeColor: const Color(0xFF0D1B3E),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          onChanged: _isLoading
-                              ? null
-                              : (val) {
-                                  setState(() {
-                                    _agreeTerms = val ?? false;
-                                  });
-                                },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: RichText(
-                          text: const TextSpan(
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.black87,
-                            ),
-                            children: [
-                              TextSpan(text: 'Tôi đồng ý với '),
-                              TextSpan(
-                                text: 'Điều khoản',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              TextSpan(text: ' & '),
-                              TextSpan(
-                                text: 'Chính sách quyền riêng tư',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              TextSpan(text: ' của Kotoba'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // 8. Nút Tạo tài khoản
+                  // Nút Tạo tài khoản
                   SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D1B3E),
+                        backgroundColor: AppPalette.accent,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -543,7 +443,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       Expanded(
                         child: Divider(
-                          color: Colors.grey.shade200,
+                          color: AppPalette.border,
                           thickness: 1,
                         ),
                       ),
@@ -553,14 +453,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           'HOẶC TIẾP TỤC VỚI',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade500,
+                            color: AppPalette.textSecondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                       Expanded(
                         child: Divider(
-                          color: Colors.grey.shade200,
+                          color: AppPalette.border,
                           thickness: 1,
                         ),
                       ),
@@ -574,7 +474,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     height: 52,
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey.shade200),
+                        side: BorderSide(color: AppPalette.border),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -607,7 +507,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                              color: AppPalette.textPrimary,
                             ),
                           ),
                         ],
@@ -623,7 +523,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         const Text(
                           'Đã có tài khoản? ',
-                          style: TextStyle(fontSize: 14, color: Colors.black54),
+                          style: TextStyle(fontSize: 14, color: AppPalette.textSecondary),
                         ),
                         GestureDetector(
                           onTap: _isLoading
@@ -645,7 +545,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0D1B3E),
+                              color: AppPalette.textPrimary,
                             ),
                           ),
                         ),

@@ -8,8 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_palette.dart';
 import '../../data/datasources/profile_remote_datasource.dart';
 import '../../data/repositories/profile_repository_impl.dart';
 import '../../domain/models/topic_model.dart';
@@ -34,6 +36,9 @@ class ProfileUpdateScreen extends StatefulWidget {
 }
 
 class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
+  /// Xanh dương nhạt cho liên kết "Đổi ảnh đại diện".
+  static const Color _linkBlue = Color(0xFF38BDF8);
+
   late final ProfileRepository _repository;
 
   final _formKey = GlobalKey<FormState>();
@@ -127,22 +132,25 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
       // Upload to Cloudinary media endpoint
       try {
         final uri = Uri.parse('${ApiConstants.baseUrl}/media/upload?folder=jlsp/avatars');
-        final request = http.MultipartRequest('POST', uri);
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'file',
-            bytes,
-            filename: file.name.isNotEmpty ? file.name : 'avatar.png',
-          ),
+        // ApiClient tự gắn access token (API upload yêu cầu đăng nhập).
+        final imageBytes = bytes;
+        final response = await ApiClient.instance.sendMultipart(
+          () => http.MultipartRequest('POST', uri)
+            ..files.add(
+              http.MultipartFile.fromBytes(
+                'file',
+                imageBytes,
+                filename: file.name.isNotEmpty ? file.name : 'avatar.png',
+              ),
+            ),
+          timeout: const Duration(seconds: 60),
         );
 
-        final streamedResponse = await request.send();
-        final response = await http.Response.fromStream(streamedResponse);
-
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          final jsonBody = jsonDecode(response.body);
-          final data = jsonBody['data'];
-          final uploadedUrl = data != null ? (data['secureUrl'] ?? data['url']) as String? : null;
+        {
+          final data = ApiClient.decodeResponse(response);
+          final uploadedUrl = data is Map
+              ? (data['secureUrl'] ?? data['url']) as String?
+              : null;
 
           if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
             if (!mounted) return;
@@ -300,92 +308,57 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final content = _isLoading
+        ? const Center(
+            child: CircularProgressIndicator(color: AppPalette.accent),
+          )
+        : Form(
+            key: _formKey,
+            child: ListView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 24.0),
+              children: [
+                _buildAvatarSection(),
+                const SizedBox(height: 28.0),
+                _buildDisplayNameField(),
+                const SizedBox(height: 20.0),
+                _buildUsernameField(),
+                const SizedBox(height: 24.0),
+                JlptLevelSelector(
+                  selectedLevel: _selectedLevel,
+                  onLevelSelected: (lvl) {
+                    setState(() {
+                      _selectedLevel = lvl;
+                    });
+                  },
+                ),
+                const SizedBox(height: 24.0),
+                InterestTagsSelector(
+                  availableTopics: _availableTopics,
+                  selectedInterests: _selectedInterests,
+                  onInterestsChanged: (tags) {
+                    setState(() {
+                      _selectedInterests = tags;
+                    });
+                  },
+                ),
+              ],
+            ),
+          );
+
     if (widget.isTab) {
       return Container(
-        color: AppColors.backgroundCanvas,
+        color: AppPalette.background,
         child: SafeArea(
           bottom: false,
           child: Column(
             children: [
-              // Custom Top Header for Tab
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      appStrings.profileTitle,
-                      style: const TextStyle(
-                        fontSize: 20.0,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _isSaving ? null : _saveProfile,
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 18.0,
-                              height: 18.0,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.0,
-                                color: AppColors.periwinkle,
-                              ),
-                            )
-                          : Text(
-                              appStrings.saveChanges,
-                              style: const TextStyle(
-                                color: AppColors.periwinkle,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14.5,
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 14.0),
+                child: _buildTitle(),
               ),
-              Expanded(
-                child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: AppColors.periwinkle),
-                      )
-                    : Form(
-                        key: _formKey,
-                        child: ListView(
-                          physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-                          children: [
-                            _buildAvatarSection(),
-                            const SizedBox(height: 24.0),
-                            _buildDisplayNameField(),
-                            const SizedBox(height: 20.0),
-                            JlptLevelSelector(
-                              selectedLevel: _selectedLevel,
-                              onLevelSelected: (lvl) {
-                                setState(() {
-                                  _selectedLevel = lvl;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 24.0),
-                            InterestTagsSelector(
-                              availableTopics: _availableTopics,
-                              selectedInterests: _selectedInterests,
-                              onInterestsChanged: (tags) {
-                                setState(() {
-                                  _selectedInterests = tags;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 24.0),
-                            _buildBioField(),
-                            const SizedBox(height: 24.0),
-                            _buildSaveButtonContent(),
-                            const SizedBox(height: 120.0),
-                          ],
-                        ),
-                      ),
-              ),
+              Expanded(child: content),
+              _buildSaveBar(),
             ],
           ),
         ),
@@ -393,264 +366,115 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundCanvas,
+      backgroundColor: AppPalette.background,
       appBar: AppBar(
-        backgroundColor: AppColors.backgroundCanvas,
+        backgroundColor: AppPalette.background,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         leading: Navigator.canPop(context)
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                    color: AppColors.onSurface, size: 20.0),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: AppPalette.textPrimary,
+                  size: 18.0,
+                ),
                 onPressed: () => Navigator.pop(context),
               )
             : null,
-        title: Text(
-          appStrings.editProfile,
-          style: const TextStyle(
-            fontSize: 18.0,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _isSaving ? null : _saveProfile,
-            child: _isSaving
-                ? const SizedBox(
-                    width: 18.0,
-                    height: 18.0,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.0,
-                      color: AppColors.periwinkle,
-                    ),
-                  )
-                : Text(
-                    appStrings.saveChanges,
-                    style: const TextStyle(
-                      color: AppColors.periwinkle,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14.5,
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 8.0),
-        ],
+        title: _buildTitle(),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.periwinkle),
-            )
-          : SafeArea(
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20.0,
-                    vertical: 12.0,
-                  ),
-                  children: [
-                    // 1. Avatar Section
-                    _buildAvatarSection(),
-                    const SizedBox(height: 24.0),
+      body: SafeArea(child: content),
+      bottomNavigationBar: _buildSaveBar(),
+    );
+  }
 
-                    // 2. Display Name Input
-                    _buildDisplayNameField(),
-                    const SizedBox(height: 20.0),
-
-                    // 3. JLPT Level Selector
-                    JlptLevelSelector(
-                      selectedLevel: _selectedLevel,
-                      onLevelSelected: (lvl) {
-                        setState(() {
-                          _selectedLevel = lvl;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 24.0),
-
-                    // 4. Interests / Topics Selector
-                    InterestTagsSelector(
-                      availableTopics: _availableTopics,
-                      selectedInterests: _selectedInterests,
-                      onInterestsChanged: (tags) {
-                        setState(() {
-                          _selectedInterests = tags;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 24.0),
-
-                    // 5. Bio Input Field
-                    _buildBioField(),
-                    const SizedBox(height: 20.0),
-                  ],
-                ),
-              ),
-            ),
-      bottomNavigationBar: _buildSaveButton(),
+  Widget _buildTitle() {
+    return Text(
+      appStrings.editProfile,
+      style: const TextStyle(
+        fontSize: 16.0,
+        fontWeight: FontWeight.w700,
+        color: AppPalette.textPrimary,
+      ),
     );
   }
 
   Widget _buildAvatarSection() {
-    final avatarUrl = _selectedAvatarUrl.isNotEmpty
-        ? _selectedAvatarUrl
-        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80';
+    final displayName = _displayNameController.text.trim().isNotEmpty
+        ? _displayNameController.text.trim()
+        : (_profile.displayName.isNotEmpty
+              ? _profile.displayName
+              : _profile.username);
+    final initial = displayName.isEmpty
+        ? '?'
+        : String.fromCharCode(displayName.runes.first).toUpperCase();
 
-    ImageProvider avatarImage;
+    ImageProvider? avatarImage;
     if (_localAvatarBytes != null) {
       avatarImage = MemoryImage(_localAvatarBytes!);
-    } else {
-      avatarImage = NetworkImage(avatarUrl);
+    } else if (_selectedAvatarUrl.isNotEmpty) {
+      avatarImage = NetworkImage(_selectedAvatarUrl);
     }
 
     return Column(
       children: [
-        Center(
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Halo glow border
-              Container(
-                width: 114.0,
-                height: 114.0,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.periwinkle.withValues(alpha: 0.35),
-                      blurRadius: 24.0,
-                      spreadRadius: 2.0,
+        GestureDetector(
+          onTap: _isUploadingAvatar ? null : _openAvatarPicker,
+          child: CircleAvatar(
+            radius: 36.0,
+            backgroundColor: AppPalette.surface,
+            backgroundImage: avatarImage,
+            onBackgroundImageError: avatarImage == null
+                ? null
+                : (context, error) {},
+            child: _isUploadingAvatar
+                ? const SizedBox(
+                    width: 24.0,
+                    height: 24.0,
+                    child: CircularProgressIndicator(
+                      color: AppPalette.textPrimary,
+                      strokeWidth: 2.5,
                     ),
-                  ],
-                ),
-              ),
-              // Avatar Image
-              GestureDetector(
-                onTap: _openAvatarPicker,
-                child: Container(
-                  padding: const EdgeInsets.all(3.5),
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [AppColors.periwinkle, AppColors.sakuraPink],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: CircleAvatar(
-                    radius: 52.0,
-                    backgroundColor: AppColors.surfaceCardSubtle,
-                    backgroundImage: avatarImage,
-                    onBackgroundImageError: (context, error) {},
-                    child: _isUploadingAvatar
-                        ? Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.black.withValues(alpha: 0.5),
-                            ),
-                            child: const Center(
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
-                              ),
-                            ),
-                          )
-                        : null,
-                  ),
-                ),
-              ),
-              // Camera/Edit Icon Badge
-              Positioned(
-                bottom: 2.0,
-                right: 2.0,
-                child: GestureDetector(
-                  onTap: _pickImageFromDevice,
-                  child: Container(
-                    padding: const EdgeInsets.all(7.5),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.periwinkle,
-                      border: Border.all(
-                        color: AppColors.backgroundCanvas,
-                        width: 2.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.periwinkle.withValues(alpha: 0.45),
-                          blurRadius: 8.0,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt_rounded,
-                      size: 16.0,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+                  )
+                : (avatarImage == null
+                      ? Text(
+                          initial,
+                          style: const TextStyle(
+                            color: AppPalette.textPrimary,
+                            fontSize: 30.0,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      : null),
           ),
         ),
-        const SizedBox(height: 8.0),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 8.0,
-          runSpacing: 6.0,
-          children: [
-            InkWell(
-              onTap: _isUploadingAvatar ? null : _pickImageFromDevice,
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppColors.periwinkle.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.periwinkle.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_isUploadingAvatar)
-                      const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.periwinkle),
-                      )
-                    else
-                      const Icon(Icons.file_upload_outlined, size: 15, color: AppColors.periwinkle),
-                    const SizedBox(width: 4),
-                    const Text('Tải ảnh từ máy', style: TextStyle(color: AppColors.periwinkle, fontSize: 12, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
+        const SizedBox(height: 12.0),
+        GestureDetector(
+          onTap: _isUploadingAvatar ? null : _openAvatarPicker,
+          child: const Text(
+            'Đổi ảnh đại diện',
+            style: TextStyle(
+              color: _linkBlue,
+              fontSize: 15.0,
+              fontWeight: FontWeight.w700,
             ),
-            const SizedBox(width: 8),
-            InkWell(
-              onTap: _openAvatarPicker,
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceCardSubtle,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.softSkyBlue.withValues(alpha: 0.2)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.face_rounded, size: 15, color: AppColors.textSecondary),
-                    SizedBox(width: 4),
-                    Text('Chọn mẫu', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildFieldLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13.0,
+          color: AppPalette.textSecondary,
+        ),
+      ),
     );
   }
 
@@ -658,57 +482,37 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(
-              Icons.badge_rounded,
-              color: AppColors.softSkyBlue,
-              size: 20.0,
-            ),
-            const SizedBox(width: 8.0),
-            Expanded(
-              child: Text(
-                appStrings.displayName,
-                style: const TextStyle(
-                  fontSize: 16.0,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10.0),
+        _buildFieldLabel(appStrings.displayName),
         TextFormField(
           controller: _displayNameController,
-          style: const TextStyle(color: AppColors.textPrimary, fontSize: 14.5),
+          cursorColor: AppPalette.accent,
+          onChanged: (_) => setState(() {}),
+          style: const TextStyle(
+            color: AppPalette.textPrimary,
+            fontSize: 16.0,
+            fontWeight: FontWeight.w700,
+          ),
           decoration: InputDecoration(
             hintText: appStrings.displayNamePlaceholder,
-            hintStyle: TextStyle(
-              color: AppColors.softSkyBlue.withValues(alpha: 0.4),
-            ),
+            hintStyle: const TextStyle(color: AppPalette.textSecondary),
             filled: true,
-            fillColor: AppColors.surfaceCardSubtle,
+            fillColor: AppPalette.surfaceHigh,
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18.0,
-              vertical: 14.0,
+              horizontal: 16.0,
+              vertical: 15.0,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: BorderSide(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.2),
-              ),
+              borderRadius: BorderRadius.circular(10.0),
+              borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: BorderSide(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.2),
-              ),
+              borderRadius: BorderRadius.circular(10.0),
+              borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
+              borderRadius: BorderRadius.circular(10.0),
               borderSide: const BorderSide(
-                color: AppColors.periwinkle,
+                color: AppPalette.accent,
                 width: 1.5,
               ),
             ),
@@ -727,141 +531,102 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     );
   }
 
-  Widget _buildBioField() {
+  /// Tên người dùng không đổi được: hiển thị dạng chỉ đọc.
+  Widget _buildUsernameField() {
+    if (_profile.username.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(
-              Icons.auto_stories_rounded,
-              color: AppColors.warmPeach,
-              size: 20.0,
-            ),
-            const SizedBox(width: 8.0),
-            Expanded(
-              child: Text(
-                appStrings.bio,
-                style: const TextStyle(
-                  fontSize: 16.0,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+        _buildFieldLabel('Tên người dùng'),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 15.0),
+          decoration: BoxDecoration(
+            color: AppPalette.surfaceHigh,
+            borderRadius: BorderRadius.circular(10.0),
+          ),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(
+                  text: '@ ',
+                  style: TextStyle(color: AppPalette.textSecondary),
                 ),
-              ),
+                TextSpan(
+                  text: _profile.username,
+                  style: const TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        const SizedBox(height: 10.0),
-        TextFormField(
-          controller: _bioController,
-          maxLines: 4,
-          style: const TextStyle(color: AppColors.textPrimary, fontSize: 14.0),
-          decoration: InputDecoration(
-            hintText: appStrings.bioPlaceholder,
-            hintStyle: TextStyle(
-              color: AppColors.softSkyBlue.withValues(alpha: 0.4),
-            ),
-            filled: true,
-            fillColor: AppColors.surfaceCardSubtle,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18.0,
-              vertical: 14.0,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: BorderSide(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.2),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: BorderSide(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.2),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16.0),
-              borderSide: const BorderSide(
-                color: AppColors.periwinkle,
-                width: 1.5,
-              ),
-            ),
+            style: const TextStyle(fontSize: 16.0),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSaveButtonContent() {
+  /// Nút lưu cố định ở đáy màn hình, có đường kẻ mảnh phía trên.
+  Widget _buildSaveBar() {
     return Container(
-      width: double.infinity,
-      height: 52.0,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16.0),
-        gradient: const LinearGradient(
-          colors: [AppColors.periwinkle, AppColors.lavender],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.periwinkle.withValues(alpha: 0.45),
-            blurRadius: 18.0,
-            offset: const Offset(0, 6),
-          ),
-        ],
+      decoration: const BoxDecoration(
+        color: AppPalette.background,
+        border: Border(top: BorderSide(color: AppPalette.surface)),
       ),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-        ),
-        onPressed: _isSaving ? null : _saveProfile,
-        child: _isSaving
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(
-                    width: 20.0,
-                    height: 20.0,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 12.0),
-                  Text(
-                    appStrings.saving,
-                    style: const TextStyle(
-                      fontSize: 16.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              )
-            : Text(
-                appStrings.saveChanges,
-                style: const TextStyle(
-                  fontSize: 16.0,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildSaveButton() {
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+      padding: const EdgeInsets.fromLTRB(20.0, 14.0, 20.0, 14.0),
       child: SafeArea(
         top: false,
-        child: _buildSaveButtonContent(),
+        child: SizedBox(
+          width: double.infinity,
+          height: 48.0,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppPalette.accent,
+              disabledBackgroundColor: AppPalette.accent.withValues(alpha: 0.6),
+              foregroundColor: AppPalette.textPrimary,
+              disabledForegroundColor: AppPalette.textPrimary,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.0),
+              ),
+            ),
+            onPressed: _isSaving ? null : _saveProfile,
+            child: _isSaving
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 18.0,
+                        height: 18.0,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: AppPalette.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 10.0),
+                      Text(
+                        appStrings.saving,
+                        style: const TextStyle(
+                          fontSize: 15.0,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    appStrings.saveChanges,
+                    style: const TextStyle(
+                      fontSize: 15.0,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+          ),
+        ),
       ),
     );
   }

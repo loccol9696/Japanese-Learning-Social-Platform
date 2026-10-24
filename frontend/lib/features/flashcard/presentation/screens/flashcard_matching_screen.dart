@@ -3,6 +3,7 @@ import '../../data/models/flashcard_set_model.dart';
 import '../../data/models/matching_game_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../widgets/learning_header.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class FlashcardMatchingScreen extends StatefulWidget {
   final FlashcardSetModel deck;
@@ -100,12 +101,12 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161922),
+        backgroundColor: AppPalette.background,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Chúc mừng!', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Bạn đã ghép đôi chính xác tất cả các thẻ!',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AppPalette.textSecondary),
         ),
         actions: [
           TextButton(
@@ -113,10 +114,10 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
               Navigator.pop(ctx);
               _loadGame();
             },
-            child: const Text('Chơi lại', style: TextStyle(color: Color(0xFFFF2D55))),
+            child: const Text('Chơi lại', style: TextStyle(color: AppPalette.accent)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF2D55)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.pop(context);
@@ -132,15 +133,15 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0C0E14),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFFF2D55))),
+        backgroundColor: AppPalette.background,
+        body: Center(child: CircularProgressIndicator(color: AppPalette.accent)),
       );
     }
 
     final tiles = _game?.tiles ?? [];
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0E14),
+      backgroundColor: AppPalette.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -177,7 +178,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
                       return const SizedBox.shrink(); // Hide matched tile
                     }
 
-                    Color bgColor = const Color(0xFF161922);
+                    Color bgColor = AppPalette.background;
                     Color borderColor = Colors.white.withOpacity(0.08);
 
                     if (isSelected) {

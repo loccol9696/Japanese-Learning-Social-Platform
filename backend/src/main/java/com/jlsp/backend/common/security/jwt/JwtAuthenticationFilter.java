@@ -1,6 +1,7 @@
 package com.jlsp.backend.common.security.jwt;
 
-import com.jlsp.backend.common.security.ActiveSessionRegistry;
+import com.jlsp.backend.common.security.AuthUser;
+import com.jlsp.backend.common.security.token.AccessTokenDenylist;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,15 +15,22 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+/**
+ * Đọc "Authorization: Bearer ..." và gắn {@link AuthUser} vào SecurityContext.
+ * Token thiếu/sai/hết hạn/đã thu hồi thì request đi tiếp như khách: API công khai
+ * vẫn chạy, API cần đăng nhập sẽ bị entry point trả 401 JSON.
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtUtils jwtUtils;
-    private final ActiveSessionRegistry activeSessionRegistry;
+    private static final String BEARER_PREFIX = "Bearer ";
 
-    public JwtAuthenticationFilter(JwtUtils jwtUtils, ActiveSessionRegistry activeSessionRegistry) {
+    private final JwtUtils jwtUtils;
+    private final AccessTokenDenylist denylist;
+
+    public JwtAuthenticationFilter(JwtUtils jwtUtils, AccessTokenDenylist denylist) {
         this.jwtUtils = jwtUtils;
-        this.activeSessionRegistry = activeSessionRegistry;
+        this.denylist = denylist;
     }
 
     @Override
@@ -30,24 +38,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String authHeader = req.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)
+                && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            if (jwtUtils.validateToken(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
-                String username = jwtUtils.extractUsername(token);
-                if (!activeSessionRegistry.isActive(username, token)) {
-                    resp.sendError(HttpServletResponse.SC_UNAUTHORIZED,
-                            "Phiên đăng nhập đã hết hạn hoặc tài khoản đang được dùng ở nơi khác");
-                    return;
-                }
-                var authorities = jwtUtils.extractRoles(token).stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .toList();
-
-                var authToken = new UsernamePasswordAuthenticationToken(username, null, authorities);
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(req));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-            }
+            jwtUtils.parse(authHeader.substring(BEARER_PREFIX.length()))
+                    .filter(claims -> !denylist.isDenied(claims.tokenId()))
+                    .ifPresent(claims -> {
+                        AuthUser principal = new AuthUser(claims.userId(), claims.username(), claims.roles());
+                        var authorities = claims.roles().stream().map(SimpleGrantedAuthority::new).toList();
+                        var authToken = new UsernamePasswordAuthenticationToken(principal, null, authorities);
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(req));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    });
         }
 
         filterChain.doFilter(req, resp);

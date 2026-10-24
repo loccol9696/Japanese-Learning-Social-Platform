@@ -157,9 +157,8 @@ void main() {
     // Verify bottom nav dock
     expect(find.byType(BottomNavDock), findsOneWidget);
     expect(find.text('Trang chủ'), findsOneWidget);
+    expect(find.text('Khám phá'), findsOneWidget);
     expect(find.text('Flashcard'), findsOneWidget);
-    expect(find.text('Thêm video'), findsOneWidget);
-    expect(find.text('Tin nhắn'), findsOneWidget);
     expect(find.text('Cá nhân'), findsOneWidget);
   });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/flashcard_set_model.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class DeckCardItem extends StatelessWidget {
   final FlashcardSetModel deck;
@@ -25,7 +26,7 @@ class DeckCardItem extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1F28),
+            color: AppPalette.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: Colors.white.withOpacity(0.06),
@@ -62,7 +63,7 @@ class DeckCardItem extends StatelessWidget {
               Text(
                 '${deck.totalCards} thuật ngữ',
                 style: const TextStyle(
-                  color: Color(0xFF8E8E93),
+                  color: AppPalette.textSecondary,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w500,
                 ),
@@ -160,7 +161,7 @@ class _DeckMoreMenuButtonState extends State<_DeckMoreMenuButton> {
                         _MenuActionItem(
                           icon: Icons.delete_outline_rounded,
                           title: 'Xóa',
-                          color: const Color(0xFFFF5A5F),
+                          color: AppPalette.accent,
                           onTap: () {
                             _closeMenu();
                             widget.onDelete?.call();
@@ -183,7 +184,7 @@ class _DeckMoreMenuButtonState extends State<_DeckMoreMenuButton> {
             padding: EdgeInsets.zero,
             icon: const Icon(
               Icons.more_vert_rounded,
-              color: Color(0xFFA0A0B0),
+              color: AppPalette.textSecondary,
               size: 20,
             ),
             onPressed: () {
@@ -226,13 +227,13 @@ class _MenuActionItemState extends State<_MenuActionItem> {
         child: InkWell(
           onTap: widget.onTap,
           borderRadius: BorderRadius.circular(8),
-          splashColor: const Color(0xFF2F3242),
-          highlightColor: const Color(0xFF2F3242),
+          splashColor: AppPalette.accentSoft,
+          highlightColor: AppPalette.accentSoft,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: _isHovered ? const Color(0xFF2F3242) : Colors.transparent,
+              color: _isHovered ? AppPalette.accentSoft : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(

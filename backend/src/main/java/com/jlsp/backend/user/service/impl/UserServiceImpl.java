@@ -27,6 +27,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final com.jlsp.backend.user.repository.FollowRepository followRepository;
     private final com.jlsp.backend.video.repository.VideoRepository videoRepository;
+    private final com.jlsp.backend.common.security.token.RefreshTokenService refreshTokenService;
 
     @Override
     public UserResponse createUser(CreateUserRequest request) {
@@ -128,6 +129,10 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new AppException(404, "User not found with id: " + id));
         user.setIsActive(!Boolean.TRUE.equals(user.getIsActive()));
         User saved = userRepository.save(user);
+        if (!Boolean.TRUE.equals(saved.getIsActive())) {
+            // Khoá tài khoản: đăng xuất ngay mọi thiết bị (access token còn lại tự hết hạn sau tối đa 30 phút).
+            refreshTokenService.revokeAll(saved.getId());
+        }
         log.info("Toggled user id {} status to isActive={}", id, saved.getIsActive());
         return userMapper.toResponse(saved);
     }

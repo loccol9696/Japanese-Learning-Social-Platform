@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_language.dart';
+import 'package:frontend/core/localization/locale_manager.dart';
 import 'package:frontend/features/profile/domain/models/topic_model.dart';
 import 'package:frontend/features/profile/domain/models/user_profile_model.dart';
 import 'package:frontend/features/profile/domain/repositories/profile_repository.dart';
@@ -64,6 +66,12 @@ class _MockProfileRepository implements ProfileRepository {
   Future<List<UserVideoModel>> getMyVideosStatus() async => videos;
 
   @override
+  Future<List<UserVideoModel>> getLikedVideos() async => [];
+
+  @override
+  Future<List<UserVideoModel>> getSavedVideos() async => [];
+
+  @override
   Future<List<UserVideoModel>> getModerationVideos({String status = 'PENDING'}) async => [];
 
   @override
@@ -90,7 +98,7 @@ void main() {
     HttpOverrides.global = null;
   });
 
-  testWidgets('ProfileScreen renders profile header and 4 tabs correctly', (tester) async {
+  testWidgets('ProfileScreen renders profile header and 3 icon tabs correctly', (tester) async {
     final mockRepo = _MockProfileRepository();
 
     await tester.pumpWidget(
@@ -106,31 +114,42 @@ void main() {
 
     // Verify user info
     expect(find.text('Yamada Kenji'), findsOneWidget);
-    expect(find.text('@yamada_san'), findsOneWidget);
+    // Tên đăng nhập kèm cấp độ JLPT trên cùng một dòng.
+    expect(find.text('@yamada_san · N3'), findsOneWidget);
+
+    // Chỉ số: số in đậm + nhãn trên cùng một dòng
+    expect(find.textContaining('đang follow'), findsOneWidget);
+    expect(find.textContaining('follower'), findsOneWidget);
+    expect(find.textContaining('thích'), findsOneWidget);
+
+    // Hai nút hành động (không icon)
+    expect(find.text('Chỉnh sửa'), findsOneWidget);
+    expect(find.text('Đăng video'), findsOneWidget);
 
     // Verify "Quản lý upload" button is NOT in main profile body (moved to 3-line menu)
     expect(find.text('Quản lý upload (1)'), findsNothing);
 
-    // Verify 4 tabs
-    expect(find.text('Video public'), findsOneWidget);
-    expect(find.text('Video riêng tư'), findsOneWidget);
-    expect(find.text('Video đã lưu'), findsOneWidget);
-    expect(find.text('Video đăng lại'), findsOneWidget);
+    // 3 tab chỉ có icon (nhãn nằm trong tooltip)
+    expect(find.byTooltip('Video của tôi'), findsOneWidget);
+    expect(find.byTooltip('Video đã lưu'), findsOneWidget);
+    expect(find.byTooltip('Video đã thích'), findsOneWidget);
+    expect(find.byTooltip('Video riêng tư'), findsNothing);
+    expect(find.byTooltip('Video đăng lại'), findsNothing);
+
+    // Tab đầu hiển thị toàn bộ video của tôi (3 video trong mock)
+    expect(find.text('Chưa có video nào'), findsNothing);
 
     // Tab switching test
-    await tester.tap(find.text('Video riêng tư'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Video đã lưu'));
+    await tester.tap(find.byTooltip('Video đã lưu'));
     await tester.pumpAndSettle();
     expect(find.text('Chưa có video đã lưu'), findsOneWidget);
 
-    await tester.tap(find.text('Video đăng lại'));
+    await tester.tap(find.byTooltip('Video đã thích'));
     await tester.pumpAndSettle();
-    expect(find.text('Chưa có video đăng lại'), findsOneWidget);
+    expect(find.text('Chưa có video đã thích'), findsOneWidget);
   });
 
-  testWidgets('ProfileScreen 3-line hamburger menu opens and shows subscription & coming soon items', (tester) async {
+  testWidgets('ProfileScreen settings sheet lists the settings rows and logout', (tester) async {
     final mockRepo = _MockProfileRepository();
 
     await tester.pumpWidget(
@@ -149,24 +168,57 @@ void main() {
     await tester.tap(menuButton);
     await tester.pumpAndSettle();
 
-    // Verify menu header and content
-    expect(find.text('Cài đặt & Tùy chọn'), findsOneWidget);
-    expect(find.text('Gói VIP: Gói VIP 1 Tháng'), findsOneWidget);
-    expect(find.text('Xem các gói Subscription'), findsOneWidget);
-    expect(find.text('Quản lý upload'), findsOneWidget);
-    expect(find.text('Cài đặt tài khoản'), findsOneWidget);
-    expect(find.text('Cá nhân hóa'), findsOneWidget);
-    expect(find.text('Chỉnh sửa hồ sơ'), findsOneWidget);
+    // Tiêu đề và các hàng cài đặt
+    expect(find.text('Cài đặt'), findsOneWidget);
+    expect(find.text('Tài khoản'), findsOneWidget);
+    expect(find.text('Thông báo'), findsOneWidget);
+    expect(find.text('Ngôn ngữ'), findsOneWidget);
+    expect(find.text('Tiếng Việt'), findsOneWidget);
+    expect(find.text('Quyền riêng tư'), findsOneWidget);
+    expect(find.text('Trợ giúp và phản hồi'), findsOneWidget);
     expect(find.text('Đăng xuất'), findsOneWidget);
 
-    // Tap "Cài đặt tài khoản" to test placeholder SnackBar notification
-    await tester.tap(find.text('Cài đặt tài khoản'));
-    await tester.pumpAndSettle();
+    // Lối vào quản lý bài đăng chỉ hiện khi có video (mock có 3 video, 1 chờ duyệt)
+    expect(find.text('Quản lý bài đăng'), findsOneWidget);
+    expect(find.text('1 chờ duyệt'), findsOneWidget);
+    // Người dùng thường không thấy mục duyệt video
+    expect(find.text('Duyệt video'), findsNothing);
 
-    // Verify SnackBar appears
+    // Hàng chưa có tính năng báo "sẽ hoàn thiện"
+    await tester.tap(find.text('Tài khoản'));
+    await tester.pumpAndSettle();
     expect(
-      find.text('Cài đặt tài khoản: Tính năng sẽ được hoàn thiện trong thời gian tới'),
+      find.text('Tài khoản: Tính năng sẽ được hoàn thiện trong thời gian tới'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('ProfileScreen settings sheet changes the app language', (tester) async {
+    addTearDown(() => localeManager.changeLanguage(AppLanguage.vi));
+    final mockRepo = _MockProfileRepository();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ProfileScreen(repository: mockRepo),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Tùy chọn & Cài đặt'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ngôn ngữ'));
+    await tester.pumpAndSettle();
+
+    // Bảng chọn ngôn ngữ liệt kê cả 3 ngôn ngữ
+    expect(find.text('English'), findsOneWidget);
+    expect(find.text('日本語'), findsOneWidget);
+
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+
+    expect(localeManager.currentLanguage, AppLanguage.en);
+    expect(find.text('Switched to English'), findsOneWidget);
   });
 }

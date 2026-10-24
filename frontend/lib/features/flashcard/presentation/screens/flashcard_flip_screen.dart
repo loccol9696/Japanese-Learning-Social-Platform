@@ -8,6 +8,7 @@ import '../../data/services/flashcard_service.dart';
 import '../widgets/learning_header.dart';
 import '../widgets/simple_empty_state.dart';
 import '../widgets/study_options_bottom_sheet.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class FlashcardFlipScreen extends StatefulWidget {
   final FlashcardSetModel deck;
@@ -260,16 +261,16 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161922),
+        backgroundColor: AppPalette.background,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hoàn thành xuất sắc!', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Bạn đã hoàn thành lượt ôn tập cho bộ từ vựng này.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AppPalette.textSecondary),
         ),
         actions: [
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF2D55)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.pop(context);
@@ -328,7 +329,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
     final swipeProgress = (currentOffset.dx.abs() / _swipeThreshold).clamp(0.0, 1.0);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0E14),
+      backgroundColor: AppPalette.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -345,7 +346,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
             // Giant Center Flashcard Stack (Quizlet Style Swipe)
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF2D55)))
+                  ? const Center(child: CircularProgressIndicator(color: AppPalette.accent))
                   : currentCard == null
                       ? SimpleEmptyState(
                           message: _options.starredOnly
@@ -390,14 +391,14 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                         onPressed: () => _handleManualChoice(false),
-                        child: const Text('Chưa nhớ', style: TextStyle(color: Colors.white70)),
+                        child: const Text('Chưa nhớ', style: TextStyle(color: AppPalette.textSecondary)),
                       ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF2D55),
+                          backgroundColor: AppPalette.accent,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
@@ -689,12 +690,12 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: _isPlayingAudio
-                ? const Color(0xFFFF5A5F).withValues(alpha: 0.18)
+                ? AppPalette.accent.withValues(alpha: 0.18)
                 : Colors.transparent,
             shape: BoxShape.circle,
             border: Border.all(
               color: _isPlayingAudio
-                  ? const Color(0xFFFF5A5F).withValues(alpha: 0.5)
+                  ? AppPalette.accent.withValues(alpha: 0.5)
                   : Colors.transparent,
               width: 1.5,
             ),
@@ -706,7 +707,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
             child: Icon(
               _isPlayingAudio ? Icons.volume_up_rounded : Icons.volume_up_outlined,
               color: _isPlayingAudio
-                  ? const Color(0xFFFF5A5F)
+                  ? AppPalette.accent
                   : Colors.white.withValues(alpha: 0.6),
               size: 26,
             ),
@@ -723,7 +724,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
     double contentOpacity = 1.0,
   }) {
     final displayText = _options.displayFrontFace == 'term' ? card.term : card.meaning;
-    final defaultBorder = const Color(0xFF323344);
+    final defaultBorder = AppPalette.border;
     final borderColor = glowColor != null
         ? Color.lerp(defaultBorder, glowColor, glowOpacity.clamp(0.0, 1.0))!
         : defaultBorder;
@@ -732,7 +733,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
       width: double.infinity,
       height: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1F28), // Nền đặc Solid color #1E1F28 khử trong suốt
+        color: AppPalette.surface, // Nền đặc Solid color #1E1F28 khử trong suốt
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: borderColor,
@@ -792,7 +793,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
     double glowOpacity = 0.0,
   }) {
     final isFrontTerm = _options.displayFrontFace == 'term';
-    final defaultBorder = const Color(0xFF323344);
+    final defaultBorder = AppPalette.border;
     final borderColor = glowColor != null
         ? Color.lerp(defaultBorder, glowColor, glowOpacity.clamp(0.0, 1.0))!
         : defaultBorder;
@@ -801,7 +802,7 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
       width: double.infinity,
       height: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1F28), // Nền đặc Solid color #1E1F28 khử trong suốt
+        color: AppPalette.surface, // Nền đặc Solid color #1E1F28 khử trong suốt
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: borderColor,
@@ -850,12 +851,6 @@ class _FlashcardFlipScreenState extends State<FlashcardFlipScreen>
                     ),
                     const SizedBox(height: 10),
                   ],
-                  if (card.reading != null && card.reading!.isNotEmpty)
-                    Text(
-                      card.reading!,
-                      style: const TextStyle(color: Color(0xFFFF5E7E), fontSize: 24, fontWeight: FontWeight.w600),
-                    ),
-                  const SizedBox(height: 8),
                   if (card.sinoVietnamese != null && card.sinoVietnamese!.isNotEmpty)
                     Text(
                       card.sinoVietnamese!,

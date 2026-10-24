@@ -8,6 +8,9 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      // Font tiếng Nhật đóng gói sẵn trong app (xem pubspec.yaml) để chữ Hán
+      // luôn hiển thị ngay, không bị ô vuông chờ tải font dự phòng.
+      fontFamilyFallback: const ['NotoSansJP'],
       scaffoldBackgroundColor: AppColors.background,
       primaryColor: AppColors.primary,
       colorScheme: const ColorScheme.dark(

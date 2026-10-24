@@ -5,6 +5,7 @@ import '../models/subscription_model.dart';
 import '../services/subscription_service.dart';
 import 'url_helper.dart';
 import 'vnpay_instruction_dialog.dart';
+import '../../../core/theme/app_palette.dart';
 
 class CheckoutBottomSheet extends StatefulWidget {
   final SubscriptionPlan plan;
@@ -106,7 +107,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppPalette.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
@@ -118,7 +119,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
               width: 48,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: AppPalette.border,
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -129,7 +130,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF0D1B3E),
+              color: AppPalette.textPrimary,
             ),
           ),
           const SizedBox(height: 16),
@@ -166,7 +167,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0D1B3E),
+                          color: AppPalette.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -174,7 +175,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                         'Thời hạn: ${widget.plan.durationLabel}',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.grey.shade600,
+                          color: AppPalette.textSecondary,
                         ),
                       ),
                     ],
@@ -197,7 +198,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF0D1B3E),
+              color: AppPalette.textPrimary,
             ),
           ),
           const SizedBox(height: 10),
@@ -222,9 +223,9 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
               margin: const EdgeInsets.only(top: 4, bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: AppPalette.accentSoft,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF93C5FD)),
+                border: Border.all(color: AppPalette.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,7 +235,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                       Icon(
                         Icons.link_rounded,
                         size: 16,
-                        color: Color(0xFF2563EB),
+                        color: AppPalette.accent,
                       ),
                       SizedBox(width: 6),
                       Text(
@@ -242,7 +243,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E40AF),
+                          color: AppPalette.textPrimary,
                         ),
                       ),
                     ],
@@ -256,7 +257,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF2563EB),
+                        color: AppPalette.accent,
                         decoration: TextDecoration.underline,
                         fontWeight: FontWeight.w600,
                       ),
@@ -286,7 +287,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             children: [
               const Text(
                 'Tổng thanh toán:',
-                style: TextStyle(fontSize: 15, color: Colors.black54),
+                style: TextStyle(fontSize: 15, color: AppPalette.textSecondary),
               ),
               Text(
                 widget.plan.formattedPrice,
@@ -304,7 +305,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             height: 50,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D1B3E),
+                backgroundColor: AppPalette.accent,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -357,12 +358,12 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
       decoration: BoxDecoration(
         color: isSelected
             ? AppColors.primary.withValues(alpha: 0.06)
-            : Colors.white,
+            : AppPalette.background,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isSelected
               ? AppColors.primary
-              : (enabled ? Colors.grey.shade300 : Colors.grey.shade200),
+              : (enabled ? AppPalette.border : AppPalette.border),
           width: isSelected ? 1.8 : 1,
         ),
       ),
@@ -375,12 +376,12 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
           decoration: BoxDecoration(
             color: enabled
                 ? iconColor.withValues(alpha: 0.1)
-                : Colors.grey.shade100,
+                : AppPalette.border,
             shape: BoxShape.circle,
           ),
           child: Icon(
             icon,
-            color: enabled ? iconColor : Colors.grey.shade400,
+            color: enabled ? iconColor : AppPalette.textSecondary,
             size: 20,
           ),
         ),
@@ -389,21 +390,21 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: enabled ? const Color(0xFF0D1B3E) : Colors.grey.shade500,
+            color: enabled ? AppPalette.textPrimary : AppPalette.textSecondary,
           ),
         ),
         subtitle: Text(
           subtitle,
           style: TextStyle(
             fontSize: 11.5,
-            color: enabled ? Colors.grey.shade600 : Colors.grey.shade400,
+            color: enabled ? AppPalette.textSecondary : AppPalette.textSecondary,
           ),
         ),
         trailing: Icon(
           isSelected
               ? Icons.check_circle_rounded
               : Icons.radio_button_unchecked,
-          color: isSelected ? AppColors.primary : Colors.grey.shade300,
+          color: isSelected ? AppColors.primary : AppPalette.border,
           size: 20,
         ),
       ),

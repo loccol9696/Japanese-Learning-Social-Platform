@@ -1803,11 +1803,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                             </td>
                             <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                               <div className="mod-cell-center">
-                                <span className={`status-pill ${
-                                  v.jlptLevel === 'N1' ? 'danger' :
+                                <span className={`status-pill ${v.jlptLevel === 'N1' ? 'danger' :
                                   v.jlptLevel === 'N2' ? 'warning' :
-                                  v.jlptLevel === 'N3' ? 'info' : 'success'
-                                }`}>
+                                    v.jlptLevel === 'N3' ? 'info' : 'success'
+                                  }`}>
                                   JLPT {v.jlptLevel || 'N5'}
                                 </span>
                               </div>
@@ -1845,9 +1844,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                             </td>
                             <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                               <div className="mod-cell-center">
-                                <span className={`status-pill ${
-                                  v.modStatus === 'APPROVED' ? 'success' : v.modStatus === 'REJECTED' ? 'danger' : 'pending'
-                                }`}>
+                                <span className={`status-pill ${v.modStatus === 'APPROVED' ? 'success' : v.modStatus === 'REJECTED' ? 'danger' : 'pending'
+                                  }`}>
                                   {v.modStatus === 'APPROVED' ? 'ĐÃ DUYỆT' : v.modStatus === 'REJECTED' ? 'TỪ CHỐI' : 'CHỜ DUYỆT'}
                                 </span>
                               </div>
@@ -2008,40 +2006,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                       </tr>
                     ) : (
                       usersList.map(u => (
-                      <tr key={u.id}>
-                        <td style={{ fontFamily: 'var(--font-mono)', color: '#64748b' }}>#{u.id}</td>
-                        <td style={{ fontWeight: 600 }}>{u.username}</td>
-                        <td>
-                          <span className={`role-tag ${
-                            u.role === 'ADMIN' ? 'admin' : u.role === 'MODERATOR' ? 'moderator' : 'user'
-                          }`}>
-                            {u.role}
-                          </span>
-                        </td>
-                        <td>{u.displayName || '—'}</td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#94a3b8' }}>
-                          {u.email}
-                        </td>
-                        <td>
-                          <span className={`status-pill ${u.isActive ? 'success' : 'danger'}`}>
-                            {u.isActive ? 'Hoạt động' : 'Đã khóa'}
-                          </span>
-                        </td>
-                        <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '—'}
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button
-                            onClick={() => handleToggleUserStatus(u.id)}
-                            className={u.isActive ? 'btn-danger' : 'btn-success'}
-                            title={u.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                          >
-                            {u.isActive ? <Lock size={14} /> : <Unlock size={14} />}
-                            <span>{u.isActive ? 'Khóa' : 'Mở khóa'}</span>
-                          </button>
-                        </td>
-                      </tr>
-                    )))}
+                        <tr key={u.id}>
+                          <td style={{ fontFamily: 'var(--font-mono)', color: '#64748b' }}>#{u.id}</td>
+                          <td style={{ fontWeight: 600 }}>{u.username}</td>
+                          <td>
+                            <span className={`role-tag ${u.role === 'ADMIN' ? 'admin' : u.role === 'MODERATOR' ? 'moderator' : 'user'
+                              }`}>
+                              {u.role}
+                            </span>
+                          </td>
+                          <td>{u.displayName || '—'}</td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#94a3b8' }}>
+                            {u.email}
+                          </td>
+                          <td>
+                            <span className={`status-pill ${u.isActive ? 'success' : 'danger'}`}>
+                              {u.isActive ? 'Hoạt động' : 'Đã khóa'}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '—'}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              onClick={() => handleToggleUserStatus(u.id)}
+                              className={u.isActive ? 'btn-danger' : 'btn-success'}
+                              title={u.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                            >
+                              {u.isActive ? <Lock size={14} /> : <Unlock size={14} />}
+                              <span>{u.isActive ? 'Khóa' : 'Mở khóa'}</span>
+                            </button>
+                          </td>
+                        </tr>
+                      )))}
                   </tbody>
                 </table>
               </div>
@@ -2153,7 +2150,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                           </td>
                           <td style={{ fontWeight: 600 }}>{o.userDisplayName || o.username}</td>
                           <td>
-                            <span style={{ fontWeight: 600, color: '#ffffff' }}>{o.planName}</span>
+                            <span style={{ fontWeight: 700, color: '#0f172a' }}>{o.planName}</span>
                           </td>
                           <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.9rem' }}>
                             {o.amount?.toLocaleString('vi-VN')} đ
@@ -2172,11 +2169,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                             </span>
                           </td>
                           <td>
-                            <span className={`status-pill ${
-                              o.status === 'SUCCESS' ? 'success' : o.status === 'PENDING' ? 'pending' : 'danger'
-                            }`}>
-                              {o.status}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', minHeight: '24px' }}>
+                              <span className={`status-pill ${o.status === 'SUCCESS' ? 'success' : o.status === 'PENDING' ? 'pending' : 'danger'
+                                }`}
+                                style={{ transform: 'translateY(10px)' }}
+                              >
+                                {o.status}
+                              </span>
+                            </div>
                           </td>
                           <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
                             {o.createdAt ? new Date(o.createdAt).toLocaleString('vi-VN') : '—'}
@@ -2344,49 +2344,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               ) : (
                 <div className="pricing-cards-grid">
                   {plans.map(p => (
-                  <div key={p.id} className={`pricing-plan-card ${p.code === 'PRO_MONTHLY' ? 'highlight' : p.code === 'FREE' ? 'free-plan-card' : ''}`}>
-                    <div className="plan-header-row">
-                      <h3 className="plan-name-title">
-                        {p.code === 'FREE' ? `🌱 ${p.name}` : p.name}
-                      </h3>
-                      <span className={`status-pill ${p.code === 'FREE' ? 'info' : p.isActive ? 'success' : 'danger'}`}>
-                        {p.code === 'FREE' ? 'Mặc định Free' : p.isActive ? 'Active' : 'Disabled'}
-                      </span>
-                    </div>
-
-                    <div className="plan-price-tag">
-                      {p.price === 0 || p.code === 'FREE' ? (
-                        <>0 đ <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600 }}>(Gói Miễn Phí Mặc Định)</span></>
-                      ) : (
-                        <>{p.price?.toLocaleString('vi-VN')} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>đ / {p.durationDays} ngày</span></>
-                      )}
-                    </div>
-
-                    {/* Token Limit Highlight */}
-                    <div className="plan-token-limit-badge">
-                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700 }}>
-                        Hạn mức Token ngày:
-                      </span>
-                      <div className="token-limit-num">
-                        {p.dailyTokenLimit?.toLocaleString()} <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>Tokens / ngày</span>
+                    <div key={p.id} className={`pricing-plan-card ${p.code === 'PRO_MONTHLY' ? 'highlight' : p.code === 'FREE' ? 'free-plan-card' : ''}`}>
+                      <div className="plan-header-row">
+                        <h3 className="plan-name-title">
+                          {p.code === 'FREE' ? `🌱 ${p.name}` : p.name}
+                        </h3>
+                        <span className={`status-pill ${p.code === 'FREE' ? 'info' : p.isActive ? 'success' : 'danger'}`}>
+                          {p.code === 'FREE' ? 'Mặc định Free' : p.isActive ? 'Active' : 'Disabled'}
+                        </span>
                       </div>
-                    </div>
 
-                    <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', minHeight: '36px', whiteSpace: 'pre-line' }}>
-                      {p.features || p.description}
-                    </div>
+                      <div className="plan-price-tag">
+                        {p.price === 0 || p.code === 'FREE' ? (
+                          <>0 đ <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600 }}>(Gói Miễn Phí Mặc Định)</span></>
+                        ) : (
+                          <>{p.price?.toLocaleString('vi-VN')} <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>đ / {p.durationDays} ngày</span></>
+                        )}
+                      </div>
 
-                    <button
-                      onClick={() => handleOpenEditPlan(p)}
-                      className="btn-outline"
-                      style={{ marginTop: 'auto', justifyContent: 'center' }}
-                    >
-                      <Edit2 size={14} />
-                      <span>Chỉnh sửa Biểu phí & Token</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
+                      {/* Token Limit Highlight */}
+                      <div className="plan-token-limit-badge">
+                        <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700 }}>
+                          Hạn mức Token ngày:
+                        </span>
+                        <div className="token-limit-num">
+                          {p.dailyTokenLimit?.toLocaleString()} <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>Tokens / ngày</span>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', minHeight: '36px', whiteSpace: 'pre-line' }}>
+                        {p.features || p.description}
+                      </div>
+
+                      <button
+                        onClick={() => handleOpenEditPlan(p)}
+                        className="btn-outline"
+                        style={{ marginTop: 'auto', justifyContent: 'center' }}
+                      >
+                        <Edit2 size={14} />
+                        <span>Chỉnh sửa Biểu phí & Token</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </>
           )}
@@ -2863,9 +2863,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
           <div className="modal-sharp-box" style={{ maxWidth: '780px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-sharp-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <span className={`status-pill ${
-                  selectedDetailVideo.modStatus === 'APPROVED' ? 'success' : selectedDetailVideo.modStatus === 'REJECTED' ? 'danger' : 'pending'
-                }`}>
+                <span className={`status-pill ${selectedDetailVideo.modStatus === 'APPROVED' ? 'success' : selectedDetailVideo.modStatus === 'REJECTED' ? 'danger' : 'pending'
+                  }`}>
                   {selectedDetailVideo.modStatus === 'APPROVED' ? 'ĐÃ DUYỆT' : selectedDetailVideo.modStatus === 'REJECTED' ? 'TỪ CHỐI' : 'CHỜ DUYỆT'}
                 </span>
                 <h3 className="modal-sharp-title" style={{ fontSize: '1.05rem', margin: 0 }}>
@@ -3291,7 +3290,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                     onChange={e => setEditDailyTokenLimit(parseInt(e.target.value) || 0)}
                   />
                   <span className="form-input-help" style={{ color: editingPlan.code === 'FREE' ? '#38bdf8' : undefined }}>
-                    {editingPlan.code === 'FREE' 
+                    {editingPlan.code === 'FREE'
                       ? '⚡ Học viên mới và người dùng chưa mua VIP sẽ tự động nhận hạn mức Token này mỗi ngày từ Database (100% không còn fallback gán cứng).'
                       : 'Hạn mức số lượng Token AI (Speech-to-Text) học viên sở hữu gói này được dùng trong 1 ngày.'}
                   </span>
