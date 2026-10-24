@@ -9,11 +9,13 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
+import '../screens/video_script_screen.dart';
 import 'bottom_nav_dock.dart';
 import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';
 import 'subtitle_mode.dart';
 import 'video_info_overlay.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class VideoPlayerItem extends StatefulWidget {
   final VideoPost post;
@@ -71,6 +73,24 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
         SubtitleMode.off => SubtitleMode.bilingual,
       };
     });
+  }
+
+  /// Đổi giá trị này để dựng lại VideoPlayer sau khi màn Kịch bản (dùng chung
+  /// controller) đóng lại, tránh khung video bị đen.
+  int _playerEpoch = 0;
+
+  Future<void> _openScript() async {
+    RubySubtitleWidget.dismissLookups();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VideoScriptScreen(
+          cues: widget.post.subtitleCues,
+          controller: _videoController,
+          initialBilingual: _subtitleMode == SubtitleMode.bilingual,
+        ),
+      ),
+    );
+    if (mounted) setState(() => _playerEpoch++);
   }
 
   void _handleDoubleTapDown(TapDownDetails details) {
@@ -346,11 +366,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           onTap: _handleTapToPlayPause,
           behavior: HitTestBehavior.opaque,
           child: ColoredBox(
-            color: Colors.black,
+            color: AppPalette.background,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // 1. Centered video on a solid black background.
+                // 1. Video căn giữa trên nền chính (#0A092D).
                 _buildVideoBackground(theme),
                 Positioned.fill(
                   child: GestureDetector(
@@ -395,9 +415,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
-                            Color(0x80000000),
-                            Color(0x40000000),
-                            Color(0x14000000),
+                            Color(0x800A092D),
+                            Color(0x400A092D),
+                            Color(0x140A092D),
                             Colors.transparent,
                           ],
                           stops: [0.0, 0.34, 0.68, 1.0],
@@ -425,6 +445,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                       onSaveToggle: widget.onSaveToggle,
                       onFollowToggle: widget.onFollowToggle,
                       onCommentTap: widget.onCommentTap,
+                      onScriptTap: _openScript,
                       allowAccountActions: widget.allowAccountActions,
                     ),
                   ),
@@ -522,7 +543,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     required String displayedTranslation,
   }) {
     return ColoredBox(
-      color: Colors.black,
+      color: AppPalette.background,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final mediaPadding = MediaQuery.paddingOf(context);
@@ -561,8 +582,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                         fit: StackFit.expand,
                         children: [
                           ColoredBox(
-                            color: Colors.black,
-                            child: VideoPlayer(_videoController!),
+                            color: AppPalette.background,
+                            child: VideoPlayer(
+                              _videoController!,
+                              key: ValueKey(_playerEpoch),
+                            ),
                           ),
                           Positioned.fill(
                             child: GestureDetector(
@@ -582,7 +606,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     height: contentZoneHeight,
                     child: Container(
                       width: double.infinity,
-                      color: Colors.black,
+                      color: AppPalette.background,
                       padding: const EdgeInsets.fromLTRB(16, 8, 78, 16),
                       child: Align(
                         alignment: Alignment.bottomLeft,
@@ -638,6 +662,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     onSaveToggle: widget.onSaveToggle,
                     onFollowToggle: widget.onFollowToggle,
                     onCommentTap: widget.onCommentTap,
+                    onScriptTap: _openScript,
                     allowAccountActions: widget.allowAccountActions,
                   ),
                 ),
@@ -736,17 +761,17 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           child: SizedBox(
             width: controller.value.size.width,
             height: controller.value.size.height,
-            child: VideoPlayer(controller),
+            child: VideoPlayer(controller, key: ValueKey(_playerEpoch)),
           ),
         );
       }
 
       return ColoredBox(
-        color: Colors.black,
+        color: AppPalette.background,
         child: Center(
           child: AspectRatio(
             aspectRatio: aspectRatio,
-            child: VideoPlayer(controller),
+            child: VideoPlayer(controller, key: ValueKey(_playerEpoch)),
           ),
         ),
       );
@@ -757,7 +782,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
 
   Widget _videoPlaceholder(AdaptiveVideoTheme theme) {
     return Container(
-      color: Colors.black,
+      color: AppPalette.background,
       child: Center(
         child: Icon(
           Icons.video_library_outlined,

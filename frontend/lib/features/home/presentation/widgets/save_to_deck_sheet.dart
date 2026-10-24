@@ -5,6 +5,7 @@ import '../../../../core/widgets/app_toast.dart';
 import '../../../flashcard/data/models/flashcard_set_model.dart';
 import '../../../flashcard/data/services/flashcard_service.dart';
 import '../../../flashcard/data/services/flashcard_store.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Bộ thẻ người dùng chọn để lưu từ vựng.
 class DeckChoice {
@@ -43,7 +44,7 @@ Future<DeckChoice?> showSaveToDeckSheet(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
-    backgroundColor: const Color(0xFF1C1C1E),
+    backgroundColor: AppPalette.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -61,8 +62,8 @@ class _SaveToDeckSheet extends StatefulWidget {
 }
 
 class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
-  static const Color _accent = Color(0xFFFE2C55);
-  static const Color _muted = Color(0xFF9A9AA0);
+  static const Color _accent = AppPalette.accent;
+  static const Color _muted = AppPalette.textSecondary;
 
   late Future<List<FlashcardSetModel>> _setsFuture;
   bool _isCreating = false;
@@ -148,7 +149,7 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
                   errorText: error,
                   counterStyle: const TextStyle(color: _muted),
                   enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white24),
+                    borderSide: BorderSide(color: AppPalette.border),
                   ),
                   focusedBorder: const UnderlineInputBorder(
                     borderSide: BorderSide(color: _accent),
@@ -190,7 +191,7 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
-            const Divider(height: 1, color: Colors.white12),
+            const Divider(height: 1, color: AppPalette.border),
             Flexible(
               child: FutureBuilder<List<FlashcardSetModel>>(
                 future: _setsFuture,
@@ -282,7 +283,7 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
           ),
           onTap: _createDeck,
         ),
-        const Divider(height: 1, color: Colors.white12),
+        const Divider(height: 1, color: AppPalette.border),
         if (sets.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -312,7 +313,7 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
 
     return ListTile(
       enabled: !_isCreating && !alreadySaved,
-      leading: Icon(icon, color: alreadySaved ? _muted : Colors.white70),
+      leading: Icon(icon, color: alreadySaved ? _muted : AppPalette.textSecondary),
       title: Text(
         choice.title,
         maxLines: 1,

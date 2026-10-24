@@ -5,6 +5,7 @@ import '../models/subscription_model.dart';
 import '../services/subscription_service.dart';
 import '../widgets/checkout_bottom_sheet.dart';
 import '../widgets/subscription_success_dialog.dart';
+import '../../../core/theme/app_palette.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   final int userId;
@@ -16,6 +17,8 @@ class SubscriptionScreen extends StatefulWidget {
 }
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
+  static const Color _linkBlue = Color(0xFF38BDF8);
+
   final SubscriptionService _service = SubscriptionService();
   List<SubscriptionPlan> _plans = [];
   SubscriptionStatus? _userStatus;
@@ -195,10 +198,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF0E1E3A),
+        backgroundColor: AppPalette.background,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFF1E3A5F)),
+          side: const BorderSide(color: AppPalette.surface),
         ),
         title: const Row(
           children: [
@@ -220,7 +223,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           children: [
             const Text(
               'Nhập mã giảm giá từ Kotoba hoặc cộng tác viên để nhận ưu đãi đặc biệt:',
-              style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+              style: TextStyle(fontSize: 13, color: AppPalette.textSecondary),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -231,22 +234,22 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               decoration: InputDecoration(
                 hintText: 'VD: KOTOBA2026, JLPTN1',
                 hintStyle: const TextStyle(
-                  color: Color(0xFF64748B),
+                  color: AppPalette.textSecondary,
                   fontSize: 13,
                 ),
                 filled: true,
-                fillColor: const Color(0xFF132247),
+                fillColor: AppPalette.surface,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 12,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF223A66)),
+                  borderSide: const BorderSide(color: AppPalette.surface),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF223A66)),
+                  borderSide: const BorderSide(color: AppPalette.surface),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -264,12 +267,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text(
               'Hủy',
-              style: TextStyle(color: Color(0xFF94A3B8)),
+              style: TextStyle(color: AppPalette.textSecondary),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
+              backgroundColor: AppPalette.accent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -303,12 +306,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF060B17), // Deep backdrop on web
+      backgroundColor: AppPalette.background, // Deep backdrop on web
       body: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 440), // Mobile container
           decoration: const BoxDecoration(
-            color: Color(0xFF0A192F), // Rich Dark Navy Background
+            color: AppPalette.background, // Rich Dark Navy Background
             boxShadow: [
               BoxShadow(
                 color: Color(0x40000000),
@@ -338,18 +341,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                             child: Text(
                               _loadError!,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(color: Color(0xFFCBD5E1)),
+                              style: const TextStyle(color: AppPalette.textSecondary),
                             ),
                           ),
                         )
                       : RefreshIndicator(
                           onRefresh: _loadData,
                           color: const Color(0xFF38BDF8),
-                          backgroundColor: const Color(0xFF0A192F),
+                          backgroundColor: AppPalette.background,
                           child: SingleChildScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
+                              horizontal: 24,
                               vertical: 12,
                             ),
                             child: Column(
@@ -357,11 +360,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                               children: [
                                 // Title & Brand Glow Badge
                                 _buildHeroHeader(),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 24),
 
                                 // Feature Checklist with Cute Green Icons
                                 _buildFeatureChecklist(),
-                                const SizedBox(height: 22),
+                                const SizedBox(height: 18),
 
                                 // Current active VIP info if applicable
                                 if (_userStatus != null &&
@@ -372,7 +375,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
                                 // Plan Selection Stack (Vertical List)
                                 _buildPlanSelectionCards(),
-                                const SizedBox(height: 24),
+                                if (!_isUserLifetimeVip) _buildPromoLink(),
+                                const SizedBox(height: 16),
 
                                 // Terms & Auto-renew disclaimer
                                 _buildDisclaimer(),
@@ -395,28 +399,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Widget _buildTopBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
       child: Align(
-        alignment: Alignment.centerRight,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => Navigator.of(context).pop(),
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: const Color(0xFF132247), // Soft dark navy pill
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF223A66)),
-              ),
-              child: const Icon(
-                Icons.close_rounded,
-                size: 20,
-                color: Colors.white, // Clean bright white icon
-              ),
-            ),
+        alignment: Alignment.centerLeft,
+        child: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 18,
+            color: AppPalette.textPrimary,
           ),
         ),
       ),
@@ -424,52 +415,26 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildHeroHeader() {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Nền tảng học tiếng Nhật',
+        Text(
+          'KOTOBA PREMIUM',
           style: TextStyle(
-            fontSize: 27,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: -0.5,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+            color: _linkBlue,
           ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF2563EB).withValues(alpha: 0.35),
-                blurRadius: 14,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Kotoba Premium',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontStyle: FontStyle.italic,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              SizedBox(width: 6),
-              Text('✨', style: TextStyle(fontSize: 18)),
-            ],
+        SizedBox(height: 12),
+        Text(
+          'Học thoải mái hơn,\nkhông giới hạn',
+          style: TextStyle(
+            fontSize: 30,
+            height: 1.2,
+            fontWeight: FontWeight.w800,
+            color: AppPalette.textPrimary,
           ),
         ),
       ],
@@ -477,53 +442,40 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildFeatureChecklist() {
-    final features = [
-      'Trò chuyện & Luyện hội thoại cùng AI',
-      'AI kiểm tra ngữ pháp & giải nghĩa từ',
-      'Luyện nói & Đánh giá phát âm Shadowing chuẩn AI',
-      'Không giới hạn Flashcard & Bộ từ vựng thông minh',
-      'Lưu & học từ vựng trực tiếp qua Video',
-      'Sử dụng toàn bộ bài học & Flashcard offline',
-      'Loại bỏ hoàn toàn quảng cáo làm phiền',
+    const features = [
+      'Tạo bộ thẻ không giới hạn',
+      'Học và ôn tập không quảng cáo',
+      'Luyện nghe và tự luận không giới hạn lượt',
+      'Đồng bộ trên mọi thiết bị',
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ...features.map(
-          (feature) => Padding(
-            padding: const EdgeInsets.only(bottom: 9.0),
+        for (final feature in features)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF0F3227),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_circle_rounded,
-                    size: 18,
-                    color: Color(0xFF34D399),
-                  ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(Icons.check_rounded, size: 18, color: _linkBlue),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     feature,
                     style: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFFE2E8F0),
-                      height: 1.25,
+                      fontSize: 15,
+                      color: AppPalette.textPrimary,
+                      height: 1.3,
                     ),
                   ),
                 ),
               ],
             ),
           ),
-        ),
       ],
     );
   }
@@ -682,171 +634,106 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
-            color: isAlreadyOwned
-                ? const Color(0xFF0F2B20)
-                : (isSelected
-                      ? const Color(0xFF13284F)
-                      : const Color(0xFF0E1E3A)),
-            borderRadius: BorderRadius.circular(16),
+            color: isSelected ? AppPalette.accentSoft : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isAlreadyOwned
                   ? const Color(0xFF10B981)
-                  : (isSelected
-                        ? const Color(0xFF3B82F6)
-                        : const Color(0xFF1E3356)),
-              width: (isAlreadyOwned || isSelected) ? 2.0 : 1.2,
+                  : (isSelected ? AppPalette.accent : AppPalette.surface),
+              width: 1.5,
             ),
-            boxShadow: (isAlreadyOwned || isSelected)
-                ? [
-                    BoxShadow(
-                      color:
-                          (isAlreadyOwned
-                                  ? const Color(0xFF10B981)
-                                  : const Color(0xFF1E40AF))
-                              .withValues(alpha: 0.35),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
           ),
           child: Row(
             children: [
-              // Left: Name + Discount Pill + Subtitle
+              // Nút chọn dạng radio
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected
+                        ? AppPalette.accent
+                        : AppPalette.textSecondary,
+                    width: 1.5,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: isSelected
+                    ? Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: AppPalette.accent,
+                          shape: BoxShape.circle,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            plan.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        if (isAlreadyOwned) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Text(
-                              '✓ ĐANG SỞ HỮU',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ] else if (discountBadge != null &&
-                            !isPlanDisabled) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color(0xFFFF4D4F)
-                                  : const Color(0xFF1E3A5F),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              discountBadge,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: isSelected
-                                    ? Colors.white
-                                    : const Color(0xFF93C5FD),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
                     Text(
-                      subtitle,
+                      plan.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isAlreadyOwned
+                          ? 'Đang sở hữu'
+                          : (discountBadge != null && !isPlanDisabled
+                                ? '$subtitle · $discountBadge'
+                                : subtitle),
                       style: TextStyle(
                         fontSize: 12,
                         color: isAlreadyOwned
                             ? const Color(0xFF6EE7B7)
-                            : (isSelected
-                                  ? const Color(0xFFBFDBFE)
-                                  : const Color(0xFF8899B5)),
+                            : AppPalette.textSecondary,
                       ),
                     ),
-                    if (plan.dailyTokenLimit > 0) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        '${plan.dailyTokenLimit} token AI mỗi ngày',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
-
-              // Right: Price + Strikethrough original price
+              const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   if (isAlreadyOwned)
                     const Text(
-                      'ĐÃ KÍCH HOẠT',
+                      'Đã kích hoạt',
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF34D399),
                       ),
                     )
                   else ...[
                     Text(
-                      '${plan.formattedPrice.replaceAll(' ', '')}VND',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFFE2E8F0),
+                      '${plan.formattedPrice.replaceAll(' ', '')}đ',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppPalette.textPrimary,
                       ),
                     ),
                     if (plan.originalPrice != null) ...[
                       const SizedBox(height: 2),
                       Text(
-                        '${plan.formattedOriginalPrice?.replaceAll(' ', '')}VND',
-                        style: TextStyle(
+                        '${plan.formattedOriginalPrice?.replaceAll(' ', '')}đ',
+                        style: const TextStyle(
                           fontSize: 12,
                           decoration: TextDecoration.lineThrough,
-                          color: isSelected
-                              ? const Color(0xFF93C5FD).withValues(alpha: 0.7)
-                              : const Color(0xFF5A6E8C),
+                          color: AppPalette.textSecondary,
                         ),
                       ),
                     ],
@@ -860,13 +747,34 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
+  Widget _buildPromoLink() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton(
+        onPressed: _showPromoCodeDialog,
+        style: TextButton.styleFrom(padding: EdgeInsets.zero),
+        child: Text(
+          _appliedPromoCode != null
+              ? 'Đã áp dụng mã: $_appliedPromoCode'
+              : 'Nhập mã khuyến mãi',
+          style: TextStyle(
+            fontSize: 13,
+            color: _appliedPromoCode != null
+                ? const Color(0xFF34D399)
+                : _linkBlue,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDisclaimer() {
     return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12.0),
+      padding: EdgeInsets.zero,
       child: Text(
         'Đăng ký tự động gia hạn khi tới cuối kỳ, trừ khi bạn huỷ đăng ký trước 24 giờ. Bạn có thể huỷ bất cứ lúc nào trong phần cài đặt tài khoản.',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 11.5, color: Color(0xFF7E8FA6), height: 1.4),
+        textAlign: TextAlign.left,
+        style: TextStyle(fontSize: 11.5, color: AppPalette.textSecondary, height: 1.4),
       ),
     );
   }
@@ -875,128 +783,37 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     final isLifetimeOwned = _isUserLifetimeVip;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A192F),
-        border: Border(top: BorderSide(color: const Color(0xFF162540))),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 12,
-            offset: const Offset(0, -3),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+      decoration: const BoxDecoration(
+        color: AppPalette.background,
+        border: Border(top: BorderSide(color: AppPalette.surface, width: 1)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!isLifetimeOwned) ...[
-            // Row: Mã giảm giá > Nhập mã khuyến mãi
-            GestureDetector(
-              onTap: _showPromoCodeDialog,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Mã giảm giá',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFE2E8F0),
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          _appliedPromoCode != null
-                              ? 'Đã áp dụng: $_appliedPromoCode'
-                              : 'Nhập mã khuyến mãi',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: _appliedPromoCode != null
-                                ? const Color(0xFF34D399)
-                                : const Color(0xFF93C5FD),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 13,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isLifetimeOwned
+                ? AppPalette.surface
+                : AppPalette.accent,
+            foregroundColor: AppPalette.textPrimary,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
             ),
-          ],
-
-          // Big Action Button
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: isLifetimeOwned
-                ? ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F3227),
-                      foregroundColor: const Color(0xFF34D399),
-                      side: const BorderSide(
-                        color: Color(0xFF10B981),
-                        width: 1.2,
-                      ),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    icon: const Icon(
-                      Icons.verified_rounded,
-                      color: Color(0xFF34D399),
-                      size: 22,
-                    ),
-                    label: const Text(
-                      'Bạn đã sở hữu Gói Trọn Đời',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF34D399),
-                      ),
-                    ),
-                  )
-                : ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      foregroundColor: Colors.white,
-                      elevation: 4,
-                      shadowColor: const Color(0xFF2563EB)
-                          .withValues(alpha: 0.45),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onPressed: _openCheckout,
-                    child: Text(
-                      _userStatus != null && _userStatus!.isVip
-                          ? 'Nâng cấp lên ${_currentSelectedPlan?.name ?? 'gói mới'}'
-                          : 'Nâng cấp ngay',
-                      style: const TextStyle(
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
           ),
-        ],
+          onPressed: isLifetimeOwned
+              ? () => Navigator.of(context).pop()
+              : _openCheckout,
+          child: Text(
+            isLifetimeOwned
+                ? 'Bạn đã sở hữu Gói Trọn Đời'
+                : (_userStatus != null && _userStatus!.isVip
+                      ? 'Nâng cấp lên ${_currentSelectedPlan?.name ?? 'gói mới'}'
+                      : 'Nâng cấp Premium'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+        ),
       ),
     );
   }

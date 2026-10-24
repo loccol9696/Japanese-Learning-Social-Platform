@@ -10,6 +10,7 @@ import '../../../flashcard/data/services/flashcard_store.dart';
 import '../../data/services/dictionary_service.dart';
 import '../../domain/models/ruby_segment.dart';
 import 'save_to_deck_sheet.dart';
+import '../../../../core/theme/app_palette.dart';
 
 const _subtitleTextStyle = TextStyle(
   fontFamilyFallback: ['NotoSansJP'],
@@ -23,7 +24,7 @@ const _subtitleTextStyle = TextStyle(
   ],
 );
 
-const _accent = Color(0xFFFE2C55);
+const _accent = AppPalette.accent;
 
 /// Phụ đề video. Khi có [sentence] (câu phụ đề thật), câu được tách thành
 /// từng từ: rê chuột (hoặc chạm) vào từ để xem cách đọc, nghĩa và lưu vào
@@ -48,6 +49,10 @@ class RubySubtitleWidget extends StatefulWidget {
     this.onLookupActiveChanged,
   });
 
+  /// Phát tín hiệu để mọi bảng tra từ đang mở tự đóng (vd. khi rời tab Home).
+  static final ValueNotifier<int> _dismissSignal = ValueNotifier<int>(0);
+  static void dismissLookups() => _dismissSignal.value++;
+
   @override
   State<RubySubtitleWidget> createState() => _RubySubtitleWidgetState();
 }
@@ -62,6 +67,7 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
   @override
   void initState() {
     super.initState();
+    RubySubtitleWidget._dismissSignal.addListener(_clearSelection);
     _loadTokens();
   }
 
@@ -76,6 +82,7 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
 
   @override
   void dispose() {
+    RubySubtitleWidget._dismissSignal.removeListener(_clearSelection);
     _removeLookupOverlay();
     if (_selected != null) widget.onLookupActiveChanged?.call(false);
     super.dispose();
@@ -355,8 +362,8 @@ class _WordLookupCardState extends State<_WordLookupCard> {
   // Kích thước và màu dùng chung để bảng đồng nhất.
   static const double _cardWidth = 280.0;
   static const double _cardMinHeight = 148.0;
-  static const Color _cardColor = Color(0xFF1C1C1E);
-  static const Color _mutedText = Color(0xFF9A9AA0);
+  static const Color _cardColor = AppPalette.surface;
+  static const Color _mutedText = AppPalette.textSecondary;
 
   /// Những từ đã lưu trong phiên này: từ -> {khoá bộ thẻ -> tên bộ}.
   /// Dùng để không lưu trùng một từ vào cùng một bộ.
@@ -451,7 +458,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
       decoration: BoxDecoration(
         color: _cardColor,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: AppPalette.border),
         boxShadow: const [
           BoxShadow(
             color: Colors.black54,
@@ -482,7 +489,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
                 _buildMeaning(word!),
               if (!loading && !failed) ...[
                 const SizedBox(height: 12),
-                const Divider(height: 1, color: Colors.white12),
+                const Divider(height: 1, color: AppPalette.border),
                 const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -550,7 +557,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
                       child: Icon(
                         Icons.volume_up_rounded,
                         size: 20,
-                        color: Colors.white70,
+                        color: AppPalette.textSecondary,
                       ),
                     ),
                   ),
@@ -624,14 +631,14 @@ class _WordLookupCardState extends State<_WordLookupCard> {
                     vertical: 1,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white12,
+                    color: AppPalette.border,
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: Text(
                     word.partOfSpeech,
                     style: const TextStyle(
                       fontSize: 11,
-                      color: Colors.white70,
+                      color: AppPalette.textSecondary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -660,7 +667,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
       width: width,
       height: 12,
       decoration: BoxDecoration(
-        color: Colors.white10,
+        color: AppPalette.border,
         borderRadius: BorderRadius.circular(6),
       ),
     );
@@ -677,7 +684,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
           Container(
             height: 36,
             decoration: BoxDecoration(
-              color: Colors.white10,
+              color: AppPalette.border,
               borderRadius: BorderRadius.circular(18),
             ),
           ),
@@ -713,9 +720,9 @@ class _WordLookupCardState extends State<_WordLookupCard> {
       alignment: Alignment.centerLeft,
       child: ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
-          backgroundColor: isSaved ? Colors.white12 : _accent,
+          backgroundColor: isSaved ? AppPalette.border : _accent,
           disabledBackgroundColor: isSaved
-              ? Colors.white12
+              ? AppPalette.border
               : _accent.withValues(alpha: 0.6),
           elevation: 0,
           minimumSize: const Size(0, 38),
@@ -739,12 +746,12 @@ class _WordLookupCardState extends State<_WordLookupCard> {
             : Icon(
                 isSaved ? Icons.check_rounded : Icons.add_rounded,
                 size: 17,
-                color: isSaved ? Colors.white70 : Colors.white,
+                color: isSaved ? AppPalette.textSecondary : Colors.white,
               ),
         label: Text(
           isSaved ? 'Đã lưu · Lưu vào bộ khác' : 'Lưu vào Flashcard',
           style: TextStyle(
-            color: isSaved ? Colors.white70 : Colors.white,
+            color: isSaved ? AppPalette.textSecondary : Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 13.5,
           ),

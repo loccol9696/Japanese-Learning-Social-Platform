@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class LearningHeader extends StatelessWidget {
   final int currentIndex;
@@ -16,8 +17,8 @@ class LearningHeader extends StatelessWidget {
     required this.totalItems,
     required this.onClose,
     this.onSettingsClick,
-    this.progressColor = const Color(0xFFFF5A5F),
-    this.trackColor = const Color(0xFF2E3140),
+    this.progressColor = AppPalette.accent,
+    this.trackColor = AppPalette.border,
     this.height = 3.5,
     this.progressPadding = const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
   });

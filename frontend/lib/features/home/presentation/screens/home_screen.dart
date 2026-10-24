@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/ruby_subtitle_widget.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/localization/locale_manager.dart';
@@ -243,22 +244,34 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _selectTab(int navIndex) {
+    RubySubtitleWidget.dismissLookups();
     if (!AuthSession.instance.isAuthenticated && navIndex >= 3) {
       _requestAuthentication();
       return;
     }
     final pageIndex = _pageIndexForNavIndex(navIndex);
     if (pageIndex == null) return;
-    if (_tabPageController.hasClients) {
+    if (!_tabPageController.hasClients) {
+      setState(() => _currentNavIndex = navIndex);
+      return;
+    }
+
+    final currentPage = _tabPageController.page?.round() ?? 0;
+    final distance = (pageIndex - currentPage).abs();
+
+    if (distance <= 1) {
+      // Kề nhau → animation slide mượt như cũ
       _tabPageController.animateToPage(
         pageIndex,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     } else {
-      setState(() => _currentNavIndex = navIndex);
+      // Xa nhau → nhảy thẳng, không lướt qua trang trung gian
+      _tabPageController.jumpToPage(pageIndex);
     }
   }
+
 
   int? _pageIndexForNavIndex(int navIndex) {
     return switch (navIndex) {
@@ -343,6 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? const NeverScrollableScrollPhysics()
                   : null,
               onPageChanged: (index) {
+                RubySubtitleWidget.dismissLookups();
                 if (!AuthSession.instance.isAuthenticated && index >= 2) {
                   _tabPageController.animateToPage(
                     1,

@@ -7,6 +7,7 @@ import '../data/services/auth_service.dart';
 import 'auth_layout.dart';
 import 'login_screen.dart';
 import 'otp_verification_screen.dart';
+import '../../../core/theme/app_palette.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -191,7 +192,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: Colors.black87,
+            color: AppPalette.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -212,31 +213,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
           onFieldSubmitted: onFieldSubmitted,
           enabled: !_isLoading,
           style: const TextStyle(
-            color: Color(0xFF0D1B3E),
+            color: AppPalette.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.w500,
           ),
-          cursorColor: const Color(0xFF0D1B3E),
+          cursorColor: AppPalette.accent,
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-            prefixIcon: Icon(prefixIcon, size: 20, color: Colors.grey),
+            hintStyle: TextStyle(color: AppPalette.textSecondary, fontSize: 14),
+            prefixIcon: Icon(prefixIcon, size: 20, color: AppPalette.textSecondary),
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: const Color(0xFFF9FAFB),
+            fillColor: AppPalette.surface,
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(color: AppPalette.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(color: AppPalette.border),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(
-                color: Color(0xFF0D1B3E),
+                color: AppPalette.accent,
                 width: 1.5,
               ),
             ),
@@ -261,7 +262,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppPalette.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: authPagePadding(context),
@@ -279,7 +280,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0D1B3E),
+                      color: AppPalette.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -350,7 +351,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
                         size: 20,
-                        color: Colors.grey,
+                        color: AppPalette.textSecondary,
                       ),
                       onPressed: () {
                         setState(() {
@@ -381,7 +382,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
                         size: 20,
-                        color: Colors.grey,
+                        color: AppPalette.textSecondary,
                       ),
                       onPressed: () {
                         setState(() {
@@ -398,7 +399,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     height: 52,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D1B3E),
+                        backgroundColor: AppPalette.accent,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -442,7 +443,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       Expanded(
                         child: Divider(
-                          color: Colors.grey.shade200,
+                          color: AppPalette.border,
                           thickness: 1,
                         ),
                       ),
@@ -452,14 +453,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           'HOẶC TIẾP TỤC VỚI',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade500,
+                            color: AppPalette.textSecondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                       Expanded(
                         child: Divider(
-                          color: Colors.grey.shade200,
+                          color: AppPalette.border,
                           thickness: 1,
                         ),
                       ),
@@ -473,7 +474,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     height: 52,
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey.shade200),
+                        side: BorderSide(color: AppPalette.border),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -506,7 +507,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                              color: AppPalette.textPrimary,
                             ),
                           ),
                         ],
@@ -522,7 +523,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         const Text(
                           'Đã có tài khoản? ',
-                          style: TextStyle(fontSize: 14, color: Colors.black54),
+                          style: TextStyle(fontSize: 14, color: AppPalette.textSecondary),
                         ),
                         GestureDetector(
                           onTap: _isLoading
@@ -544,7 +545,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0D1B3E),
+                              color: AppPalette.textPrimary,
                             ),
                           ),
                         ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/auth/auth_guard.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../data/explore_service.dart';
 import '../data/explore_video.dart';
@@ -18,11 +19,11 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  static const Color _background = Color(0xFF121212);
-  static const Color _surface = Color(0xFF1E1E1E);
-  static const Color _surfaceHigh = Color(0xFF2A2A2A);
-  static const Color _accent = Color(0xFFFE2C55);
-  static const Color _textMuted = Color(0xFF9E9E9E);
+  static const Color _background = AppPalette.background;
+  static const Color _surface = AppPalette.surface;
+  static const Color _surfaceHigh = AppPalette.surface;
+  static const Color _accent = AppPalette.accent;
+  static const Color _textMuted = AppPalette.textSecondary;
 
   final ExploreService _service = ExploreService.instance;
   final TextEditingController _searchController = TextEditingController();
@@ -237,7 +238,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     return ColoredBox(
-      color: Colors.black,
+      color: AppPalette.background,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -283,7 +284,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
           controller: _searchController,
           onChanged: _onSearchChanged,
           textInputAction: TextInputAction.search,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: const TextStyle(
+            color: AppPalette.textPrimary,
+            fontSize: 14,
+          ),
           cursorColor: _accent,
           decoration: InputDecoration(
             hintText: 'Tìm video theo tiêu đề, nội dung...',
@@ -343,7 +347,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   Text(
                     filter.label,
                     style: TextStyle(
-                      color: selected ? Colors.white : Colors.white70,
+                      color: selected
+                          ? AppPalette.textPrimary
+                          : AppPalette.textSecondary,
                       fontSize: 13,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),
@@ -486,7 +492,7 @@ class _ExploreVideoCard extends StatelessWidget {
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: AppPalette.surface,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -504,8 +510,8 @@ class _ExploreVideoCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: video.title.isNotEmpty
-                          ? Colors.white
-                          : Colors.white54,
+                          ? AppPalette.textPrimary
+                          : AppPalette.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       height: 1.3,
@@ -646,14 +652,14 @@ class _ExploreVideoCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF424242), Color(0xFF212121)],
+          colors: [AppPalette.surface, AppPalette.background],
         ),
       ),
       alignment: Alignment.center,
       child: const Icon(
         Icons.play_circle_outline_rounded,
         size: 36,
-        color: Colors.white30,
+        color: AppPalette.textSecondary,
       ),
     );
   }
@@ -663,7 +669,7 @@ class _ExploreVideoCard extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 9,
-          backgroundColor: const Color(0xFF6C7EE1),
+          backgroundColor: AppPalette.accent,
           foregroundImage: video.creatorAvatarUrl.isNotEmpty
               ? NetworkImage(video.creatorAvatarUrl)
               : null,
@@ -682,7 +688,10 @@ class _ExploreVideoCard extends StatelessWidget {
             video.creatorName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: const TextStyle(
+              color: AppPalette.textSecondary,
+              fontSize: 12,
+            ),
           ),
         ),
       ],

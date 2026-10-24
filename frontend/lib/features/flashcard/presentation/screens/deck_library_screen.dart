@@ -8,6 +8,7 @@ import '../../data/services/flashcard_store.dart';
 import '../widgets/deck_card_item.dart';
 import 'deck_editor_screen.dart';
 import 'deck_overview_screen.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class DeckLibraryScreen extends StatefulWidget {
   const DeckLibraryScreen({super.key});
@@ -54,6 +55,13 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   }
 
   void _onStoreUpdated() {
+    // Cache bị huỷ (vd. vừa lưu từ vựng từ video): nạp lại thay vì hiển thị rỗng.
+    if (mounted &&
+        !_store.hasCachedSets() &&
+        AuthSession.instance.isAuthenticated) {
+      _loadDecks();
+      return;
+    }
     if (mounted && _searchController.text.trim().isEmpty) {
       setState(() {
         _decks = _store.cachedSets ?? [];
@@ -115,22 +123,22 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1F28),
+        backgroundColor: AppPalette.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFF323344), width: 1),
+          side: const BorderSide(color: AppPalette.border, width: 1),
         ),
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF5A5F).withOpacity(0.15),
+                color: AppPalette.accent.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.delete_outline_rounded,
-                color: Color(0xFFFF5A5F),
+                color: AppPalette.accent,
                 size: 22,
               ),
             ),
@@ -165,7 +173,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF5A5F),
+              backgroundColor: AppPalette.accent,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -183,7 +191,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Không thể xóa bộ thẻ: $err'),
-                        backgroundColor: const Color(0xFFFF5A5F),
+                        backgroundColor: AppPalette.accent,
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -194,7 +202,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Đã xóa bộ thẻ thành công'),
-                  backgroundColor: Color(0xFF252632),
+                  backgroundColor: AppPalette.surface,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -217,10 +225,10 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1F28),
+        backgroundColor: AppPalette.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFF323344), width: 1),
+          side: const BorderSide(color: AppPalette.border, width: 1),
         ),
         title: const Text(
           'Tạo bộ từ vựng mới',
@@ -238,7 +246,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             hintText: 'Nhập tên bộ thẻ...',
             hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
             filled: true,
-            fillColor: const Color(0xFF252632),
+            fillColor: AppPalette.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -255,7 +263,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF2D55),
+              backgroundColor: AppPalette.accent,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -299,7 +307,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: AppPalette.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -322,7 +330,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E1F28),
+                      color: AppPalette.surface,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: Colors.white.withOpacity(0.08),
@@ -348,7 +356,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E1F28),
+                  color: AppPalette.surface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.white.withOpacity(0.06)),
                 ),
@@ -383,7 +391,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
-                        color: Color(0xFFFF2D55),
+                        color: AppPalette.accent,
                       ),
                     )
                   : _decks.isEmpty
@@ -417,8 +425,8 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                       ),
                     )
                   : RefreshIndicator(
-                      color: const Color(0xFFFF2D55),
-                      backgroundColor: const Color(0xFF1E1F28),
+                      color: AppPalette.accent,
+                      backgroundColor: AppPalette.surface,
                       onRefresh: () => _loadDecks(
                         query: _searchController.text,
                         forceRefresh: true,
@@ -456,7 +464,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
 
   Widget _buildAuthenticationRequired() {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: AppPalette.background,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -465,7 +473,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             children: [
               const Icon(
                 Icons.lock_outline_rounded,
-                color: Colors.white54,
+                color: AppPalette.textSecondary,
                 size: 48,
               ),
               const SizedBox(height: 16),
@@ -481,7 +489,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               const Text(
                 'Bộ thẻ và tiến trình học của bạn chỉ hiển thị sau khi đăng nhập.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white60),
+                style: TextStyle(color: AppPalette.textSecondary),
               ),
               const SizedBox(height: 20),
               FilledButton(

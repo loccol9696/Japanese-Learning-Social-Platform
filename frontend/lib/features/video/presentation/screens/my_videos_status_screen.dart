@@ -4,6 +4,7 @@ import '../../../profile/data/datasources/profile_remote_datasource.dart';
 import '../../../profile/data/repositories/profile_repository_impl.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../domain/models/user_video_model.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class MyVideosStatusScreen extends StatefulWidget {
   final ProfileRepository? repository;
@@ -248,12 +249,12 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                             video.thumbnailUrl!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(Icons.video_library_rounded, color: Colors.white24, size: 36),
+                              child: Icon(Icons.video_library_rounded, color: AppPalette.border, size: 36),
                             ),
                           )
                         else
                           const Center(
-                            child: Icon(Icons.video_library_rounded, color: Colors.white24, size: 36),
+                            child: Icon(Icons.video_library_rounded, color: AppPalette.border, size: 36),
                           ),
                         // Duration badge
                         Positioned(

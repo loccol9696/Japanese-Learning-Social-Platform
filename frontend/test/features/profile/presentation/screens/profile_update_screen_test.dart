@@ -187,8 +187,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     // Verify title and display name loaded
-    expect(find.text('Cập nhật hồ sơ'), findsOneWidget);
+    expect(find.text('Chỉnh sửa hồ sơ'), findsOneWidget);
     expect(find.text('Kenji Yamada'), findsOneWidget);
+    // Nhãn các mục và tên người dùng ở dạng chỉ đọc
+    expect(find.text('Tên'), findsOneWidget);
+    expect(find.text('Tên người dùng'), findsOneWidget);
+    expect(find.text('Trình độ JLPT'), findsOneWidget);
+    expect(find.text('Sở thích'), findsOneWidget);
+    expect(find.text('Đổi ảnh đại diện'), findsOneWidget);
 
     // Verify JlptLevelSelector and InterestTagsSelector exist
     expect(find.byType(JlptLevelSelector), findsOneWidget);
@@ -224,7 +230,7 @@ void main() {
     expect(fakeRepo.profile.interests.contains('Luyện thi JLPT'), isTrue);
   });
 
-  testWidgets('ProfileUpdateScreen renders device avatar import button and opens AvatarPickerSheet',
+  testWidgets('ProfileUpdateScreen shows change-avatar link and opens AvatarPickerSheet',
       (WidgetTester tester) async {
     final fakeRepo = _FakeProfileRepository();
 
@@ -241,12 +247,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    // Verify avatar buttons are present
-    expect(find.text('Tải ảnh từ máy'), findsOneWidget);
-    expect(find.text('Chọn mẫu'), findsOneWidget);
+    // Một liên kết duy nhất để đổi ảnh (tải từ máy hoặc chọn mẫu nằm trong sheet)
+    expect(find.text('Đổi ảnh đại diện'), findsOneWidget);
 
-    // Tap "Chọn mẫu" to open AvatarPickerSheet
-    await tester.tap(find.text('Chọn mẫu'));
+    // Tap "Đổi ảnh đại diện" to open AvatarPickerSheet
+    await tester.tap(find.text('Đổi ảnh đại diện'));
     await tester.pumpAndSettle();
 
     // Verify AvatarPickerSheet opened and has "Tải ảnh từ máy / thiết bị" option
