@@ -3,6 +3,7 @@ package com.jlsp.backend.chat.repository;
 import com.jlsp.backend.chat.entity.ConversationParticipant;
 import com.jlsp.backend.chat.entity.ConversationParticipantId;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -10,6 +11,17 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ConversationParticipantRepository
         extends JpaRepository<ConversationParticipant, ConversationParticipantId> {
+
+    /**
+     * Đặt mốc đã đọc bằng một câu UPDATE, không cần SELECT nạp entity trước.
+     * Trả về số dòng đã cập nhật (0 nếu người này chưa có bản ghi participant).
+     */
+    @Modifying
+    @Query("UPDATE ConversationParticipant p SET p.lastReadMessageId = :messageId " +
+            "WHERE p.id.conversationId = :conversationId AND p.id.userId = :userId")
+    int updateLastReadMessageId(@Param("conversationId") Long conversationId,
+                                @Param("userId") Long userId,
+                                @Param("messageId") Long messageId);
 
     /**
      * Tổng số tin nhắn chưa đọc của người dùng trên mọi hội thoại (badge Inbox).

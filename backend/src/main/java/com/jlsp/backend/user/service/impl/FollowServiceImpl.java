@@ -76,8 +76,7 @@ public class FollowServiceImpl implements FollowService {
 
     @Override
     public boolean isMutual(Long userId, Long otherUserId) {
-        return followRepository.existsByIdFollowerIdAndIdFollowingId(userId, otherUserId)
-                && followRepository.existsByIdFollowerIdAndIdFollowingId(otherUserId, userId);
+        return followRepository.countFollowsBetween(userId, otherUserId) == 2;
     }
 
     @Override

@@ -66,8 +66,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ..add(_socket.onTyping.listen(_onTyping))
       ..add(
         _socket.onConnectionChanged.listen((connected) {
-          // Có thể đã lỡ tin trong lúc mất kết nối → đồng bộ lại trang mới nhất.
-          if (connected) unawaited(_syncLatest());
+          // Có thể đã lỡ tin trong lúc mất kết nối → kéo bù phần còn thiếu.
+          if (connected) unawaited(_syncMissed());
         }),
       );
     _loadInitial();
@@ -123,16 +123,39 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  /// Gộp trang mới nhất vào danh sách hiện có (sau khi kết nối lại).
-  Future<void> _syncLatest() async {
+  /// Id tin mới nhất đã có trên server trong danh sách (bỏ qua tin đang gửi / lỗi).
+  int? _latestServerId() {
+    for (final message in _messages) {
+      if (message.id != null) return message.id;
+    }
+    return null;
+  }
+
+  /// Lấy phần đã lỡ sau khi kết nối lại: kéo tuần tự mọi tin có id lớn hơn tin mới
+  /// nhất đang có, nên không để lại khoảng trống dù offline lâu. Chưa có tin nào thì
+  /// lấy trang mới nhất như lúc mở màn hình.
+  Future<void> _syncMissed() async {
     try {
-      final page = await _service.fetchMessages(_conversationId);
-      if (!mounted) return;
-      setState(() {
-        for (final message in page.messages.reversed) {
-          _upsert(message);
+      var after = _latestServerId();
+      while (true) {
+        final page = await _service.fetchMessages(
+          _conversationId,
+          after: after,
+        );
+        if (!mounted) return;
+        setState(() {
+          // `after` trả cũ → mới, còn lần lấy trang đầu trả mới → cũ; _upsert tự xếp
+          // đúng chỗ theo id nên thứ tự duyệt không ảnh hưởng.
+          for (final message in page.messages) {
+            _upsert(message);
+          }
+        });
+        final next = page.nextCursor;
+        if (after == null || !page.hasMore || next == null || next <= after) {
+          break;
         }
-      });
+        after = next;
+      }
       _markReadLatest();
     } on ApiException catch (_) {
       // Bỏ qua: lần kết nối sau sẽ đồng bộ lại.

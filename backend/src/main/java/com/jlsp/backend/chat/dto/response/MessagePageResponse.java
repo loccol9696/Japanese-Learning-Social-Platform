@@ -8,8 +8,9 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * Một trang lịch sử tin nhắn (mới nhất trước). Gọi tiếp với before = nextCursor
- * để lấy tin cũ hơn.
+ * Một trang tin nhắn. Truy vấn thường (before) trả mới nhất trước, gọi tiếp với
+ * before = nextCursor để lấy tin cũ hơn. Truy vấn after trả cũ nhất trước, gọi tiếp
+ * với after = nextCursor để lấy tin mới hơn.
  */
 @Data
 @Builder

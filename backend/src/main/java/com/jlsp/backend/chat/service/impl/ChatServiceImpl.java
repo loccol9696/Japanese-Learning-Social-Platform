@@ -110,14 +110,29 @@ public class ChatServiceImpl implements ChatService {
         if (hasMore) {
             messages = messages.subList(0, pageSize);
         }
-        Map<Long, Video> videos = loadVideos(messages.stream().map(m -> m.getVideoId()).toList());
-        List<MessageResponse> content = messages.stream()
-                .map(m -> chatMapper.toMessageResponse(m, videos))
-                .toList();
-
         return MessagePageResponse.builder()
-                .content(content)
+                .content(toMessageResponses(messages))
                 .hasMore(hasMore)
+                .nextCursor(hasMore ? messages.get(messages.size() - 1).getId() : null)
+                .build();
+    }
+
+    @Override
+    public MessagePageResponse getMessagesAfter(Long userId, Long conversationId, Long afterId, int size) {
+        requireConversation(userId, conversationId);
+        int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
+        // Lấy dư 1 bản ghi để biết còn tin mới hơn nữa hay không
+        List<Message> messages = messageRepository.findByConversationIdAndIdGreaterThanOrderByIdAsc(
+                conversationId, afterId == null ? 0L : afterId, PageRequest.of(0, pageSize + 1));
+
+        boolean hasMore = messages.size() > pageSize;
+        if (hasMore) {
+            messages = messages.subList(0, pageSize);
+        }
+        return MessagePageResponse.builder()
+                .content(toMessageResponses(messages))
+                .hasMore(hasMore)
+                // Tin mới nhất của trang này, dùng làm afterId cho lần gọi kế tiếp
                 .nextCursor(hasMore ? messages.get(messages.size() - 1).getId() : null)
                 .build();
     }
@@ -260,10 +275,13 @@ public class ChatServiceImpl implements ChatService {
         conversation.setLastMessageAt(message.getCreatedAt());
         conversationRepository.save(conversation);
 
-        // Tin của chính mình luôn được tính là đã đọc
-        ConversationParticipant senderState = getOrCreateParticipant(conversation, senderId);
-        senderState.setLastReadMessageId(message.getId());
-        participantRepository.save(senderState);
+        // Tin của chính mình luôn được tính là đã đọc. Dùng UPDATE trực tiếp (1 lượt gọi DB)
+        // thay vì nạp participant rồi lưu lại; chỉ tạo mới khi bản ghi chưa tồn tại.
+        if (participantRepository.updateLastReadMessageId(conversation.getId(), senderId, message.getId()) == 0) {
+            ConversationParticipant senderState = getOrCreateParticipant(conversation, senderId);
+            senderState.setLastReadMessageId(message.getId());
+            participantRepository.save(senderState);
+        }
 
         Map<Long, Video> videos = video != null ? Map.of(video.getId(), video) : Map.of();
         MessageResponse response = chatMapper.toMessageResponse(message, videos);
@@ -347,6 +365,13 @@ public class ChatServiceImpl implements ChatService {
                 .canMessage(Boolean.TRUE.equals(other.getIsActive()) && followService.isMutual(userId, other.getId()))
                 .lastMessageAt(conversation.getLastMessageAt())
                 .build();
+    }
+
+    private List<MessageResponse> toMessageResponses(List<Message> messages) {
+        Map<Long, Video> videos = loadVideos(messages.stream().map(m -> m.getVideoId()).toList());
+        return messages.stream()
+                .map(m -> chatMapper.toMessageResponse(m, videos))
+                .toList();
     }
 
     private Map<Long, Video> loadVideosOf(Conversation conversation) {

@@ -29,6 +29,12 @@ public interface ChatService {
 
     MessagePageResponse getMessages(Long userId, Long conversationId, Long beforeId, int size);
 
+    /**
+     * Các tin mới hơn {@code afterId}, cũ nhất trước. Client gọi lặp với {@code afterId = nextCursor}
+     * đến khi hết để lấy đủ phần đã lỡ, dù offline bao lâu.
+     */
+    MessagePageResponse getMessagesAfter(Long userId, Long conversationId, Long afterId, int size);
+
     MessageResponse sendMessage(Long userId, SendMessageRequest request);
 
     List<MessageResponse> shareVideo(Long userId, Long videoId, ShareVideoRequest request);

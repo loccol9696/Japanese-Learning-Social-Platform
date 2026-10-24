@@ -35,12 +35,18 @@ class ChatService {
     return Conversation.fromJson(_map(data));
   }
 
+  /// [before] lấy tin cũ hơn (mới nhất trước); [after] lấy tin mới hơn mốc đó
+  /// (cũ nhất trước) để đồng bộ phần đã lỡ. Không dùng cả hai cùng lúc.
   Future<MessagePage> fetchMessages(
     int conversationId, {
     int? before,
+    int? after,
     int size = 30,
   }) async {
-    final query = 'size=$size${before != null ? '&before=$before' : ''}';
+    assert(before == null || after == null, 'Chỉ dùng before hoặc after');
+    final query =
+        'size=$size${before != null ? '&before=$before' : ''}'
+        '${after != null ? '&after=$after' : ''}';
     final data = await _api.get(
       '${ApiConstants.chatMessagesUrl(conversationId)}?$query',
     );

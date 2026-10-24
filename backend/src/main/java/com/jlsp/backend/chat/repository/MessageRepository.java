@@ -23,6 +23,11 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByConversationIdAndIdLessThanOrderByIdDesc(Long conversationId, Long beforeId,
                                                                 Pageable pageable);
 
+    /** Tin mới hơn cursor afterId, cũ nhất trước (đồng bộ phần đã lỡ sau khi mất kết nối). */
+    @EntityGraph(attributePaths = "sender")
+    List<Message> findByConversationIdAndIdGreaterThanOrderByIdAsc(Long conversationId, Long afterId,
+                                                                  Pageable pageable);
+
     @EntityGraph(attributePaths = "sender")
     Optional<Message> findBySenderIdAndClientMsgId(Long senderId, String clientMsgId);
 

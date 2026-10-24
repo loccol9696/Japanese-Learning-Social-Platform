@@ -29,6 +29,15 @@ public interface FollowRepository extends JpaRepository<Follow, FollowId> {
     boolean existsByIdFollowerIdAndIdFollowingId(Long followerId, Long followingId);
 
     /**
+     * Số quan hệ follow giữa hai người theo cả hai chiều (2 = follow lẫn nhau).
+     * Một câu truy vấn thay cho hai lần {@code exists} để bớt một lượt gọi DB.
+     */
+    @Query("SELECT COUNT(f) FROM Follow f " +
+            "WHERE (f.id.followerId = :userId AND f.id.followingId = :otherId) " +
+            "OR (f.id.followerId = :otherId AND f.id.followingId = :userId)")
+    long countFollowsBetween(@Param("userId") Long userId, @Param("otherId") Long otherId);
+
+    /**
      * Số người mà user này đang theo dõi (following)
      */
     long countByIdFollowerId(Long followerId);

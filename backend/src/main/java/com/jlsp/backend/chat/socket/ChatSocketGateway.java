@@ -51,6 +51,7 @@ public class ChatSocketGateway implements SmartLifecycle {
 
     private static final String USER_ID_KEY = "userId";
     private static final String EVENT_AUTH_ERROR = "auth:error";
+    private static final long SLOW_EVENT_MS = 300;
 
     private final SocketIOServer server;
     private final JwtUtils jwtUtils;
@@ -159,8 +160,10 @@ public class ChatSocketGateway implements SmartLifecycle {
                 reply(ack, error(400, "Dữ liệu không hợp lệ"));
                 return;
             }
+            long startedAt = System.nanoTime();
             try {
                 Object result = handler.apply(userId, data);
+                logIfSlow(userId, startedAt);
                 Map<String, Object> body = new LinkedHashMap<>();
                 body.put("ok", true);
                 body.put("data", publisher.toPayload(result));
@@ -172,6 +175,18 @@ public class ChatSocketGateway implements SmartLifecycle {
                 reply(ack, error(500, "Máy chủ đang gặp sự cố, vui lòng thử lại sau"));
             }
         };
+    }
+
+    /**
+     * Thời gian xử lý (gồm cả commit DB) cũng là thời gian người nhận phải chờ, vì
+     * {@code message:new} chỉ phát sau commit. Cảnh báo khi vượt ngưỡng để dễ phát hiện
+     * DB ở xa hoặc truy vấn chậm.
+     */
+    private static void logIfSlow(Long userId, long startedAtNanos) {
+        long elapsedMs = (System.nanoTime() - startedAtNanos) / 1_000_000;
+        if (elapsedMs >= SLOW_EVENT_MS) {
+            log.warn("Event socket của user {} xử lý mất {} ms (ngưỡng {} ms)", userId, elapsedMs, SLOW_EVENT_MS);
+        }
     }
 
     private <T> T validated(T request) {

@@ -10,6 +10,7 @@ import com.jlsp.backend.chat.dto.response.MessagePageResponse;
 import com.jlsp.backend.chat.dto.response.MessageResponse;
 import com.jlsp.backend.chat.dto.response.ReadReceiptResponse;
 import com.jlsp.backend.chat.service.ChatService;
+import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.common.security.CurrentUser;
@@ -62,14 +63,25 @@ public class ChatController {
         return ResponseEntity.ok(ApiResponse.success(chatService.getConversation(CurrentUser.requireId(), id)));
     }
 
-    /** GET /api/v1/chat/conversations/{id}/messages?before={messageId}&size=30 */
+    /**
+     * GET /api/v1/chat/conversations/{id}/messages?before={messageId}&size=30 — lịch sử, mới nhất trước.
+     * <br>GET .../messages?after={messageId}&size=30 — tin mới hơn mốc đó, cũ nhất trước
+     * (đồng bộ phần đã lỡ sau khi mất kết nối). Không dùng chung before và after.
+     */
     @GetMapping("/chat/conversations/{id}/messages")
     public ResponseEntity<ApiResponse<MessagePageResponse>> getMessages(
             @PathVariable Long id,
             @RequestParam(required = false) Long before,
+            @RequestParam(required = false) Long after,
             @RequestParam(defaultValue = "30") int size) {
-        return ResponseEntity.ok(ApiResponse.success(
-                chatService.getMessages(CurrentUser.requireId(), id, before, size)));
+        if (before != null && after != null) {
+            throw new AppException(400, "Chỉ dùng một trong hai tham số before hoặc after");
+        }
+        Long userId = CurrentUser.requireId();
+        MessagePageResponse page = after != null
+                ? chatService.getMessagesAfter(userId, id, after, size)
+                : chatService.getMessages(userId, id, before, size);
+        return ResponseEntity.ok(ApiResponse.success(page));
     }
 
     /** POST /api/v1/chat/conversations/{id}/messages — gửi tin (dự phòng khi socket rớt). */
