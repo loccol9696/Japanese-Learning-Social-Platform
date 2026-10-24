@@ -27,6 +27,8 @@ class SrsStudyScreen extends StatefulWidget {
 
 class _SrsStudyScreenState extends State<SrsStudyScreen>
     with SingleTickerProviderStateMixin {
+  static const Color _badgeBlue = Color(0xFF8F9BFF);
+
   final FlashcardService _service = FlashcardService.instance;
   late final AnimationController _flipController;
 
@@ -127,7 +129,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   Future<void> _rate(ReviewRating rating) async {
     final controller = _controller;
-    if (controller == null || controller.isFinished || _isFront) return;
+    if (controller == null || controller.isFinished) return;
     _stopAudio();
     setState(() {
       _isFront = true;
@@ -171,6 +173,16 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
         if (mounted) setState(() => _isPlayingAudio = false);
       },
     );
+  }
+
+  void _toggleStar() {
+    final controller = _controller;
+    final study = controller?.current;
+    if (controller == null || study == null) return;
+    final card = study.card;
+    final starred = !card.isStarred;
+    _service.updateStar(card.cardId, starred);
+    controller.replaceCurrent(study.withCard(card.copyWith(isStarred: starred)));
   }
 
   void _openSettings() {
@@ -242,7 +254,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
         ),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: GestureDetector(
               onTap: _flip,
               behavior: HitTestBehavior.opaque,
@@ -280,18 +292,18 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       width: double.infinity,
       decoration: BoxDecoration(
         color: AppPalette.surface,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppPalette.border, width: 1.2),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Stack(
         children: [
           Positioned(
-            top: 20,
+            top: 14,
             left: 0,
             right: 0,
             child: Center(child: _buildStateBadge(study.stateLabel)),
           ),
-          Positioned(top: 14, right: 16, child: _buildAudioButton()),
+          Positioned(top: 6, left: 8, child: _buildAudioButton()),
+          Positioned(top: 6, right: 8, child: _buildStarButton(study)),
           Center(child: child),
         ],
       ),
@@ -300,40 +312,41 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   Widget _buildStateBadge(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: AppPalette.surfaceHigh,
+        color: AppPalette.accentSoft,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          color: AppPalette.textSecondary,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
+          color: _badgeBlue,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
   }
 
   Widget _buildAudioButton() {
-    return GestureDetector(
-      onTap: _playAudio,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 46,
-        height: 46,
-        decoration: BoxDecoration(
-          color: _isPlayingAudio
-              ? AppPalette.accent.withValues(alpha: 0.25)
-              : AppPalette.surfaceHigh,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          Icons.volume_up_rounded,
-          color: _isPlayingAudio ? AppPalette.accent : AppPalette.textPrimary,
-          size: 24,
-        ),
+    return IconButton(
+      onPressed: _playAudio,
+      icon: Icon(
+        Icons.volume_up_outlined,
+        size: 20,
+        color: _isPlayingAudio ? AppPalette.accent : AppPalette.textSecondary,
+      ),
+    );
+  }
+
+  Widget _buildStarButton(StudyCard study) {
+    final starred = study.card.isStarred;
+    return IconButton(
+      onPressed: _toggleStar,
+      icon: Icon(
+        starred ? Icons.star_rounded : Icons.star_border_rounded,
+        size: 22,
+        color: starred ? const Color(0xFFFFCC00) : AppPalette.textSecondary,
       ),
     );
   }
@@ -429,65 +442,48 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   Widget _buildRatingBar(StudyCard study) {
     const ratings = ReviewRating.values;
-    final enabled = !_isFront;
-    return Opacity(
-      opacity: enabled ? 1 : 0.45,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: SizedBox(
-                height: 64,
-                child: Row(
-                  children: [
-                    for (var i = 0; i < ratings.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 2),
-                      Expanded(
-                        child: Material(
-                          color: AppPalette.surfaceHigh,
-                          child: InkWell(
-                            onTap: enabled ? () => _rate(ratings[i]) : null,
-                            child: Center(
-                              child: Text(
-                                ratings[i].label,
-                                style: const TextStyle(
-                                  color: AppPalette.textPrimary,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          for (var i = 0; i < ratings.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: Material(
+                color: AppPalette.surface,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => _rate(ratings[i]),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          ratings[i].label,
+                          style: const TextStyle(
+                            color: AppPalette.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ),
-                    ],
-                  ],
+                        const SizedBox(height: 3),
+                        Text(
+                          study.labelFor(ratings[i]),
+                          style: const TextStyle(
+                            color: AppPalette.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                for (final rating in ratings)
-                  Expanded(
-                    child: Text(
-                      rating == ReviewRating.easy
-                          ? study.labelFor(rating)
-                          : 'Tối đa ${study.labelFor(rating)}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
           ],
-        ),
+        ],
       ),
     );
   }
