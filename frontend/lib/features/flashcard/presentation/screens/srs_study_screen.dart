@@ -283,17 +283,14 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   // ------------------------------------------------------------ kéo thẻ
 
-  /// Mức đánh giá theo vị trí thẻ so với hàng nút bên dưới: kéo sang phải = Dễ;
-  /// kéo sang trái càng xa càng tiến về phía các nút bên trái: Ổn (gần) → Khó →
-  /// Xem lại (xa nhất). Chỉ dùng chiều ngang nên không phải kéo chéo.
+  /// Mức đánh giá theo cột nút mà thẻ đang được kéo về phía đó: từ trái sang
+  /// phải là Xem lại, Khó, Ổn, Dễ. Kéo nhẹ chọn nút gần giữa (Khó / Ổn), kéo xa
+  /// chọn nút ngoài cùng (Xem lại / Dễ). Chỉ dùng chiều ngang.
   ReviewRating? _ratingForDrag(Offset d) {
     if (d.dx.abs() < _showThreshold) return null;
-    if (d.dx > 0) return ReviewRating.easy;
-    final width = MediaQuery.sizeOf(context).width;
-    final shift = -d.dx;
-    if (shift < width * 0.2) return ReviewRating.good;
-    if (shift < width * 0.4) return ReviewRating.hard;
-    return ReviewRating.again;
+    final far = d.dx.abs() >= MediaQuery.sizeOf(context).width * 0.22;
+    if (d.dx > 0) return far ? ReviewRating.easy : ReviewRating.good;
+    return far ? ReviewRating.again : ReviewRating.hard;
   }
 
   static Color _ratingColor(ReviewRating r) => switch (r) {
