@@ -26,11 +26,22 @@ class SrsStudyScreen extends StatefulWidget {
 }
 
 class _SrsStudyScreenState extends State<SrsStudyScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const Color _badgeBlue = Color(0xFF8F9BFF);
 
   final FlashcardService _service = FlashcardService.instance;
   late final AnimationController _flipController;
+  late final AnimationController _settleController;
+  Animation<Offset>? _settleAnimation;
+
+  /// Vị trí kéo thẻ hiện tại; kéo đủ xa theo hướng nào sẽ chọn mức đánh giá đó.
+  Offset _drag = Offset.zero;
+  bool _isDragging = false;
+  bool _isSettling = false;
+
+  static const double _showThreshold = 36;
+  static const double _commitThreshold = 110;
+  static const double _verticalSplit = 50;
 
   StudySessionController? _controller;
   StudyOptions _options = StudyOptions();
@@ -50,11 +61,19 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       vsync: this,
       duration: const Duration(milliseconds: 320),
     );
+    _settleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    )..addListener(() {
+        final anim = _settleAnimation;
+        if (anim != null) setState(() => _drag = anim.value);
+      });
     _loadSession();
   }
 
   @override
   void dispose() {
+    _settleController.dispose();
     _stopAudio();
     _controller?.removeListener(_onControllerChanged);
     _flipController.dispose();
@@ -255,35 +274,181 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
         Expanded(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: GestureDetector(
-              onTap: _flip,
-              behavior: HitTestBehavior.opaque,
-              child: AnimatedBuilder(
-                animation: _flipController,
-                builder: (context, _) {
-                  final angle = _flipController.value * pi;
-                  final showBack = angle > pi / 2;
-                  return Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.identity()
-                      ..setEntry(3, 2, 0.001)
-                      ..rotateY(angle),
-                    child: showBack
-                        ? Transform(
-                            alignment: Alignment.center,
-                            transform: Matrix4.identity()..rotateY(pi),
-                            child: _buildCardShell(study, _buildBack(study)),
-                          )
-                        : _buildCardShell(study, _buildFront(study)),
-                  );
-                },
-              ),
-            ),
+            child: _buildDraggableCard(study),
           ),
         ),
         _buildRatingBar(study),
         const SizedBox(height: 16),
       ],
+    );
+  }
+
+  // ------------------------------------------------------------ kéo thẻ
+
+  /// Mức đánh giá ứng với hướng kéo: phải = Dễ; trái = Ổn (lên) / Khó (ngang) /
+  /// Xem lại (xuống).
+  ReviewRating? _ratingForDrag(Offset d) {
+    if (d.distance < _showThreshold) return null;
+    if (d.dx > 0) return ReviewRating.easy;
+    if (d.dy < -_verticalSplit) return ReviewRating.good;
+    if (d.dy > _verticalSplit) return ReviewRating.again;
+    return ReviewRating.hard;
+  }
+
+  static Color _ratingColor(ReviewRating r) => switch (r) {
+    ReviewRating.again => const Color(0xFFFF9F43),
+    ReviewRating.hard => const Color(0xFFC77DFF),
+    ReviewRating.good => const Color(0xFF38BDF8),
+    ReviewRating.easy => const Color(0xFF34D399),
+  };
+
+  static IconData _ratingIcon(ReviewRating r) => switch (r) {
+    ReviewRating.again || ReviewRating.hard => Icons.refresh_rounded,
+    ReviewRating.good || ReviewRating.easy => Icons.check_rounded,
+  };
+
+  void _onPanStart(DragStartDetails d) {
+    if (_isSettling) return;
+    _settleController.stop();
+    setState(() => _isDragging = true);
+  }
+
+  void _onPanUpdate(DragUpdateDetails d) {
+    if (!_isDragging) return;
+    setState(() => _drag += d.delta);
+  }
+
+  void _onPanEnd(DragEndDetails d) {
+    if (!_isDragging) return;
+    _isDragging = false;
+    final rating = _ratingForDrag(_drag);
+    if (rating != null && _drag.distance > _commitThreshold) {
+      _flyOutAndRate(rating);
+    } else {
+      _animateDragTo(Offset.zero);
+    }
+  }
+
+  void _animateDragTo(Offset target, {VoidCallback? onDone}) {
+    _settleAnimation = Tween<Offset>(begin: _drag, end: target).animate(
+      CurvedAnimation(parent: _settleController, curve: Curves.easeOut),
+    );
+    _settleController.forward(from: 0).then((_) {
+      if (!mounted) return;
+      onDone?.call();
+    });
+  }
+
+  void _flyOutAndRate(ReviewRating rating) {
+    setState(() => _isSettling = true);
+    final dir = _drag / _drag.distance;
+    _animateDragTo(dir * 700, onDone: () async {
+      setState(() {
+        _drag = Offset.zero;
+        _isSettling = false;
+      });
+      await _rate(rating);
+    });
+  }
+
+  Widget _buildDraggableCard(StudyCard study) {
+    final rating = _ratingForDrag(_drag);
+    final angle = (_drag.dx / 300).clamp(-1.0, 1.0) * (15 * pi / 180);
+    final overlayOpacity = rating == null
+        ? 0.0
+        : ((_drag.distance - _showThreshold) / 50).clamp(0.0, 1.0);
+
+    return GestureDetector(
+      onTap: _flip,
+      onPanStart: _onPanStart,
+      onPanUpdate: _onPanUpdate,
+      onPanEnd: _onPanEnd,
+      behavior: HitTestBehavior.opaque,
+      child: Transform.translate(
+        offset: _drag,
+        child: Transform.rotate(
+          angle: angle,
+          child: Stack(
+            children: [
+              Positioned.fill(child: _buildFlipCard(study)),
+              if (rating != null)
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: overlayOpacity,
+                    child: _buildRatingOverlay(study, rating),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRatingOverlay(StudyCard study, ReviewRating rating) {
+    final color = _ratingColor(rating);
+    final when = rating == ReviewRating.easy
+        ? 'Quay lại sau ${study.labelFor(rating)}'
+        : 'Quay lại sau tối đa ${study.labelFor(rating)}';
+    return Container(
+      decoration: BoxDecoration(
+        color: AppPalette.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color, width: 1.6),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(_ratingIcon(rating), color: color, size: 38),
+            const SizedBox(height: 14),
+            Text(
+              rating.label,
+              style: TextStyle(
+                color: color,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                when,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFlipCard(StudyCard study) {
+    return AnimatedBuilder(
+      animation: _flipController,
+      builder: (context, _) {
+        final angle = _flipController.value * pi;
+        final showBack = angle > pi / 2;
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateY(angle),
+          child: showBack
+              ? Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()..rotateY(pi),
+                  child: _buildCardShell(study, _buildBack(study)),
+                )
+              : _buildCardShell(study, _buildFront(study)),
+        );
+      },
     );
   }
 
@@ -442,6 +607,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   Widget _buildRatingBar(StudyCard study) {
     const ratings = ReviewRating.values;
+    final pending = _ratingForDrag(_drag);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -450,7 +616,9 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
             if (i > 0) const SizedBox(width: 8),
             Expanded(
               child: Material(
-                color: AppPalette.surface,
+                color: pending == ratings[i]
+                    ? _ratingColor(ratings[i])
+                    : AppPalette.surface,
                 borderRadius: BorderRadius.circular(16),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
@@ -462,8 +630,10 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
                       children: [
                         Text(
                           ratings[i].label,
-                          style: const TextStyle(
-                            color: AppPalette.textPrimary,
+                          style: TextStyle(
+                            color: pending == ratings[i]
+                                ? AppPalette.background
+                                : AppPalette.textPrimary,
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                           ),
@@ -471,8 +641,10 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
                         const SizedBox(height: 3),
                         Text(
                           study.labelFor(ratings[i]),
-                          style: const TextStyle(
-                            color: AppPalette.textSecondary,
+                          style: TextStyle(
+                            color: pending == ratings[i]
+                                ? AppPalette.background
+                                : AppPalette.textSecondary,
                             fontSize: 11,
                           ),
                         ),
