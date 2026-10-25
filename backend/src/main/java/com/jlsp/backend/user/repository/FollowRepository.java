@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 @Repository
 public interface FollowRepository extends JpaRepository<Follow, FollowId> {
@@ -27,6 +29,14 @@ public interface FollowRepository extends JpaRepository<Follow, FollowId> {
      * Kiểm tra xem followerId có đang theo dõi followingId hay không.
      */
     boolean existsByIdFollowerIdAndIdFollowingId(Long followerId, Long followingId);
+
+    /**
+     * Trong số userIds, những người mà followerId đang theo dõi — thay cho mỗi người một lần {@code exists}.
+     */
+    @Query("SELECT f.id.followingId FROM Follow f " +
+            "WHERE f.id.followerId = :followerId AND f.id.followingId IN :userIds")
+    Set<Long> findFollowingIdsAmong(@Param("followerId") Long followerId,
+                                    @Param("userIds") Collection<Long> userIds);
 
     /**
      * Số quan hệ follow giữa hai người theo cả hai chiều (2 = follow lẫn nhau).

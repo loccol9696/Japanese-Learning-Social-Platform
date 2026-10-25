@@ -8,7 +8,12 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "videos")
+@Table(name = "videos", indexes = {
+        // Feed / Khám phá: lọc PUBLIC + APPROVED rồi sắp theo created_at.
+        @Index(name = "idx_videos_feed", columnList = "status, mod_status, created_at"),
+        // Video của một người (hồ sơ, quản lý đăng tải, feed Following).
+        @Index(name = "idx_videos_user_created", columnList = "user_id, created_at")
+})
 @Getter
 @Setter
 @NoArgsConstructor

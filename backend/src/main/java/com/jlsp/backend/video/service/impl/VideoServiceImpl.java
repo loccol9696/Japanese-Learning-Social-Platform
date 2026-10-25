@@ -1,6 +1,7 @@
 package com.jlsp.backend.video.service.impl;
 
 import com.jlsp.backend.common.exception.AppException;
+import com.jlsp.backend.common.repository.IdCount;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
 import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.user.entity.JLPTLevel;
@@ -17,6 +18,7 @@ import com.jlsp.backend.video.dto.response.VideoResponse;
 import com.jlsp.backend.video.entity.*;
 import com.jlsp.backend.video.mapper.VideoMapper;
 import com.jlsp.backend.video.repository.ShadowingPracticeRepository;
+import com.jlsp.backend.video.repository.VideoCommentRepository;
 import com.jlsp.backend.video.repository.VideoLikeRepository;
 import com.jlsp.backend.video.repository.VideoRepository;
 import com.jlsp.backend.video.repository.VideoSaveRepository;
@@ -29,8 +31,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -46,6 +51,7 @@ public class VideoServiceImpl implements VideoService {
     private final VideoRepository videoRepository;
     private final VideoLikeRepository videoLikeRepository;
     private final VideoSaveRepository videoSaveRepository;
+    private final VideoCommentRepository videoCommentRepository;
     private final ShadowingPracticeRepository shadowingPracticeRepository;
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
@@ -192,20 +198,41 @@ public class VideoServiceImpl implements VideoService {
         return toVideoPageResponse(page, currentUserId);
     }
 
-    private PageResponse<VideoResponse> toVideoPageResponse(Page<Video> page, Long currentUserId) {
-        List<VideoResponse> responseList = page.getContent().stream()
-                .map(v -> {
-                    boolean isLiked = currentUserId != null
-                            && videoLikeRepository.existsByIdUserIdAndIdVideoId(currentUserId, v.getId());
-                    boolean isSaved = currentUserId != null
-                            && videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, v.getId());
-                    VideoResponse response = videoMapper.toVideoResponse(v, isLiked, isSaved);
-                    response.setIsFollowing(currentUserId != null && response.getCreatorId() != null
-                            && followRepository.existsByIdFollowerIdAndIdFollowingId(currentUserId,
-                                    response.getCreatorId()));
-                    return response;
-                })
-                .collect(Collectors.toList());
+    /**
+     * Dựng trang VideoResponse bằng vài truy vấn gộp (IN ...) cho CẢ trang thay vì
+     * 4 truy vấn cho MỖI video (đã thích / đã lưu / đang theo dõi / đếm bình luận).
+     * Feed 20 video: từ ~80 lượt gọi DB xuống còn 4.
+     *
+     * @param viewerId người đang xem; null thì bỏ qua trạng thái thích / lưu / theo dõi
+     */
+    private PageResponse<VideoResponse> toVideoPageResponse(Page<Video> page, Long viewerId) {
+        List<Video> videos = page.getContent();
+        List<Long> videoIds = videos.stream().map(Video::getId).toList();
+
+        Map<Long, Long> commentCounts = videoIds.isEmpty()
+                ? Map.of()
+                : IdCount.toMap(videoCommentRepository.countByVideoIds(videoIds));
+        Set<Long> likedIds = Set.of();
+        Set<Long> savedIds = Set.of();
+        Set<Long> followingIds = Set.of();
+        if (viewerId != null && !videoIds.isEmpty()) {
+            likedIds = videoLikeRepository.findLikedVideoIds(viewerId, videoIds);
+            savedIds = videoSaveRepository.findSavedVideoIds(viewerId, videoIds);
+            List<Long> creatorIds = videos.stream()
+                    .map(v -> v.getUser().getId())
+                    .distinct()
+                    .toList();
+            followingIds = followRepository.findFollowingIdsAmong(viewerId, creatorIds);
+        }
+
+        List<VideoResponse> responseList = new ArrayList<>(videos.size());
+        for (Video v : videos) {
+            VideoResponse response = videoMapper.toVideoResponse(v, likedIds.contains(v.getId()),
+                    savedIds.contains(v.getId()), commentCounts.getOrDefault(v.getId(), 0L));
+            response.setIsFollowing(response.getCreatorId() != null
+                    && followingIds.contains(response.getCreatorId()));
+            responseList.add(response);
+        }
 
         return PageResponse.<VideoResponse>builder()
                 .content(responseList)
@@ -239,25 +266,7 @@ public class VideoServiceImpl implements VideoService {
 
         // 2. Truy vấn video công khai của các creator đó đã được duyệt
         Page<Video> page = videoRepository.findByUserIdInAndStatusAndModStatus(followingIds, VideoStatus.PUBLIC, com.jlsp.backend.video.entity.VideoModStatus.APPROVED, pageable);
-
-        List<VideoResponse> responseList = page.getContent().stream()
-                .map(v -> {
-                    boolean isLiked = videoLikeRepository.existsByIdUserIdAndIdVideoId(currentUserId, v.getId());
-                    boolean isSaved = videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, v.getId());
-                    VideoResponse response = videoMapper.toVideoResponse(v, isLiked, isSaved);
-                    response.setIsFollowing(true);
-                    return response;
-                })
-                .collect(Collectors.toList());
-
-        return PageResponse.<VideoResponse>builder()
-                .content(responseList)
-                .page(page.getNumber())
-                .size(page.getSize())
-                .totalElements(page.getTotalElements())
-                .totalPages(page.getTotalPages())
-                .last(page.isLast())
-                .build();
+        return toVideoPageResponse(page, currentUserId);
     }
 
     /**
@@ -273,52 +282,17 @@ public class VideoServiceImpl implements VideoService {
         } else {
             page = videoRepository.findByUserIdAndStatus(userId, VideoStatus.PUBLIC, pageable);
         }
-
-        List<VideoResponse> responseList = page.getContent().stream()
-                .map(v -> {
-                    boolean isLiked = currentUserId != null
-                            && videoLikeRepository.existsByIdUserIdAndIdVideoId(currentUserId, v.getId());
-                    boolean isSaved = currentUserId != null
-                            && videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, v.getId());
-                    return videoMapper.toVideoResponse(v, isLiked, isSaved);
-                })
-                .collect(Collectors.toList());
-
-        return PageResponse.<VideoResponse>builder()
-                .content(responseList)
-                .page(page.getNumber())
-                .size(page.getSize())
-                .totalElements(page.getTotalElements())
-                .totalPages(page.getTotalPages())
-                .last(page.isLast())
-                .build();
+        return toVideoPageResponse(page, currentUserId);
     }
 
     @Override
     public PageResponse<VideoResponse> getLikedVideos(Long userId, Pageable pageable) {
-        return toCollectionPage(videoRepository.findLikedByUserId(userId, pageable), userId);
+        return toVideoPageResponse(videoRepository.findLikedByUserId(userId, pageable), userId);
     }
 
     @Override
     public PageResponse<VideoResponse> getSavedVideos(Long userId, Pageable pageable) {
-        return toCollectionPage(videoRepository.findSavedByUserId(userId, pageable), userId);
-    }
-
-    private PageResponse<VideoResponse> toCollectionPage(Page<Video> page, Long currentUserId) {
-        List<VideoResponse> content = page.getContent().stream()
-                .map(video -> videoMapper.toVideoResponse(
-                        video,
-                        videoLikeRepository.existsByIdUserIdAndIdVideoId(currentUserId, video.getId()),
-                        videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, video.getId())))
-                .collect(Collectors.toList());
-        return PageResponse.<VideoResponse>builder()
-                .content(content)
-                .page(page.getNumber())
-                .size(page.getSize())
-                .totalElements(page.getTotalElements())
-                .totalPages(page.getTotalPages())
-                .last(page.isLast())
-                .build();
+        return toVideoPageResponse(videoRepository.findSavedByUserId(userId, pageable), userId);
     }
 
     /**
@@ -654,36 +628,12 @@ public class VideoServiceImpl implements VideoService {
         com.jlsp.backend.video.entity.VideoModStatus targetStatus = modStatus != null ? modStatus : com.jlsp.backend.video.entity.VideoModStatus.PENDING;
         // Moderator CHỈ kiểm duyệt các video ở chế độ công khai (PUBLIC)
         Page<Video> page = videoRepository.findByStatusAndModStatus(VideoStatus.PUBLIC, targetStatus, pageable);
-
-        List<VideoResponse> responseList = page.getContent().stream()
-                .map(v -> videoMapper.toVideoResponse(v, false, false))
-                .collect(Collectors.toList());
-
-        return PageResponse.<VideoResponse>builder()
-                .content(responseList)
-                .page(page.getNumber())
-                .size(page.getSize())
-                .totalElements(page.getTotalElements())
-                .totalPages(page.getTotalPages())
-                .last(page.isLast())
-                .build();
+        return toVideoPageResponse(page, null);
     }
 
     @Override
     public PageResponse<VideoResponse> getMyVideosStatus(Long userId, Pageable pageable) {
         Page<Video> page = videoRepository.findByUserId(userId, pageable);
-
-        List<VideoResponse> responseList = page.getContent().stream()
-                .map(v -> videoMapper.toVideoResponse(v, false, false))
-                .collect(Collectors.toList());
-
-        return PageResponse.<VideoResponse>builder()
-                .content(responseList)
-                .page(page.getNumber())
-                .size(page.getSize())
-                .totalElements(page.getTotalElements())
-                .totalPages(page.getTotalPages())
-                .last(page.isLast())
-                .build();
+        return toVideoPageResponse(page, null);
     }
 }

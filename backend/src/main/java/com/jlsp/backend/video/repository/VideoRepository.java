@@ -5,6 +5,7 @@ import com.jlsp.backend.video.entity.Video;
 import com.jlsp.backend.video.entity.VideoStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -22,23 +23,28 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     /**
      * Lấy danh sách video công khai theo phân trang (Dành cho Feed tổng quan).
      */
+    @EntityGraph(attributePaths = "user")
     Page<Video> findByStatus(VideoStatus status, Pageable pageable);
 
     long countByStatus(VideoStatus status);
 
+    @EntityGraph(attributePaths = "user")
     Page<Video> findByModStatus(com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable);
 
     long countByModStatus(com.jlsp.backend.video.entity.VideoModStatus modStatus);
 
+    @EntityGraph(attributePaths = "user")
     Page<Video> findByStatusAndModStatus(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable);
 
     long countByStatusAndModStatus(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus);
 
+    @EntityGraph(attributePaths = "user")
     Page<Video> findByStatusAndModStatusAndJlptLevel(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, JLPTLevel jlptLevel, Pageable pageable);
 
     /**
      * Tìm video công khai đã duyệt theo tiêu đề / mô tả (màn Khám phá), có thể lọc thêm JLPT.
      */
+    @EntityGraph(attributePaths = "user")
     @Query("SELECT v FROM Video v WHERE v.status = :status AND v.modStatus = :modStatus " +
            "AND (LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(COALESCE(v.description, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))")
@@ -47,6 +53,7 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
                                    @Param("keyword") String keyword,
                                    Pageable pageable);
 
+    @EntityGraph(attributePaths = "user")
     @Query("SELECT v FROM Video v WHERE v.status = :status AND v.modStatus = :modStatus " +
            "AND v.jlptLevel = :jlptLevel " +
            "AND (LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
@@ -57,32 +64,39 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
                                               @Param("keyword") String keyword,
                                               Pageable pageable);
 
+    @EntityGraph(attributePaths = "user")
     Page<Video> findByUserIdInAndStatusAndModStatus(List<Long> userIds, VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable);
 
     /**
      * Lấy danh sách video công khai theo cấp độ JLPT chỉ định (Dành cho Feed đề xuất theo trình độ).
      */
+    @EntityGraph(attributePaths = "user")
     Page<Video> findByStatusAndJlptLevel(VideoStatus status, JLPTLevel jlptLevel, Pageable pageable);
 
     /**
      * Lấy danh sách video của một Creator cụ thể có trạng thái chỉ định.
      */
+    @EntityGraph(attributePaths = "user")
     Page<Video> findByUserIdAndStatus(Long userId, VideoStatus status, Pageable pageable);
 
     /**
      * Lấy danh sách video của người dùng (dành cho chính chủ xem cả video private/public).
      */
+    @EntityGraph(attributePaths = "user")
     Page<Video> findByUserId(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = "user")
     @Query("SELECT v FROM Video v JOIN VideoLike l ON l.id.videoId = v.id WHERE l.id.userId = :userId ORDER BY v.createdAt DESC")
     Page<Video> findLikedByUserId(@Param("userId") Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = "user")
     @Query("SELECT v FROM Video v JOIN VideoSave s ON s.id.videoId = v.id WHERE s.id.userId = :userId ORDER BY v.createdAt DESC")
     Page<Video> findSavedByUserId(@Param("userId") Long userId, Pageable pageable);
 
     /**
      * Lấy danh sách video từ danh sách ID các Creator mà user đang theo dõi (Following Feed).
      */
+    @EntityGraph(attributePaths = "user")
     Page<Video> findByUserIdInAndStatus(List<Long> userIds, VideoStatus status, Pageable pageable);
 
     /**
