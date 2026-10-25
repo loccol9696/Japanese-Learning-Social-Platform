@@ -28,4 +28,16 @@ public interface FlashcardProgressRepository extends JpaRepository<FlashcardProg
     @Modifying
     @Query("DELETE FROM FlashcardProgress p WHERE p.user.id = :userId AND p.flashcard.flashcardSet.setId = :setId")
     void deleteByUserIdAndSetId(@Param("userId") Long userId, @Param("setId") Long setId);
+
+    @Query("SELECT COUNT(p) FROM FlashcardProgress p WHERE p.user.id = :userId AND p.nextReviewAt IS NOT NULL AND p.nextReviewAt <= :now")
+    long countDue(@Param("userId") Long userId, @Param("now") java.time.LocalDateTime now);
+
+    @Query("SELECT MIN(p.nextReviewAt) FROM FlashcardProgress p WHERE p.user.id = :userId AND p.nextReviewAt > :now")
+    java.time.LocalDateTime findNextDueAt(@Param("userId") Long userId, @Param("now") java.time.LocalDateTime now);
+
+    @Query("SELECT COUNT(p) FROM FlashcardProgress p WHERE p.user.id = :userId AND p.nextReviewAt >= :from AND p.nextReviewAt < :to")
+    long countDueBetween(@Param("userId") Long userId, @Param("from") java.time.LocalDateTime from, @Param("to") java.time.LocalDateTime to);
+
+    @Query("SELECT p FROM FlashcardProgress p WHERE p.user.id = :userId AND p.nextReviewAt IS NOT NULL AND p.nextReviewAt <= :now ORDER BY p.nextReviewAt ASC")
+    List<FlashcardProgress> findDueByUserId(@Param("userId") Long userId, @Param("now") java.time.LocalDateTime now);
 }

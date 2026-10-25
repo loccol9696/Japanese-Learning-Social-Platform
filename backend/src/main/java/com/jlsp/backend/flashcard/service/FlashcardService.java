@@ -29,6 +29,14 @@ public interface FlashcardService {
 
     FlashcardResponse updateCardStar(Long userId, Long cardId, Boolean isStarred);
 
+    StudySessionResponse getStudySession(Long userId, Long setId, Integer newLimit);
+
+    StudySessionResponse getDueSession(Long userId, Integer limit);
+
+    ReviewResultResponse reviewCard(Long userId, ReviewCardRequest request);
+
+    DueSummaryResponse getDueSummary(Long userId);
+
     void submitCardAnswer(Long userId, SubmitCardAnswerRequest request);
 
     List<QuizQuestionResponse> generateQuiz(Long userId, Long setId, Integer limit);

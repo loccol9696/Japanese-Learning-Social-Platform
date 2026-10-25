@@ -7,7 +7,7 @@ import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_store.dart';
 import 'deck_editor_screen.dart';
-import 'flashcard_flip_screen.dart';
+import 'srs_study_screen.dart';
 import 'flashcard_listening_screen.dart';
 import 'flashcard_matching_screen.dart';
 import 'flashcard_quiz_screen.dart';
@@ -620,7 +620,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => FlashcardFlipScreen(deck: widget.deck),
+                              builder: (context) => SrsStudyScreen(deck: widget.deck),
                             ),
                           );
                         },

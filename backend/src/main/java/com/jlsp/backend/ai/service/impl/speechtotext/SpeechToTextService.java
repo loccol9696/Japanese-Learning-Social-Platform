@@ -10,6 +10,10 @@ import com.google.cloud.storage.Storage;
 import com.google.protobuf.Duration;
 import com.jlsp.backend.ai.dto.response.ScriptSegment;
 import com.jlsp.backend.ai.service.SpeechToTextServiceIntf;
+import com.jlsp.backend.ai.service.JaViTranslator;
+import com.jlsp.backend.ai.service.SubtitleSplitter;
+import com.jlsp.backend.ai.dto.response.ScriptSegment;
+import com.jlsp.backend.ai.service.SpeechToTextServiceIntf;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +38,8 @@ import java.util.concurrent.ExecutionException;
 @ConditionalOnProperty(name = "gcp.stt.enabled", havingValue = "true", matchIfMissing = true)
 public class SpeechToTextService implements SpeechToTextServiceIntf {
 
+    private static final SubtitleSplitter SUBTITLE_SPLITTER = new SubtitleSplitter();
+
     private final VocalIsolationService vocalIsolationService;
     private final SpeechClient speechClient;
     private final Storage storage;
@@ -47,14 +53,15 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
     private final Map<String, String> taskStatusMap = new ConcurrentHashMap<>();
     private final Map<String, List<ScriptSegment>> taskResultMap = new ConcurrentHashMap<>();
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JaViTranslator translator;
 
     public SpeechToTextService(
             VocalIsolationService vocalIsolationService,
+            JaViTranslator translator,
             ObjectProvider<SpeechClient> speechClientProvider,
             ObjectProvider<Storage> storageProvider) {
 
+        this.translator = translator;
         this.vocalIsolationService = vocalIsolationService;
         this.speechClient = speechClientProvider.getIfAvailable();
         this.storage = storageProvider.getIfAvailable();
@@ -150,26 +157,31 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
                 SpeechRecognitionAlternative alternative = result.getAlternatives(0);
                 List<WordInfo> words = alternative.getWordsList();
 
-                // System.out.println("-> Text: " + alternative.getTranscript());
-                // System.out.println("-> Words count: " + words.size());
                 if (!words.isEmpty()) {
-                    WordInfo firstWord = words.get(0);
-                    WordInfo lastWord = words.get(words.size() - 1);
+                    if (segments.isEmpty()) {
+                        // Ghi lại định dạng từ Google trả về để dễ chỉnh việc tách câu.
+                        log.info("STT mẫu: \"{}\" - các từ đầu: {}", alternative.getTranscript(),
+                                words.stream().limit(8).map(WordInfo::getWord).toList());
+                    }
 
-                    double start = toSeconds(firstWord.getStartTime());
-                    double end = toSeconds(lastWord.getEndTime());
+                    List<SubtitleSplitter.TimedWord> timedWords = new ArrayList<>();
+                    for (WordInfo w : words) {
+                        timedWords.add(new SubtitleSplitter.TimedWord(
+                                w.getWord(), toSeconds(w.getStartTime()), toSeconds(w.getEndTime())));
+                    }
+                    double start = timedWords.get(0).start();
+                    double end = timedWords.get(timedWords.size() - 1).end();
 
-                    String japaneseText = alternative.getTranscript().trim();
-                    String vietnameseText = translateToVi(alternative.getTranscript().trim());
-
-                    ScriptSegment seg = ScriptSegment.builder()
-                            .startTime(start)
-                            .endTime(end)
-                            .text(japaneseText)
-                            .translatedText(vietnameseText)
-                            .build();
-
-                    segments.add(seg);
+                    // Google hay gộp nhiều câu vào một kết quả: tách thành các câu ngắn, dịch từng câu.
+                    for (SubtitleSplitter.Piece piece : SUBTITLE_SPLITTER.split(
+                            alternative.getTranscript(), timedWords, start, end)) {
+                        segments.add(ScriptSegment.builder()
+                                .startTime(piece.start())
+                                .endTime(piece.end())
+                                .text(piece.text())
+                                .translatedText(translator.translate(piece.text()))
+                                .build());
+                    }
                 }
             }
 
@@ -187,39 +199,5 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
 
     private double toSeconds(Duration duration) {
         return duration.getSeconds() + (duration.getNanos() / 1_000_000_000.0);
-    }
-
-    private String translateToVi(String japaneseText) {
-        if (japaneseText == null || japaneseText.isBlank()) {
-            return "";
-        }
-        try {
-            URI uri = UriComponentsBuilder.fromUriString("https://api.mymemory.translated.net/get")
-                    .queryParam("q", japaneseText)
-                    .queryParam("langpair", "ja|vi")
-                    .queryParam("de", "minedung2005@gmail.com") // Đổi thành email hợp lệ để tăng hạn mức
-                    .encode(StandardCharsets.UTF_8)
-                    .build()
-                    .toUri();
-
-            String rawResponse = restTemplate.getForObject(uri, String.class);
-            if (rawResponse == null || rawResponse.isBlank()) {
-                return "";
-            }
-
-            JsonNode root = objectMapper.readTree(rawResponse);
-            int status = root.path("responseStatus").asInt(0);
-
-            // 200 là thành công, 429/403 là hết quota
-            if (status == 200 && root.has("responseData")) {
-                return root.get("responseData").path("translatedText").asText("").trim();
-            } else {
-                log.warn("MyMemory lỗi phản hồi mã {}: {}", status, rawResponse);
-                return "";
-            }
-        } catch (Exception e) {
-            log.error("Lỗi khi dịch tiếng Nhật sang tiếng Việt: [{}] - {}", japaneseText, e.getMessage());
-            return "";
-        }
     }
 }

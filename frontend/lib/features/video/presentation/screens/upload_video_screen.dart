@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../subtitle_split.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
@@ -703,11 +704,41 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     );
   }
 
-  String _formatTimestamp(double seconds) {
-    final wholeSeconds = seconds.round();
-    final minutes = wholeSeconds ~/ 60;
-    final remainder = wholeSeconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remainder.toString().padLeft(2, '0')}';
+  String _formatTimestamp(double seconds) => formatSubtitleTime(seconds);
+
+  /// Tách dòng phụ đề tại vị trí con trỏ trong ô tiếng Nhật.
+  void _splitSubtitle(int index) {
+    final subtitle = _subtitles[index];
+    final offset = subtitle.japanese.selection.baseOffset;
+    final result = splitSubtitleAt(
+      text: subtitle.japanese.text,
+      translation: subtitle.translation.text,
+      start: subtitle.start,
+      end: subtitle.end,
+      offset: offset,
+    );
+    if (result == null) {
+      _showMessage('Đặt con trỏ vào giữa câu tiếng Nhật rồi bấm Tách câu.');
+      return;
+    }
+    setState(() {
+      _subtitles[index] = _SubtitleDraft(
+        start: result.firstStart,
+        end: result.firstEnd,
+        japaneseText: result.firstText,
+        translationText: result.firstTranslation,
+      );
+      _subtitles.insert(
+        index + 1,
+        _SubtitleDraft(
+          start: result.secondStart,
+          end: result.secondEnd,
+          japaneseText: result.secondText,
+          translationText: result.secondTranslation,
+        ),
+      );
+    });
+    subtitle.dispose();
   }
 
   double _parseTimeToSeconds(String timeStr) {
@@ -1270,6 +1301,14 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           if (subtitle.editing) ...[
             _subtitleInput(subtitle.japanese, 'Tiếng Nhật'),
             _subtitleInput(subtitle.translation, 'Bản dịch'),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => _splitSubtitle(index),
+                icon: const Icon(Icons.content_cut, size: 16),
+                label: const Text('Tách câu tại con trỏ'),
+              ),
+            ),
           ] else ...[
             Text(
               subtitle.japanese.text.isEmpty

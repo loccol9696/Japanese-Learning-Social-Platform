@@ -49,4 +49,25 @@ public class FlashcardProgress {
 
     @Column(name = "last_reviewed_at")
     private LocalDateTime lastReviewedAt;
+
+    @Column(name = "ease_factor", nullable = false, columnDefinition = "double precision default 2.5 not null")
+    @Builder.Default
+    private Double easeFactor = 2.5;
+
+    @Column(name = "interval_days", nullable = false, columnDefinition = "integer default 0 not null")
+    @Builder.Default
+    private Integer intervalDays = 0;
+
+    @Column(name = "review_count", nullable = false, columnDefinition = "integer default 0 not null")
+    @Builder.Default
+    private Integer reviewCount = 0;
+
+    @Column(name = "lapse_count", nullable = false, columnDefinition = "integer default 0 not null")
+    @Builder.Default
+    private Integer lapseCount = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "srs_state", nullable = false, length = 16, columnDefinition = "varchar(16) default 'NEW' not null")
+    @Builder.Default
+    private com.jlsp.backend.flashcard.srs.CardState srsState = com.jlsp.backend.flashcard.srs.CardState.NEW;
 }
