@@ -8,9 +8,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
+
 @Repository
 public interface ConversationParticipantRepository
         extends JpaRepository<ConversationParticipant, ConversationParticipantId> {
+
+    /** Trạng thái đọc của mọi người tham gia trong nhiều hội thoại (một truy vấn cho cả trang Inbox). */
+    List<ConversationParticipant> findByIdConversationIdIn(Collection<Long> conversationIds);
 
     /**
      * Đặt mốc đã đọc bằng một câu UPDATE, không cần SELECT nạp entity trước.

@@ -39,6 +39,15 @@ public interface FollowRepository extends JpaRepository<Follow, FollowId> {
                                     @Param("userIds") Collection<Long> userIds);
 
     /**
+     * Trong số otherIds, những người follow lẫn nhau với userId — một truy vấn cho cả danh sách hội thoại.
+     */
+    @Query("SELECT f.id.followingId FROM Follow f " +
+            "WHERE f.id.followerId = :userId AND f.id.followingId IN :otherIds " +
+            "AND EXISTS (SELECT 1 FROM Follow r WHERE r.id.followerId = f.id.followingId " +
+            "AND r.id.followingId = :userId)")
+    Set<Long> findMutualIdsAmong(@Param("userId") Long userId, @Param("otherIds") Collection<Long> otherIds);
+
+    /**
      * Số quan hệ follow giữa hai người theo cả hai chiều (2 = follow lẫn nhau).
      * Một câu truy vấn thay cho hai lần {@code exists} để bớt một lượt gọi DB.
      */
