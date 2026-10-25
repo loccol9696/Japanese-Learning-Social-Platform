@@ -54,6 +54,12 @@ class _HomeScreenState extends State<HomeScreen> {
   List<VideoPost> _followingPosts = [];
   List<VideoPost> _forYouPosts = [];
 
+  /// Video trong feed chỉ được phát khi tab Home đang hiện và không có màn nào
+  /// đè lên; nếu không video vẫn phát, giải mã và dựng lại ngầm phía sau, làm
+  /// giật khi chuyển tab / chuyển trang.
+  final ValueNotifier<bool> _feedPlaybackAllowed = ValueNotifier<bool>(true);
+  int _pagesAboveFeed = 0;
+
   @override
   void initState() {
     super.initState();
@@ -67,6 +73,22 @@ class _HomeScreenState extends State<HomeScreen> {
     _forYouFeedPageController = PageController();
     _checkRole();
     _loadFeed(FeedTab.forYou);
+  }
+
+  void _syncFeedPlayback() {
+    _feedPlaybackAllowed.value = _currentNavIndex == 0 && _pagesAboveFeed == 0;
+  }
+
+  /// Mở một màn đè lên feed: video tạm dừng trong lúc màn đó mở.
+  Future<T?> _pushOverFeed<T>(Future<T?> Function() push) async {
+    _pagesAboveFeed++;
+    _syncFeedPlayback();
+    try {
+      return await push();
+    } finally {
+      _pagesAboveFeed--;
+      if (mounted) _syncFeedPlayback();
+    }
   }
 
   Future<void> _checkRole() async {
@@ -84,6 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _homeTabController.dispose();
     _followingFeedPageController.dispose();
     _forYouFeedPageController.dispose();
+    _feedPlaybackAllowed.dispose();
     super.dispose();
   }
 
@@ -222,9 +245,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (index == 2) {
       if (_isModerator) {
-        await Navigator.of(context).pushNamed(AppRoutes.moderationQueue);
+        await _pushOverFeed(
+          () => Navigator.of(context).pushNamed(AppRoutes.moderationQueue),
+        );
       } else {
-        final result = await Navigator.of(context).pushNamed(AppRoutes.upload);
+        final result = await _pushOverFeed(
+          () => Navigator.of(context).pushNamed(AppRoutes.upload),
+        );
         if (!mounted) return;
         if (result is int && result != BottomNavDock.createIndex) {
           await _onNavTabSelected(result);
@@ -255,6 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (pageIndex == null) return;
     if (!_tabPageController.hasClients) {
       setState(() => _currentNavIndex = navIndex);
+      _syncFeedPlayback();
       return;
     }
 
@@ -375,6 +403,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 setState(() {
                   _currentNavIndex = _navIndexForPageIndex(index);
                 });
+                _syncFeedPlayback();
               },
               children: [
                 _KeepAlivePage(
@@ -494,6 +523,7 @@ class _HomeScreenState extends State<HomeScreen> {
             initialCount: post.commentCount,
           ),
           allowAccountActions: AuthSession.instance.isAuthenticated,
+          playbackAllowed: _feedPlaybackAllowed,
         );
       },
     );
@@ -595,11 +625,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openExplore() async {
     RubySubtitleWidget.dismissLookups();
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          backgroundColor: AppColors.backgroundCanvas,
-          body: const ExploreScreen(showBackButton: true),
+    await _pushOverFeed(
+      () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            backgroundColor: AppColors.backgroundCanvas,
+            body: const ExploreScreen(showBackButton: true),
+          ),
         ),
       ),
     );
