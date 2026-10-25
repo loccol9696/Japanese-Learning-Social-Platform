@@ -144,10 +144,27 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
               ignoring: !widget.enabled || _busy,
               child: Opacity(
                 opacity: widget.enabled && !_busy ? 1 : 0.5,
+                // Google không cho đổi màu / bo góc nút của họ, nên bọc lại cho hợp với các ô nhập:
+                // cùng độ rộng, bo góc 12, viền mảnh và nền tối.
                 child: LayoutBuilder(
-                  builder: (context, constraints) => Center(
-                    child: buildWebGoogleButton(constraints.maxWidth),
-                  ),
+                  builder: (context, constraints) {
+                    final width = constraints.maxWidth > 400
+                        ? 400.0
+                        : constraints.maxWidth;
+                    return Center(
+                      child: Container(
+                        width: width,
+                        height: 44,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF131314),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppPalette.border),
+                        ),
+                        child: Center(child: buildWebGoogleButton(width - 2)),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
