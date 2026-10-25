@@ -16,6 +16,7 @@ class _FakeRecognizer implements SpeechRecognizer {
     required void Function(String text) onPartial,
     required void Function(String text) onFinal,
     required void Function(double level) onLevel,
+    required void Function(String code) onError,
   }) async {}
 
   @override

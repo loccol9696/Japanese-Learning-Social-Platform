@@ -307,9 +307,12 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
           children: [
             _MicButton(listening: true, onTap: c.stopListening),
             const SizedBox(height: 12),
-            const Text(
-              'Đang nghe bạn nói...',
-              style: TextStyle(
+            Text(
+              c.partialText.isEmpty ? 'Đang nghe bạn nói...' : c.partialText,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
                 color: _linkBlue,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

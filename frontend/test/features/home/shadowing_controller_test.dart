@@ -8,6 +8,8 @@ class FakeRecognizer implements SpeechRecognizer {
   bool available = true;
   void Function(String text)? _onFinal;
   void Function(double level)? _onLevel;
+  void Function(String code)? _onError;
+  void Function(String text)? _onPartial;
   bool cancelled = false;
   Duration? lastListenFor;
 
@@ -20,14 +22,19 @@ class FakeRecognizer implements SpeechRecognizer {
     required void Function(String text) onPartial,
     required void Function(String text) onFinal,
     required void Function(double level) onLevel,
+    required void Function(String code) onError,
   }) async {
     lastListenFor = listenFor;
     _onFinal = onFinal;
     _onLevel = onLevel;
+    _onError = onError;
+    _onPartial = onPartial;
   }
 
   void say(String text) => _onFinal?.call(text);
   void level(double v) => _onLevel?.call(v);
+  void fail(String code) => _onError?.call(code);
+  void partial(String text) => _onPartial?.call(text);
 
   @override
   Future<void> stop() async {}
@@ -205,6 +212,27 @@ void main() {
     await c.listenSample();
     expect(samplesPlayed, 1);
     expect(c.phase, ShadowingPhase.ready);
+  });
+
+  test('lỗi micro từ trình duyệt được dịch sang thông báo dễ hiểu', () async {
+    final c = build();
+    await c.startListening();
+    recognizer.fail('not-allowed');
+    expect(c.phase, ShadowingPhase.error);
+    expect(c.error, contains('micro'));
+    expect(c.error, contains('not-allowed'));
+
+    c.retry();
+    await c.startListening();
+    recognizer.fail('network');
+    expect(c.error, contains('mạng'));
+  });
+
+  test('câu đang nghe được cập nhật ngay khi có kết quả tạm', () async {
+    final c = build();
+    await c.startListening();
+    recognizer.partial('もちろん');
+    expect(c.partialText, 'もちろん');
   });
 
   test('mức âm lượng cập nhật khi đang nghe', () async {

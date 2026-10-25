@@ -148,8 +148,10 @@ class ShadowingController extends ChangeNotifier {
         listenFor: listenFor,
         onPartial: (text) {
           _partialText = text;
+          if (_phase == ShadowingPhase.listening && !_disposed) notifyListeners();
         },
         onFinal: _onFinal,
+        onError: _onRecognizerError,
         onLevel: (level) {
           if (_phase != ShadowingPhase.listening) return;
           _level = level;
@@ -165,6 +167,32 @@ class ShadowingController extends ChangeNotifier {
   Future<void> stopListening() async {
     if (_phase != ShadowingPhase.listening) return;
     await recognizer.stop();
+  }
+
+  void _onRecognizerError(String code) {
+    if (_phase != ShadowingPhase.listening) return;
+    _set(ShadowingPhase.error, error: describeSpeechError(code));
+  }
+
+  /// Thông báo dễ hiểu cho các mã lỗi của trình duyệt (web) và Android / iOS.
+  static String describeSpeechError(String code) {
+    final c = code.toLowerCase();
+    if (c.contains('not-allowed') || c.contains('permission') || c.contains('service-not-allowed')) {
+      return 'Chưa được phép dùng micro. Hãy bấm biểu tượng ổ khóa cạnh thanh địa chỉ và bật micro, rồi thử lại. ($code)';
+    }
+    if (c.contains('network')) {
+      return 'Không kết nối được dịch vụ nhận dạng giọng nói. Trình duyệt cần có mạng để nhận dạng. ($code)';
+    }
+    if (c.contains('audio') || c.contains('capture')) {
+      return 'Không tìm thấy micro. Hãy kiểm tra micro đã cắm và đang bật. ($code)';
+    }
+    if (c.contains('language')) {
+      return 'Thiết bị chưa hỗ trợ nhận dạng tiếng Nhật. ($code)';
+    }
+    if (c.contains('busy')) {
+      return 'Bộ nhận dạng đang bận, thử lại sau vài giây. ($code)';
+    }
+    return 'Lỗi nhận dạng giọng nói ($code). Vui lòng thử lại.';
   }
 
   Future<void> _onFinal(String text) async {
