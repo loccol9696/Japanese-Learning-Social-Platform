@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -84,8 +83,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
       // Thử khởi tạo lại (vd. vừa mất mạng); nếu vẫn lỗi thì báo kèm nguyên nhân.
       await _initialize();
       if (!_ready) {
-        final reason = (_initError ?? '').split('
-').first;
+        final reason = (_initError ?? '').split('\n').first;
         widget.onError(reason.isEmpty ? _unavailable : '$_unavailable ($reason)');
         return;
       }
