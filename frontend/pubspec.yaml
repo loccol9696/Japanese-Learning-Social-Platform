@@ -18,6 +18,7 @@ dependencies:
   video_player_web: ^2.4.0
   video_player_platform_interface: ^6.9.0
   flutter_secure_storage: ^10.3.4
+  speech_to_text: ^7.5.0
 
 dev_dependencies:
   flutter_test:
