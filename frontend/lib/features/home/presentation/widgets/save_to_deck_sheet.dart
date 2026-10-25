@@ -62,8 +62,8 @@ class _SaveToDeckSheet extends StatefulWidget {
 }
 
 class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
-  static const Color _accent = AppPalette.accent;
-  static const Color _muted = AppPalette.textSecondary;
+  static Color get _accent => AppPalette.accent;
+  static Color get _muted => AppPalette.textSecondary;
 
   late Future<List<FlashcardSetModel>> _setsFuture;
   bool _isCreating = false;
@@ -127,13 +127,13 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
             }
 
             return AlertDialog(
-              backgroundColor: const Color(0xFF2A2A2D),
+              backgroundColor: AppPalette.surfaceHigh,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              title: const Text(
+              title: Text(
                 'Tạo bộ thẻ mới',
-                style: TextStyle(color: Colors.white, fontSize: 18),
+                style: TextStyle(color: AppPalette.textPrimary, fontSize: 18),
               ),
               content: TextField(
                 controller: controller,
@@ -141,17 +141,17 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
                 maxLength: 100,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => submit(),
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AppPalette.textPrimary),
                 cursorColor: _accent,
                 decoration: InputDecoration(
                   hintText: 'Tên bộ thẻ',
-                  hintStyle: const TextStyle(color: _muted),
+                  hintStyle: TextStyle(color: _muted),
                   errorText: error,
-                  counterStyle: const TextStyle(color: _muted),
-                  enabledBorder: const UnderlineInputBorder(
+                  counterStyle: TextStyle(color: _muted),
+                  enabledBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: AppPalette.border),
                   ),
-                  focusedBorder: const UnderlineInputBorder(
+                  focusedBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: _accent),
                   ),
                 ),
@@ -159,11 +159,11 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Hủy', style: TextStyle(color: _muted)),
+                  child: Text('Hủy', style: TextStyle(color: _muted)),
                 ),
                 TextButton(
                   onPressed: submit,
-                  child: const Text(
+                  child: Text(
                     'Tạo và lưu',
                     style: TextStyle(
                       color: _accent,
@@ -191,13 +191,13 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
-            const Divider(height: 1, color: AppPalette.border),
+            Divider(height: 1, color: AppPalette.border),
             Flexible(
               child: FutureBuilder<List<FlashcardSetModel>>(
                 future: _setsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const Padding(
+                    return Padding(
                       padding: EdgeInsets.symmetric(vertical: 40),
                       child: Center(
                         child: CircularProgressIndicator(color: _accent),
@@ -222,18 +222,18 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
       padding: const EdgeInsets.fromLTRB(20, 16, 8, 12),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Text(
               'Lưu vào bộ thẻ',
               style: TextStyle(
-                color: Colors.white,
+                color: AppPalette.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close_rounded, color: _muted),
+            icon: Icon(Icons.close_rounded, color: _muted),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -247,13 +247,13 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
+          Text(
             'Không tải được danh sách bộ thẻ.',
             style: TextStyle(color: _muted),
           ),
           TextButton(
             onPressed: _reload,
-            child: const Text('Thử lại', style: TextStyle(color: _accent)),
+            child: Text('Thử lại', style: TextStyle(color: _accent)),
           ),
         ],
       ),
@@ -268,7 +268,7 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
         ListTile(
           enabled: !_isCreating,
           leading: _isCreating
-              ? const SizedBox(
+              ? SizedBox(
                   width: 24,
                   height: 24,
                   child: CircularProgressIndicator(
@@ -276,16 +276,16 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
                     color: _accent,
                   ),
                 )
-              : const Icon(Icons.add_circle_outline_rounded, color: _accent),
-          title: const Text(
+              : Icon(Icons.add_circle_outline_rounded, color: _accent),
+          title: Text(
             'Tạo bộ thẻ mới',
             style: TextStyle(color: _accent, fontWeight: FontWeight.w600),
           ),
           onTap: _createDeck,
         ),
-        const Divider(height: 1, color: AppPalette.border),
+        Divider(height: 1, color: AppPalette.border),
         if (sets.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             child: Text(
               'Bạn chưa có bộ thẻ nào. Hãy tạo bộ thẻ mới để lưu từ.',
@@ -319,16 +319,16 @@ class _SaveToDeckSheetState extends State<_SaveToDeckSheet> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: alreadySaved ? _muted : Colors.white,
+          color: alreadySaved ? _muted : AppPalette.textPrimary,
           fontWeight: FontWeight.w600,
         ),
       ),
       subtitle: Text(
         alreadySaved ? 'Từ này đã có trong bộ' : subtitle,
-        style: const TextStyle(color: _muted, fontSize: 12),
+        style: TextStyle(color: _muted, fontSize: 12),
       ),
       trailing: alreadySaved
-          ? const Icon(Icons.check_rounded, color: _muted)
+          ? Icon(Icons.check_rounded, color: _muted)
           : null,
       onTap: () => Navigator.of(context).pop(choice),
     );

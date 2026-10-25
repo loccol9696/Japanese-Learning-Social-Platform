@@ -176,7 +176,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_back_ios,
                   size: 20,
                   color: AppPalette.textPrimary,
@@ -195,7 +195,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               ),
               const SizedBox(height: 32),
 
-              const Text(
+              Text(
                 'Xác thực OTP',
                 style: TextStyle(
                   fontSize: 28,
@@ -206,7 +206,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               const SizedBox(height: 10),
               RichText(
                 text: TextSpan(
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     color: AppPalette.textSecondary,
                     height: 1.4,
@@ -217,7 +217,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     ),
                     TextSpan(
                       text: widget.email,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppPalette.textPrimary,
                       ),
@@ -227,7 +227,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               ),
               const SizedBox(height: 36),
 
-              const Text(
+              Text(
                 'Mã OTP',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
@@ -252,7 +252,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 onSubmitted: (_) => _handleVerifyOtp(),
                 maxLength: _otpLength,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   letterSpacing: 8,
                   fontWeight: FontWeight.bold,
@@ -279,7 +279,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
+                    borderSide: BorderSide(
                       color: AppPalette.accent,
                       width: 1.5,
                     ),
@@ -301,15 +301,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   ),
                   onPressed: _isLoading ? null : _handleVerifyOtp,
                   child: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 22,
                           width: 22,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            color: Colors.white,
+                            color: AppPalette.textPrimary,
                           ),
                         )
-                      : const Row(
+                      : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
@@ -317,14 +317,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: AppPalette.textPrimary,
                               ),
                             ),
                             SizedBox(width: 8),
                             Icon(
                               Icons.check_circle_outline,
                               size: 20,
-                              color: Colors.white,
+                              color: AppPalette.textPrimary,
                             ),
                           ],
                         ),
@@ -338,7 +338,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         _isResending
                             ? 'Đang gửi mã...'
                             : 'Gửi lại mã sau $_resendCountdown giây',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           color: AppPalette.textSecondary,
                         ),
@@ -353,7 +353,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text(
+                            : Text(
                                 'Gửi lại mã OTP',
                                 style: TextStyle(
                                   fontSize: 14,

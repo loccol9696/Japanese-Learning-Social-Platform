@@ -64,13 +64,13 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
         backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppPalette.textPrimary, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           'Danh Sách Chờ Duyệt',
           style: TextStyle(
-            color: Colors.white,
+            color: AppPalette.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -88,7 +88,7 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
           _buildFilterBar(),
           Expanded(
             child: _isLoading
-                ? const Center(
+                ? Center(
                     child: CircularProgressIndicator(color: AppColors.periwinkle),
                   )
                 : RefreshIndicator(
@@ -162,7 +162,7 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                       Text(
                         label,
                         style: TextStyle(
-                          color: isSelected ? Colors.white : AppColors.textSecondary,
+                          color: isSelected ? AppPalette.onAccent : AppColors.textSecondary,
                           fontSize: 13,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                         ),
@@ -172,14 +172,14 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? Colors.white.withValues(alpha: 0.25)
+                              ? AppPalette.textPrimary.withValues(alpha: 0.25)
                               : AppColors.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           '$count',
                           style: TextStyle(
-                            color: isSelected ? Colors.white : AppColors.softSkyBlue,
+                            color: isSelected ? AppPalette.onAccent : AppColors.softSkyBlue,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -202,15 +202,15 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
     IconData statusIcon;
 
     if (video.isApproved) {
-      statusColor = const Color(0xFF10B981); // Emerald
+      statusColor = AppPalette.success; // Emerald
       statusText = 'ĐÃ DUYỆT';
       statusIcon = Icons.check_circle_rounded;
     } else if (video.isRejected) {
-      statusColor = const Color(0xFFEF4444); // Red
+      statusColor = AppPalette.error; // Red
       statusText = 'TỪ CHỐI';
       statusIcon = Icons.cancel_rounded;
     } else {
-      statusColor = const Color(0xFFF59E0B); // Amber
+      statusColor = AppPalette.warning; // Amber
       statusText = 'CHỜ DUYỆT';
       statusIcon = Icons.hourglass_top_rounded;
     }
@@ -221,7 +221,7 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: video.isRejected
-              ? const Color(0xFFEF4444).withValues(alpha: 0.3)
+              ? AppPalette.error.withValues(alpha: 0.3)
               : AppColors.outlineVariant.withValues(alpha: 0.4),
           width: video.isRejected ? 1.2 : 1.0,
         ),
@@ -248,12 +248,12 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                           Image.network(
                             video.thumbnailUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Center(
+                            errorBuilder: (_, __, ___) => Center(
                               child: Icon(Icons.video_library_rounded, color: AppPalette.border, size: 36),
                             ),
                           )
                         else
-                          const Center(
+                          Center(
                             child: Icon(Icons.video_library_rounded, color: AppPalette.border, size: 36),
                           ),
                         // Duration badge
@@ -263,13 +263,13 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.black87,
+                              color: AppPalette.videoScrim.withValues(alpha: 0.87),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               _formatDuration(video.duration),
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: AppPalette.onVideo,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -322,7 +322,7 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                             ),
                             child: Text(
                               video.jlptLevel,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.periwinkle,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -338,8 +338,8 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                         video.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           height: 1.25,
@@ -354,7 +354,7 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
+                            color: AppPalette.textPrimary.withValues(alpha: 0.6),
                             fontSize: 12,
                           ),
                         ),
@@ -368,14 +368,14 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                           const SizedBox(width: 4),
                           Text(
                             '${video.viewCount}',
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                           ),
                           const SizedBox(width: 12),
                           Icon(Icons.favorite_border_rounded, size: 14, color: AppColors.textSecondary),
                           const SizedBox(width: 4),
                           Text(
                             '${video.likeCount}',
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                           ),
                         ],
                       ),
@@ -392,24 +392,24 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                color: AppPalette.error.withValues(alpha: 0.1),
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
                 border: Border(
                   top: BorderSide(
-                    color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                    color: AppPalette.error.withValues(alpha: 0.2),
                   ),
                 ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline_rounded, color: Color(0xFFEF4444), size: 16),
+                  Icon(Icons.info_outline_rounded, color: AppPalette.error, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Lý do từ chối: ${video.rejectionReason}',
-                      style: const TextStyle(
-                        color: Color(0xFFFCA5A5),
+                      style: TextStyle(
+                        color: AppPalette.error,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -457,14 +457,14 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                           ? 'Không có video nào bị từ chối'
                           : 'Bạn chưa tải lên video nào',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppPalette.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Các bài học bạn chia sẻ ở chế độ Công khai sẽ xuất hiện tại đây để theo dõi tiến trình kiểm duyệt.',
               textAlign: TextAlign.center,
               style: TextStyle(

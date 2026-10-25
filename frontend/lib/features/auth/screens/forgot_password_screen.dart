@@ -189,8 +189,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       border: border(AppPalette.border),
       enabledBorder: border(AppPalette.border),
       focusedBorder: border(AppPalette.accent, 1.5),
-      errorBorder: border(const Color(0xFFE53935)),
-      focusedErrorBorder: border(const Color(0xFFE53935), 1.5),
+      errorBorder: border(AppPalette.error),
+      focusedErrorBorder: border(AppPalette.error, 1.5),
       errorMaxLines: 2,
     );
   }
@@ -199,7 +199,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(
           text,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
             color: AppPalette.textPrimary,
@@ -219,17 +219,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         onPressed: _isLoading ? null : onPressed,
         child: _isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 height: 22,
                 width: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: AppPalette.onAccent),
               )
             : Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: AppPalette.textPrimary,
                 ),
               ),
       ),
@@ -249,11 +249,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   IconButton(
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
-                    icon: const Icon(Icons.arrow_back_ios, size: 20, color: AppPalette.textPrimary),
+                    icon: Icon(Icons.arrow_back_ios, size: 20, color: AppPalette.textPrimary),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
                   const SizedBox(height: 32),
-                  const Text(
+                  Text(
                     'Quên mật khẩu',
                     style: TextStyle(
                       fontSize: 28,
@@ -266,7 +266,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     _codeSent
                         ? 'Nhập mã gồm 6 chữ số đã gửi tới $_email và mật khẩu mới.'
                         : 'Nhập email đã đăng ký, chúng tôi sẽ gửi mã để đặt lại mật khẩu.',
-                    style: const TextStyle(fontSize: 14, color: AppPalette.textSecondary, height: 1.4),
+                    style: TextStyle(fontSize: 14, color: AppPalette.textSecondary, height: 1.4),
                   ),
                   const SizedBox(height: 28),
                   _codeSent ? _buildResetForm() : _buildEmailForm(),
@@ -275,13 +275,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
+                        Text(
                           'Nhớ mật khẩu? ',
                           style: TextStyle(fontSize: 14, color: AppPalette.textSecondary),
                         ),
                         GestureDetector(
                           onTap: _isLoading ? null : () => Navigator.of(context).maybePop(),
-                          child: const Text(
+                          child: Text(
                             'Đăng nhập ngay',
                             style: TextStyle(
                               fontSize: 14,
@@ -317,7 +317,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
             validator: _validateEmail,
             onFieldSubmitted: (_) => _sendCode(),
-            style: const TextStyle(color: AppPalette.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+            style: TextStyle(color: AppPalette.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
             cursorColor: AppPalette.accent,
             decoration: _decoration(hint: 'name@gmail.com', icon: Icons.mail_outline),
           ),
@@ -345,7 +345,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             autovalidateMode: AutovalidateMode.onUserInteraction,
             validator: _validateOtp,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppPalette.textPrimary,
               fontSize: 18,
               letterSpacing: 6,
@@ -379,7 +379,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 _confirmFieldKey.currentState?.validate();
               }
             },
-            style: const TextStyle(color: AppPalette.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+            style: TextStyle(color: AppPalette.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
             cursorColor: AppPalette.accent,
             decoration: _decoration(
               hint: 'Tối thiểu 6 ký tự',
@@ -406,7 +406,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             autovalidateMode: AutovalidateMode.onUserInteraction,
             validator: _validateConfirm,
             onFieldSubmitted: (_) => _resetPassword(),
-            style: const TextStyle(color: AppPalette.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+            style: TextStyle(color: AppPalette.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
             cursorColor: AppPalette.accent,
             decoration: _decoration(hint: 'Nhập lại mật khẩu ở trên', icon: Icons.lock_outline),
           ),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../theme/app_palette.dart';
 
 enum ToastType {
   success,
@@ -265,15 +266,15 @@ class _ToastBubbleState extends State<_ToastBubble>
     final (IconData icon, Color iconColor) = switch (widget.type) {
       ToastType.success => (
           widget.customIcon ?? Icons.check_circle_rounded,
-          const Color(0xFF4ADE80), // Xanh lá sáng nhẹ TikTok style
+          AppPalette.success,
         ),
       ToastType.error => (
           widget.customIcon ?? Icons.error_outline_rounded,
-          const Color(0xFFF87171), // Đỏ cam nhẹ nhàng
+          AppPalette.error,
         ),
       ToastType.info => (
           widget.customIcon ?? Icons.info_outline_rounded,
-          const Color(0xFF60A5FA), // Xanh dương nhẹ
+          AppPalette.info,
         ),
     };
 
@@ -292,16 +293,16 @@ class _ToastBubbleState extends State<_ToastBubble>
                 vertical: 9.5,
               ),
               decoration: BoxDecoration(
-                // Nền đen mờ 88% hòa hợp Dark Mode, không dùng khối màu xanh đặc
-                color: const Color(0xE0171717),
+                // Nền mờ 88% theo màu bề mặt của theme, không dùng khối màu đặc
+                color: AppPalette.surfaceHigh.withValues(alpha: 0.88),
                 borderRadius: BorderRadius.circular(24.0),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: AppPalette.textPrimary.withValues(alpha: 0.12),
                   width: 0.75,
                 ),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x55000000),
+                    color: AppPalette.videoScrim.withValues(alpha: 0.33),
                     blurRadius: 18.0,
                     offset: Offset(0, 6),
                   ),
@@ -319,8 +320,8 @@ class _ToastBubbleState extends State<_ToastBubble>
                   Flexible(
                     child: Text(
                       widget.message,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
                         fontSize: 13.5,
                         fontWeight: FontWeight.w500,
                         letterSpacing: -0.2,

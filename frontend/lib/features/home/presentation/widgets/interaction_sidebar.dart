@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../domain/models/video_post.dart';
 import 'subtitle_mode.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class InteractionSidebar extends StatefulWidget {
   final VideoPost post;
@@ -19,6 +20,9 @@ class InteractionSidebar extends StatefulWidget {
   final VoidCallback? onLikeToggle;
   final VoidCallback? onSaveToggle;
   final VoidCallback? onFollowToggle;
+
+  /// Bấm vào avatar người đăng để mở trang cá nhân của họ.
+  final VoidCallback? onCreatorTap;
   final VoidCallback? onCommentTap;
   final VoidCallback? onShareTap;
   final VoidCallback? onScriptTap;
@@ -35,6 +39,7 @@ class InteractionSidebar extends StatefulWidget {
     this.onLikeToggle,
     this.onSaveToggle,
     this.onFollowToggle,
+    this.onCreatorTap,
     this.onCommentTap,
     this.onShareTap,
     this.onScriptTap,
@@ -47,7 +52,7 @@ class InteractionSidebar extends StatefulWidget {
 
 class _InteractionSidebarState extends State<InteractionSidebar>
     with TickerProviderStateMixin {
-  static const Color _accentBlue = Color(0xFF38BDF8);
+  static Color get _accentBlue => AppPalette.info;
 
   late final AnimationController _likeScaleController;
 
@@ -171,7 +176,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           onTap: widget.onCommentTap,
           icon: Icons.chat_bubble_outline_rounded,
           countFontSize: 10.0,
-          countColor: Colors.white,
+          countColor: AppPalette.onVideo,
         ),
         const SizedBox(height: 8.0),
         _buildActionButton(
@@ -181,8 +186,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
               : Icons.bookmark_border_rounded,
           countText: 'Lưu',
           onTap: _handleSave,
-          iconColor: _isSaved ? _accentBlue : Colors.white,
-          countColor: _isSaved ? _accentBlue : Colors.white,
+          iconColor: _isSaved ? _accentBlue : AppPalette.onVideo,
+          countColor: _isSaved ? _accentBlue : AppPalette.onVideo,
         ),
         const SizedBox(height: 8.0),
 
@@ -235,10 +240,10 @@ class _InteractionSidebarState extends State<InteractionSidebar>
                     : Icons.subtitles_off_outlined,
                 size: 26.0,
                 color: isVisible
-                    ? (theme.isLight ? theme.primaryAdaptive : Colors.white)
+                    ? (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo)
                     : (theme.isLight
                           ? theme.textSecondary.withValues(alpha: 0.5)
-                          : Colors.white54),
+                          : AppPalette.onVideoMuted),
                 shadows: theme.textShadows,
               ),
             ),
@@ -250,10 +255,10 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             fontSize: 10.0,
             fontWeight: isVisible ? FontWeight.bold : FontWeight.w500,
             color: isVisible
-                ? (theme.isLight ? theme.primaryAdaptive : Colors.white)
+                ? (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo)
                 : (theme.isLight
                       ? theme.textSecondary.withValues(alpha: 0.6)
-                      : Colors.white60),
+                      : AppPalette.onVideoMuted),
             shadows: theme.textShadows,
           ),
         ),
@@ -266,35 +271,39 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       alignment: Alignment.center,
       clipBehavior: Clip.none,
       children: [
-        Container(
-          width: 48.0,
-          height: 48.0,
-          padding: const EdgeInsets.all(2.5),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [
-                AppColors.periwinkle,
-                AppColors.lavender,
-                AppColors.sakuraPink,
-              ],
-              begin: Alignment.bottomLeft,
-              end: Alignment.topRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.lavender.withValues(alpha: 0.5),
-                blurRadius: 15.0,
+        GestureDetector(
+          onTap: widget.onCreatorTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: 48.0,
+            height: 48.0,
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.periwinkle,
+                  AppColors.lavender,
+                  AppColors.sakuraPink,
+                ],
+                begin: Alignment.bottomLeft,
+                end: Alignment.topRight,
               ),
-            ],
-          ),
-          child: ClipOval(
-            child: Image.network(
-              widget.post.creatorAvatarUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
-                color: AppColors.surfaceContainerHigh,
-                child: const Icon(Icons.person, color: AppColors.periwinkle),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.lavender.withValues(alpha: 0.5),
+                  blurRadius: 15.0,
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: Image.network(
+                widget.post.creatorAvatarUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  color: AppColors.surfaceContainerHigh,
+                  child: Icon(Icons.person, color: AppColors.periwinkle),
+                ),
               ),
             ),
           ),
@@ -319,7 +328,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
                   BoxShadow(
                     color: _isFollowing
                         ? AppColors.sakuraPink.withValues(alpha: 0.6)
-                        : Colors.black.withValues(alpha: 0.25),
+                        : AppPalette.shadow,
                     blurRadius: 8.0,
                   ),
                 ],
@@ -327,7 +336,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
               child: Icon(
                 _isFollowing ? Icons.check_rounded : Icons.add_rounded,
                 size: 14.0,
-                color: Colors.white,
+                color: AppPalette.onVideo,
               ),
             ),
           ),
@@ -359,7 +368,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
                   size: 26.0,
                   color: isLiked
                       ? AppColors.likeRed
-                      : (theme.isLight ? theme.primaryAdaptive : Colors.white),
+                      : (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo),
                   shadows: _isLiked
                       ? [
                           const Shadow(
@@ -378,7 +387,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           style: TextStyle(
             fontSize: 10.0,
             fontWeight: FontWeight.w600,
-            color: theme.isLight ? theme.primaryAdaptive : Colors.white,
+            color: theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo,
             shadows: theme.textShadows,
           ),
         ),
@@ -419,7 +428,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
                           iconColor ??
                           (theme.isLight
                               ? theme.primaryAdaptive
-                              : Colors.white),
+                              : AppPalette.onVideo),
                       shadows: theme.textShadows,
                     ),
                   ),
@@ -435,7 +444,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
               fontWeight: FontWeight.w600,
               color:
                   countColor ??
-                  (theme.isLight ? theme.primaryAdaptive : Colors.white),
+                  (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo),
               shadows: theme.textShadows,
             ),
           ),

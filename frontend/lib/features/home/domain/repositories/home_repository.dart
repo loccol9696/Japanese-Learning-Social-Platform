@@ -5,5 +5,5 @@ abstract class HomeRepository {
   Future<List<VideoPost>> getFollowingFeed();
   Future<bool> toggleLike(String postId);
   Future<bool> toggleSave(String postId);
-  Future<bool> toggleFollow(String creatorId);
+  Future<bool> setFollow(int creatorId, {required bool follow});
 }

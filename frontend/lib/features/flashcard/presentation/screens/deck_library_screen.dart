@@ -142,7 +142,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
         backgroundColor: AppPalette.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: AppPalette.border, width: 1),
+          side: BorderSide(color: AppPalette.border, width: 1),
         ),
         title: Row(
           children: [
@@ -152,18 +152,18 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                 color: AppPalette.accent.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.delete_outline_rounded,
                 color: AppPalette.accent,
                 size: 22,
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Xác nhận xóa',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppPalette.onAccent,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
@@ -174,7 +174,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
         content: Text(
           'Bạn có chắc chắn muốn xóa bộ từ vựng "${deck.title}" không?\n\nToàn bộ từ vựng và tiến trình học bên trong sẽ bị xóa vĩnh viễn và không thể khôi phục.',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.75),
+            color: AppPalette.textPrimary.withValues(alpha: 0.75),
             fontSize: 14.5,
             height: 1.45,
           ),
@@ -184,7 +184,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               'Hủy',
-              style: TextStyle(color: Colors.white.withOpacity(0.65)),
+              style: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.65)),
             ),
           ),
           ElevatedButton(
@@ -216,17 +216,17 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               );
 
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text('Đã xóa bộ thẻ thành công'),
                   backgroundColor: AppPalette.surface,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
             },
-            child: const Text(
+            child: Text(
               'Xóa bộ thẻ',
               style: TextStyle(
-                color: Colors.white,
+                color: AppPalette.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -244,12 +244,12 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
         backgroundColor: AppPalette.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: AppPalette.border, width: 1),
+          side: BorderSide(color: AppPalette.border, width: 1),
         ),
-        title: const Text(
+        title: Text(
           'Tạo bộ từ vựng mới',
           style: TextStyle(
-            color: Colors.white,
+            color: AppPalette.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
@@ -257,10 +257,10 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
         content: TextField(
           controller: titleController,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: AppPalette.textPrimary),
           decoration: InputDecoration(
             hintText: 'Nhập tên bộ thẻ...',
-            hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+            hintStyle: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.4)),
             filled: true,
             fillColor: AppPalette.surface,
             border: OutlineInputBorder(
@@ -274,7 +274,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               'Hủy',
-              style: TextStyle(color: Colors.white.withOpacity(0.6)),
+              style: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.6)),
             ),
           ),
           ElevatedButton(
@@ -303,10 +303,10 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                 }
               }
             },
-            child: const Text(
+            child: Text(
               'Tạo',
               style: TextStyle(
-                color: Colors.white,
+                color: AppPalette.textPrimary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -397,10 +397,10 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Thư viện thẻ',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppPalette.textPrimary,
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.5,
@@ -413,14 +413,14 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                       color: AppPalette.surface,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.08),
+                        color: AppPalette.textPrimary.withValues(alpha: 0.08),
                         width: 1,
                       ),
                     ),
                     child: IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.add,
-                        color: Colors.white,
+                        color: AppPalette.textPrimary,
                         size: 22,
                       ),
                       onPressed: _openCreateDeck,
@@ -438,21 +438,21 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                 decoration: BoxDecoration(
                   color: AppPalette.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.06)),
                 ),
                 child: TextField(
                   controller: _searchController,
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  style: TextStyle(color: AppPalette.textPrimary, fontSize: 15),
                   onChanged: (val) => _loadDecks(query: val),
                   decoration: InputDecoration(
                     hintText: 'Tìm bộ từ vựng...',
                     hintStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.35),
+                      color: AppPalette.textPrimary.withValues(alpha: 0.35),
                       fontSize: 15,
                     ),
                     prefixIcon: Icon(
                       Icons.search,
-                      color: Colors.white.withOpacity(0.4),
+                      color: AppPalette.textPrimary.withValues(alpha: 0.4),
                       size: 22,
                     ),
                     border: InputBorder.none,
@@ -470,7 +470,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             // Deck List
             Expanded(
               child: _isLoading
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(
                         color: AppPalette.accent,
                       ),
@@ -483,13 +483,13 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                           Icon(
                             Icons.folder_open_outlined,
                             size: 64,
-                            color: Colors.white.withOpacity(0.3),
+                            color: AppPalette.textPrimary.withValues(alpha: 0.3),
                           ),
                           const SizedBox(height: 16),
-                          const Text(
+                          Text(
                             'Chưa có bộ từ vựng nào',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppPalette.textPrimary,
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                             ),
@@ -498,7 +498,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                           Text(
                             'Bấm nút + ở góc phải trên để tạo bộ thẻ đầu tiên',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
+                              color: AppPalette.textPrimary.withValues(alpha: 0.5),
                               fontSize: 14,
                             ),
                           ),
@@ -552,22 +552,22 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.lock_outline_rounded,
                 color: AppPalette.textSecondary,
                 size: 48,
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Đăng nhập để sử dụng Flashcard',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppPalette.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Bộ thẻ và tiến trình học của bạn chỉ hiển thị sau khi đăng nhập.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppPalette.textSecondary),

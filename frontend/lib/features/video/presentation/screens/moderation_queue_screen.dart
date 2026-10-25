@@ -89,12 +89,12 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
               backgroundColor: AppColors.surfaceCard,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               title: Row(
-                children: const [
-                  Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444)),
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: AppPalette.error),
                   SizedBox(width: 8),
                   Text(
                     'Từ chối duyệt video',
-                    style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: AppPalette.textPrimary, fontSize: 17, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -105,7 +105,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Chọn lý do từ chối nhanh:',
                         style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                       ),
@@ -145,7 +145,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                             ),
                           )),
                       const SizedBox(height: 12),
-                      const Text(
+                      Text(
                         'Hoặc ghi rõ lý do chi tiết:',
                         style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                       ),
@@ -153,10 +153,10 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                       TextField(
                         controller: reasonController,
                         maxLines: 3,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        style: TextStyle(color: AppPalette.textPrimary, fontSize: 14),
                         decoration: InputDecoration(
                           hintText: 'Nhập lý do gửi đến người đăng...',
-                          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                          hintStyle: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.3)),
                           filled: true,
                           fillColor: AppColors.surfaceContainerHigh,
                           border: OutlineInputBorder(
@@ -172,11 +172,11 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Hủy', style: TextStyle(color: AppPalette.textSecondary)),
+                  child: Text('Hủy', style: TextStyle(color: AppPalette.textSecondary)),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFEF4444),
+                    backgroundColor: AppPalette.error,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () {
@@ -189,7 +189,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                     }
                     Navigator.of(ctx).pop(text);
                   },
-                  child: const Text('Xác nhận từ chối', style: TextStyle(color: Colors.white)),
+                  child: Text('Xác nhận từ chối', style: TextStyle(color: AppPalette.textPrimary)),
                 ),
               ],
             );
@@ -206,7 +206,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Đã từ chối video "${video.title}" do vi phạm.'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: AppPalette.error,
           ),
         );
         _loadVideos();
@@ -232,12 +232,12 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
         backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppPalette.textPrimary, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           'Duyệt Video Bài Học',
-          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppPalette.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         actions: [
@@ -252,7 +252,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
           _buildStatusBar(),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.periwinkle))
+                ? Center(child: CircularProgressIndicator(color: AppColors.periwinkle))
                 : RefreshIndicator(
                     onRefresh: _loadVideos,
                     color: AppColors.periwinkle,
@@ -313,7 +313,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                   child: Text(
                     t['label']!,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : AppColors.textSecondary,
+                      color: isSelected ? AppPalette.onAccent : AppColors.textSecondary,
                       fontSize: 13,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                     ),
@@ -354,18 +354,18 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                       fit: StackFit.expand,
                       children: [
                         if (video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty)
-                          Image.network(video.thumbnailUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.video_library_rounded, color: AppPalette.border))
+                          Image.network(video.thumbnailUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Icon(Icons.video_library_rounded, color: AppPalette.border))
                         else
-                          const Icon(Icons.video_library_rounded, color: AppPalette.border),
+                          Icon(Icons.video_library_rounded, color: AppPalette.border),
                         Positioned(
                           right: 4,
                           bottom: 4,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(4)),
+                            decoration: BoxDecoration(color: AppPalette.videoScrim.withValues(alpha: 0.87), borderRadius: BorderRadius.circular(4)),
                             child: Text(
                               _formatDuration(video.duration),
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: AppPalette.onVideo, fontSize: 10, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),
@@ -388,13 +388,13 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                             ),
                             child: Text(
                               video.jlptLevel,
-                              style: const TextStyle(color: AppColors.periwinkle, fontSize: 11, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: AppColors.periwinkle, fontSize: 11, fontWeight: FontWeight.bold),
                             ),
                           ),
                           const Spacer(),
                           Text(
                             video.status,
-                            style: const TextStyle(color: AppPalette.textSecondary, fontSize: 11),
+                            style: TextStyle(color: AppPalette.textSecondary, fontSize: 11),
                           ),
                         ],
                       ),
@@ -403,7 +403,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                         video.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: AppPalette.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       if (video.description != null && video.description!.isNotEmpty)
@@ -411,7 +411,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                           video.description!,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                          style: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.6), fontSize: 12),
                         ),
                       const SizedBox(height: 6),
                       if (video.userDisplayName != null || video.username != null)
@@ -423,7 +423,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                                   ? NetworkImage(video.userAvatarUrl!)
                                   : null,
                               child: video.userAvatarUrl == null || video.userAvatarUrl!.isEmpty
-                                  ? const Icon(Icons.person, size: 10, color: AppPalette.textSecondary)
+                                  ? Icon(Icons.person, size: 10, color: AppPalette.textSecondary)
                                   : null,
                             ),
                             const SizedBox(width: 6),
@@ -454,8 +454,8 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                       icon: const Icon(Icons.close_rounded, size: 16),
                       label: const Text('Từ chối'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFEF4444),
-                        side: const BorderSide(color: Color(0xFFEF4444)),
+                        foregroundColor: AppPalette.error,
+                        side: BorderSide(color: AppPalette.error),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
@@ -466,12 +466,12 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                     child: ElevatedButton.icon(
                       onPressed: isProcessing ? null : () => _approveVideo(video),
                       icon: isProcessing
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppPalette.onAccent))
                           : const Icon(Icons.check_rounded, size: 16),
                       label: const Text('Phê duyệt'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppPalette.success,
+                        foregroundColor: AppPalette.onAccent,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
@@ -485,12 +485,12 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                color: AppPalette.error.withValues(alpha: 0.1),
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
               ),
               child: Text(
                 'Lý do vi phạm: ${video.rejectionReason}',
-                style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 12),
+                style: TextStyle(color: AppPalette.error, fontSize: 12),
               ),
             ),
         ],
@@ -503,13 +503,13 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.fact_check_outlined, size: 54, color: AppPalette.border),
+          Icon(Icons.fact_check_outlined, size: 54, color: AppPalette.border),
           const SizedBox(height: 12),
           Text(
             _activeStatus == 'PENDING'
                 ? 'Không có video nào đang chờ duyệt'
                 : 'Hàng đợi trống',
-            style: const TextStyle(color: AppPalette.textSecondary, fontSize: 15, fontWeight: FontWeight.bold),
+            style: TextStyle(color: AppPalette.textSecondary, fontSize: 15, fontWeight: FontWeight.bold),
           ),
         ],
       ),

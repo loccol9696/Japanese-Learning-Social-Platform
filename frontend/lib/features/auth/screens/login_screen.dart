@@ -156,9 +156,9 @@ class _LoginScreenState extends State<LoginScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+              Icon(Icons.warning_amber_rounded, color: AppPalette.warning, size: 28),
               SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -194,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Đóng', style: TextStyle(color: AppPalette.textSecondary)),
+              child: Text('Đóng', style: TextStyle(color: AppPalette.textSecondary)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -219,9 +219,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 );
               },
-              child: const Text(
+              child: Text(
                 'Gửi mã OTP',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: AppPalette.textPrimary),
               ),
             ),
           ],
@@ -262,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 32),
 
                   // 2. Tiêu đề Đăng nhập
-                  const Text(
+                  Text(
                     'Đăng nhập',
                     style: TextStyle(
                       fontSize: 28,
@@ -273,7 +273,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 32),
 
                   // 3. Nhãn Email
-                  const Text(
+                  Text(
                     'Email/Tên đăng nhập',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
@@ -296,7 +296,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       FilteringTextInputFormatter.deny(RegExp(r'\s')),
                     ],
                     autofillHints: const [AutofillHints.email],
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppPalette.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -308,7 +308,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppPalette.textSecondary,
                         fontSize: 14,
                       ),
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.mail_outline,
                         size: 20,
                         color: AppPalette.textSecondary,
@@ -326,19 +326,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
+                        borderSide: BorderSide(
                           color: AppPalette.accent,
                           width: 1.5,
                         ),
                       ),
                       errorBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFE53935)),
+                        borderSide: BorderSide(color: AppPalette.error),
                       ),
                       focusedErrorBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFE53935),
+                        borderSide: BorderSide(
+                          color: AppPalette.error,
                           width: 1.5,
                         ),
                       ),
@@ -348,7 +348,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 20),
 
                   // 4. Nhãn Mật khẩu
-                  const Text(
+                  Text(
                     'Mật khẩu',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
@@ -367,7 +367,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     validator: _validatePassword,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     autofillHints: const [AutofillHints.password],
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppPalette.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -382,7 +382,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppPalette.textSecondary,
                         fontSize: 14,
                       ),
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.lock_outline,
                         size: 20,
                         color: AppPalette.textSecondary,
@@ -414,19 +414,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
+                        borderSide: BorderSide(
                           color: AppPalette.accent,
                           width: 1.5,
                         ),
                       ),
                       errorBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFE53935)),
+                        borderSide: BorderSide(color: AppPalette.error),
                       ),
                       focusedErrorBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFE53935),
+                        borderSide: BorderSide(
+                          color: AppPalette.error,
                           width: 1.5,
                         ),
                       ),
@@ -460,7 +460,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             'Ghi nhớ đăng nhập',
                             style: TextStyle(
                               fontSize: 13,
@@ -482,7 +482,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 );
                               },
-                        child: const Text(
+                        child: Text(
                           'Quên mật khẩu?',
                           style: TextStyle(
                             fontSize: 13,
@@ -509,15 +509,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       onPressed: _isLoading ? null : _handleLogin,
                       child: _isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               height: 22,
                               width: 22,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                color: Colors.white,
+                                color: AppPalette.textPrimary,
                               ),
                             )
-                          : const Row(
+                          : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
@@ -525,14 +525,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    color: AppPalette.textPrimary,
                                   ),
                                 ),
                                 SizedBox(width: 8),
                                 Icon(
                                   Icons.arrow_forward,
                                   size: 18,
-                                  color: Colors.white,
+                                  color: AppPalette.textPrimary,
                                 ),
                               ],
                             ),
@@ -597,14 +597,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 20,
                             width: 20,
                             errorBuilder: (context, error, stackTrace) =>
-                                const Icon(
+                                Icon(
                                   Icons.g_mobiledata,
                                   size: 24,
-                                  color: Colors.red,
+                                  color: AppPalette.error,
                                 ),
                           ),
                           const SizedBox(width: 10),
-                          const Text(
+                          Text(
                             'Google',
                             style: TextStyle(
                               fontSize: 15,
@@ -623,7 +623,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
+                        Text(
                           'Chưa có tài khoản? ',
                           style: TextStyle(fontSize: 14, color: AppPalette.textSecondary),
                         ),
@@ -638,7 +638,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   );
                                 },
-                          child: const Text(
+                          child: Text(
                             'Đăng ký ngay',
                             style: TextStyle(
                               fontSize: 14,

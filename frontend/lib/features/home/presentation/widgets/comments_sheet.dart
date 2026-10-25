@@ -147,8 +147,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         padding: EdgeInsets.only(bottom: bottomInset),
         child: Container(
           height: MediaQuery.sizeOf(context).height * 0.72,
-          decoration: const BoxDecoration(
-            color: Color(0xFF131729),
+          decoration: BoxDecoration(
+            color: AppPalette.surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
@@ -158,7 +158,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.25),
+                  color: AppPalette.textPrimary.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -170,8 +170,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                       child: Center(
                         child: Text(
                           '${_loading ? widget.initialCount : _totalCommentCount} bình luận',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppPalette.textPrimary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -179,7 +179,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: AppPalette.textSecondary),
+                      icon: Icon(Icons.close, color: AppPalette.textSecondary),
                     ),
                   ],
                 ),
@@ -197,11 +197,11 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
       return Center(
-        child: Text(_error!, style: const TextStyle(color: AppPalette.textSecondary)),
+        child: Text(_error!, style: TextStyle(color: AppPalette.textSecondary)),
       );
     }
     if (_comments.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'Chưa có bình luận. Hãy là người đầu tiên!',
           style: TextStyle(color: AppPalette.textSecondary),
@@ -240,8 +240,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 child: comment.avatarUrl.isEmpty
                     ? Text(
                         name.isEmpty ? '?' : name[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
@@ -255,8 +255,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                   children: [
                     Text(
                       name,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
@@ -264,8 +264,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                     const SizedBox(height: 3),
                     Text(
                       comment.content,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         height: 1.3,
@@ -281,7 +281,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          child: const Text(
+                          child: Text(
                             'Trả lời',
                             style: TextStyle(
                               color: AppPalette.textSecondary,
@@ -298,7 +298,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                            child: const Text(
+                            child: Text(
                               'Xóa',
                               style: TextStyle(
                                 color: AppPalette.textSecondary,
@@ -330,12 +330,12 @@ class _CommentsSheetState extends State<_CommentsSheet> {
               controller: _controller,
               minLines: 1,
               maxLines: 3,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: AppPalette.textPrimary),
               decoration: InputDecoration(
                 hintText: _replyTo == null
                     ? 'Thêm bình luận hoặc câu hỏi...'
                     : 'Đang trả lời bình luận',
-                hintStyle: const TextStyle(
+                hintStyle: TextStyle(
                   color: AppPalette.textSecondary,
                   fontSize: 14,
                 ),
@@ -374,17 +374,17 @@ class _CommentsSheetState extends State<_CommentsSheet> {
             child: IconButton(
               onPressed: _sending ? null : _send,
               icon: _sending
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: AppPalette.onAccent,
                       ),
                     )
-                  : const Icon(
+                  : Icon(
                       Icons.send_rounded,
-                      color: Colors.white,
+                      color: AppPalette.textPrimary,
                       size: 20,
                     ),
             ),

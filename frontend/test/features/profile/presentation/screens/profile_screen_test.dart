@@ -7,6 +7,7 @@ import 'package:frontend/features/profile/domain/models/topic_model.dart';
 import 'package:frontend/features/profile/domain/models/user_profile_model.dart';
 import 'package:frontend/features/profile/domain/repositories/profile_repository.dart';
 import 'package:frontend/features/profile/presentation/screens/profile_screen.dart';
+import 'package:frontend/features/profile/presentation/screens/profile_update_screen.dart';
 import 'package:frontend/features/video/domain/models/user_video_model.dart';
 
 class _MockProfileRepository implements ProfileRepository {
@@ -122,9 +123,10 @@ void main() {
     expect(find.textContaining('follower'), findsOneWidget);
     expect(find.textContaining('thích'), findsOneWidget);
 
-    // Hai nút hành động (không icon)
-    expect(find.text('Chỉnh sửa'), findsOneWidget);
-    expect(find.text('Đăng video'), findsOneWidget);
+    // Không còn hàng nút "Chỉnh sửa" / "Đăng video" và thẻ gói miễn phí
+    expect(find.text('Chỉnh sửa'), findsNothing);
+    expect(find.text('Đăng video'), findsNothing);
+    expect(find.text('Gói Miễn phí'), findsNothing);
 
     // Verify "Quản lý upload" button is NOT in main profile body (moved to 3-line menu)
     expect(find.text('Quản lý upload (1)'), findsNothing);
@@ -178,19 +180,59 @@ void main() {
     expect(find.text('Trợ giúp và phản hồi'), findsOneWidget);
     expect(find.text('Đăng xuất'), findsOneWidget);
 
-    // Lối vào quản lý bài đăng chỉ hiện khi có video (mock có 3 video, 1 chờ duyệt)
-    expect(find.text('Quản lý bài đăng'), findsOneWidget);
+    // Lối vào quản lý đăng tải luôn hiện, kèm số video chờ duyệt (mock có 1)
+    expect(find.text('Quản lý đăng tải'), findsOneWidget);
     expect(find.text('1 chờ duyệt'), findsOneWidget);
     // Người dùng thường không thấy mục duyệt video
-    expect(find.text('Duyệt video'), findsNothing);
+    expect(find.text('Quản lý duyệt nội dung'), findsNothing);
 
     // Hàng chưa có tính năng báo "sẽ hoàn thiện"
-    await tester.tap(find.text('Tài khoản'));
+    await tester.tap(find.text('Thông báo'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Tài khoản: Tính năng sẽ được hoàn thiện trong thời gian tới'),
+      find.text('Thông báo: Tính năng sẽ được hoàn thiện trong thời gian tới'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('ProfileScreen settings "Tài khoản" opens the edit profile screen', (tester) async {
+    final mockRepo = _MockProfileRepository();
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: ProfileScreen(repository: mockRepo))),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Tùy chọn & Cài đặt'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tài khoản'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(ProfileUpdateScreen), findsOneWidget);
+
+    // Màn chỉnh sửa gọi mạng thật (timeout 4s) — chờ hết timer trước khi kết thúc test.
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('ProfileScreen settings shows content moderation row for moderators', (tester) async {
+    final mockRepo = _MockProfileRepository()
+      ..profile = const UserProfileModel(
+        id: 2,
+        username: 'mod_san',
+        displayName: 'Mod San',
+        role: 'MODERATOR',
+      );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: ProfileScreen(repository: mockRepo))),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Tùy chọn & Cài đặt'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Quản lý duyệt nội dung'), findsOneWidget);
   });
 
   testWidgets('ProfileScreen settings sheet changes the app language', (tester) async {

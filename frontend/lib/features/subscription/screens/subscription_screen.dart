@@ -17,7 +17,7 @@ class SubscriptionScreen extends StatefulWidget {
 }
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
-  static const Color _linkBlue = Color(0xFF38BDF8);
+  static Color get _linkBlue => AppPalette.info;
 
   final SubscriptionService _service = SubscriptionService();
   List<SubscriptionPlan> _plans = [];
@@ -144,9 +144,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   void _openCheckout() {
     if (_isUserLifetimeVip) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Bạn đang sở hữu Gói Trọn Đời cao cấp nhất!'),
-          backgroundColor: Color(0xFF10B981),
+          backgroundColor: AppPalette.success,
         ),
       );
       return;
@@ -157,11 +157,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     if (_currentOwnedDurationDays > 0 &&
         plan.durationDays <= _currentOwnedDurationDays) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Bạn đang sở hữu gói này. Vui lòng chọn gói cao hơn để nâng cấp!',
           ),
-          backgroundColor: Color(0xFF10B981),
+          backgroundColor: AppPalette.success,
         ),
       );
       return;
@@ -201,18 +201,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         backgroundColor: AppPalette.background,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: AppPalette.surface),
+          side: BorderSide(color: AppPalette.surface),
         ),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.discount_rounded, color: Color(0xFF38BDF8), size: 24),
+            Icon(Icons.discount_rounded, color: AppPalette.info, size: 24),
             SizedBox(width: 8),
             Text(
               'Nhập mã khuyến mãi',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppPalette.textPrimary,
               ),
             ),
           ],
@@ -221,7 +221,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Nhập mã giảm giá từ Kotoba hoặc cộng tác viên để nhận ưu đãi đặc biệt:',
               style: TextStyle(fontSize: 13, color: AppPalette.textSecondary),
             ),
@@ -229,11 +229,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             TextField(
               controller: controller,
               autofocus: true,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: AppPalette.textPrimary),
               textCapitalization: TextCapitalization.characters,
               decoration: InputDecoration(
                 hintText: 'VD: KOTOBA2026, JLPTN1',
-                hintStyle: const TextStyle(
+                hintStyle: TextStyle(
                   color: AppPalette.textSecondary,
                   fontSize: 13,
                 ),
@@ -245,16 +245,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppPalette.surface),
+                  borderSide: BorderSide(color: AppPalette.surface),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppPalette.surface),
+                  borderSide: BorderSide(color: AppPalette.surface),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF38BDF8),
+                  borderSide: BorderSide(
+                    color: AppPalette.info,
                     width: 1.5,
                   ),
                 ),
@@ -265,7 +265,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
+            child: Text(
               'Hủy',
               style: TextStyle(color: AppPalette.textSecondary),
             ),
@@ -285,15 +285,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('Đã áp dụng mã $code thành công!'),
-                    backgroundColor: const Color(0xFF10B981),
+                    backgroundColor: AppPalette.success,
                   ),
                 );
               }
             },
-            child: const Text(
+            child: Text(
               'Áp dụng',
               style: TextStyle(
-                color: Colors.white,
+                color: AppPalette.textPrimary,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -310,11 +310,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       body: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 440), // Mobile container
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppPalette.background, // Rich Dark Navy Background
             boxShadow: [
               BoxShadow(
-                color: Color(0x40000000),
+                color: AppPalette.videoScrim.withValues(alpha: 0.25),
                 blurRadius: 30,
                 offset: Offset(0, 6),
               ),
@@ -329,9 +329,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 // 2. Main Scrollable Content
                 Expanded(
                   child: _isLoading
-                      ? const Center(
+                      ? Center(
                           child: CircularProgressIndicator(
-                            color: Color(0xFF38BDF8),
+                            color: AppPalette.info,
                           ),
                         )
                       : _loadError != null
@@ -341,13 +341,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                             child: Text(
                               _loadError!,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(color: AppPalette.textSecondary),
+                              style: TextStyle(color: AppPalette.textSecondary),
                             ),
                           ),
                         )
                       : RefreshIndicator(
                           onRefresh: _loadData,
-                          color: const Color(0xFF38BDF8),
+                          color: AppPalette.info,
                           backgroundColor: AppPalette.background,
                           child: SingleChildScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
@@ -404,7 +404,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         alignment: Alignment.centerLeft,
         child: IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 18,
             color: AppPalette.textPrimary,
@@ -415,7 +415,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildHeroHeader() {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -458,7 +458,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 1),
                   child: Icon(Icons.check_rounded, size: 18, color: _linkBlue),
                 ),
@@ -466,7 +466,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 Expanded(
                   child: Text(
                     feature,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       color: AppPalette.textPrimary,
                       height: 1.3,
@@ -490,10 +490,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: isLifetime ? const Color(0xFF1E2818) : const Color(0xFF261E08),
+        color: isLifetime ? AppPalette.warningContainer : AppPalette.warningContainer,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isLifetime ? const Color(0xFF10B981) : const Color(0xFF785E08),
+          color: isLifetime ? AppPalette.success : AppPalette.warning,
           width: 1.2,
         ),
       ),
@@ -504,8 +504,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ? Icons.workspace_premium_rounded
                 : Icons.verified_rounded,
             color: isLifetime
-                ? const Color(0xFF34D399)
-                : const Color(0xFFFBBF24),
+                ? AppPalette.success
+                : AppPalette.warning,
             size: 26,
           ),
           const SizedBox(width: 12),
@@ -522,8 +522,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.5,
                     color: isLifetime
-                        ? const Color(0xFF34D399)
-                        : const Color(0xFFFBBF24),
+                        ? AppPalette.success
+                        : AppPalette.warning,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -534,7 +534,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: isLifetime ? Colors.white : const Color(0xFFFDE68A),
+                    color: isLifetime ? AppPalette.onAccent : AppPalette.warning,
                   ),
                 ),
               ],
@@ -611,7 +611,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       ? 'Bạn đang sở hữu Gói Trọn Đời cao cấp nhất!'
                       : 'Bạn đang sử dụng ${plan.name}. Hãy chọn gói cao hơn để nâng cấp!',
                 ),
-                backgroundColor: const Color(0xFF10B981),
+                backgroundColor: AppPalette.success,
                 duration: const Duration(seconds: 2),
               ),
             );
@@ -619,11 +619,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           }
           if (isPlanDisabled) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Text(
                   'Bạn đang sở hữu gói cao hơn - Toàn bộ tính năng đã có sẵn!',
                 ),
-                backgroundColor: Color(0xFF10B981),
+                backgroundColor: AppPalette.success,
                 duration: Duration(seconds: 2),
               ),
             );
@@ -640,7 +640,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isAlreadyOwned
-                  ? const Color(0xFF10B981)
+                  ? AppPalette.success
                   : (isSelected ? AppPalette.accent : AppPalette.surface),
               width: 1.5,
             ),
@@ -665,7 +665,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     ? Container(
                         width: 10,
                         height: 10,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppPalette.accent,
                           shape: BoxShape.circle,
                         ),
@@ -681,7 +681,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       plan.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: AppPalette.textPrimary,
@@ -697,7 +697,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         color: isAlreadyOwned
-                            ? const Color(0xFF6EE7B7)
+                            ? AppPalette.success
                             : AppPalette.textSecondary,
                       ),
                     ),
@@ -709,18 +709,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   if (isAlreadyOwned)
-                    const Text(
+                    Text(
                       'Đã kích hoạt',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF34D399),
+                        color: AppPalette.success,
                       ),
                     )
                   else ...[
                     Text(
                       '${plan.formattedPrice.replaceAll(' ', '')}đ',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: AppPalette.textPrimary,
@@ -730,7 +730,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       const SizedBox(height: 2),
                       Text(
                         '${plan.formattedOriginalPrice?.replaceAll(' ', '')}đ',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           decoration: TextDecoration.lineThrough,
                           color: AppPalette.textSecondary,
@@ -760,7 +760,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           style: TextStyle(
             fontSize: 13,
             color: _appliedPromoCode != null
-                ? const Color(0xFF34D399)
+                ? AppPalette.success
                 : _linkBlue,
           ),
         ),
@@ -769,7 +769,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildDisclaimer() {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.zero,
       child: Text(
         'Đăng ký tự động gia hạn khi tới cuối kỳ, trừ khi bạn huỷ đăng ký trước 24 giờ. Bạn có thể huỷ bất cứ lúc nào trong phần cài đặt tài khoản.',
@@ -784,7 +784,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppPalette.background,
         border: Border(top: BorderSide(color: AppPalette.surface, width: 1)),
       ),
@@ -796,7 +796,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             backgroundColor: isLifetimeOwned
                 ? AppPalette.surface
                 : AppPalette.accent,
-            foregroundColor: AppPalette.textPrimary,
+            foregroundColor: isLifetimeOwned
+                ? AppPalette.textPrimary
+                : AppPalette.onAccent,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),

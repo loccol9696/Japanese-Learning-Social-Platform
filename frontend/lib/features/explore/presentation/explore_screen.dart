@@ -12,18 +12,21 @@ import '../../home/presentation/widgets/video_player_item.dart';
 
 /// Màn Khám phá: tìm kiếm + lọc + lưới video, dữ liệu lấy hoàn toàn từ backend.
 class ExploreScreen extends StatefulWidget {
-  const ExploreScreen({super.key});
+  /// Hiện nút quay lại cạnh ô tìm kiếm khi màn được mở riêng (không nằm trong thanh menu).
+  final bool showBackButton;
+
+  const ExploreScreen({super.key, this.showBackButton = false});
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  static const Color _background = AppPalette.background;
-  static const Color _surface = AppPalette.surface;
-  static const Color _surfaceHigh = AppPalette.surface;
-  static const Color _accent = AppPalette.accent;
-  static const Color _textMuted = AppPalette.textSecondary;
+  static Color get _background => AppPalette.background;
+  static Color get _surface => AppPalette.surface;
+  static Color get _surfaceHigh => AppPalette.surface;
+  static Color get _accent => AppPalette.accent;
+  static Color get _textMuted => AppPalette.textSecondary;
 
   final ExploreService _service = ExploreService.instance;
   final TextEditingController _searchController = TextEditingController();
@@ -211,7 +214,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     // Chừa chỗ cho thanh menu dưới (nằm đè lên nội dung trong HomeScreen).
-    final bottomInset = MediaQuery.of(context).padding.bottom + 84.0;
+    final bottomInset =
+        MediaQuery.of(context).padding.bottom +
+        (widget.showBackButton ? 16.0 : 84.0);
 
     return ColoredBox(
       color: _background,
@@ -261,8 +266,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 child: IconButton(
                   tooltip: 'Quay lại danh sách',
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.black38,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppPalette.videoScrim.withValues(alpha: 0.38),
+                    foregroundColor: AppPalette.onAccent,
                   ),
                   icon: const Icon(Icons.arrow_back_ios_new_rounded),
                   onPressed: _closeVideoFeed,
@@ -276,27 +281,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
-      child: SizedBox(
+    final searchField = SizedBox(
         height: 46,
         child: TextField(
           controller: _searchController,
           onChanged: _onSearchChanged,
           textInputAction: TextInputAction.search,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppPalette.textPrimary,
             fontSize: 14,
           ),
           cursorColor: _accent,
           decoration: InputDecoration(
             hintText: 'Tìm video theo tiêu đề, nội dung...',
-            hintStyle: const TextStyle(color: _textMuted, fontSize: 14),
-            prefixIcon: const Icon(Icons.search_rounded, color: _textMuted),
+            hintStyle: TextStyle(color: _textMuted, fontSize: 14),
+            prefixIcon: Icon(Icons.search_rounded, color: _textMuted),
             suffixIcon: _searchController.text.isEmpty
                 ? null
                 : IconButton(
-                    icon: const Icon(Icons.close_rounded, color: _textMuted),
+                    icon: Icon(Icons.close_rounded, color: _textMuted),
                     onPressed: _clearSearch,
                   ),
             filled: true,
@@ -308,7 +311,26 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           ),
         ),
-      ),
+      );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
+      child: widget.showBackButton
+          ? Row(
+              children: [
+                IconButton(
+                  tooltip: 'Quay lại',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: AppPalette.textPrimary,
+                    size: 20,
+                  ),
+                ),
+                Expanded(child: searchField),
+              ],
+            )
+          : searchField,
     );
   }
 
@@ -337,10 +359,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (filter == ExploreFilter.trending) ...[
-                    const Icon(
+                    Icon(
                       Icons.local_fire_department_rounded,
                       size: 16,
-                      color: Colors.white,
+                      color: AppPalette.onVideo,
                     ),
                     const SizedBox(width: 4),
                   ],
@@ -365,7 +387,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Widget _buildBody(double bottomInset) {
     if (_isLoading && _videos.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: _accent));
+      return Center(child: CircularProgressIndicator(color: _accent));
     }
 
     if (_error != null && _videos.isEmpty) {
@@ -374,7 +396,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         text: _error!,
         action: TextButton(
           onPressed: _loadFirstPage,
-          child: const Text('Thử lại', style: TextStyle(color: _accent)),
+          child: Text('Thử lại', style: TextStyle(color: _accent)),
         ),
       );
     }
@@ -418,7 +440,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             child: Padding(
               padding: EdgeInsets.only(top: 16, bottom: bottomInset),
               child: _isLoadingMore
-                  ? const Center(
+                  ? Center(
                       child: SizedBox(
                         width: 22,
                         height: 22,
@@ -452,7 +474,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             Text(
               text,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: _textMuted, fontSize: 14),
+              style: TextStyle(color: _textMuted, fontSize: 14),
             ),
             ?action,
           ],
@@ -542,7 +564,7 @@ class _ExploreVideoCard extends StatelessWidget {
           previewUrl: previewUrl,
         ),
         // Gradient để chữ dưới đáy dễ đọc
-        const Positioned(
+        Positioned(
           left: 0,
           right: 0,
           bottom: 0,
@@ -552,7 +574,7 @@ class _ExploreVideoCard extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                colors: [Colors.black45, Colors.transparent],
+                colors: [AppPalette.videoScrim.withValues(alpha: 0.45), Colors.transparent],
               ),
             ),
           ),
@@ -564,13 +586,13 @@ class _ExploreVideoCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black54,
+                color: AppPalette.videoScrim.withValues(alpha: 0.54),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 video.jlptLevel,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppPalette.onVideo,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                 ),
@@ -582,16 +604,16 @@ class _ExploreVideoCard extends StatelessWidget {
           bottom: 6,
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.play_arrow_rounded,
                 size: 16,
-                color: Colors.white,
+                color: AppPalette.onVideo,
               ),
               const SizedBox(width: 2),
               Text(
                 _formatCount(video.viewCount),
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppPalette.onVideo,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -611,7 +633,7 @@ class _ExploreVideoCard extends StatelessWidget {
                   ? Icons.bookmark_rounded
                   : Icons.bookmark_border_rounded,
               size: 20,
-              color: video.isSaved ? const Color(0xFFFFC107) : Colors.white,
+              color: video.isSaved ? AppPalette.warning : AppPalette.onVideo,
             ),
           ),
         ),
@@ -648,7 +670,7 @@ class _ExploreVideoCard extends StatelessWidget {
 
   Widget _thumbnailFallback() {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -656,7 +678,7 @@ class _ExploreVideoCard extends StatelessWidget {
         ),
       ),
       alignment: Alignment.center,
-      child: const Icon(
+      child: Icon(
         Icons.play_circle_outline_rounded,
         size: 36,
         color: AppPalette.textSecondary,
@@ -675,9 +697,9 @@ class _ExploreVideoCard extends StatelessWidget {
               : null,
           child: Text(
             video.creatorName.characters.first.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 9,
-              color: Colors.white,
+              color: AppPalette.onVideo,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -688,7 +710,7 @@ class _ExploreVideoCard extends StatelessWidget {
             video.creatorName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppPalette.textSecondary,
               fontSize: 12,
             ),

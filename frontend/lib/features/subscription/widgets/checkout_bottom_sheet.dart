@@ -106,7 +106,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
         top: 24,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppPalette.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -125,7 +125,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             ),
           ),
           const SizedBox(height: 18),
-          const Text(
+          Text(
             'Xác nhận thông tin đơn hàng',
             style: TextStyle(
               fontSize: 18,
@@ -164,7 +164,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                     children: [
                       Text(
                         widget.plan.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: AppPalette.textPrimary,
@@ -193,7 +193,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'Phương thức thanh toán',
             style: TextStyle(
               fontSize: 15,
@@ -207,7 +207,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             title: 'Mô phỏng tức thì (Mock Payment)',
             subtitle: 'Thử nghiệm môi trường DEV/Demo - Kích hoạt ngay',
             icon: Icons.flash_on_rounded,
-            iconColor: Colors.amber.shade800,
+            iconColor: AppPalette.warning,
             enabled: true,
           ),
           _buildPaymentMethodOption(
@@ -230,7 +230,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(
                         Icons.link_rounded,
@@ -255,7 +255,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                       _previewVnpayUrl,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         color: AppPalette.accent,
                         decoration: TextDecoration.underline,
@@ -271,7 +271,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             title: 'Ví điện tử MoMo',
             subtitle: 'Quét mã MoMo nhanh chóng (Sắp ra mắt)',
             icon: Icons.wallet_rounded,
-            iconColor: Colors.pink.shade600,
+            iconColor: AppPalette.like,
             enabled: false,
           ),
           if (_errorMessage != null) ...[
@@ -285,7 +285,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Tổng thanh toán:',
                 style: TextStyle(fontSize: 15, color: AppPalette.textSecondary),
               ),
@@ -306,7 +306,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppPalette.accent,
-                foregroundColor: Colors.white,
+                foregroundColor: AppPalette.onAccent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -314,11 +314,11 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
               ),
               onPressed: _isLoading ? null : _handlePayment,
               child: _isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(
-                        color: Colors.white,
+                        color: AppPalette.textPrimary,
                         strokeWidth: 2.5,
                       ),
                     )

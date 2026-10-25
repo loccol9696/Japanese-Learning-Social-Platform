@@ -84,6 +84,33 @@ public class UserServiceImpl implements UserService {
         return response;
     }
 
+    @Override
+    public com.jlsp.backend.user.dto.response.PublicProfileResponse getPublicProfile(Long viewerId, Long id) {
+        User user = userRepository.findById(id)
+                .filter(u -> Boolean.TRUE.equals(u.getIsActive()))
+                .orElseThrow(() -> new AppException(404, "Không tìm thấy người dùng"));
+        UserResponse stats = userMapper.toResponse(user);
+        enrichUserStats(stats, id);
+        boolean isSelf = id.equals(viewerId);
+        return com.jlsp.backend.user.dto.response.PublicProfileResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .displayName(user.getDisplayName())
+                .avatarUrl(user.getAvatarUrl())
+                .jlptLevel(user.getJlptLevel())
+                .bio(user.getBio())
+                .followersCount(stats.getFollowersCount())
+                .followingCount(stats.getFollowingCount())
+                .likesCount(stats.getLikesCount())
+                .videosCount(stats.getVideosCount())
+                .isFollowing(!isSelf && viewerId != null
+                        && followRepository.existsByIdFollowerIdAndIdFollowingId(viewerId, id))
+                .isFollowedBy(!isSelf && viewerId != null
+                        && followRepository.existsByIdFollowerIdAndIdFollowingId(id, viewerId))
+                .isSelf(isSelf)
+                .build();
+    }
+
     private void enrichUserStats(UserResponse response, Long userId) {
         if (response == null || userId == null) return;
         try {

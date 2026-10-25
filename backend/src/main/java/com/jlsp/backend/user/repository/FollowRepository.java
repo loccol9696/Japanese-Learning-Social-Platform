@@ -2,6 +2,7 @@ package com.jlsp.backend.user.repository;
 
 import com.jlsp.backend.user.entity.Follow;
 import com.jlsp.backend.user.entity.FollowId;
+import com.jlsp.backend.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -28,6 +29,15 @@ public interface FollowRepository extends JpaRepository<Follow, FollowId> {
     boolean existsByIdFollowerIdAndIdFollowingId(Long followerId, Long followingId);
 
     /**
+     * Số quan hệ follow giữa hai người theo cả hai chiều (2 = follow lẫn nhau).
+     * Một câu truy vấn thay cho hai lần {@code exists} để bớt một lượt gọi DB.
+     */
+    @Query("SELECT COUNT(f) FROM Follow f " +
+            "WHERE (f.id.followerId = :userId AND f.id.followingId = :otherId) " +
+            "OR (f.id.followerId = :otherId AND f.id.followingId = :userId)")
+    long countFollowsBetween(@Param("userId") Long userId, @Param("otherId") Long otherId);
+
+    /**
      * Số người mà user này đang theo dõi (following)
      */
     long countByIdFollowerId(Long followerId);
@@ -36,4 +46,30 @@ public interface FollowRepository extends JpaRepository<Follow, FollowId> {
      * Số người đang theo dõi user này (followers)
      */
     long countByIdFollowingId(Long followingId);
+
+    /** ID những người đang theo dõi userId. */
+    @Query("SELECT f.id.followerId FROM Follow f WHERE f.id.followingId = :userId")
+    List<Long> findFollowerIdsByFollowingId(@Param("userId") Long userId);
+
+    /** Những người đang theo dõi userId (chỉ tài khoản đang hoạt động), mới nhất trước. */
+    @Query("SELECT f FROM Follow f JOIN FETCH f.follower u " +
+            "WHERE f.id.followingId = :userId AND u.isActive = true " +
+            "ORDER BY f.createdAt DESC")
+    List<Follow> findFollowersOf(@Param("userId") Long userId);
+
+    /** Những người userId đang theo dõi (chỉ tài khoản đang hoạt động), mới nhất trước. */
+    @Query("SELECT f FROM Follow f JOIN FETCH f.following u " +
+            "WHERE f.id.followerId = :userId AND u.isActive = true " +
+            "ORDER BY f.createdAt DESC")
+    List<Follow> findFollowingOf(@Param("userId") Long userId);
+
+    /**
+     * Những người dùng (đang hoạt động) mà userId và họ follow lẫn nhau.
+     * Chỉ những người này mới được nhắn tin / nhận video share từ userId.
+     */
+    @Query("SELECT u FROM User u WHERE u.isActive = true " +
+            "AND u.id IN (SELECT f.id.followingId FROM Follow f WHERE f.id.followerId = :userId) " +
+            "AND u.id IN (SELECT r.id.followerId FROM Follow r WHERE r.id.followingId = :userId) " +
+            "ORDER BY COALESCE(u.displayName, u.username)")
+    List<User> findMutualFollows(@Param("userId") Long userId);
 }

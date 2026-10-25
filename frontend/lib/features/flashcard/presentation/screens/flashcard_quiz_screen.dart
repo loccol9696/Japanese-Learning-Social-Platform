@@ -232,8 +232,8 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppPalette.background,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Hoàn thành bài trắc nghiệm!', style: TextStyle(color: Colors.white)),
-        content: const Text('Bạn đã hoàn tất tất cả câu hỏi.', style: TextStyle(color: AppPalette.textSecondary)),
+        title: Text('Hoàn thành bài trắc nghiệm!', style: TextStyle(color: AppPalette.textPrimary)),
+        content: Text('Bạn đã hoàn tất tất cả câu hỏi.', style: TextStyle(color: AppPalette.textSecondary)),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
@@ -241,7 +241,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
               Navigator.pop(ctx);
               Navigator.pop(context);
             },
-            child: const Text('Đóng', style: TextStyle(color: Colors.white)),
+            child: Text('Đóng', style: TextStyle(color: AppPalette.onAccent)),
           ),
         ],
       ),
@@ -251,7 +251,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppPalette.background,
         body: Center(child: CircularProgressIndicator(color: AppPalette.accent)),
       );
@@ -313,7 +313,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
               decoration: BoxDecoration(
                 color: AppPalette.surface,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
               ),
               alignment: Alignment.center,
               child: Center(
@@ -321,7 +321,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
                   questionText,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppPalette.textPrimary,
                     fontSize: isOptionsJapanese ? 32 : 46,
                     fontWeight: FontWeight.w700,
                     height: 1.35,
@@ -341,7 +341,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
                 child: Text(
                   'Chọn câu trả lời',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.55),
+                    color: AppPalette.textPrimary.withValues(alpha: 0.55),
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -360,15 +360,15 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
                 itemBuilder: (context, index) {
                   final opt = q.options[index];
                   Color btnBg = AppPalette.background;
-                  Color borderColor = Colors.white.withValues(alpha: 0.08);
+                  Color borderColor = AppPalette.textPrimary.withValues(alpha: 0.08);
 
                   if (_selectedOption != null) {
                     if (opt == q.correctAnswer) {
-                      btnBg = const Color(0xFF0F382E);
-                      borderColor = const Color(0xFF00C7B1);
+                      btnBg = AppPalette.successContainer;
+                      borderColor = AppPalette.success;
                     } else if (opt == _selectedOption) {
-                      btnBg = const Color(0xFF38151D);
-                      borderColor = const Color(0xFFFF2D55);
+                      btnBg = AppPalette.errorContainer;
+                      borderColor = AppPalette.error;
                     }
                   }
 
@@ -385,8 +385,8 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
                       ),
                       child: Text(
                         opt,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),
@@ -407,7 +407,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
                   child: Text(
                     'Bạn không biết?',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
+                      color: AppPalette.textPrimary.withValues(alpha: 0.45),
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
