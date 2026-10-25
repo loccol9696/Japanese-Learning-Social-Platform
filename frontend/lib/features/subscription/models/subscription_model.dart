@@ -138,7 +138,9 @@ class PaymentResponse {
       subscriptionId: json['subscriptionId'] as int?,
       paymentUrl: json['paymentUrl'] as String?,
       paidAt: json['paidAt'] != null ? DateTime.tryParse(json['paidAt']) : null,
-      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'])
+          : null,
     );
   }
 }
@@ -171,17 +173,28 @@ class SubscriptionStatus {
       planId: json['planId'] as int?,
       planName: json['planName'] as String?,
       status: json['status'] as String?,
-      startDate: json['startDate'] != null ? DateTime.tryParse(json['startDate']) : null,
-      endDate: json['endDate'] != null ? DateTime.tryParse(json['endDate']) : null,
+      startDate: json['startDate'] != null
+          ? DateTime.tryParse(json['startDate'])
+          : null,
+      endDate: json['endDate'] != null
+          ? DateTime.tryParse(json['endDate'])
+          : null,
       remainingDays: (json['remainingDays'] as num?)?.toInt() ?? 0,
     );
   }
 
   bool get hasActiveSubscription => isVip;
-  bool get isLifetime => (planName?.contains('Trọn Đời') ?? false) || remainingDays > 3650;
+  bool get isLifetime {
+    final normalizedName = (planName ?? '').toLowerCase();
+    return normalizedName.contains('trọn đời') ||
+        normalizedName.contains('lifetime') ||
+        remainingDays >= 3650;
+  }
+
   String get formattedExpiryDate {
     if (endDate == null) return '';
     return '${endDate!.day.toString().padLeft(2, '0')}/${endDate!.month.toString().padLeft(2, '0')}/${endDate!.year}';
   }
+
   int get daysRemaining => remainingDays;
 }
