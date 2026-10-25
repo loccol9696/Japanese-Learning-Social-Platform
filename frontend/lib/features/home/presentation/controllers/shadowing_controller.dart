@@ -141,7 +141,9 @@ class ShadowingController extends ChangeNotifier {
 
     // Hết giờ: gấp đôi độ dài câu cộng 2 giây.
     final limit = current.end - current.start;
-    final listenFor = Duration(milliseconds: (limit.inMilliseconds * 2) + 2000);
+    var listenFor = Duration(milliseconds: (limit.inMilliseconds * 2) + 2000);
+    // Tối thiểu 8 giây: chừa thời gian cho khởi động micro và cửa sổ xin quyền.
+    if (listenFor < const Duration(seconds: 8)) listenFor = const Duration(seconds: 8);
 
     try {
       await recognizer.start(

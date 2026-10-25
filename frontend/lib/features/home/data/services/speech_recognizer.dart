@@ -35,6 +35,8 @@ class DeviceSpeechRecognizer implements SpeechRecognizer {
   bool _delivered = false;
   String _lastText = '';
   Timer? _deliverTimer;
+  Timer? _silenceTimer;
+  DateTime _lastResultAt = DateTime.now();
   void Function(String text)? _onFinal;
   void Function(String code)? _onError;
 
@@ -85,6 +87,7 @@ class DeviceSpeechRecognizer implements SpeechRecognizer {
     if (_delivered) return;
     _delivered = true;
     _deliverTimer?.cancel();
+    _silenceTimer?.cancel();
     final callback = _onFinal;
     _onFinal = null;
     _onError = null;
@@ -101,7 +104,9 @@ class DeviceSpeechRecognizer implements SpeechRecognizer {
     required void Function(String code) onError,
   }) async {
     _deliverTimer?.cancel();
+    _silenceTimer?.cancel();
     _lastText = '';
+    _lastResultAt = DateTime.now();
     _delivered = false;
     _sawListening = false;
     _onFinal = onFinal;
@@ -109,6 +114,7 @@ class DeviceSpeechRecognizer implements SpeechRecognizer {
     await _speech.listen(
       onResult: (result) {
         _lastText = result.recognizedWords;
+        _lastResultAt = DateTime.now();
         debugPrint('[STT] nghe được: "$_lastText" (final: ${result.finalResult})');
         onPartial(_lastText);
         if (result.finalResult) _scheduleDeliver(const Duration(milliseconds: 150));
@@ -120,13 +126,23 @@ class DeviceSpeechRecognizer implements SpeechRecognizer {
             : ((level + 2) / 12).clamp(0.0, 1.0);
         onLevel(normalized);
       },
+      // Không dùng pauseFor của gói: nó đếm từ lúc bấm micro nên dừng trước khi kịp nói.
+      // Trình duyệt dùng 'ja-JP' (có dấu gạch ngang), nền tảng di động dùng 'ja_JP'.
       listenOptions: SpeechListenOptions(
         partialResults: true,
-        localeId: 'ja_JP',
+        localeId: kIsWeb ? 'ja-JP' : 'ja_JP',
         listenFor: listenFor,
-        pauseFor: const Duration(milliseconds: 2500),
       ),
     );
+
+    // Tự dừng khi đã nghe được chữ và người dùng im lặng khoảng 1,8 giây.
+    _silenceTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
+      if (_delivered || _lastText.isEmpty) return;
+      if (DateTime.now().difference(_lastResultAt) > const Duration(milliseconds: 1800)) {
+        _silenceTimer?.cancel();
+        stop();
+      }
+    });
   }
 
   @override
@@ -140,6 +156,7 @@ class DeviceSpeechRecognizer implements SpeechRecognizer {
   Future<void> cancel() async {
     _delivered = true;
     _deliverTimer?.cancel();
+    _silenceTimer?.cancel();
     _onFinal = null;
     _onError = null;
     await _speech.cancel();
