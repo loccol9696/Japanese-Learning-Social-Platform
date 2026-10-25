@@ -29,7 +29,10 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-    show-sql: true
+        # Quan hệ LAZY được nạp theo lô (WHERE id IN ...) thay vì mỗi dòng một truy vấn.
+        default_batch_fetch_size: 50
+    # In từng câu SQL ra console làm chậm mọi request; bật khi cần debug: JPA_SHOW_SQL=true
+    show-sql: ${JPA_SHOW_SQL:false}
     open-in-view: false
 
   data:
@@ -67,6 +70,10 @@ cloudinary:
 
 server:
   port: 8080
+  # Nén gzip JSON (feed kèm phụ đề khá nặng); app Flutter / trình duyệt tự giải nén.
+  compression:
+    enabled: true
+    min-response-size: 2KB
   servlet:
     encoding:
       charset: UTF-8
