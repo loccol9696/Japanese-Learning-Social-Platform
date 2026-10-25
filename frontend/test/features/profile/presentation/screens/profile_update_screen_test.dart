@@ -254,8 +254,33 @@ void main() {
     await tester.tap(find.text('Đổi ảnh đại diện'));
     await tester.pumpAndSettle();
 
-    // Verify AvatarPickerSheet opened and has "Tải ảnh từ máy / thiết bị" option
-    expect(find.text('Tải ảnh từ máy / thiết bị'), findsOneWidget);
+    // Hồ sơ đang có ảnh nên bảng có đủ 3 mục.
     expect(find.byType(AvatarPickerSheet), findsOneWidget);
+    expect(find.text('Chụp ảnh mới'), findsOneWidget);
+    expect(find.text('Chọn từ thư viện'), findsOneWidget);
+    expect(find.text('Xóa ảnh hiện tại'), findsOneWidget);
+
+    // Xoá ảnh: bảng đóng lại và báo cần bấm Lưu để áp dụng.
+    await tester.tap(find.text('Xóa ảnh hiện tại'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AvatarPickerSheet), findsNothing);
+    expect(find.textContaining('Lưu thay đổi" để áp dụng'), findsOneWidget);
+  });
+
+  testWidgets('AvatarPickerSheet ẩn mục xoá khi chưa có ảnh', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AvatarPickerSheet(
+            hasAvatar: false,
+            onTakePhoto: () {},
+            onPickFromLibrary: () {},
+            onRemove: () {},
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Chụp ảnh mới'), findsOneWidget);
+    expect(find.text('Xóa ảnh hiện tại'), findsNothing);
   });
 }
