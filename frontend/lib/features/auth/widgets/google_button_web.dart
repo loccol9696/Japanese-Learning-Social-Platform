@@ -6,7 +6,7 @@ Widget buildWebGoogleButton(double width) {
   return web.renderButton(
     configuration: web.GSIButtonConfiguration(
       type: web.GSIButtonType.standard,
-      theme: web.GSIButtonTheme.filledBlack,
+      theme: web.GSIButtonTheme.outline,
       size: web.GSIButtonSize.large,
       text: web.GSIButtonText.continueWith,
       shape: web.GSIButtonShape.rectangular,
