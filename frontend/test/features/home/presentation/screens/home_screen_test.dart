@@ -157,8 +157,12 @@ void main() {
     // Verify bottom nav dock
     expect(find.byType(BottomNavDock), findsOneWidget);
     expect(find.text('Trang chủ'), findsOneWidget);
-    expect(find.text('Khám phá'), findsOneWidget);
+    expect(find.text('Tin nhắn'), findsOneWidget);
     expect(find.text('Flashcard'), findsOneWidget);
     expect(find.text('Cá nhân'), findsOneWidget);
+
+    // Khám phá chuyển lên header (icon tìm kiếm), không còn trên thanh dưới
+    expect(find.text('Khám phá'), findsNothing);
+    expect(find.byTooltip('Khám phá'), findsOneWidget);
   });
 }

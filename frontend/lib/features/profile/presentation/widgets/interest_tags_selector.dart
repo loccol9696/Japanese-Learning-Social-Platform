@@ -37,7 +37,7 @@ class InterestTagsSelector extends StatelessWidget {
       children: [
         Text(
           appStrings.selectInterests,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13.0,
             color: AppPalette.textSecondary,
           ),

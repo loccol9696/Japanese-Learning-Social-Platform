@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/video_post.dart';
+import '../../../../core/theme/app_palette.dart';
 
 /// Thông tin video ở góc dưới: gom nhóm @username và Badge JLPT gọn gàng bên dưới phần script
 class VideoInfoOverlay extends StatelessWidget {
   final VideoPost post;
   final AdaptiveVideoTheme? theme;
 
+  /// Bấm vào @username để mở trang cá nhân người đăng.
+  final VoidCallback? onCreatorTap;
+
   const VideoInfoOverlay({
     super.key,
     required this.post,
     this.theme,
+    this.onCreatorTap,
   });
 
   @override
@@ -37,21 +42,27 @@ class VideoInfoOverlay extends StatelessWidget {
             children: [
               if (hasCreator)
                 Flexible(
-                  child: Text(
-                    post.creatorTag,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Color(0x99000000),
-                          offset: Offset(0, 1),
-                          blurRadius: 4.0,
-                        ),
-                      ],
+                  child: GestureDetector(
+                    onTap: onCreatorTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: Text(
+                      post.creatorTag,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15.0,
+                        fontWeight: FontWeight.bold,
+                        color: AppPalette.onVideo,
+                        shadows: [
+                          Shadow(
+                            color: AppPalette.videoScrim.withValues(
+                              alpha: 0.60,
+                            ),
+                            offset: Offset(0, 1),
+                            blurRadius: 4.0,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -65,9 +76,9 @@ class VideoInfoOverlay extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: activeTheme.jlptBadgeBackground,
                     borderRadius: BorderRadius.circular(10.0),
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
-                        color: Color(0x40000000),
+                        color: AppPalette.videoScrim.withValues(alpha: 0.25),
                         blurRadius: 4.0,
                         offset: Offset(0, 1),
                       ),
@@ -96,7 +107,7 @@ class VideoInfoOverlay extends StatelessWidget {
                 Icons.local_cafe_rounded,
                 size: 13.0,
                 color: activeTheme.isLight
-                    ? const Color(0xFFD97706)
+                    ? AppPalette.warning
                     : AppColors.warmPeach,
               ),
               const SizedBox(width: 4.0),
@@ -108,10 +119,10 @@ class VideoInfoOverlay extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12.0,
                     fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.85),
-                    shadows: const [
+                    color: AppPalette.onVideo.withValues(alpha: 0.85),
+                    shadows: [
                       Shadow(
-                        color: Color(0x80000000),
+                        color: AppPalette.videoScrim.withValues(alpha: 0.50),
                         offset: Offset(0, 1),
                         blurRadius: 3.0,
                       ),

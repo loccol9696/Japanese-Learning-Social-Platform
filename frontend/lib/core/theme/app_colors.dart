@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'app_palette.dart';
 
+/// Tên màu theo ngữ nghĩa Material, dùng trong UI. Màu phụ thuộc theme (nền,
+/// thẻ, chữ, viền, trạng thái) đều là getter đọc từ [AppPalette]; chỉ các màu
+/// trang trí không đổi theo theme mới là hằng số.
 class AppColors {
   AppColors._();
 
-  // Màu chủ đạo (primary, viền focus, nút chính) lấy từ AppPalette.accent;
-  // nền, thẻ, chữ lấy từ AppPalette. Các màu trang trí còn lại giữ nguyên.
-  static const Color periwinkle = AppPalette.accent; // Main Primary
+  // ---- Màu trang trí: giữ nguyên ở cả hai chế độ ----
   static const Color softSkyBlue = Color(
     0xFF92B9E3,
   ); // Soft Sky / Secondary Blue
@@ -21,48 +22,51 @@ class AppColors {
   static const Color likeRed = Color(0xFFFE2C55); // TikTok-style Like red
   static const Color saveYellow = Color(0xFFFFD700); // TikTok-style Save yellow
 
-  // Primary & Secondary Aliases
-  static const Color primary = periwinkle; // #6C7EE1
-  static const Color secondary = sakuraPink; // #FBA2D0
-  static const Color tertiary = softSkyBlue; // #92B9E3
-  static const Color peach = warmPeach; // #FFC4A4
-  static const Color purple = lavender; // #C688EB
+  // Màu thương hiệu bên thứ ba (VNPay): cố định, không đổi theo theme.
+  static const Color vnpayBlue = Color(0xFF005BAA);
+  static const Color vnpayBlueLight = Color(0xFF0072CE);
 
-  static const Color primaryFixed = Color(0xFFE4E8FB);
-  static const Color primaryFixedDim = Color(0xFFBAC4F5);
-  static const Color primaryContainer = Color(0xFF28367F);
+  // ---- Màu chủ đạo (theo theme) ----
+  static Color get periwinkle => AppPalette.accent; // Main Primary
+  static Color get primary => AppPalette.accent;
+  static const Color secondary = sakuraPink;
+  static const Color tertiary = softSkyBlue;
+  static const Color peach = warmPeach;
+  static const Color purple = lavender;
 
-  // Background & Surfaces (Harmonized Deep Midnight Indigo)
-  static const Color background = AppPalette.background;
-  static const Color backgroundCanvas = AppPalette.background;
-  static const Color surface = AppPalette.surface;
-  static const Color surfaceDim = AppPalette.background;
-  static const Color surfaceCard = AppPalette.surface;
-  static const Color surfaceCardSubtle = AppPalette.surface;
-  static const Color surfaceContainer = AppPalette.surface;
-  static const Color surfaceContainerLow = AppPalette.surface;
-  static const Color surfaceContainerHigh = AppPalette.surface;
-  static const Color surfaceContainerHighest = AppPalette.surface;
-  static const Color surfaceOverlay = Color(
-    0xBF0E1326,
-  ); // rgba(14, 19, 38, 0.75)
-  static const Color dockBackground = AppPalette.surface; // 95% opacity
+  static Color get primaryFixed => AppPalette.accentSoft;
+  static Color get primaryFixedDim => AppPalette.accentSoft;
+  static Color get primaryContainer => AppPalette.accentSoft;
 
-  // Outlines & Borders
-  static const Color outline = AppPalette.textSecondary;
-  static const Color outlineVariant = AppPalette.border;
-  static const Color borderGlow = AppPalette.accent;
+  // ---- Nền & bề mặt ----
+  static Color get background => AppPalette.background;
+  static Color get backgroundCanvas => AppPalette.background;
+  static Color get surface => AppPalette.surface;
+  static Color get surfaceDim => AppPalette.background;
+  static Color get surfaceCard => AppPalette.surface;
+  static Color get surfaceCardSubtle => AppPalette.surface;
+  static Color get surfaceContainer => AppPalette.surface;
+  static Color get surfaceContainerLow => AppPalette.surface;
+  static Color get surfaceContainerHigh => AppPalette.surfaceHigh;
+  static Color get surfaceContainerHighest => AppPalette.surfaceHighest;
+  static Color get surfaceOverlay => AppPalette.scrim;
+  static Color get dockBackground => AppPalette.surface;
 
-  // Typography & On-Colors
-  static const Color onSurface = AppPalette.textPrimary;
-  static const Color onSurfaceVariant = AppPalette.textSecondary;
-  static const Color textPrimary = AppPalette.textPrimary;
-  static const Color textSecondary = AppPalette.textSecondary;
-  static const Color textInverse = Color(0xFFFFFFFF);
-  static const Color onPrimary = Color(0xFFFFFFFF);
+  // ---- Viền ----
+  static Color get outline => AppPalette.textSecondary;
+  static Color get outlineVariant => AppPalette.border;
+  static Color get borderGlow => AppPalette.accent;
+
+  // ---- Chữ & màu "on" ----
+  static Color get onSurface => AppPalette.textPrimary;
+  static Color get onSurfaceVariant => AppPalette.textSecondary;
+  static Color get textPrimary => AppPalette.textPrimary;
+  static Color get textSecondary => AppPalette.textSecondary;
+  static Color get textInverse => AppPalette.background;
+  static Color get onPrimary => AppPalette.onAccent;
   static const Color onSecondary = Color(0xFF2B0E1E);
 
-  // Status & Accents
-  static const Color success = Color(0xFF4ADE80);
-  static const Color error = Color(0xFFF87171);
+  // ---- Trạng thái ----
+  static Color get success => AppPalette.success;
+  static Color get error => AppPalette.error;
 }

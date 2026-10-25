@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import '../core/constants/app_constants.dart';
 import '../core/localization/locale_manager.dart';
 import '../core/theme/app_theme.dart';
+import '../core/theme/theme_manager.dart';
 import '../core/widgets/app_toast.dart';
 import '../features/auth/data/auth_session.dart';
 import '../features/auth/screens/login_screen.dart';
+import '../features/chat/data/services/chat_hub.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import 'routes.dart';
 
@@ -46,6 +48,12 @@ class _AppState extends State<App> {
   @override
   void initState() {
     super.initState();
+    // Chat: bật/tắt socket theo đăng nhập và theo dõi số tin chưa đọc.
+    ChatHub.instance.init();
+    // Theme: khôi phục lựa chọn sáng/tối đã lưu; đổi theme thì dựng lại toàn bộ
+    // cây widget để cả các widget `const` cũng nhận màu mới.
+    themeManager.init();
+    themeManager.addListener(_rebuildEverything);
     // Phiên hết hạn ở bất kỳ màn nào: về màn Đăng nhập và báo cho người dùng.
     _expiredSubscription = AuthSession.instance.sessionExpired.listen((_) {
       AppToast.navigatorKey.currentState?.pushAndRemoveUntil(
@@ -58,20 +66,34 @@ class _AppState extends State<App> {
 
   @override
   void dispose() {
+    themeManager.removeListener(_rebuildEverything);
     _expiredSubscription?.cancel();
     super.dispose();
+  }
+
+  /// Màu được đọc qua getter toàn cục nên widget `const` sẽ không tự dựng lại;
+  /// đánh dấu mọi element cần build để giữ nguyên route hiện tại mà vẫn đổi màu.
+  void _rebuildEverything() {
+    void mark(Element element) {
+      element.markNeedsBuild();
+      element.visitChildren(mark);
+    }
+
+    WidgetsBinding.instance.rootElement?.visitChildren(mark);
   }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: localeManager,
+      listenable: Listenable.merge([localeManager, themeManager]),
       builder: (context, _) {
         return MaterialApp(
           title: AppConstants.appName,
           debugShowCheckedModeBanner: false,
           navigatorKey: AppToast.navigatorKey,
-          theme: AppTheme.darkTheme,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeManager.mode,
           scrollBehavior: const AppScrollBehavior(),
           home: const AuthGate(),
           routes: AppRoutes.routes,

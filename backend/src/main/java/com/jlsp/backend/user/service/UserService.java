@@ -14,6 +14,9 @@ public interface UserService {
 
     UserResponse getUserByUsername(String username);
 
+    /** Trang cá nhân công khai của một người, kèm quan hệ theo dõi với viewerId. */
+    com.jlsp.backend.user.dto.response.PublicProfileResponse getPublicProfile(Long viewerId, Long id);
+
     PageResponse<UserResponse> getAllUsers(Pageable pageable);
 
     UserResponse updateUser(Long id, UpdateUserRequest request);

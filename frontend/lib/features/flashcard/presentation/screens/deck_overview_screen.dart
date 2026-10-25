@@ -117,7 +117,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
   }
 
   /// Đỏ cho thao tác xóa trong bảng tùy chọn bộ thẻ.
-  static const Color _dangerRed = Color(0xFFFF5C6C);
+  static Color get _dangerRed => AppPalette.error;
 
   void _openDeckActionsSheet() {
     showModalBottomSheet(
@@ -162,7 +162,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 },
               ),
 
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 28),
                 child: Divider(height: 1, color: AppPalette.border),
               ),
@@ -221,22 +221,22 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: AppPalette.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Xóa bộ thẻ vĩnh viễn?',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(color: AppPalette.textPrimary, fontWeight: FontWeight.bold, fontSize: 18),
         ),
         content: Text(
           'Bạn có chắc chắn muốn xóa bộ thẻ "${widget.deck.title}"? Hành động này không thể hoàn tác.',
-          style: const TextStyle(color: AppPalette.textSecondary, fontSize: 14, height: 1.4),
+          style: TextStyle(color: AppPalette.textSecondary, fontSize: 14, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Hủy', style: TextStyle(color: AppPalette.textSecondary)),
+            child: Text('Hủy', style: TextStyle(color: AppPalette.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: AppPalette.error,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
@@ -257,7 +257,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 },
               );
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text('Đã xóa bộ thẻ thành công'),
                   backgroundColor: AppPalette.surface,
                   behavior: SnackBarBehavior.floating,
@@ -265,7 +265,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
               );
               Navigator.pop(context, true);
             },
-            child: const Text('Xóa vĩnh viễn', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            child: Text('Xóa vĩnh viễn', style: TextStyle(color: AppPalette.textPrimary, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -307,7 +307,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text('Đã đặt lại tiến trình thẻ thành công'),
         backgroundColor: AppPalette.surface,
         behavior: SnackBarBehavior.floating,
@@ -395,7 +395,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
           padding: const EdgeInsets.symmetric(vertical: 22),
           decoration: BoxDecoration(
             border: showDivider
-                ? const Border(
+                ? Border(
                     bottom: BorderSide(color: AppPalette.surface, width: 1),
                   )
                 : null,
@@ -407,14 +407,14 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppPalette.textPrimary,
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
                 color: AppPalette.textSecondary,
                 size: 22,
@@ -450,20 +450,20 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        icon: Icon(Icons.arrow_back, color: AppPalette.textPrimary),
                         onPressed: () => Navigator.pop(context),
                       ),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 23),
+                            icon: Icon(Icons.settings_outlined, color: AppPalette.textPrimary, size: 23),
                             onPressed: _openStudyOptions,
                             splashRadius: 22,
                           ),
                           if (_isAuthor)
                             IconButton(
-                              icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 23),
+                              icon: Icon(Icons.more_vert_rounded, color: AppPalette.textPrimary, size: 23),
                               onPressed: _openDeckActionsSheet,
                               splashRadius: 22,
                             ),
@@ -478,22 +478,22 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                   height: 230,
                   margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: _isLoading
-                      ? const Center(
+                      ? Center(
                           child: CircularProgressIndicator(color: AppPalette.accent),
                         )
                       : _cards.isEmpty
                           ? Container(
                               decoration: BoxDecoration(
-                                color: const Color(0xFF161924),
+                                color: AppPalette.surface,
                                 borderRadius: BorderRadius.circular(24),
-                                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
                               ),
                               alignment: Alignment.center,
                               child: Text(
                                 _options.starredOnly
                                     ? 'Không có từ vựng nào được gắn sao'
                                     : 'Chưa có từ vựng trong bộ thẻ',
-                                style: const TextStyle(color: AppPalette.textSecondary, fontSize: 15),
+                                style: TextStyle(color: AppPalette.textSecondary, fontSize: 15),
                               ),
                             )
                           : PageView.builder(
@@ -523,8 +523,8 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                             Icons.arrow_back_ios_new_rounded,
                             size: 18,
                             color: _currentPage > 0
-                                ? Colors.white
-                                : Colors.white.withOpacity(0.2),
+                                ? AppPalette.textPrimary
+                                : AppPalette.textPrimary.withValues(alpha: 0.2),
                           ),
                           onPressed: _currentPage > 0
                               ? () {
@@ -541,13 +541,13 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF161822),
+                            color: AppPalette.surface,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.06)),
+                            border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.06)),
                           ),
                           child: Text(
                             '${_currentPage + 1} / ${_cards.length}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppPalette.textSecondary,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -562,8 +562,8 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                             Icons.arrow_forward_ios_rounded,
                             size: 18,
                             color: _currentPage < _cards.length - 1
-                                ? Colors.white
-                                : Colors.white.withOpacity(0.2),
+                                ? AppPalette.textPrimary
+                                : AppPalette.textPrimary.withValues(alpha: 0.2),
                           ),
                           onPressed: _currentPage < _cards.length - 1
                               ? () {
@@ -587,8 +587,8 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                     children: [
                       Text(
                         widget.deck.title,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
                         ),
@@ -596,7 +596,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                       const SizedBox(height: 6),
                       Text(
                         '${widget.deck.totalCards > 0 ? widget.deck.totalCards : _cards.length} thuật ngữ',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppPalette.textSecondary,
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -861,7 +861,7 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
               _isPlayingAudio ? Icons.volume_up_rounded : Icons.volume_up_outlined,
               color: _isPlayingAudio
                   ? AppPalette.accent
-                  : Colors.white.withValues(alpha: 0.5),
+                  : AppPalette.textPrimary.withValues(alpha: 0.5),
               size: 22,
             ),
           ),
@@ -912,7 +912,7 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
         border: Border.all(color: AppPalette.border, width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: AppPalette.shadow,
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -930,7 +930,7 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
             child: IconButton(
               icon: Icon(
                 widget.card.isStarred ? Icons.star_rounded : Icons.star_outline_rounded,
-                color: widget.card.isStarred ? const Color(0xFFFFCC00) : Colors.white.withValues(alpha: 0.4),
+                color: widget.card.isStarred ? AppPalette.gold : AppPalette.textPrimary.withValues(alpha: 0.4),
                 size: 24,
               ),
               onPressed: widget.onToggleStar,
@@ -946,7 +946,7 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
                   displayText,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppPalette.textPrimary,
                     fontSize: frontFace == 'term' ? 40 : 26,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.5,
@@ -973,7 +973,7 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
         border: Border.all(color: AppPalette.border, width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: AppPalette.shadow,
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -991,7 +991,7 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
             child: IconButton(
               icon: Icon(
                 widget.card.isStarred ? Icons.star_rounded : Icons.star_outline_rounded,
-                color: widget.card.isStarred ? const Color(0xFFFFCC00) : Colors.white.withValues(alpha: 0.4),
+                color: widget.card.isStarred ? AppPalette.gold : AppPalette.textPrimary.withValues(alpha: 0.4),
                 size: 24,
               ),
               onPressed: widget.onToggleStar,
@@ -1009,7 +1009,7 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
                   backText,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppPalette.textPrimary,
                     fontSize: frontFace == 'term' ? 24 : 38,
                     fontWeight: FontWeight.w700,
                   ),

@@ -37,7 +37,7 @@ class ProfileUpdateScreen extends StatefulWidget {
 
 class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
   /// Xanh dương nhạt cho liên kết "Đổi ảnh đại diện".
-  static const Color _linkBlue = Color(0xFF38BDF8);
+  static Color get _linkBlue => AppPalette.info;
 
   late final ProfileRepository _repository;
 
@@ -159,7 +159,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
               _isUploadingAvatar = false;
             });
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Row(
                   children: [
                     Icon(Icons.check_circle_rounded, color: AppColors.success),
@@ -189,7 +189,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
         _isUploadingAvatar = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Row(
             children: [
               Icon(Icons.check_circle_rounded, color: AppColors.success),
@@ -270,7 +270,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: AppColors.success),
+              Icon(Icons.check_circle_rounded, color: AppColors.success),
               const SizedBox(width: 10.0),
               Expanded(
                 child: Text(
@@ -309,7 +309,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
   @override
   Widget build(BuildContext context) {
     final content = _isLoading
-        ? const Center(
+        ? Center(
             child: CircularProgressIndicator(color: AppPalette.accent),
           )
         : Form(
@@ -374,7 +374,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
         centerTitle: true,
         leading: Navigator.canPop(context)
             ? IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_back_ios_new_rounded,
                   color: AppPalette.textPrimary,
                   size: 18.0,
@@ -392,7 +392,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
   Widget _buildTitle() {
     return Text(
       appStrings.editProfile,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 16.0,
         fontWeight: FontWeight.w700,
         color: AppPalette.textPrimary,
@@ -429,7 +429,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                 ? null
                 : (context, error) {},
             child: _isUploadingAvatar
-                ? const SizedBox(
+                ? SizedBox(
                     width: 24.0,
                     height: 24.0,
                     child: CircularProgressIndicator(
@@ -440,7 +440,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                 : (avatarImage == null
                       ? Text(
                           initial,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppPalette.textPrimary,
                             fontSize: 30.0,
                             fontWeight: FontWeight.w600,
@@ -452,7 +452,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
         const SizedBox(height: 12.0),
         GestureDetector(
           onTap: _isUploadingAvatar ? null : _openAvatarPicker,
-          child: const Text(
+          child: Text(
             'Đổi ảnh đại diện',
             style: TextStyle(
               color: _linkBlue,
@@ -470,7 +470,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13.0,
           color: AppPalette.textSecondary,
         ),
@@ -487,14 +487,14 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
           controller: _displayNameController,
           cursorColor: AppPalette.accent,
           onChanged: (_) => setState(() {}),
-          style: const TextStyle(
+          style: TextStyle(
             color: AppPalette.textPrimary,
             fontSize: 16.0,
             fontWeight: FontWeight.w700,
           ),
           decoration: InputDecoration(
             hintText: appStrings.displayNamePlaceholder,
-            hintStyle: const TextStyle(color: AppPalette.textSecondary),
+            hintStyle: TextStyle(color: AppPalette.textSecondary),
             filled: true,
             fillColor: AppPalette.surfaceHigh,
             contentPadding: const EdgeInsets.symmetric(
@@ -511,7 +511,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10.0),
-              borderSide: const BorderSide(
+              borderSide: BorderSide(
                 color: AppPalette.accent,
                 width: 1.5,
               ),
@@ -551,13 +551,13 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
           child: Text.rich(
             TextSpan(
               children: [
-                const TextSpan(
+                TextSpan(
                   text: '@ ',
                   style: TextStyle(color: AppPalette.textSecondary),
                 ),
                 TextSpan(
                   text: _profile.username,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppPalette.textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
@@ -574,7 +574,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
   /// Nút lưu cố định ở đáy màn hình, có đường kẻ mảnh phía trên.
   Widget _buildSaveBar() {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppPalette.background,
         border: Border(top: BorderSide(color: AppPalette.surface)),
       ),
@@ -588,8 +588,8 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppPalette.accent,
               disabledBackgroundColor: AppPalette.accent.withValues(alpha: 0.6),
-              foregroundColor: AppPalette.textPrimary,
-              disabledForegroundColor: AppPalette.textPrimary,
+              foregroundColor: AppPalette.onAccent,
+              disabledForegroundColor: AppPalette.onAccent,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10.0),
@@ -600,7 +600,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                 ? Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SizedBox(
+                      SizedBox(
                         width: 18.0,
                         height: 18.0,
                         child: CircularProgressIndicator(

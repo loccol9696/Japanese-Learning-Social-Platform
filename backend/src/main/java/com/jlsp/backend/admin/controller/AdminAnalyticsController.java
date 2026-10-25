@@ -135,7 +135,7 @@ public class AdminAnalyticsController {
             Map<LocalDate, Long> tokenTrendMap = tokenUsages.stream()
                     .filter(u -> u.getUsageDate() != null)
                     .collect(Collectors.groupingBy(
-                            UserDailyTokenUsage::getUsageDate,
+                            u -> u.getUsageDate(),
                             Collectors.summingLong(u -> u.getTokensUsed() != null ? u.getTokensUsed() : 0L)
                     ));
 
@@ -249,7 +249,7 @@ public class AdminAnalyticsController {
                                 && u.getUsageDate().getYear() == targetYear
                                 && u.getUsageDate().getMonthValue() == targetMonth)
                         .collect(Collectors.groupingBy(
-                                UserDailyTokenUsage::getUsageDate,
+                                u -> u.getUsageDate(),
                                 Collectors.summingLong(u -> u.getTokensUsed() != null ? u.getTokensUsed() : 0L)
                         ));
 
@@ -369,7 +369,7 @@ public class AdminAnalyticsController {
                 Map<LocalDate, Long> map = usages.stream()
                         .filter(u -> u.getUsageDate() != null)
                         .collect(Collectors.groupingBy(
-                                UserDailyTokenUsage::getUsageDate,
+                                u -> u.getUsageDate(),
                                 Collectors.summingLong(u -> u.getTokensUsed() != null ? u.getTokensUsed() : 0L)
                         ));
 

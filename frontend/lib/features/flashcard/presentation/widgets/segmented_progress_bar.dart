@@ -27,13 +27,13 @@ class SegmentedProgressBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppPalette.surface,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
           ),
           alignment: Alignment.center,
           child: Text(
             '$currentIndex',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppPalette.textPrimary,
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -68,13 +68,13 @@ class SegmentedProgressBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppPalette.surface,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
           ),
           alignment: Alignment.center,
           child: Text(
             '$totalCount',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: AppPalette.textPrimary.withValues(alpha: 0.6),
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),

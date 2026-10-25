@@ -4,15 +4,16 @@ import com.jlsp.backend.common.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.Duration;
+import java.util.Collection;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -82,6 +83,6 @@ class RefreshTokenServiceTest {
         verify(redis).delete("auth:rt:h1");
         verify(redis).delete("auth:rt:h2");
         verify(redis).delete("auth:rt:user:7");
-        verify(redis, org.mockito.Mockito.never()).delete(any(java.util.Collection.class));
+        verify(redis, org.mockito.Mockito.never()).delete(ArgumentMatchers.<Collection<String>>any());
     }
 }

@@ -44,14 +44,14 @@ class SubscriptionSuccessDialog extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.workspace_premium_rounded,
                 size: 46,
-                color: Colors.white,
+                color: AppPalette.onAccent,
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'Nâng Cấp Kotoba Premium Thành Công!',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -97,7 +97,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppPalette.accent,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppPalette.onAccent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -144,7 +144,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
               color: AppPalette.textPrimary,

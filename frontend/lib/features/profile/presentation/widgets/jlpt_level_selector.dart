@@ -23,7 +23,7 @@ class JlptLevelSelector extends StatelessWidget {
       children: [
         Text(
           appStrings.selectJlptLevel,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13.0,
             color: AppPalette.textSecondary,
           ),

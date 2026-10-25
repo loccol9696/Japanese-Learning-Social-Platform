@@ -12,19 +12,19 @@ import '../../domain/models/ruby_segment.dart';
 import 'save_to_deck_sheet.dart';
 import '../../../../core/theme/app_palette.dart';
 
-const _subtitleTextStyle = TextStyle(
-  fontFamilyFallback: ['NotoSansJP'],
+TextStyle get _subtitleTextStyle => TextStyle(
+  fontFamilyFallback: const ['NotoSansJP'],
   fontSize: 15.5,
   fontWeight: FontWeight.bold,
-  color: Colors.white,
+  color: AppPalette.onVideo,
   height: 1.45,
   letterSpacing: 0.2,
   shadows: [
-    Shadow(color: Color(0x99000000), offset: Offset(0, 1), blurRadius: 4.0),
+    Shadow(color: AppPalette.shadow, offset: const Offset(0, 1), blurRadius: 4.0),
   ],
 );
 
-const _accent = AppPalette.accent;
+Color get _accent => AppPalette.accent;
 
 /// Phụ đề video. Khi có [sentence] (câu phụ đề thật), câu được tách thành
 /// từng từ: rê chuột (hoặc chạm) vào từ để xem cách đọc, nghĩa và lưu vào
@@ -236,12 +236,12 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
                   style: TextStyle(
                     fontSize: 13.0,
                     fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.85),
+                    color: AppPalette.onVideo.withValues(alpha: 0.85),
                     height: 1.4,
                     letterSpacing: 0.1,
-                    shadows: const [
+                    shadows: [
                       Shadow(
-                        color: Color(0x80000000),
+                        color: AppPalette.videoScrim.withValues(alpha: 0.50),
                         offset: Offset(0, 1),
                         blurRadius: 3.0,
                       ),
@@ -317,9 +317,9 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
               fontWeight: FontWeight.w600,
               color: theme.furiganaColor,
               height: 1.2,
-              shadows: const [
+              shadows: [
                 Shadow(
-                  color: Color(0x80000000),
+                  color: AppPalette.videoScrim.withValues(alpha: 0.50),
                   offset: Offset(0, 1),
                   blurRadius: 3.0,
                 ),
@@ -362,8 +362,8 @@ class _WordLookupCardState extends State<_WordLookupCard> {
   // Kích thước và màu dùng chung để bảng đồng nhất.
   static const double _cardWidth = 280.0;
   static const double _cardMinHeight = 148.0;
-  static const Color _cardColor = AppPalette.surface;
-  static const Color _mutedText = AppPalette.textSecondary;
+  static Color get _cardColor => AppPalette.surface;
+  static Color get _mutedText => AppPalette.textSecondary;
 
   /// Những từ đã lưu trong phiên này: từ -> {khoá bộ thẻ -> tên bộ}.
   /// Dùng để không lưu trùng một từ vào cùng một bộ.
@@ -459,9 +459,9 @@ class _WordLookupCardState extends State<_WordLookupCard> {
         color: _cardColor,
         borderRadius: BorderRadius.circular(16.0),
         border: Border.all(color: AppPalette.border),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Colors.black54,
+            color: AppPalette.shadow,
             blurRadius: 16,
             offset: Offset(0, 6),
           ),
@@ -489,7 +489,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
                 _buildMeaning(word!),
               if (!loading && !failed) ...[
                 const SizedBox(height: 12),
-                const Divider(height: 1, color: AppPalette.border),
+                Divider(height: 1, color: AppPalette.border),
                 const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -525,7 +525,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
               if (showReading)
                 Text(
                   reading,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: _mutedText,
                     height: 1.2,
@@ -539,10 +539,10 @@ class _WordLookupCardState extends State<_WordLookupCard> {
                       term,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppPalette.textPrimary,
                         height: 1.2,
                       ),
                     ),
@@ -551,7 +551,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
                   InkResponse(
                     onTap: () => TtsService.speak(text: term),
                     radius: 18,
-                    child: const SizedBox(
+                    child: SizedBox(
                       width: 28,
                       height: 28,
                       child: Icon(
@@ -568,7 +568,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
                     'dạng gốc của $surface',
-                    style: const TextStyle(fontSize: 11, color: _mutedText),
+                    style: TextStyle(fontSize: 11, color: _mutedText),
                   ),
                 ),
             ],
@@ -582,7 +582,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
             InkResponse(
               onTap: widget.onClose,
               radius: 18,
-              child: const SizedBox(
+              child: SizedBox(
                 width: 32,
                 height: 28,
                 child: Icon(Icons.close_rounded, size: 20, color: _mutedText),
@@ -605,7 +605,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
       ),
       child: Text(
         level,
-        style: const TextStyle(
+        style: TextStyle(
           color: _accent,
           fontSize: 11,
           fontWeight: FontWeight.bold,
@@ -636,7 +636,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
                   ),
                   child: Text(
                     word.partOfSpeech,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: AppPalette.textSecondary,
                       fontWeight: FontWeight.w600,
@@ -646,10 +646,10 @@ class _WordLookupCardState extends State<_WordLookupCard> {
               ),
             TextSpan(
               text: word.meaning,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: AppPalette.textPrimary,
                 height: 1.4,
               ),
             ),
@@ -698,7 +698,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
       padding: const EdgeInsets.only(right: 8),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Text(
               'Không tìm thấy nghĩa của từ này.',
               style: TextStyle(color: _mutedText, fontSize: 13),
@@ -706,7 +706,7 @@ class _WordLookupCardState extends State<_WordLookupCard> {
           ),
           TextButton(
             onPressed: _retry,
-            child: const Text('Thử lại', style: TextStyle(color: _accent)),
+            child: Text('Thử lại', style: TextStyle(color: _accent)),
           ),
         ],
       ),
@@ -735,23 +735,23 @@ class _WordLookupCardState extends State<_WordLookupCard> {
         // Đã lưu vẫn bấm được để lưu thêm vào bộ khác.
         onPressed: _isSaving ? null : () => _chooseAndSave(word),
         icon: _isSaving
-            ? const SizedBox(
+            ? SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white,
+                  color: AppPalette.textPrimary,
                 ),
               )
             : Icon(
                 isSaved ? Icons.check_rounded : Icons.add_rounded,
                 size: 17,
-                color: isSaved ? AppPalette.textSecondary : Colors.white,
+                color: isSaved ? AppPalette.textSecondary : AppPalette.textPrimary,
               ),
         label: Text(
           isSaved ? 'Đã lưu · Lưu vào bộ khác' : 'Lưu vào Flashcard',
           style: TextStyle(
-            color: isSaved ? AppPalette.textSecondary : Colors.white,
+            color: isSaved ? AppPalette.textSecondary : AppPalette.textPrimary,
             fontWeight: FontWeight.w600,
             fontSize: 13.5,
           ),

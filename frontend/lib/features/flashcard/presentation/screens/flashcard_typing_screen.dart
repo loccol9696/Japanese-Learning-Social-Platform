@@ -198,8 +198,8 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppPalette.background,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Hoàn thành bài tự luận!', style: TextStyle(color: Colors.white)),
-        content: const Text('Bạn đã hoàn tất tất cả câu hỏi tự luận.', style: TextStyle(color: AppPalette.textSecondary)),
+        title: Text('Hoàn thành bài tự luận!', style: TextStyle(color: AppPalette.textPrimary)),
+        content: Text('Bạn đã hoàn tất tất cả câu hỏi tự luận.', style: TextStyle(color: AppPalette.textSecondary)),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
@@ -207,7 +207,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
               Navigator.pop(ctx);
               Navigator.pop(context);
             },
-            child: const Text('Đóng', style: TextStyle(color: Colors.white)),
+            child: Text('Đóng', style: TextStyle(color: AppPalette.onAccent)),
           ),
         ],
       ),
@@ -217,7 +217,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppPalette.background,
         body: Center(child: CircularProgressIndicator(color: AppPalette.accent)),
       );
@@ -280,7 +280,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
               decoration: BoxDecoration(
                 color: AppPalette.surface,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
               ),
               alignment: Alignment.center,
               child: Center(
@@ -288,7 +288,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
                   questionText,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppPalette.textPrimary,
                     fontSize: isInputTerm ? 32 : 46,
                     fontWeight: FontWeight.w700,
                     height: 1.35,
@@ -307,7 +307,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
                 child: Text(
                   _feedbackMessage!,
                   style: TextStyle(
-                    color: _isCorrect == true ? const Color(0xFF00C7B1) : const Color(0xFFFF2D55),
+                    color: _isCorrect == true ? AppPalette.success : AppPalette.error,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -321,7 +321,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: _onSkip,
-                  child: const Text(
+                  child: Text(
                     'Không biết',
                     style: TextStyle(
                       color: AppPalette.accent,
@@ -339,8 +339,8 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
               child: TextField(
                 controller: _inputController,
                 focusNode: _focusNode,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppPalette.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
@@ -349,15 +349,15 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
                 decoration: InputDecoration(
                   hintText: hintLabel,
                   hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.35),
+                    color: AppPalette.textPrimary.withValues(alpha: 0.35),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,
                   ),
-                  enabledBorder: const UnderlineInputBorder(
+                  enabledBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: AppPalette.accent, width: 2),
                   ),
-                  focusedBorder: const UnderlineInputBorder(
+                  focusedBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: AppPalette.accent, width: 2.5),
                   ),
                 ),
