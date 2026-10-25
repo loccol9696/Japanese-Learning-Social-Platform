@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -38,6 +39,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
   bool _ready = false;
   bool _usesNativeFlow = true;
   bool _busy = false;
+  String? _initError;
 
   @override
   void initState() {
@@ -66,17 +68,31 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
         _usesNativeFlow = native;
         _ready = true;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[GOOGLE] khởi tạo lỗi: $e');
       if (!mounted) return;
-      setState(() => _ready = false);
+      setState(() {
+        _ready = false;
+        _initError = e.toString();
+      });
     }
   }
 
   Future<void> _startNative() async {
     if (_busy || !widget.enabled) return;
     if (!_ready) {
-      widget.onError(_unavailable);
-      return;
+      // Thử khởi tạo lại (vd. vừa mất mạng); nếu vẫn lỗi thì báo kèm nguyên nhân.
+      await _initialize();
+      if (!_ready) {
+        final reason = (_initError ?? '').split('
+').first;
+        widget.onError(reason.isEmpty ? _unavailable : '$_unavailable ($reason)');
+        return;
+      }
+      if (!_usesNativeFlow) {
+        // Web: người dùng cần bấm nút của Google vừa hiện ra.
+        return;
+      }
     }
     setState(() => _busy = true);
     try {
