@@ -24,6 +24,7 @@ public class UserController {
 
     private final UserService userService;
     private final com.jlsp.backend.video.service.VideoService videoService;
+    private final com.jlsp.backend.user.service.PublicProfileService publicProfileService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody CreateUserRequest request) {
@@ -62,6 +63,20 @@ public class UserController {
         UserResponse response = userService.toggleUserStatus(id);
         String msg = Boolean.TRUE.equals(response.getIsActive()) ? "Đã mở khóa tài khoản" : "Đã khóa tài khoản";
         return ResponseEntity.ok(ApiResponse.success(200, msg, response));
+    }
+
+    /** Hồ sơ công khai (không có email). Ai cũng xem được; đăng nhập thì có thêm trạng thái theo dõi. */
+    @GetMapping("/{id}/public-profile")
+    public ResponseEntity<ApiResponse<com.jlsp.backend.user.dto.response.PublicProfileResponse>> getPublicProfile(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(publicProfileService.getPublicProfile(id, CurrentUser.idOrNull())));
+    }
+
+    /** Theo dõi / bỏ theo dõi người dùng. */
+    @PostMapping("/{id}/follow")
+    public ResponseEntity<ApiResponse<com.jlsp.backend.user.dto.response.FollowResultResponse>> toggleFollow(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(publicProfileService.toggleFollow(CurrentUser.requireId(), id)));
     }
 
     @GetMapping("/{id}")

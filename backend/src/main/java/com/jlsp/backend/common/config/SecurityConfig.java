@@ -51,6 +51,7 @@ public class SecurityConfig {
             "/api/v1/videos/{id:[0-9]+}/comments",
             "/api/v1/videos/{id:[0-9]+}/subtitles",
             "/api/v1/users/*/videos",
+            "/api/v1/users/*/public-profile",
             "/api/v1/topics/**",
             "/topics/**",
             "/api/v1/subscription-plans",
