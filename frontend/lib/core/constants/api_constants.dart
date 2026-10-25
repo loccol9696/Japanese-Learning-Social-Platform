@@ -22,6 +22,7 @@ class ApiConstants {
 
   // Auth endpoints matching Spring Boot backend
   static String get loginUrl => '$baseUrl/auth/login';
+  static String get googleLoginUrl => '$baseUrl/auth/google';
   static String get registerUrl => '$baseUrl/auth/register';
   static String get verifyOtpUrl => '$baseUrl/auth/verify-otp';
   static String get resendOtpUrl => '$baseUrl/auth/resend-otp';

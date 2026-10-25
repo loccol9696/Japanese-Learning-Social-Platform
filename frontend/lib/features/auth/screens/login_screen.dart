@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../data/models/auth_response_model.dart';
+import '../widgets/google_sign_in_button.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/routes.dart';
@@ -236,6 +238,19 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       AppToast.showSuccess(message, context: context);
     }
+  }
+
+  void _onGoogleSuccess(AuthResponseModel response) {
+    if (!mounted) return;
+    final name = response.user?.displayName ?? response.user?.username ?? 'bạn';
+    ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+    AppToast.showSuccess('Đăng nhập thành công! Chào mừng $name');
+  }
+
+  void _onGoogleError(String message) {
+    if (mounted) _showSnackBar(message, isError: true);
   }
 
   @override
@@ -570,51 +585,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // 8. Nút đăng nhập Google
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: AppPalette.border),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: _isLoading
-                          ? null
-                          : () {
-                              _showSnackBar(
-                                'Tính năng đăng nhập Google đang phát triển',
-                                isError: false,
-                              );
-                            },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            'assets/icons/google.png',
-                            height: 20,
-                            width: 20,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(
-                                  Icons.g_mobiledata,
-                                  size: 24,
-                                  color: Colors.red,
-                                ),
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'Google',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppPalette.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  // Nút "Tiếp tục với Google"
+                  GoogleSignInButton(
+                    enabled: !_isLoading,
+                    onSuccess: _onGoogleSuccess,
+                    onError: _onGoogleError,
                   ),
                   const SizedBox(height: 32),
 
