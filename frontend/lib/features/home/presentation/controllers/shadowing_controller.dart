@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../data/services/speech_recognizer.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../../domain/models/shadowing_models.dart';
@@ -217,7 +218,15 @@ class ShadowingController extends ChangeNotifier {
       _set(ShadowingPhase.result);
     } catch (e) {
       debugPrint('Không chấm được dòng $index: $e');
-      _set(ShadowingPhase.error, error: 'Không chấm được điểm. Kiểm tra kết nối rồi thử lại.');
+      final reason = e is ApiException
+          ? e.message
+          : 'không kết nối được máy chủ';
+      _set(
+        ShadowingPhase.error,
+        error: e is ApiException && e.statusCode == 404
+            ? 'Máy chủ chưa hỗ trợ chấm điểm luyện nói. Hãy khởi động lại backend bản mới nhất. ($reason)'
+            : 'Không chấm được điểm: $reason',
+      );
     }
   }
 
