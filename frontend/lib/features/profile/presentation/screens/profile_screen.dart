@@ -42,6 +42,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<UserVideoModel> _likedVideos = [];
   List<UserVideoModel> _savedVideos = [];
   bool _isLoading = true;
+  // Chỉ true ở lần tải đầu; tải lại sau đó vẫn giữ lưới video cũ trên màn hình.
+  bool _videoListsLoading = true;
   // Vai trò lấy từ dữ liệu đăng nhập, dự phòng khi hồ sơ chưa tải được.
   bool _hasModeratorRole = false;
   int _selectedTab = 0; // 0: Video của tôi, 1: Video đã lưu, 2: Video đã thích
@@ -107,26 +109,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {}
   }
 
+  /// Hồ sơ (nhẹ) hiện ngay khi về; ba danh sách video tải song song và tự điền
+  /// vào khi xong, không bắt cả màn hình chờ request chậm nhất. Một danh sách lỗi
+  /// cũng không làm mất các phần còn lại.
   Future<void> _loadProfile() async {
+    final videoLists = _loadVideoLists();
     try {
-      final results = await Future.wait([
-        _repository.getProfile(),
-        _repository.getMyVideosStatus(),
-        _repository.getLikedVideos(),
-        _repository.getSavedVideos(),
-      ]);
+      final profile = await _repository.getProfile();
       if (!mounted) return;
       setState(() {
-        _profile = results[0] as UserProfileModel;
-        _videos = results[1] as List<UserVideoModel>;
-        _likedVideos = results[2] as List<UserVideoModel>;
-        _savedVideos = results[3] as List<UserVideoModel>;
+        _profile = profile;
         _isLoading = false;
       });
-      await _loadMembershipStatus();
+      await Future.wait([videoLists, _loadMembershipStatus()]);
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
+      await videoLists;
+    }
+  }
+
+  Future<void> _loadVideoLists() async {
+    await Future.wait([
+      _loadVideoList(_repository.getMyVideosStatus, (v) => _videos = v),
+      _loadVideoList(_repository.getLikedVideos, (v) => _likedVideos = v),
+      _loadVideoList(_repository.getSavedVideos, (v) => _savedVideos = v),
+    ]);
+    if (mounted) setState(() => _videoListsLoading = false);
+  }
+
+  Future<void> _loadVideoList(
+    Future<List<UserVideoModel>> Function() fetch,
+    void Function(List<UserVideoModel>) assign,
+  ) async {
+    try {
+      final videos = await fetch();
+      if (mounted) setState(() => assign(videos));
+    } catch (_) {
+      // Giữ danh sách đang hiển thị; kéo xuống để thử lại.
     }
   }
 
@@ -579,9 +598,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircularProgressIndicator(color: AppColors.periwinkle),
               )
             : RefreshIndicator(
-                onRefresh: () async {
-                  await Future.wait([_loadProfile(), _loadMembershipStatus()]);
-                },
+                onRefresh: _loadProfile,
                 color: AppColors.periwinkle,
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(
@@ -1171,6 +1188,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildVideoContent() {
     final videos = _tabVideos;
 
+    if (videos.isEmpty && _videoListsLoading) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 48),
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.periwinkle),
+          ),
+        ),
+      );
+    }
+
     if (videos.isEmpty) {
       final emptyTitle = switch (_selectedTab) {
         0 => 'Chưa có video nào',
@@ -1211,11 +1239,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
+    // Giải mã ảnh bìa đúng cỡ ô lưới (1/3 bề ngang) thay vì ảnh gốc độ phân giải cao:
+    // nhẹ bộ nhớ và cuộn mượt hơn.
+    final thumbnailCacheWidth =
+        (MediaQuery.sizeOf(context).width /
+                3 *
+                MediaQuery.devicePixelRatioOf(context))
+            .round();
+
     return SliverPadding(
       padding: const EdgeInsets.all(3),
       sliver: SliverGrid(
         delegate: SliverChildBuilderDelegate(
-          (context, index) => _buildVideoTile(videos[index]),
+          (context, index) =>
+              _buildVideoTile(videos[index], thumbnailCacheWidth),
           childCount: videos.length,
         ),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -1228,7 +1265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildVideoTile(UserVideoModel video) {
+  Widget _buildVideoTile(UserVideoModel video, int thumbnailCacheWidth) {
     Color? badgeColor;
     String? badgeText;
 
@@ -1254,6 +1291,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Image.network(
                 video.thumbnailUrl!,
                 fit: BoxFit.cover,
+                cacheWidth: thumbnailCacheWidth,
                 errorBuilder: (context, error, stackTrace) => Center(
                   child: Icon(
                     Icons.play_circle_outline_rounded,
