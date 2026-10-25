@@ -5,6 +5,8 @@ class VideoPost {
   final String backgroundImageUrl;
   final String videoUrl;
   final String creatorName;
+  /// Id tài khoản người đăng (null nếu server không trả về).
+  final int? creatorId;
   final String creatorTag;
   final String creatorAvatarUrl;
   final String accentInfo;
@@ -31,6 +33,7 @@ class VideoPost {
     required this.backgroundImageUrl,
     this.videoUrl = '',
     required this.creatorName,
+    this.creatorId,
     required this.creatorTag,
     required this.creatorAvatarUrl,
     required this.accentInfo,
@@ -58,6 +61,7 @@ class VideoPost {
     String? backgroundImageUrl,
     String? videoUrl,
     String? creatorName,
+    int? creatorId,
     String? creatorTag,
     String? creatorAvatarUrl,
     String? accentInfo,
@@ -84,6 +88,7 @@ class VideoPost {
       backgroundImageUrl: backgroundImageUrl ?? this.backgroundImageUrl,
       videoUrl: videoUrl ?? this.videoUrl,
       creatorName: creatorName ?? this.creatorName,
+      creatorId: creatorId ?? this.creatorId,
       creatorTag: creatorTag ?? this.creatorTag,
       creatorAvatarUrl: creatorAvatarUrl ?? this.creatorAvatarUrl,
       accentInfo: accentInfo ?? this.accentInfo,
@@ -113,6 +118,7 @@ class VideoPost {
       backgroundImageUrl: json['backgroundImageUrl'] as String? ?? '',
       videoUrl: json['videoUrl'] as String? ?? '',
       creatorName: json['creatorName'] as String? ?? '',
+      creatorId: (json['creatorId'] as num?)?.toInt(),
       creatorTag: json['creatorTag'] as String? ?? '',
       creatorAvatarUrl: json['creatorAvatarUrl'] as String? ?? '',
       accentInfo: json['accentInfo'] as String? ?? '',
@@ -144,6 +150,7 @@ class VideoPost {
       'backgroundImageUrl': backgroundImageUrl,
       'videoUrl': videoUrl,
       'creatorName': creatorName,
+      'creatorId': creatorId,
       'creatorTag': creatorTag,
       'creatorAvatarUrl': creatorAvatarUrl,
       'accentInfo': accentInfo,

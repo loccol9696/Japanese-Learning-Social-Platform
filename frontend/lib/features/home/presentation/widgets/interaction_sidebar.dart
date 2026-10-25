@@ -22,6 +22,7 @@ class InteractionSidebar extends StatefulWidget {
   final VoidCallback? onCommentTap;
   final VoidCallback? onShareTap;
   final VoidCallback? onScriptTap;
+  final VoidCallback? onCreatorTap;
   final bool allowAccountActions;
 
   const InteractionSidebar({
@@ -38,6 +39,7 @@ class InteractionSidebar extends StatefulWidget {
     this.onCommentTap,
     this.onShareTap,
     this.onScriptTap,
+    this.onCreatorTap,
     this.allowAccountActions = true,
   });
 
@@ -266,7 +268,10 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       alignment: Alignment.center,
       clipBehavior: Clip.none,
       children: [
-        Container(
+        GestureDetector(
+          onTap: widget.onCreatorTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
           width: 48.0,
           height: 48.0,
           padding: const EdgeInsets.all(2.5),
@@ -297,6 +302,7 @@ class _InteractionSidebarState extends State<InteractionSidebar>
                 child: const Icon(Icons.person, color: AppColors.periwinkle),
               ),
             ),
+          ),
           ),
         ),
         // Follow / Unfollow Badge Button

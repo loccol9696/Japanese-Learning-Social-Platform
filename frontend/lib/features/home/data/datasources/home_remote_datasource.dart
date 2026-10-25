@@ -10,6 +10,9 @@ abstract class HomeRemoteDataSource {
   Future<List<VideoPost>> fetchFollowingFeed();
   Future<bool> toggleLike(String postId);
   Future<bool> toggleSave(String postId);
+
+  /// Theo dõi / bỏ theo dõi; trả về true nếu sau khi bấm là đang theo dõi.
+  Future<bool> toggleFollow(String creatorId);
 }
 
 class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
@@ -64,6 +67,14 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     return response is bool ? response : true;
   }
 
+  @override
+  Future<bool> toggleFollow(String creatorId) async {
+    final response = await _apiClient.post(
+      '${ApiConstants.baseUrl}/users/$creatorId/follow',
+    );
+    return response is Map ? response['following'] == true : true;
+  }
+
   VideoPost _toVideoPost(Map<String, dynamic> json) {
     final id = json['id']?.toString() ?? '';
     final title = json['title']?.toString() ?? 'Video bài học';
@@ -88,6 +99,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       backgroundImageUrl: _previewImageUrl(videoUrl, thumbnailUrl),
       videoUrl: videoUrl,
       creatorName: creatorName,
+      creatorId: _toInt(json['creatorId']) == 0 ? null : _toInt(json['creatorId']),
       creatorTag: creatorTag,
       creatorAvatarUrl: creatorAvatarUrl,
       accentInfo: 'Japanese Learning',

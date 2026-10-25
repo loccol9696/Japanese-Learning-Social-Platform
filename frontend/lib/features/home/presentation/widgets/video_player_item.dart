@@ -10,6 +10,7 @@ import '../../../auth/data/auth_session.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../screens/video_script_screen.dart';
+import '../../../profile/presentation/screens/public_profile_screen.dart';
 import 'bottom_nav_dock.dart';
 import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';
@@ -92,6 +93,27 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       ),
     );
     if (mounted) setState(() => _playerEpoch++);
+  }
+
+  /// Mở trang cá nhân của người đăng; tạm dừng video và phát tiếp khi quay lại.
+  Future<void> _openCreatorProfile() async {
+    final creatorId = widget.post.creatorId;
+    if (creatorId == null) return;
+    RubySubtitleWidget.dismissLookups();
+    final controller = _videoController;
+    final wasPlaying = controller?.value.isPlaying ?? false;
+    controller?.pause();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PublicProfileScreen(
+          userId: creatorId,
+          fallbackName: widget.post.creatorName,
+          fallbackUsername: widget.post.creatorTag,
+          fallbackAvatarUrl: widget.post.creatorAvatarUrl,
+        ),
+      ),
+    );
+    if (mounted && wasPlaying) controller?.play();
   }
 
   void _handleDoubleTapDown(TapDownDetails details) {
@@ -447,6 +469,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                       onFollowToggle: widget.onFollowToggle,
                       onCommentTap: widget.onCommentTap,
                       onScriptTap: _openScript,
+                      onCreatorTap: widget.post.creatorId == null ? null : _openCreatorProfile,
                       allowAccountActions: widget.allowAccountActions,
                     ),
                   ),
@@ -664,6 +687,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     onFollowToggle: widget.onFollowToggle,
                     onCommentTap: widget.onCommentTap,
                     onScriptTap: _openScript,
+                      onCreatorTap: widget.post.creatorId == null ? null : _openCreatorProfile,
                     allowAccountActions: widget.allowAccountActions,
                   ),
                 ),

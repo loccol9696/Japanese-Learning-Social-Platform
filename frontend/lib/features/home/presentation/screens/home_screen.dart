@@ -535,8 +535,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {});
     }
+    final creatorId = post.creatorId;
+    if (creatorId == null) return;
     try {
-      await _repository.toggleFollow(post.creatorTag);
+      await _repository.toggleFollow(creatorId.toString());
     } catch (error) {
       if (!mounted) return;
       AppToast.showError(
