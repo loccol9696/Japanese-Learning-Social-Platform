@@ -32,6 +32,9 @@ class VideoScriptScreen extends StatefulWidget {
 
 class _VideoScriptScreenState extends State<VideoScriptScreen> {
   static const Color _linkBlue = Color(0xFF38BDF8);
+  static const Color _inactiveText = Color(0xFFA9B0C9);
+  static const Color _inactiveTranslation = Color(0xFF7B83A3);
+  final ScrollController _listController = ScrollController();
 
   late bool _bilingual = widget.initialBilingual;
   late final List<GlobalKey> _itemKeys = List.generate(
@@ -50,6 +53,12 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
   void initState() {
     super.initState();
     _loadBestScores();
+  }
+
+  @override
+  void dispose() {
+    _listController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadBestScores() async {
@@ -236,7 +245,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
           onTap: _togglePlay,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            height: 190,
+            height: 160,
             width: double.infinity,
             color: AppPalette.surface,
             child: Stack(
@@ -253,15 +262,15 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                   opacity: playing ? 0 : 1,
                   duration: const Duration(milliseconds: 150),
                   child: Container(
-                    width: 56,
-                    height: 56,
+                    width: 64,
+                    height: 64,
                     decoration: const BoxDecoration(
-                      color: Color(0x66939BB4),
+                      color: Color(0xFF2C3068),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.play_arrow_rounded,
-                      size: 34,
+                      size: 38,
                       color: AppPalette.textPrimary,
                     ),
                   ),
@@ -343,7 +352,12 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
     }
 
     return Scrollbar(
+      controller: _listController,
+      thumbVisibility: true,
+      thickness: 5,
+      radius: const Radius.circular(3),
       child: ListView.builder(
+        controller: _listController,
         padding: const EdgeInsets.only(bottom: 24),
         itemCount: widget.cues.length,
         itemBuilder: (context, i) {
@@ -395,7 +409,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                                 : FontWeight.w500,
                             color: isActive
                                 ? AppPalette.textPrimary
-                                : AppPalette.textSecondary,
+                                : _inactiveText,
                           ),
                         ),
                         if (_bilingual && cue.translation.isNotEmpty) ...[
@@ -410,9 +424,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                                   : FontWeight.w400,
                               color: isActive
                                   ? AppPalette.textPrimary
-                                  : AppPalette.textSecondary.withValues(
-                                      alpha: 0.8,
-                                    ),
+                                  : _inactiveTranslation,
                             ),
                           ),
                         ],
