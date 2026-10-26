@@ -1,395 +1,112 @@
 import 'package:flutter/material.dart';
-import '../../../../core/localization/locale_manager.dart';
-import '../../../../core/theme/app_colors.dart';
+
 import '../../../../core/theme/app_palette.dart';
 
-class AvatarPickerSheet extends StatefulWidget {
-  final String currentAvatarUrl;
-  final ValueChanged<String> onAvatarSelected;
-  final VoidCallback? onPickFromDevice;
+/// Bảng chọn cách đổi ảnh đại diện: chụp ảnh mới, chọn từ thư viện, hoặc xoá ảnh hiện tại.
+/// Bảng tự đóng rồi mới gọi hành động tương ứng.
+class AvatarPickerSheet extends StatelessWidget {
+  static const Color _dangerRed = Color(0xFFFF5C6C);
+
+  final bool hasAvatar;
+  final VoidCallback onTakePhoto;
+  final VoidCallback onPickFromLibrary;
+  final VoidCallback onRemove;
 
   const AvatarPickerSheet({
     super.key,
-    required this.currentAvatarUrl,
-    required this.onAvatarSelected,
-    this.onPickFromDevice,
+    required this.hasAvatar,
+    required this.onTakePhoto,
+    required this.onPickFromLibrary,
+    required this.onRemove,
   });
-
-  static const List<PresetAvatar> presets = [
-    PresetAvatar(
-      id: 'sakura',
-      name: 'Sakura Girl',
-      url:
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
-    ),
-    PresetAvatar(
-      id: 'kenji',
-      name: 'Kenji Sensei',
-      url:
-          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80',
-    ),
-    PresetAvatar(
-      id: 'yuki',
-      name: 'Yuki Anime',
-      url:
-          'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=256&q=80',
-    ),
-    PresetAvatar(
-      id: 'daiki',
-      name: 'Daiki Otaku',
-      url:
-          'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=256&q=80',
-    ),
-    PresetAvatar(
-      id: 'bot_kenji',
-      name: 'Kenji Bot',
-      url: 'https://api.dicebear.com/7.x/bottts/png?seed=Kenji',
-    ),
-    PresetAvatar(
-      id: 'bot_sakura',
-      name: 'Sakura Bot',
-      url: 'https://api.dicebear.com/7.x/bottts/png?seed=Sakura',
-    ),
-    PresetAvatar(
-      id: 'bot_tokyo',
-      name: 'Tokyo Neon',
-      url: 'https://api.dicebear.com/7.x/bottts/png?seed=Tokyo',
-    ),
-    PresetAvatar(
-      id: 'bot_shiba',
-      name: 'Inu Shiba',
-      url: 'https://api.dicebear.com/7.x/bottts/png?seed=Shiba',
-    ),
-  ];
-
-  @override
-  State<AvatarPickerSheet> createState() => _AvatarPickerSheetState();
-}
-
-class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
-  late String _selectedUrl;
-  late final TextEditingController _customUrlController;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedUrl = widget.currentAvatarUrl;
-    _customUrlController = TextEditingController(text: widget.currentAvatarUrl);
-  }
-
-  @override
-  void dispose() {
-    _customUrlController.dispose();
-    super.dispose();
-  }
-
-  void _applySelection(String url) {
-    setState(() {
-      _selectedUrl = url;
-      _customUrlController.text = url;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        left: 20.0,
-        right: 20.0,
-        top: 16.0,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24.0,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28.0)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 44.0,
-              height: 4.0,
+    return Material(
+      // Material (không phải Container tô màu) để hiệu ứng chạm hiển thị.
+      color: AppPalette.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      clipBehavior: Clip.antiAlias,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 38,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 8),
               decoration: BoxDecoration(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2.0),
+                color: AppPalette.textSecondary.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          ),
-          const SizedBox(height: 18.0),
-
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  appStrings.choosePresetAvatar,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 18.0,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: Icon(Icons.close, color: AppColors.textSecondary),
-                onPressed: () => Navigator.pop(context),
+            _row(
+              context,
+              icon: Icons.photo_camera_outlined,
+              title: 'Chụp ảnh mới',
+              onTap: onTakePhoto,
+            ),
+            _divider(),
+            _row(
+              context,
+              icon: Icons.image_outlined,
+              title: 'Chọn từ thư viện',
+              onTap: onPickFromLibrary,
+            ),
+            if (hasAvatar) ...[
+              _divider(),
+              _row(
+                context,
+                icon: Icons.delete_outline_rounded,
+                title: 'Xóa ảnh hiện tại',
+                color: _dangerRed,
+                onTap: onRemove,
               ),
             ],
-          ),
-          const SizedBox(height: 14.0),
-
-          // Import image from device card
-          if (widget.onPickFromDevice != null) ...[
-            InkWell(
-              onTap: () {
-                Navigator.pop(context);
-                widget.onPickFromDevice!();
-              },
-              borderRadius: BorderRadius.circular(16.0),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                decoration: BoxDecoration(
-                  color: AppColors.periwinkle.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16.0),
-                  border: Border.all(
-                    color: AppColors.periwinkle.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8.0),
-                      decoration: BoxDecoration(
-                        color: AppColors.periwinkle.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.add_photo_alternate_rounded,
-                        color: AppColors.periwinkle,
-                        size: 20.0,
-                      ),
-                    ),
-                    const SizedBox(width: 12.0),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tải ảnh từ máy / thiết bị',
-                            style: TextStyle(
-                              color: AppPalette.onAccent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14.0,
-                            ),
-                          ),
-                          const SizedBox(height: 2.0),
-                          Text(
-                            'Chọn tệp ảnh từ thư viện hoặc bộ nhớ máy',
-                            style: TextStyle(
-                              color: AppColors.softSkyBlue.withValues(alpha: 0.8),
-                              fontSize: 12.0,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 14.0,
-                      color: AppColors.periwinkle,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16.0),
+            const SizedBox(height: 12),
           ],
-
-          // Preset Avatars Grid
-          SizedBox(
-            height: 176.0,
-            child: GridView.builder(
-              physics: const BouncingScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                crossAxisSpacing: 12.0,
-                mainAxisSpacing: 12.0,
-                childAspectRatio: 0.9,
-              ),
-              itemCount: AvatarPickerSheet.presets.length,
-              itemBuilder: (context, index) {
-                final preset = AvatarPickerSheet.presets[index];
-                final isSelected = _selectedUrl == preset.url;
-
-                return GestureDetector(
-                  onTap: () => _applySelection(preset.url),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(3.0),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected
-                                ? AppColors.periwinkle
-                                : Colors.transparent,
-                            width: 2.5,
-                          ),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: AppColors.periwinkle
-                                        .withValues(alpha: 0.5),
-                                    blurRadius: 10.0,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: CircleAvatar(
-                          radius: 26.0,
-                          backgroundColor: AppColors.surfaceCardSubtle,
-                          backgroundImage: NetworkImage(preset.url),
-                          onBackgroundImageError: (exception, stackTrace) {},
-                          child: isSelected
-                              ? Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppColors.periwinkle
-                                        .withValues(alpha: 0.4),
-                                  ),
-                                  child: Icon(
-                                    Icons.check,
-                                    color: AppPalette.onAccent,
-                                    size: 20.0,
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(height: 4.0),
-                      Text(
-                        preset.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: isSelected
-                              ? AppColors.periwinkle
-                              : AppColors.textSecondary,
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(height: 12.0),
-          // Custom URL Input
-          Text(
-            appStrings.customAvatarUrl,
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8.0),
-          TextField(
-            controller: _customUrlController,
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 13.5,
-            ),
-            decoration: InputDecoration(
-              hintText: appStrings.enterAvatarUrl,
-              hintStyle: TextStyle(
-                color: AppColors.softSkyBlue.withValues(alpha: 0.4),
-              ),
-              prefixIcon: Icon(
-                Icons.link_rounded,
-                color: AppColors.periwinkle,
-                size: 20.0,
-              ),
-              filled: true,
-              fillColor: AppColors.surfaceCardSubtle,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 12.0,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14.0),
-                borderSide: BorderSide(
-                  color: AppColors.softSkyBlue.withValues(alpha: 0.2),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14.0),
-                borderSide: BorderSide(
-                  color: AppColors.periwinkle,
-                  width: 1.5,
-                ),
-              ),
-            ),
-            onChanged: (val) {
-              setState(() {
-                _selectedUrl = val.trim();
-              });
-            },
-          ),
-          const SizedBox(height: 20.0),
-
-          // Action Button
-          SizedBox(
-            width: double.infinity,
-            height: 48.0,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.periwinkle,
-                foregroundColor: AppPalette.onAccent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14.0),
-                ),
-                elevation: 4.0,
-                shadowColor: AppColors.periwinkle.withValues(alpha: 0.4),
-              ),
-              onPressed: () {
-                widget.onAvatarSelected(_selectedUrl);
-                Navigator.pop(context);
-              },
-              child: Text(
-                appStrings.select,
-                style: const TextStyle(
-                  fontSize: 15.0,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
-}
 
-class PresetAvatar {
-  final String id;
-  final String name;
-  final String url;
+  Widget _divider() => Padding(
+    padding: EdgeInsets.symmetric(horizontal: 28),
+    child: Divider(height: 1, color: AppPalette.border),
+  );
 
-  const PresetAvatar({
-    required this.id,
-    required this.name,
-    required this.url,
-  });
+  Widget _row(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    final iconColor = color ?? AppPalette.textPrimary;
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: iconColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

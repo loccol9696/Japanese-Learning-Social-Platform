@@ -134,6 +134,38 @@ public class FlashcardController {
         return ResponseEntity.ok(ApiResponse.success(200, "Answer recorded successfully", null));
     }
 
+    // 9b. Phiên học ngắt quãng: thẻ đang học + thẻ đến hạn + thẻ mới
+    @GetMapping("/sets/{setId}/study-session")
+    public ResponseEntity<ApiResponse<StudySessionResponse>> getStudySession(
+            @PathVariable Long setId,
+            @RequestParam(required = false, defaultValue = "20") Integer newLimit) {
+        Long userId = CurrentUser.requireId();
+        return ResponseEntity.ok(ApiResponse.success(flashcardService.getStudySession(userId, setId, newLimit)));
+    }
+
+    // 9b'. Phiên ôn các thẻ đã tới hạn của mọi bộ (không gồm thẻ mới)
+    @GetMapping("/study/due-session")
+    public ResponseEntity<ApiResponse<StudySessionResponse>> getDueSession(
+            @RequestParam(required = false, defaultValue = "50") Integer limit) {
+        Long userId = CurrentUser.requireId();
+        return ResponseEntity.ok(ApiResponse.success(flashcardService.getDueSession(userId, limit)));
+    }
+
+    // 9c. Ghi nhận một lần đánh giá (Xem lại / Khó / Ổn / Dễ)
+    @PostMapping("/study/review")
+    public ResponseEntity<ApiResponse<ReviewResultResponse>> reviewCard(
+            @Valid @RequestBody ReviewCardRequest request) {
+        Long userId = CurrentUser.requireId();
+        return ResponseEntity.ok(ApiResponse.success(flashcardService.reviewCard(userId, request)));
+    }
+
+    // 9d. Tóm tắt thẻ cần ôn (dùng cho huy hiệu và nhắc nhở)
+    @GetMapping("/study/due-summary")
+    public ResponseEntity<ApiResponse<DueSummaryResponse>> getDueSummary() {
+        Long userId = CurrentUser.requireId();
+        return ResponseEntity.ok(ApiResponse.success(flashcardService.getDueSummary(userId)));
+    }
+
     // 10. Chế độ Trắc nghiệm (Sinh câu hỏi 4 lựa chọn)
     @GetMapping("/sets/{setId}/quiz")
     public ResponseEntity<ApiResponse<List<QuizQuestionResponse>>> generateQuiz(

@@ -268,7 +268,11 @@ public class UserServiceImpl implements UserService {
         }
         if (request.getDisplayName() != null) user.setDisplayName(request.getDisplayName().trim());
         if (request.getBio() != null) user.setBio(request.getBio());
-        if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) user.setAvatarUrl(request.getAvatarUrl().trim());
+        if (request.getAvatarUrl() != null) {
+            // Chuỗi rỗng nghĩa là người dùng xoá ảnh đại diện.
+            String avatar = request.getAvatarUrl().trim();
+            user.setAvatarUrl(avatar.isEmpty() ? null : avatar);
+        }
         if (request.getEffectiveLevel() != null) user.setJlptLevel(request.getEffectiveLevel());
     }
 

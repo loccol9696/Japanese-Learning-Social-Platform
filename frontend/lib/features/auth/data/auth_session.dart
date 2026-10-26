@@ -1,3 +1,4 @@
+import 'google_auth_service.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -84,7 +85,14 @@ class AuthSession extends ChangeNotifier {
     return response;
   }
 
+  Future<AuthResponseModel> loginWithGoogle(String idToken) async {
+    final response = await _authService.loginWithGoogle(idToken);
+    _setAuthenticated(response.user);
+    return response;
+  }
+
   Future<void> logout() async {
+    await GoogleAuthService.instance.signOut();
     await _authService.logout();
     _setUnauthenticated();
   }

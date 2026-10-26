@@ -82,6 +82,15 @@ public class Video {
     private String subtitles;
 
     /**
+     * Kết quả phân tích ngữ pháp do AI (Gemini) sinh ra từ subtitles, định dạng
+     * JSON array của SegmentGrammarAnalysis: mỗi phần tử ứng với 1 segment
+     * (index, startTime, endTime, text, grammarPoints).
+     * NULL = chưa phân tích / đang phân tích / subtitles vừa thay đổi.
+     */
+    @Column(name = "grammar_analysis", columnDefinition = "TEXT")
+    private String grammarAnalysis;
+
+    /**
      * Tổng số lượt xem hợp lệ
      */
     @Column(name = "view_count", nullable = false)

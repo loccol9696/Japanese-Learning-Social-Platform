@@ -8,6 +8,7 @@ import '../../data/services/flashcard_store.dart';
 import '../widgets/deck_card_item.dart';
 import 'deck_editor_screen.dart';
 import 'deck_overview_screen.dart';
+import 'srs_study_screen.dart';
 import '../../../../core/theme/app_palette.dart';
 
 class DeckLibraryScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   final FlashcardService _service = FlashcardService.instance;
   List<FlashcardSetModel> _decks = [];
   bool _isLoading = false;
+  int _dueCount = 0;
 
   @override
   void initState() {
@@ -100,6 +102,20 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
         _isLoading = false;
       });
     }
+    _loadDueCount();
+  }
+
+  /// Số thẻ đã tới hạn ôn (mọi bộ) cho banner "Cần ôn".
+  Future<void> _loadDueCount() async {
+    if (!AuthSession.instance.isAuthenticated) return;
+    try {
+      final summary = await _service.getDueSummary();
+      if (mounted && summary.dueCount != _dueCount) {
+        setState(() => _dueCount = summary.dueCount);
+      }
+    } catch (_) {
+      // Không có banner nếu không lấy được; không ảnh hưởng danh sách bộ thẻ.
+    }
   }
 
   /// Mở màn hình Chỉnh sửa bộ thẻ (Deck Editor)
@@ -133,7 +149,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppPalette.accent.withOpacity(0.15),
+                color: AppPalette.accent.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -220,82 +236,66 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
     );
   }
 
-  void _showCreateDeckDialog() {
-    final titleController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppPalette.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: AppPalette.border, width: 1),
-        ),
-        title: Text(
-          'Tạo bộ từ vựng mới',
-          style: TextStyle(
-            color: AppPalette.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: TextField(
-          controller: titleController,
-          autofocus: true,
-          style: TextStyle(color: AppPalette.textPrimary),
-          decoration: InputDecoration(
-            hintText: 'Nhập tên bộ thẻ...',
-            hintStyle: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.4)),
-            filled: true,
-            fillColor: AppPalette.surface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+  /// Banner "Cần ôn hôm nay": bấm để ôn các thẻ đã tới hạn của mọi bộ.
+  Widget _buildDueBanner() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      child: Material(
+        color: AppPalette.accent,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SrsStudyScreen()),
+            );
+            if (mounted) _loadDueCount();
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Cần ôn hôm nay',
+                        style: TextStyle(
+                          color: AppPalette.textPrimary.withValues(alpha: 0.85),
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$_dueCount thẻ',
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppPalette.textPrimary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    color: AppPalette.accent,
+                    size: 22,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Hủy',
-              style: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.6)),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppPalette.accent,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () async {
-              final title = titleController.text.trim();
-              if (title.isNotEmpty) {
-                Navigator.pop(ctx);
-                setState(() => _isLoading = true);
-                try {
-                  await _service.createSet(title: title);
-                  await _loadDecks(query: _searchController.text);
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Không thể tạo bộ thẻ: $e')),
-                    );
-                    setState(() => _isLoading = false);
-                  }
-                }
-              }
-            },
-            child: Text(
-              'Tạo',
-              style: TextStyle(
-                color: AppPalette.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -384,6 +384,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                 ),
               ),
             ),
+            if (_dueCount > 0) _buildDueBanner(),
             const SizedBox(height: 8),
 
             // Deck List

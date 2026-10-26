@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
@@ -100,7 +101,8 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     });
   }
 
-  Future<void> _pickImageFromDevice() async {
+  /// Chọn ảnh từ thư viện / bộ nhớ máy.
+  Future<void> _pickFromLibrary() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
@@ -119,11 +121,68 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
           bytes = await ioFile.readAsBytes();
         }
       }
+      if (bytes == null) return;
 
-      if (bytes == null) {
-        return;
-      }
+      await _processAvatarBytes(bytes, file.name, file.extension ?? 'png');
+    } catch (e) {
+      _showPickError(e);
+    }
+  }
 
+  /// Chụp ảnh mới bằng camera (trên web trình duyệt sẽ mở hộp chọn / camera tuỳ thiết bị).
+  Future<void> _takePhoto() async {
+    try {
+      final photo = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1024,
+        imageQuality: 85,
+      );
+      if (!mounted || photo == null) return;
+      final bytes = await photo.readAsBytes();
+      final name = photo.name.isNotEmpty ? photo.name : 'avatar.jpg';
+      final dot = name.lastIndexOf('.');
+      await _processAvatarBytes(bytes, name, dot >= 0 ? name.substring(dot + 1) : 'jpg');
+    } catch (e) {
+      _showPickError(e);
+    }
+  }
+
+  /// Xoá ảnh đại diện hiện tại; thay đổi được lưu khi bấm "Lưu thay đổi".
+  void _removeAvatar() {
+    setState(() {
+      _selectedAvatarUrl = '';
+      _localAvatarBytes = null;
+    });
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Đã xóa ảnh. Bấm "Lưu thay đổi" để áp dụng.'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+  }
+
+  void _showPickError(Object e) {
+    if (!mounted) return;
+    setState(() => _isUploadingAvatar = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Không thể chọn ảnh: $e'),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Hiển thị ngay ảnh vừa chọn rồi tải lên máy chủ; lỗi mạng thì dùng ảnh nhúng base64.
+  Future<void> _processAvatarBytes(
+    Uint8List bytes,
+    String fileName,
+    String extension,
+  ) async {
+    try {
       setState(() {
         _localAvatarBytes = bytes;
         _isUploadingAvatar = true;
@@ -140,7 +199,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
               http.MultipartFile.fromBytes(
                 'file',
                 imageBytes,
-                filename: file.name.isNotEmpty ? file.name : 'avatar.png',
+                filename: fileName.isNotEmpty ? fileName : 'avatar.png',
               ),
             ),
           timeout: const Duration(seconds: 60),
@@ -181,7 +240,6 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
 
       // Fallback: encode as base64 data URI so it can be saved and displayed anywhere
       if (!mounted) return;
-      final extension = file.extension ?? 'png';
       final base64String = base64Encode(bytes);
       final dataUri = 'data:image/$extension;base64,$base64String';
       setState(() {
@@ -218,20 +276,13 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
   void _openAvatarPicker() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return AvatarPickerSheet(
-          currentAvatarUrl: _selectedAvatarUrl,
-          onAvatarSelected: (newUrl) {
-            setState(() {
-              _selectedAvatarUrl = newUrl;
-              _localAvatarBytes = null;
-            });
-          },
-          onPickFromDevice: _pickImageFromDevice,
-        );
-      },
+      builder: (context) => AvatarPickerSheet(
+        hasAvatar: _selectedAvatarUrl.isNotEmpty || _localAvatarBytes != null,
+        onTakePhoto: _takePhoto,
+        onPickFromLibrary: _pickFromLibrary,
+        onRemove: _removeAvatar,
+      ),
     );
   }
 

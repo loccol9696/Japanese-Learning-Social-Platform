@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../auth/data/auth_session.dart';
+import '../../data/services/shadowing_service.dart';
 import '../../domain/models/ruby_segment.dart';
+import 'shadowing_screen.dart';
 
 /// Màn "Kịch bản": xem lại video kèm danh sách toàn bộ câu thoại theo thời gian.
 /// Dùng chung [VideoPlayerController] với video đang xem, bấm một câu để tua tới.
@@ -11,11 +15,15 @@ class VideoScriptScreen extends StatefulWidget {
   final VideoPlayerController? controller;
   final bool initialBilingual;
 
+  /// Id video (số) để chấm điểm luyện nói; null thì ẩn nút micro.
+  final String? videoId;
+
   const VideoScriptScreen({
     super.key,
     required this.cues,
     required this.controller,
     this.initialBilingual = true,
+    this.videoId,
   });
 
   @override
@@ -24,6 +32,9 @@ class VideoScriptScreen extends StatefulWidget {
 
 class _VideoScriptScreenState extends State<VideoScriptScreen> {
   static Color get _linkBlue => AppPalette.info;
+  static const Color _inactiveText = Color(0xFFA9B0C9);
+  static const Color _inactiveTranslation = Color(0xFF7B83A3);
+  final ScrollController _listController = ScrollController();
 
   late bool _bilingual = widget.initialBilingual;
   late final List<GlobalKey> _itemKeys = List.generate(
@@ -31,6 +42,61 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
     (_) => GlobalKey(),
   );
   int _lastActive = -1;
+
+  /// lineIndex -> điểm cao nhất của người dùng.
+  Map<int, int> _bestScores = {};
+
+  bool get _canPractice =>
+      widget.videoId != null && int.tryParse(widget.videoId!) != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBestScores();
+  }
+
+  @override
+  void dispose() {
+    _listController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadBestScores() async {
+    if (!_canPractice || !AuthSession.instance.isAuthenticated) return;
+    try {
+      final summary = await ShadowingService.instance.summary(widget.videoId!);
+      if (mounted) setState(() => _bestScores = summary.bestScores);
+    } catch (_) {
+      // Không có huy hiệu điểm nếu không lấy được; không ảnh hưởng việc xem kịch bản.
+    }
+  }
+
+  Future<void> _openShadowing(int index) async {
+    final ok = await requireAuthentication(
+      context,
+      message: 'Bạn cần đăng nhập để luyện nói và lưu điểm.',
+    );
+    if (!ok || !mounted) return;
+    widget.controller?.pause();
+    final result = await Navigator.of(context).push<Map<int, int>>(
+      MaterialPageRoute(
+        builder: (_) => ShadowingScreen(
+          videoId: widget.videoId!,
+          cues: widget.cues,
+          startIndex: index,
+          videoController: widget.controller,
+          bestScores: _bestScores,
+        ),
+      ),
+    );
+    if (result != null && mounted) setState(() => _bestScores = result);
+  }
+
+  Color _scoreColor(int score) {
+    if (score >= 85) return const Color(0xFF34D399);
+    if (score >= 70) return _linkBlue;
+    return const Color(0xFFFF9F43);
+  }
 
   VideoPlayerController? get _video {
     final c = widget.controller;
@@ -179,7 +245,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
           onTap: _togglePlay,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            height: 190,
+            height: 160,
             width: double.infinity,
             color: AppPalette.surface,
             child: Stack(
@@ -196,15 +262,15 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                   opacity: playing ? 0 : 1,
                   duration: const Duration(milliseconds: 150),
                   child: Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: AppPalette.textSecondary.withValues(alpha: 0.40),
+                    width: 64,
+                    height: 64,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF2C3068),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.play_arrow_rounded,
-                      size: 34,
+                      size: 38,
                       color: AppPalette.textPrimary,
                     ),
                   ),
@@ -286,7 +352,12 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
     }
 
     return Scrollbar(
+      controller: _listController,
+      thumbVisibility: true,
+      thickness: 5,
+      radius: const Radius.circular(3),
       child: ListView.builder(
+        controller: _listController,
         padding: const EdgeInsets.only(bottom: 24),
         itemCount: widget.cues.length,
         itemBuilder: (context, i) {
@@ -338,7 +409,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                                 : FontWeight.w500,
                             color: isActive
                                 ? AppPalette.textPrimary
-                                : AppPalette.textSecondary,
+                                : _inactiveText,
                           ),
                         ),
                         if (_bilingual && cue.translation.isNotEmpty) ...[
@@ -353,15 +424,42 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                                   : FontWeight.w400,
                               color: isActive
                                   ? AppPalette.textPrimary
-                                  : AppPalette.textSecondary.withValues(
-                                      alpha: 0.8,
-                                    ),
+                                  : _inactiveTranslation,
                             ),
                           ),
                         ],
                       ],
                     ),
                   ),
+                  if (_canPractice)
+                    InkWell(
+                      onTap: () => _openShadowing(i),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 2, 0, 2),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.mic_none_rounded,
+                              size: 22,
+                              color: isActive
+                                  ? _linkBlue
+                                  : AppPalette.textSecondary,
+                            ),
+                            if (_bestScores[i] != null)
+                              Text(
+                                '${_bestScores[i]}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: _scoreColor(_bestScores[i]!),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

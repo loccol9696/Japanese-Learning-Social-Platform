@@ -4,6 +4,7 @@ import com.jlsp.backend.auth.dto.request.ChangePasswordRequest;
 import com.jlsp.backend.auth.dto.request.LoginRequest;
 import com.jlsp.backend.auth.dto.request.RegisterRequest;
 import com.jlsp.backend.auth.dto.response.AuthResponse;
+import com.jlsp.backend.auth.google.GoogleTokenVerifier;
 import com.jlsp.backend.auth.service.LoginAttemptService;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.security.jwt.JwtUtils;
@@ -60,7 +61,7 @@ class AuthServiceImplTest {
         loginAttempts = mock(LoginAttemptService.class);
         when(refreshTokenService.issue(anyLong())).thenReturn("refresh-token");
         service = new AuthServiceImpl(userRepository, encoder, jwtUtils, refreshTokenService, denylist,
-                new UserMapper(), emailService, otpService, loginAttempts);
+                new UserMapper(), emailService, otpService, loginAttempts, mock(GoogleTokenVerifier.class));
     }
 
     private User user(boolean active, String password) {

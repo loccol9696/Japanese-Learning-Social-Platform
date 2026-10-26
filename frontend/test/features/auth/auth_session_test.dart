@@ -221,4 +221,28 @@ void main() {
       expect(await TokenStorage.instance.getRefreshToken(), 'rt-after-change');
     });
   });
+
+  test('đăng nhập Google: gửi idToken tới /auth/google, lưu phiên và chuyển sang authenticated', () async {
+    useServer((request) => _json(200, _loginOk));
+
+    final response = await AuthSession.instance.loginWithGoogle('google-id-token');
+
+    expect(requests.single.url.toString(), ApiConstants.googleLoginUrl);
+    expect(requests.single.method, 'POST');
+    expect(jsonDecode(requests.single.body), {'idToken': 'google-id-token'});
+    expect(requests.single.headers.containsKey('Authorization'), isFalse);
+    expect(response.user?.username, 'sakura');
+    expect(AuthSession.instance.isAuthenticated, isTrue);
+    expect(await TokenStorage.instance.getRefreshToken(), 'rt-1');
+  });
+
+  test('đăng nhập Google bị từ chối thì ném ApiException và không đăng nhập', () async {
+    useServer((request) => _json(401, {'status': 401, 'message': 'Phiên đăng nhập Google không hợp lệ'}));
+
+    await expectLater(
+      AuthSession.instance.loginWithGoogle('bad'),
+      throwsA(isA<ApiException>().having((e) => e.statusCode, 'statusCode', 401)),
+    );
+    expect(AuthSession.instance.isAuthenticated, isFalse);
+  });
 }

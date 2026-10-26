@@ -30,3 +30,9 @@ vocal-service/.venv
 #env
 .env
 
+#Flutter runner
+frontend/linux/
+frontend/windows/
+frontend/macos/
+
+frontend/android/build/

@@ -16,6 +16,9 @@ public interface AuthService {
     /** Trả về access token + refresh token. */
     AuthResponse login(LoginRequest request);
 
+    /** Đăng nhập bằng Google ID token; tự tạo tài khoản lần đầu hoặc liên kết với tài khoản cùng email. */
+    AuthResponse loginWithGoogle(String idToken);
+
     /** Đổi refresh token lấy cặp token mới (refresh token cũ bị vô hiệu). */
     AuthResponse refresh(String refreshToken);
 

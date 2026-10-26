@@ -6,10 +6,20 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 129d8e003ae183c6519887d87fc8c2d1d9068584
 /**
  * Trang cá nhân công khai của một người dùng. Không có email / vai trò / trạng thái tài khoản,
  * và có quan hệ theo dõi với người đang xem.
  */
+<<<<<<< HEAD
+=======
+/** Hồ sơ công khai của một người dùng: không có email hay thông tin nội bộ. */
+>>>>>>> 7379961efe19e2fdb33b5c961ebc28fc63418a2a
+=======
+>>>>>>> 129d8e003ae183c6519887d87fc8c2d1d9068584
 @Data
 @Builder
 @NoArgsConstructor
@@ -22,6 +32,10 @@ public class PublicProfileResponse {
     private String avatarUrl;
     private JLPTLevel jlptLevel;
     private String bio;
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 129d8e003ae183c6519887d87fc8c2d1d9068584
 
     private Long followersCount;
     private Long followingCount;
@@ -36,4 +50,17 @@ public class PublicProfileResponse {
 
     /** Đây là trang của chính người đang xem. */
     private Boolean isSelf;
+<<<<<<< HEAD
+=======
+    private long followersCount;
+    private long followingCount;
+    private long likesCount;
+    private long videosCount;
+    /** Người đang xem có đang theo dõi người này không (false nếu chưa đăng nhập). */
+    private boolean isFollowing;
+    /** Người đang xem chính là chủ hồ sơ. */
+    private boolean isSelf;
+>>>>>>> 7379961efe19e2fdb33b5c961ebc28fc63418a2a
+=======
+>>>>>>> 129d8e003ae183c6519887d87fc8c2d1d9068584
 }

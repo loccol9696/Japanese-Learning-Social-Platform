@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../data/models/auth_response_model.dart';
+import '../../../app/routes.dart';
+
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_exception.dart';
@@ -8,6 +12,7 @@ import 'auth_layout.dart';
 import 'login_screen.dart';
 import 'otp_verification_screen.dart';
 import '../../../core/theme/app_palette.dart';
+import '../widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -221,7 +226,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: TextStyle(color: AppPalette.textSecondary, fontSize: 14),
-            prefixIcon: Icon(prefixIcon, size: 20, color: AppPalette.textSecondary),
+            prefixIcon: Icon(
+              prefixIcon,
+              size: 20,
+              color: AppPalette.textSecondary,
+            ),
             suffixIcon: suffixIcon,
             filled: true,
             fillColor: AppPalette.surface,
@@ -236,10 +245,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: AppPalette.accent,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: AppPalette.accent, width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -247,16 +253,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: AppPalette.error,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: AppPalette.error, width: 1.5),
             ),
             errorMaxLines: 2,
           ),
         ),
       ],
     );
+  }
+
+  void _onGoogleSuccess(AuthResponseModel response) {
+    if (!mounted) return;
+    final name = response.user?.displayName ?? response.user?.username ?? 'bạn';
+    ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+    AppToast.showSuccess('Đăng nhập thành công! Chào mừng $name');
+  }
+
+  void _onGoogleError(String message) {
+    if (mounted) _showSnackBar(message, isError: true);
   }
 
   @override
@@ -442,10 +458,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Divider(
-                          color: AppPalette.border,
-                          thickness: 1,
-                        ),
+                        child: Divider(color: AppPalette.border, thickness: 1),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -459,60 +472,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       Expanded(
-                        child: Divider(
-                          color: AppPalette.border,
-                          thickness: 1,
-                        ),
+                        child: Divider(color: AppPalette.border, thickness: 1),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
 
-                  // 10. Nút Google với icon assets
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: AppPalette.border),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: _isLoading
-                          ? null
-                          : () {
-                              _showSnackBar(
-                                'Tính năng đăng ký Google đang phát triển',
-                                isError: false,
-                              );
-                            },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            'assets/icons/google.png',
-                            height: 20,
-                            width: 20,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Icon(
-                                  Icons.g_mobiledata,
-                                  size: 24,
-                                  color: AppPalette.error,
-                                ),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Google',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppPalette.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  // Nút "Tiếp tục với Google"
+                  GoogleSignInButton(
+                    enabled: !_isLoading,
+                    onSuccess: _onGoogleSuccess,
+                    onError: _onGoogleError,
                   ),
                   const SizedBox(height: 28),
 
@@ -523,7 +493,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         Text(
                           'Đã có tài khoản? ',
-                          style: TextStyle(fontSize: 14, color: AppPalette.textSecondary),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppPalette.textSecondary,
+                          ),
                         ),
                         GestureDetector(
                           onTap: _isLoading

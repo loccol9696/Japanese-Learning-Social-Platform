@@ -12,6 +12,7 @@ import com.jlsp.backend.flashcard.entity.FlashcardSet;
 import com.jlsp.backend.flashcard.repository.FlashcardProgressRepository;
 import com.jlsp.backend.flashcard.repository.FlashcardRepository;
 import com.jlsp.backend.flashcard.repository.FlashcardSetRepository;
+import com.jlsp.backend.flashcard.srs.*;
 import com.jlsp.backend.flashcard.service.FlashcardService;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.repository.UserRepository;
@@ -377,6 +378,169 @@ public class FlashcardServiceImpl implements FlashcardService {
                 .totalPairs(count)
                 .tiles(tiles)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StudySessionResponse getStudySession(Long userId, Long setId, Integer newLimit) {
+        getUserOrThrow(userId);
+        FlashcardSet set = setRepository.findById(setId)
+                .orElseThrow(() -> new ResourceNotFoundException("FlashcardSet", "id", setId));
+        if (set.getUser() != null && !set.getUser().getId().equals(userId)) {
+            throw new AppException(403, "Bạn không có quyền học bộ thẻ này");
+        }
+
+        int limit = newLimit == null ? 20 : Math.max(0, Math.min(newLimit, 200));
+        LocalDateTime now = LocalDateTime.now();
+        Map<Long, FlashcardProgress> progressMap = progressRepository.findByUserIdAndSetId(userId, setId).stream()
+                .collect(Collectors.toMap(p -> p.getId().getCardId(), p -> p));
+
+        List<StudyCardResponse> learning = new ArrayList<>();
+        List<StudyCardResponse> due = new ArrayList<>();
+        List<StudyCardResponse> fresh = new ArrayList<>();
+
+        for (Flashcard card : cardRepository.findByFlashcardSetSetId(setId)) {
+            FlashcardProgress p = progressMap.get(card.getCardId());
+            CardState state = p == null || p.getSrsState() == null ? CardState.NEW : p.getSrsState();
+            boolean scheduled = p != null && p.getNextReviewAt() != null;
+
+            // Thẻ có lịch ôn (kể cả dữ liệu cũ trước khi có SRS) mà chưa tới hạn thì bỏ qua.
+            if (state != CardState.LEARNING && scheduled && p.getNextReviewAt().isAfter(now)) {
+                continue;
+            }
+
+            StudyCardResponse item = toStudyCard(card, p, state);
+            if (state == CardState.LEARNING) {
+                learning.add(item);
+            } else if (scheduled) {
+                due.add(item);
+            } else {
+                fresh.add(item);
+            }
+        }
+
+        due.sort(Comparator.comparing(c -> c.getCard().getNextReviewAt(),
+                Comparator.nullsLast(Comparator.naturalOrder())));
+        List<StudyCardResponse> newCards = fresh.size() > limit ? new ArrayList<>(fresh.subList(0, limit)) : fresh;
+
+        List<StudyCardResponse> cards = new ArrayList<>(learning);
+        cards.addAll(due);
+        cards.addAll(newCards);
+
+        return StudySessionResponse.builder()
+                .setId(setId)
+                .cards(cards)
+                .newCount(newCards.size())
+                .dueCount(due.size() + learning.size())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StudySessionResponse getDueSession(Long userId, Integer limit) {
+        getUserOrThrow(userId);
+        int max = limit == null ? 50 : Math.max(1, Math.min(limit, 200));
+        List<StudyCardResponse> cards = progressRepository.findDueByUserId(userId, LocalDateTime.now()).stream()
+                .limit(max)
+                .map(p -> toStudyCard(p.getFlashcard(), p,
+                        p.getSrsState() == null ? CardState.NEW : p.getSrsState()))
+                .collect(Collectors.toList());
+        return StudySessionResponse.builder()
+                .setId(null)
+                .cards(cards)
+                .newCount(0)
+                .dueCount(cards.size())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ReviewResultResponse reviewCard(Long userId, ReviewCardRequest request) {
+        User user = getUserOrThrow(userId);
+        Flashcard card = cardRepository.findById(request.getCardId())
+                .orElseThrow(() -> new ResourceNotFoundException("Flashcard", "id", request.getCardId()));
+        User owner = card.getFlashcardSet().getUser();
+        if (owner != null && !owner.getId().equals(userId)) {
+            throw new AppException(403, "Bạn không có quyền học thẻ này");
+        }
+
+        FlashcardProgress progress = progressRepository.findByIdUserIdAndIdCardId(userId, request.getCardId())
+                .orElseGet(() -> FlashcardProgress.builder()
+                        .id(new FlashcardProgressId(userId, request.getCardId()))
+                        .user(user)
+                        .flashcard(card)
+                        .build());
+
+        CardState state = progress.getSrsState() == null ? CardState.NEW : progress.getSrsState();
+        double ease = progress.getEaseFactor() == null ? SrsScheduler.DEFAULT_EASE : progress.getEaseFactor();
+        int interval = nz(progress.getIntervalDays());
+        LocalDateTime now = LocalDateTime.now();
+
+        CardSchedule next = SrsScheduler.apply(state, ease, interval, request.getRating(), now);
+
+        progress.setSrsState(next.state());
+        progress.setEaseFactor(next.easeFactor());
+        progress.setIntervalDays(next.intervalDays());
+        progress.setNextReviewAt(next.nextReviewAt());
+        progress.setLastReviewedAt(now);
+        progress.setReviewCount(nz(progress.getReviewCount()) + 1);
+        if (next.lapsed()) {
+            progress.setLapseCount(nz(progress.getLapseCount()) + 1);
+        }
+        // Giữ các chỉ số cũ để phần "đã thuộc" ở Thư viện thẻ vẫn chạy.
+        int box = nz(progress.getBoxLevel());
+        if (next.graduated()) {
+            progress.setCorrectCount(nz(progress.getCorrectCount()) + 1);
+            progress.setBoxLevel(Math.min(5, box + 1));
+        } else if (request.getRating() == ReviewRating.AGAIN) {
+            progress.setIncorrectCount(nz(progress.getIncorrectCount()) + 1);
+            progress.setBoxLevel(Math.max(0, box - 1));
+        }
+        progressRepository.save(progress);
+
+        return ReviewResultResponse.builder()
+                .cardId(card.getCardId())
+                .state(next.state().name())
+                .graduated(next.graduated())
+                .intervalDays(next.intervalDays())
+                .nextReviewAt(next.nextReviewAt())
+                .intervalLabels(labels(next.state(), next.easeFactor(), next.intervalDays()))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DueSummaryResponse getDueSummary(Long userId) {
+        getUserOrThrow(userId);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime nextDueAt = progressRepository.findNextDueAt(userId, now);
+        long atNext = nextDueAt == null ? 0
+                : progressRepository.countDueBetween(userId, nextDueAt, nextDueAt.plusHours(24));
+        return DueSummaryResponse.builder()
+                .dueCount(progressRepository.countDue(userId, now))
+                .nextDueAt(nextDueAt)
+                .dueAtNextCount(atNext)
+                .build();
+    }
+
+    private StudyCardResponse toStudyCard(Flashcard card, FlashcardProgress p, CardState state) {
+        double ease = p == null || p.getEaseFactor() == null ? SrsScheduler.DEFAULT_EASE : p.getEaseFactor();
+        int interval = p == null ? 0 : nz(p.getIntervalDays());
+        return StudyCardResponse.builder()
+                .card(mapToCardResponse(card, p))
+                .state(state.name())
+                .intervalLabels(labels(state, ease, interval))
+                .build();
+    }
+
+    private Map<String, String> labels(CardState state, double ease, int interval) {
+        Map<String, String> out = new LinkedHashMap<>();
+        SrsScheduler.previewLabels(state, ease, interval).forEach((k, v) -> out.put(k.name(), v));
+        return out;
+    }
+
+    private static int nz(Integer v) {
+        return v == null ? 0 : v;
     }
 
     @Override

@@ -104,6 +104,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           cues: widget.post.subtitleCues,
           controller: _videoController,
           initialBilingual: _subtitleMode == SubtitleMode.bilingual,
+          videoId: widget.post.id,
         ),
       ),
     );

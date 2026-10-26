@@ -5,23 +5,38 @@ import 'dart:io' show Platform;
 class ApiConstants {
   ApiConstants._();
 
+  static const String _customHost = String.fromEnvironment('API_HOST');
+
+  static const String _lanHost = 'https://untraitorous-huong-conversably.ngrok-free.dev/api/v1';
+
   /// Automatically pick host based on runtime platform
   static String get baseUrl {
+    // 1. Ưu tiên giá trị truyền qua cờ --dart-define nếu có
+    if (_customHost.isNotEmpty) {
+      return _customHost;
+    }
+
+    // 2. Chạy trên trình duyệt Web
     if (kIsWeb) {
       return 'http://localhost:8080/api/v1';
     }
+
     try {
       if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8080/api/v1';
+        // Nếu chạy trên máy thật: BẮT BUỘC dùng IP LAN của máy tính
+        // (Chỉ dùng 10.0.2.2 khi bạn debug trên Android Studio Emulator)
+        return _lanHost;
       }
     } catch (_) {
       // Fallback
     }
+
     return 'http://localhost:8080/api/v1';
   }
 
   // Auth endpoints matching Spring Boot backend
   static String get loginUrl => '$baseUrl/auth/login';
+  static String get googleLoginUrl => '$baseUrl/auth/google';
   static String get registerUrl => '$baseUrl/auth/register';
   static String get verifyOtpUrl => '$baseUrl/auth/verify-otp';
   static String get resendOtpUrl => '$baseUrl/auth/resend-otp';
@@ -49,11 +64,24 @@ class ApiConstants {
   static String flashcardStarUrl(int cardId) =>
       '$baseUrl/flashcards/cards/$cardId/star';
   static String get flashcardAnswerUrl => '$baseUrl/flashcards/study/answer';
+  static String flashcardStudySessionUrl(int setId) =>
+      '$baseUrl/flashcards/sets/$setId/study-session';
+  static String get flashcardDueSessionUrl =>
+      '$baseUrl/flashcards/study/due-session';
+  static String shadowingScoreUrl(String videoId, int lineIndex) =>
+      '$baseUrl/videos/$videoId/shadowing/lines/$lineIndex/score';
+  static String shadowingSummaryUrl(String videoId) =>
+      '$baseUrl/videos/$videoId/shadowing/summary';
+  static String get flashcardReviewUrl => '$baseUrl/flashcards/study/review';
+  static String get flashcardDueSummaryUrl =>
+      '$baseUrl/flashcards/study/due-summary';
   static String get flashcardSaveVideoUrl => '$baseUrl/flashcards/video/save';
   static String get flashcardSaveVideoVocabUrl =>
       '$baseUrl/flashcards/video/save';
   static String speechStatusUrl(String taskId) =>
       '${baseUrl.replaceFirst('/api/v1', '/api')}/speech/status/$taskId';
+  static String get analyzeGrammarUrl =>
+      '${baseUrl.replaceFirst('/api/v1', '/api')}/speech/analyze-grammar';
 
   // Subscription endpoints
   static String get subscriptionPlansBaseUrl => '$baseUrl/subscription-plans';

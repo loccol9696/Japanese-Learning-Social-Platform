@@ -4,8 +4,9 @@ class VideoPost {
   final String id;
   final String backgroundImageUrl;
   final String videoUrl;
-  final int? creatorId;
   final String creatorName;
+  /// Id tài khoản người đăng (null nếu server không trả về).
+  final int? creatorId;
   final String creatorTag;
   final String creatorAvatarUrl;
   final String accentInfo;
@@ -31,8 +32,9 @@ class VideoPost {
     required this.id,
     required this.backgroundImageUrl,
     this.videoUrl = '',
-    this.creatorId,
     required this.creatorName,
+    this.creatorId,
+
     required this.creatorTag,
     required this.creatorAvatarUrl,
     required this.accentInfo,
@@ -59,8 +61,8 @@ class VideoPost {
     String? id,
     String? backgroundImageUrl,
     String? videoUrl,
-    int? creatorId,
     String? creatorName,
+    int? creatorId,
     String? creatorTag,
     String? creatorAvatarUrl,
     String? accentInfo,
@@ -86,8 +88,8 @@ class VideoPost {
       id: id ?? this.id,
       backgroundImageUrl: backgroundImageUrl ?? this.backgroundImageUrl,
       videoUrl: videoUrl ?? this.videoUrl,
-      creatorId: creatorId ?? this.creatorId,
       creatorName: creatorName ?? this.creatorName,
+      creatorId: creatorId ?? this.creatorId,
       creatorTag: creatorTag ?? this.creatorTag,
       creatorAvatarUrl: creatorAvatarUrl ?? this.creatorAvatarUrl,
       accentInfo: accentInfo ?? this.accentInfo,
@@ -148,8 +150,8 @@ class VideoPost {
       'id': id,
       'backgroundImageUrl': backgroundImageUrl,
       'videoUrl': videoUrl,
-      'creatorId': creatorId,
       'creatorName': creatorName,
+      'creatorId': creatorId,
       'creatorTag': creatorTag,
       'creatorAvatarUrl': creatorAvatarUrl,
       'accentInfo': accentInfo,

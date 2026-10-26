@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Kotoba cần micro để chấm điểm phần luyện nói của bạn.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Kotoba dùng nhận dạng giọng nói để so sánh câu bạn nói với bản gốc.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Kotoba cần camera để bạn chụp ảnh đại diện mới.</string>
 </dict>
 </plist>

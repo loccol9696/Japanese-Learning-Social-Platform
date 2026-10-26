@@ -37,6 +37,18 @@ class AuthService {
     return auth;
   }
 
+  /// Đăng nhập bằng Google ID token; server tự tạo hoặc liên kết tài khoản.
+  Future<AuthResponseModel> loginWithGoogle(String idToken) async {
+    final data = await _api.post(
+      ApiConstants.googleLoginUrl,
+      body: {'idToken': idToken},
+      withAuth: false,
+    );
+    final auth = AuthResponseModel.fromJson(data as Map<String, dynamic>);
+    await _saveSession(auth);
+    return auth;
+  }
+
   Future<AuthResponseModel> register({
     required String username,
     required String email,

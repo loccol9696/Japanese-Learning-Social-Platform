@@ -29,6 +29,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** Email so khớp không phân biệt hoa thường (dữ liệu cũ có thể còn chữ hoa). */
     Optional<User> findByEmailIgnoreCase(String email);
 
+    Optional<User> findByGoogleSub(String googleSub);
+
     boolean existsByEmailIgnoreCase(String email);
 
     Page<User> findByIsActiveTrue(Pageable pageable);
