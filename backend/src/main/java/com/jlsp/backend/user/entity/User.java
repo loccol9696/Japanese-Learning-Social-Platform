@@ -64,6 +64,14 @@ public class User {
     @JoinColumn(name = "subscription_plan_id")
     private com.jlsp.backend.subscription.entity.SubscriptionPlan subscriptionPlan;
 
+    /** Chủ đề người dùng quan tâm (sở thích hiển thị trong hồ sơ). */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "user_topics",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "topic_id"))
+    @Builder.Default
+    private java.util.Set<com.jlsp.backend.topic.entity.Topic> topics = new java.util.HashSet<>();
+
     @Column(name = "vip_expires_at")
     private LocalDateTime vipExpiresAt;
 

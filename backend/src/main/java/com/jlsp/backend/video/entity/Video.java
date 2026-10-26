@@ -82,6 +82,13 @@ public class Video {
     private String subtitles;
 
     /**
+     * Chủ đề của video (tuỳ chọn). EAGER vì bảng chủ đề rất nhỏ và luôn được hiển thị kèm video.
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "topic_id")
+    private com.jlsp.backend.topic.entity.Topic topic;
+
+    /**
      * Tổng số lượt xem hợp lệ
      */
     @Column(name = "view_count", nullable = false)

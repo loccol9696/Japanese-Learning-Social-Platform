@@ -57,7 +57,6 @@ public class SecurityConfig {
             "/api/v1/subscription-plans",
             "/api/v1/subscription-plans/{id:[0-9]+}",
             "/api/v1/dictionary/**",
-            "/api/v1/lessons/**",
     };
 
     @Value("${app.security.enabled:true}")
@@ -97,6 +96,9 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
                 .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_ENDPOINTS).permitAll()
 
+                // Xử lý báo cáo: Admin và Moderator (phải đứng trước rule /admin/** chỉ cho ADMIN)
+                .requestMatchers("/api/v1/admin/reports/**").hasAnyRole("ADMIN", "MODERATOR")
+
                 // Quản trị
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/users/admin-create", "/api/v1/users/admin-batch-create",
@@ -111,6 +113,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/v1/subscription-plans/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/v1/subscription-plans/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/payments/history").hasRole("ADMIN")
+                .requestMatchers("/api/v1/topics/admin/**", "/topics/admin/**").hasRole("ADMIN")
 
                 // Kiểm duyệt video
                 .requestMatchers("/api/v1/videos/moderation", "/api/v1/videos/*/approve",

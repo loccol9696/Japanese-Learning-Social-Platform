@@ -65,6 +65,12 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
                                               Pageable pageable);
 
     @EntityGraph(attributePaths = "user")
+    Page<Video> findByStatusAndModStatusAndTopicId(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, Long topicId, Pageable pageable);
+
+    @EntityGraph(attributePaths = "user")
+    Page<Video> findByStatusAndModStatusAndJlptLevelAndTopicId(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, JLPTLevel jlptLevel, Long topicId, Pageable pageable);
+
+    @EntityGraph(attributePaths = "user")
     Page<Video> findByUserIdInAndStatusAndModStatus(List<Long> userIds, VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable);
 
     /**

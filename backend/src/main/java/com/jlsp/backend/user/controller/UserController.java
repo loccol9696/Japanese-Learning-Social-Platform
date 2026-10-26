@@ -71,6 +71,19 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(200, msg, response));
     }
 
+    /** GET /api/v1/users/search?q=... — tìm người dùng công khai (không lộ email/vai trò). */
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<PageResponse<FollowUserResponse>>> searchPublicUsers(
+            @RequestParam("q") String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                Math.max(page, 0), Math.min(Math.max(size, 1), 50),
+                org.springframework.data.domain.Sort.by("username"));
+        return ResponseEntity.ok(ApiResponse.success(
+                userService.searchPublicUsers(CurrentUser.requireId(), q, pageable)));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable Long id) {
         UserResponse response = userService.getUserById(id);

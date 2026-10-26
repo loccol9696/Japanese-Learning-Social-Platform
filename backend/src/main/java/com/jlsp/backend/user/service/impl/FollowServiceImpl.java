@@ -28,6 +28,7 @@ public class FollowServiceImpl implements FollowService {
 
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
+    private final com.jlsp.backend.notification.service.NotificationService notificationService;
 
     /** Theo dõi một người dùng; gọi lại khi đã theo dõi thì không làm gì (idempotent). */
     @Override
@@ -50,6 +51,7 @@ public class FollowServiceImpl implements FollowService {
                     .following(target)
                     .build());
             log.info("User {} followed user {}", currentUserId, targetUserId);
+            notificationService.notify(targetUserId, currentUserId, com.jlsp.backend.notification.entity.NotificationType.FOLLOW, null, null, null);
         }
         return getStatus(currentUserId, targetUserId);
     }

@@ -56,6 +56,8 @@ public class VideoServiceImpl implements VideoService {
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
     private final VideoMapper videoMapper;
+    private final com.jlsp.backend.topic.service.TopicService topicService;
+    private final com.jlsp.backend.notification.service.NotificationService notificationService;
 
     /**
      * Đăng tải bài học video mới.
@@ -71,7 +73,10 @@ public class VideoServiceImpl implements VideoService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUserId));
 
         // 2. Chuyển đổi DTO sang Entity và lưu DB
-        Video video = videoMapper.toEntity(request, creator);
+        com.jlsp.backend.topic.entity.Topic topic = request.getTopicId() != null
+                ? topicService.requireActive(request.getTopicId())
+                : null;
+        Video video = videoMapper.toEntity(request, creator, topic);
         Video savedVideo = videoRepository.save(video);
 
         log.info("Tạo video thành công với ID: {}", savedVideo.getId());
@@ -131,6 +136,10 @@ public class VideoServiceImpl implements VideoService {
         if (request.getJlptLevel() != null) {
             video.setJlptLevel(request.getJlptLevel());
         }
+        if (request.getTopicId() != null) {
+            // Số không/âm nghĩa là bỏ chủ đề; ngược lại phải là chủ đề đang hiển thị.
+            video.setTopic(request.getTopicId() > 0 ? topicService.requireActive(request.getTopicId()) : null);
+        }
         if (request.getStatus() != null) {
             // Nếu người dùng chuyển video từ PRIVATE/UNLISTED sang PUBLIC thì cần Moderator duyệt (PENDING)
             if (video.getStatus() != VideoStatus.PUBLIC && request.getStatus() == VideoStatus.PUBLIC) {
@@ -182,6 +191,19 @@ public class VideoServiceImpl implements VideoService {
             page = videoRepository.findByStatusAndModStatus(VideoStatus.PUBLIC, VideoModStatus.APPROVED, pageable);
         }
 
+        return toVideoPageResponse(page, currentUserId);
+    }
+
+    /**
+     * Video công khai đã duyệt thuộc một chủ đề, có thể lọc thêm JLPT.
+     */
+    private PageResponse<VideoResponse> getTopicFeed(Long currentUserId, Long topicId, JLPTLevel jlptLevel,
+            Pageable pageable) {
+        Page<Video> page = jlptLevel != null
+                ? videoRepository.findByStatusAndModStatusAndJlptLevelAndTopicId(
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, topicId, pageable)
+                : videoRepository.findByStatusAndModStatusAndTopicId(
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, topicId, pageable);
         return toVideoPageResponse(page, currentUserId);
     }
 
@@ -326,6 +348,7 @@ public class VideoServiceImpl implements VideoService {
             videoLikeRepository.save(like);
             videoRepository.updateLikeCount(videoId, 1);
             log.info("User ID: {} đã LIKE video ID: {}", currentUserId, videoId);
+            notificationService.notify(video.getUser().getId(), currentUserId, com.jlsp.backend.notification.entity.NotificationType.LIKE, videoId, null, null);
             return true;
         }
     }
@@ -452,7 +475,7 @@ public class VideoServiceImpl implements VideoService {
      */
     @Override
     public PageResponse<VideoResponse> getAllVideos(Long currentUserId, String feed, JLPTLevel jlptLevel, Long userId,
-            String search, Pageable pageable) {
+            String search, Long topicId, Pageable pageable) {
         if (userId != null) {
             return getVideosByUserId(userId, currentUserId, pageable);
         }
@@ -461,6 +484,9 @@ public class VideoServiceImpl implements VideoService {
         }
         if ("following".equalsIgnoreCase(feed)) {
             return getFollowingFeed(currentUserId, pageable);
+        }
+        if (topicId != null) {
+            return getTopicFeed(currentUserId, topicId, jlptLevel, pageable);
         }
         return getForYouFeed(currentUserId, jlptLevel, pageable);
     }
@@ -598,6 +624,8 @@ public class VideoServiceImpl implements VideoService {
 
         Video saved = videoRepository.save(video);
         log.info("Moderator ID {} đã DUYỆT video ID {}", moderatorId, videoId);
+        // actor = null: kiểm duyệt viên ẩn danh với người đăng.
+        notificationService.notify(video.getUser().getId(), null, com.jlsp.backend.notification.entity.NotificationType.VIDEO_APPROVED, videoId, null, null);
         return videoMapper.toVideoDetailResponse(saved, false, false);
     }
 
@@ -620,6 +648,8 @@ public class VideoServiceImpl implements VideoService {
 
         Video saved = videoRepository.save(video);
         log.info("Moderator ID {} đã TỪ CHỐI video ID {} với lý do: {}", moderatorId, videoId, video.getRejectionReason());
+        notificationService.notify(video.getUser().getId(), null, com.jlsp.backend.notification.entity.NotificationType.VIDEO_REJECTED, videoId, null,
+                video.getRejectionReason());
         return videoMapper.toVideoDetailResponse(saved, false, false);
     }
 

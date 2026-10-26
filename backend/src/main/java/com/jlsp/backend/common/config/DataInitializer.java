@@ -22,6 +22,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final com.jlsp.backend.subscription.repository.SubscriptionPlanRepository subscriptionPlanRepository;
+    private final com.jlsp.backend.topic.repository.TopicRepository topicRepository;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
@@ -32,6 +33,7 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) {
         migrateDatabaseColumns();
         seedSubscriptionPlans();
+        seedTopics();
         ensureAdminAccount();
 
         if (userRepository.count() > 0) {
@@ -121,6 +123,23 @@ public class DataInitializer implements CommandLineRunner {
         log.info("  4. Learner: sakura_learner / password123 (Role: USER)");
         log.info("  5. Learner: modern_learner / password123 (Role: USER)");
         log.info("==================================================================");
+    }
+
+    /** Chủ đề mặc định, chỉ tạo khi bảng còn trống (giữ nguyên thứ tự / id 1..9 như danh sách cũ). */
+    private void seedTopics() {
+        if (topicRepository.count() > 0) {
+            return;
+        }
+        List<String> names = List.of(
+                "Anime & Manga", "Giao tiếp hằng ngày", "Luyện thi JLPT", "Văn hóa & Du lịch",
+                "Âm nhạc J-Pop", "Ẩm thực Nhật Bản", "Kanji & Hán tự", "Công việc & IT", "Tin tức thời sự");
+        for (int i = 0; i < names.size(); i++) {
+            topicRepository.save(com.jlsp.backend.topic.entity.Topic.builder()
+                    .name(names.get(i))
+                    .sortOrder(i + 1)
+                    .build());
+        }
+        log.info("Đã khởi tạo {} chủ đề mặc định.", names.size());
     }
 
     private void seedSubscriptionPlans() {

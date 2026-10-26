@@ -38,7 +38,8 @@ class UserServiceImplPublicProfileTest {
         followRepository = mock(FollowRepository.class);
         videoRepository = mock(VideoRepository.class);
         service = new UserServiceImpl(userRepository, new UserMapper(), mock(PasswordEncoder.class),
-                followRepository, videoRepository, mock(RefreshTokenService.class));
+                followRepository, videoRepository, mock(RefreshTokenService.class),
+                mock(com.jlsp.backend.topic.service.TopicService.class));
 
         when(followRepository.countByIdFollowerId(OWNER)).thenReturn(3L);
         when(followRepository.countByIdFollowingId(OWNER)).thenReturn(5L);

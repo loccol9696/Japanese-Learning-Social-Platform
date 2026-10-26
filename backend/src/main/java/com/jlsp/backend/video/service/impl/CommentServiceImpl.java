@@ -24,6 +24,7 @@ public class CommentServiceImpl implements CommentService {
     private final VideoCommentRepository commentRepository;
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
+    private final com.jlsp.backend.notification.service.NotificationService notificationService;
 
     @Override
     public List<VideoCommentResponse> list(Long videoId) {
@@ -51,6 +52,18 @@ public class CommentServiceImpl implements CommentService {
         }
         VideoComment comment = commentRepository.save(VideoComment.builder()
                 .video(video).user(user).parent(parent).content(request.getContent().trim()).build());
+
+        Long videoOwnerId = video.getUser().getId();
+        if (parent != null) {
+            Long parentAuthorId = parent.getUser().getId();
+            notificationService.notify(parentAuthorId, userId, com.jlsp.backend.notification.entity.NotificationType.REPLY, videoId, comment.getId(), comment.getContent());
+            // Chủ video cũng được báo (nếu khác người được trả lời), tránh gửi hai thông báo cho cùng một người.
+            if (!videoOwnerId.equals(parentAuthorId)) {
+                notificationService.notify(videoOwnerId, userId, com.jlsp.backend.notification.entity.NotificationType.COMMENT, videoId, comment.getId(), comment.getContent());
+            }
+        } else {
+            notificationService.notify(videoOwnerId, userId, com.jlsp.backend.notification.entity.NotificationType.COMMENT, videoId, comment.getId(), comment.getContent());
+        }
         return toResponse(comment);
     }
 

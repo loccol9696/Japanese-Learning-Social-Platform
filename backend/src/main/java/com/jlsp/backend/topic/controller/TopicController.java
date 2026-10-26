@@ -1,32 +1,54 @@
 package com.jlsp.backend.topic.controller;
 
 import com.jlsp.backend.common.response.ApiResponse;
+import com.jlsp.backend.topic.dto.TopicRequest;
+import com.jlsp.backend.topic.dto.TopicResponse;
+import com.jlsp.backend.topic.service.TopicService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping({"/api/v1/topics", "/topics"})
+@RequiredArgsConstructor
 public class TopicController {
 
-    private static final List<Map<String, Object>> DEFAULT_TOPICS = List.of(
-            Map.of("id", 1, "name", "Anime & Manga"),
-            Map.of("id", 2, "name", "Giao tiếp hằng ngày"),
-            Map.of("id", 3, "name", "Luyện thi JLPT"),
-            Map.of("id", 4, "name", "Văn hóa & Du lịch"),
-            Map.of("id", 5, "name", "Âm nhạc J-Pop"),
-            Map.of("id", 6, "name", "Ẩm thực Nhật Bản"),
-            Map.of("id", 7, "name", "Kanji & Hán tự"),
-            Map.of("id", 8, "name", "Công việc & IT"),
-            Map.of("id", 9, "name", "Tin tức thời sự")
-    );
+    private final TopicService topicService;
 
+    /** Chủ đề đang hiển thị (công khai). */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getTopics() {
-        return ResponseEntity.ok(ApiResponse.success(DEFAULT_TOPICS));
+    public ResponseEntity<ApiResponse<List<TopicResponse>>> getTopics() {
+        return ResponseEntity.ok(ApiResponse.success(topicService.getActiveTopics()));
+    }
+
+    /** Toàn bộ chủ đề kể cả đã ẩn (ADMIN). */
+    @GetMapping("/admin")
+    public ResponseEntity<ApiResponse<List<TopicResponse>>> getAllTopics() {
+        return ResponseEntity.ok(ApiResponse.success(topicService.getAllTopics()));
+    }
+
+    @PostMapping("/admin")
+    public ResponseEntity<ApiResponse<TopicResponse>> create(@Valid @RequestBody TopicRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED.value(), "Tạo chủ đề thành công",
+                        topicService.create(request)));
+    }
+
+    @PutMapping("/admin/{id}")
+    public ResponseEntity<ApiResponse<TopicResponse>> update(
+            @PathVariable Long id, @Valid @RequestBody TopicRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(200, "Cập nhật chủ đề thành công",
+                topicService.update(id, request)));
+    }
+
+    /** Ẩn chủ đề (xoá mềm, không làm mất liên kết với video / hồ sơ). */
+    @DeleteMapping("/admin/{id}")
+    public ResponseEntity<ApiResponse<Void>> deactivate(@PathVariable Long id) {
+        topicService.deactivate(id);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã ẩn chủ đề", null));
     }
 }

@@ -46,11 +46,12 @@ public class VideoController {
             @RequestParam(value = "jlptLevel", required = false) JLPTLevel jlptLevel,
             @RequestParam(value = "userId", required = false) Long targetUserId,
             @RequestParam(value = "search", required = false) String search,
+            @RequestParam(value = "topicId", required = false) Long topicId,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Long currentUserId = CurrentUser.idOrNull();
         PageResponse<VideoResponse> response = videoService.getAllVideos(currentUserId, feed, jlptLevel, targetUserId,
-                search, pageable);
+                search, topicId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

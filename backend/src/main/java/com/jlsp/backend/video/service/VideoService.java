@@ -160,11 +160,12 @@ public interface VideoService {
      * @param jlptLevel     Cấp độ JLPT cần lọc (tuỳ chọn)
      * @param userId        ID Creator cần lọc (tuỳ chọn)
      * @param search        Từ khoá tìm theo tiêu đề / mô tả (tuỳ chọn)
+     * @param topicId       Lọc theo chủ đề (tuỳ chọn; bị bỏ qua khi có từ khoá tìm kiếm hoặc feed following)
      * @param pageable      Phân trang và sắp xếp
      * @return Danh sách video phân trang
      */
     PageResponse<VideoResponse> getAllVideos(Long currentUserId, String feed, JLPTLevel jlptLevel, Long userId,
-            String search, Pageable pageable);
+            String search, Long topicId, Pageable pageable);
 
     /**
      * Thả tim (Like) video

@@ -33,8 +33,8 @@ public class UpdateUserRequest {
     @Size(max = 500, message = "Bio must not exceed 500 characters")
     private String bio;
 
-    @Builder.Default
-    private Set<Long> topicIds = new HashSet<>();
+    /** Null: giữ nguyên sở thích hiện tại; tập rỗng: xoá hết. */
+    private Set<Long> topicIds;
 
     @Builder.Default
     private Set<String> interests = new HashSet<>();

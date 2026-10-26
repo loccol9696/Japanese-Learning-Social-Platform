@@ -46,6 +46,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
             @org.springframework.data.repository.query.Param("role") com.jlsp.backend.user.entity.UserRole role,
             Pageable pageable);
 
+    /** Tìm công khai theo username / tên hiển thị, chỉ tài khoản đang hoạt động (không dò theo email). */
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE u.isActive = true AND (" +
+            "LOWER(u.username) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+            "LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<User> searchActivePublic(
+            @org.springframework.data.repository.query.Param("q") String q,
+            Pageable pageable);
+
     long countByUsernameStartingWith(String prefix);
 
     long countByRole(com.jlsp.backend.user.entity.UserRole role);

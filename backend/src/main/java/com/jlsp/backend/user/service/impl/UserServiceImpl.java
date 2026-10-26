@@ -28,6 +28,7 @@ public class UserServiceImpl implements UserService {
     private final com.jlsp.backend.user.repository.FollowRepository followRepository;
     private final com.jlsp.backend.video.repository.VideoRepository videoRepository;
     private final com.jlsp.backend.common.security.token.RefreshTokenService refreshTokenService;
+    private final com.jlsp.backend.topic.service.TopicService topicService;
 
     @Override
     public UserResponse createUser(CreateUserRequest request) {
@@ -67,10 +68,12 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException(404, "User not found with id: " + id));
         UserResponse response = userMapper.toResponse(user);
+        response.setTopics(topicsOf(user));
         enrichUserStats(response, id);
         return response;
     }
@@ -128,6 +131,39 @@ public class UserServiceImpl implements UserService {
         org.springframework.data.domain.Page<User> page = userRepository.findAll(pageable);
         return PageResponse.<UserResponse>builder()
                 .content(page.getContent().stream().map(userMapper::toResponse).toList())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
+                .build();
+    }
+
+    @Override
+    public PageResponse<com.jlsp.backend.user.dto.response.FollowUserResponse> searchPublicUsers(
+            Long viewerId, String query, Pageable pageable) {
+        String q = query == null ? "" : query.trim();
+        if (q.length() < 2) {
+            throw new AppException(400, "Từ khóa tìm kiếm phải có ít nhất 2 ký tự");
+        }
+        org.springframework.data.domain.Page<User> page = userRepository.searchActivePublic(q, pageable);
+
+        java.util.Set<Long> followingIds = new java.util.HashSet<>(
+                followRepository.findFollowingIdsByFollowerId(viewerId));
+        java.util.Set<Long> followerIds = new java.util.HashSet<>(
+                followRepository.findFollowerIdsByFollowingId(viewerId));
+        return PageResponse.<com.jlsp.backend.user.dto.response.FollowUserResponse>builder()
+                .content(page.getContent().stream()
+                        .map(u -> com.jlsp.backend.user.dto.response.FollowUserResponse.builder()
+                                .id(u.getId())
+                                .username(u.getUsername())
+                                .displayName(u.getDisplayName())
+                                .avatarUrl(u.getAvatarUrl())
+                                .jlptLevel(u.getJlptLevel())
+                                .isFollowing(followingIds.contains(u.getId()))
+                                .isFollowedBy(followerIds.contains(u.getId()))
+                                .build())
+                        .toList())
                 .page(page.getNumber())
                 .size(page.getSize())
                 .totalElements(page.getTotalElements())
@@ -230,6 +266,7 @@ public class UserServiceImpl implements UserService {
         applyUserUpdates(user, request);
         User saved = userRepository.save(user);
         UserResponse response = userMapper.toResponse(saved);
+        response.setTopics(topicsOf(saved));
         enrichUserStats(response, id);
         return response;
     }
@@ -243,6 +280,7 @@ public class UserServiceImpl implements UserService {
         User saved = userRepository.save(user);
         log.info("Updated profile for user {}", currentUsername);
         UserResponse response = userMapper.toResponse(saved);
+        response.setTopics(topicsOf(saved));
         enrichUserStats(response, saved.getId());
         return response;
     }
@@ -274,6 +312,20 @@ public class UserServiceImpl implements UserService {
             user.setAvatarUrl(avatar.isEmpty() ? null : avatar);
         }
         if (request.getEffectiveLevel() != null) user.setJlptLevel(request.getEffectiveLevel());
+        if (request.getTopicIds() != null) {
+            user.setTopics(topicService.requireActive(request.getTopicIds()));
+        }
+    }
+
+    /** Sở thích đang hiển thị của người dùng, theo thứ tự hiển thị của chủ đề. */
+    private java.util.List<com.jlsp.backend.topic.dto.TopicResponse> topicsOf(User user) {
+        return user.getTopics().stream()
+                .filter(t -> Boolean.TRUE.equals(t.getIsActive()))
+                .sorted(java.util.Comparator
+                        .comparing(com.jlsp.backend.topic.entity.Topic::getSortOrder)
+                        .thenComparing(com.jlsp.backend.topic.entity.Topic::getId))
+                .map(topicService::toResponse)
+                .toList();
     }
 
     @Override

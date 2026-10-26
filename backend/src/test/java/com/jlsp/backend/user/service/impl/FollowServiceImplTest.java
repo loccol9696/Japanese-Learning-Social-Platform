@@ -39,7 +39,8 @@ class FollowServiceImplTest {
     void setUp() {
         followRepository = mock(FollowRepository.class);
         userRepository = mock(UserRepository.class);
-        service = new FollowServiceImpl(followRepository, userRepository);
+        service = new FollowServiceImpl(followRepository, userRepository,
+                mock(com.jlsp.backend.notification.service.NotificationService.class));
     }
 
     @Test
