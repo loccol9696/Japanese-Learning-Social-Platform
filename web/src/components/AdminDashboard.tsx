@@ -30,7 +30,8 @@ import {
   Coins,
   Save,
   Eye,
-  Play
+  Play,
+  Tag
 } from 'lucide-react';
 import {
   getModerationVideos,
@@ -59,6 +60,8 @@ import {
   type AdminAnalyticsData,
   type DailyMetricDto
 } from '../services/adminService';
+import TopicsManager from './TopicsManager';
+import ReportsManager from './ReportsManager';
 import './AdminDashboard.css';
 
 interface AdminDashboardProps {
@@ -67,7 +70,7 @@ interface AdminDashboardProps {
   onUpdateUser?: (updated: UserProfile) => void;
 }
 
-type TabType = 'analytics' | 'videos' | 'users' | 'subscriptions' | 'pricing' | 'reports' | 'profile';
+type TabType = 'analytics' | 'videos' | 'users' | 'subscriptions' | 'pricing' | 'topics' | 'reports' | 'profile';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onUpdateUser }) => {
   const isModerator = user.role === 'MODERATOR';
@@ -82,7 +85,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     if (isAdmin && activeTab === 'videos') {
       setActiveTab('analytics');
     }
-    if (isModerator && (activeTab === 'users' || activeTab === 'subscriptions' || activeTab === 'pricing' || activeTab === 'analytics')) {
+    if (isModerator && (activeTab === 'users' || activeTab === 'subscriptions' || activeTab === 'pricing' || activeTab === 'topics' || activeTab === 'analytics')) {
       setActiveTab('videos');
     }
   }, [isAdmin, isModerator, activeTab]);
@@ -1042,6 +1045,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </button>
           )}
 
+          {/* TAB: CHỦ ĐỀ (CHỈ ADMIN) */}
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('topics')}
+              className={`nav-tab-item ${activeTab === 'topics' ? 'active' : ''}`}
+              title="Quản lý chủ đề video & sở thích"
+            >
+              <Tag size={18} />
+              {!isSidebarCollapsed && <span>Chủ đề</span>}
+            </button>
+          )}
+
           {/* TAB: XỬ LÝ BÁO CÁO (CẢ ADMIN VÀ MODERATOR) */}
           <button
             onClick={() => setActiveTab('reports')}
@@ -1139,6 +1154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               {activeTab === 'users' && 'Quản Lý Người Dùng & Phân Quyền Hệ Thống'}
               {activeTab === 'subscriptions' && 'Lịch Sử Giao Dịch & Giả Lập Thanh Toán QR'}
               {activeTab === 'pricing' && 'Cấu Hình Gói VIP & Hạn Mức Token Trích Xuất AI'}
+              {activeTab === 'topics' && 'Quản Lý Chủ Đề Video & Sở Thích Người Dùng'}
               {activeTab === 'reports' && 'Xử Lý Khiếu Nại & Báo Cáo Vi Phạm'}
               {activeTab === 'profile' && 'Hồ Sơ Cá Nhân & Quản Trị Hệ Thống'}
             </h1>
@@ -2392,22 +2408,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
           )}
 
           {/* ==================== TAB 5: XỬ LÝ REPORT ==================== */}
-          {activeTab === 'reports' && (
-            <div style={{
-              background: 'var(--admin-bg-surface)',
-              border: '1px solid var(--admin-border)',
-              borderRadius: '2px',
-              padding: '2.5rem',
-              textAlign: 'center',
-              color: 'var(--admin-text-dim)'
-            }}>
-              <AlertTriangle size={36} color="#f59e0b" style={{ margin: '0 auto 1rem' }} />
-              <h3 style={{ color: 'var(--admin-text-main)', marginBottom: '0.5rem' }}>Hệ Thống Khiếu Nại & Báo Cáo Nội Dung</h3>
-              <p style={{ maxWidth: '480px', margin: '0 auto', fontSize: '0.85rem' }}>
-                Hiện tại không có báo cáo vi phạm nào tồn đọng. Hệ thống sẽ tự động cập nhật khi có người dùng gắn cờ báo cáo video hoặc bình luận không lành mạnh.
-              </p>
-            </div>
-          )}
+          {activeTab === 'topics' && isAdmin && <TopicsManager showToast={showToast} />}
+          {activeTab === 'reports' && <ReportsManager isAdmin={isAdmin} showToast={showToast} />}
           {/* ==================== TAB 6: TRANG HỒ SƠ CÁ NHÂN (ADMIN & MODERATOR) ==================== */}
           {activeTab === 'profile' && (
             <div className="profile-page-grid">

@@ -476,3 +476,121 @@ export async function updateAdminProfile(
   return resData.data;
 }
 
+
+// ==================== TOPICS (ADMIN) ====================
+
+export interface TopicItem {
+  id: number;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export async function getAllTopicsAdmin(): Promise<TopicItem[]> {
+  const response = await fetch('/api/v1/topics/admin', { headers: getAuthHeaders() });
+  const resData: ApiResponse<TopicItem[]> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách chủ đề');
+  }
+  return resData.data;
+}
+
+export async function createTopic(payload: { name: string; sortOrder?: number }): Promise<TopicItem> {
+  const response = await fetch('/api/v1/topics/admin', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<TopicItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tạo chủ đề');
+  }
+  return resData.data;
+}
+
+export async function updateTopic(
+  id: number,
+  payload: { name: string; isActive?: boolean; sortOrder?: number }
+): Promise<TopicItem> {
+  const response = await fetch(`/api/v1/topics/admin/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<TopicItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể cập nhật chủ đề');
+  }
+  return resData.data;
+}
+
+// ==================== REPORTS (ADMIN & MODERATOR) ====================
+
+export type ReportTargetType = 'VIDEO' | 'COMMENT' | 'USER';
+export type ReportStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED';
+export type ReportAction = 'NONE' | 'HIDE_VIDEO' | 'DELETE_COMMENT' | 'LOCK_USER';
+
+export interface ReportItem {
+  id: number;
+  targetType: ReportTargetType;
+  targetId: number;
+  reason: string;
+  detail?: string;
+  status: ReportStatus;
+  action?: ReportAction;
+  resolutionNote?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  reporterId: number;
+  reporterUsername: string;
+  targetExists: boolean;
+  targetSummary?: string;
+  targetOwnerId?: number;
+  targetOwnerUsername?: string;
+  targetVideoId?: number;
+  pendingCountForTarget: number;
+}
+
+export async function getReports(
+  status: ReportStatus,
+  targetType: ReportTargetType | '',
+  page = 0,
+  size = 10
+): Promise<PageResponse<ReportItem>> {
+  const params = new URLSearchParams({ status, page: String(page), size: String(size) });
+  if (targetType) params.set('targetType', targetType);
+  const response = await fetch(`/api/v1/admin/reports?${params.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<PageResponse<ReportItem>> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách báo cáo');
+  }
+  return resData.data;
+}
+
+export async function resolveReport(id: number, action: ReportAction, note: string): Promise<ReportItem> {
+  const response = await fetch(`/api/v1/admin/reports/${id}/resolve`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ action, note: note.trim() || undefined }),
+  });
+  const resData: ApiResponse<ReportItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể xử lý báo cáo');
+  }
+  return resData.data;
+}
+
+export async function dismissReport(id: number, note: string): Promise<ReportItem> {
+  const response = await fetch(`/api/v1/admin/reports/${id}/dismiss`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ note: note.trim() || undefined }),
+  });
+  const resData: ApiResponse<ReportItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể bác bỏ báo cáo');
+  }
+  return resData.data;
+}
