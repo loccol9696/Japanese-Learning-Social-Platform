@@ -96,6 +96,8 @@ class ApiConstants {
   static String followUrl(int userId) => '$baseUrl/users/$userId/follow';
   static String userSearchUrl(String query, {int page = 0, int size = 20}) =>
       '$baseUrl/users/search?q=${Uri.encodeQueryComponent(query)}&page=$page&size=$size';
+  static String blockUrl(int userId) => '$baseUrl/users/$userId/block';
+  static String get blockedUsersUrl => '$baseUrl/users/me/blocked';
   static String get myFollowersUrl => '$baseUrl/users/me/followers';
   static String get myFollowingUrl => '$baseUrl/users/me/following';
   static String publicProfileUrl(int userId) =>

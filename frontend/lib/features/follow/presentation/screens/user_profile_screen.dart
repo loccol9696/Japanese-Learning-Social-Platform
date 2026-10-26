@@ -117,6 +117,69 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  Future<void> _confirmBlock(PublicProfile profile) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppPalette.surface,
+        title: Text(
+          'Chặn ${profile.name}?',
+          style: TextStyle(color: AppPalette.textPrimary),
+        ),
+        content: Text(
+          'Hai bên sẽ không còn theo dõi, nhắn tin hay thấy video, bình luận của nhau. '
+          'Bạn có thể bỏ chặn bất cứ lúc nào trong Cài đặt.',
+          style: TextStyle(color: AppPalette.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Huỷ'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text('Chặn', style: TextStyle(color: AppPalette.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || _busy) return;
+    await _setBlocked(profile, true);
+  }
+
+  Future<void> _setBlocked(PublicProfile profile, bool blocked) async {
+    setState(() => _busy = true);
+    try {
+      if (blocked) {
+        await _service.block(profile.id);
+      } else {
+        await _service.unblock(profile.id);
+      }
+      // Chặn đồng thời bỏ theo dõi hai chiều.
+      if (blocked) widget.onFollowChanged?.call(false);
+      if (!mounted) return;
+      setState(() {
+        _profile = profile.copyWith(
+          isBlocked: blocked,
+          isFollowing: blocked ? false : null,
+          followersCount: blocked && profile.isFollowing
+              ? profile.followersCount - 1
+              : null,
+        );
+        if (blocked) _videos = const [];
+      });
+      AppToast.showSuccess(
+        blocked ? 'Đã chặn ${profile.name}' : 'Đã bỏ chặn ${profile.name}',
+        context: context,
+      );
+      if (!blocked) await _load();
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   /// Mở (hoặc tạo) hội thoại với người này rồi vào khung chat.
   Future<void> _openChat(PublicProfile profile) async {
     if (_busy) return;
@@ -149,18 +212,37 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             PopupMenuButton<String>(
               color: AppPalette.surface,
               icon: Icon(Icons.more_vert_rounded, color: AppPalette.textPrimary),
-              onSelected: (_) => showReportSheet(
-                context,
-                target: ReportTarget.user,
-                targetId: profile.id,
-                subject: 'người dùng này',
-              ),
+              onSelected: (value) {
+                if (value == 'report') {
+                  showReportSheet(
+                    context,
+                    target: ReportTarget.user,
+                    targetId: profile.id,
+                    subject: 'người dùng này',
+                  );
+                } else if (value == 'block') {
+                  _confirmBlock(profile);
+                } else if (value == 'unblock') {
+                  _setBlocked(profile, false);
+                }
+              },
               itemBuilder: (_) => [
                 PopupMenuItem(
                   value: 'report',
                   child: Text(
                     'Báo cáo người dùng',
                     style: TextStyle(color: AppPalette.textPrimary),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: profile.isBlocked ? 'unblock' : 'block',
+                  child: Text(
+                    profile.isBlocked ? 'Bỏ chặn' : 'Chặn người dùng',
+                    style: TextStyle(
+                      color: profile.isBlocked
+                          ? AppPalette.textPrimary
+                          : AppPalette.error,
+                    ),
                   ),
                 ),
               ],
@@ -283,6 +365,33 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   /// Nút theo dõi; thêm nút Nhắn tin khi hai bên đã follow lẫn nhau (mới được nhắn tin).
   Widget _buildActions(PublicProfile profile) {
+    if (profile.isBlocked) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Bạn đã chặn người dùng này.',
+            style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton(
+              onPressed: _busy ? null : () => _setBlocked(profile, false),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppPalette.textPrimary,
+                side: BorderSide(color: AppPalette.border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Bỏ chặn'),
+            ),
+          ),
+        ],
+      );
+    }
     final canMessage =
         widget.showMessageButton && profile.isFollowing && profile.isFollowedBy;
     return Row(

@@ -27,6 +27,19 @@ class FollowService {
     return _list(content).map(FollowUser.fromJson).toList();
   }
 
+  Future<void> block(int userId) async {
+    await _api.post(ApiConstants.blockUrl(userId));
+  }
+
+  Future<void> unblock(int userId) async {
+    await _api.delete(ApiConstants.blockUrl(userId));
+  }
+
+  Future<List<BlockedUser>> fetchBlocked() async {
+    final data = await _api.get(ApiConstants.blockedUsersUrl);
+    return _list(data).map(BlockedUser.fromJson).toList();
+  }
+
   Future<void> follow(int userId) async {
     await _api.post(ApiConstants.followUrl(userId));
   }

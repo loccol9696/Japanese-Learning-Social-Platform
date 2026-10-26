@@ -167,6 +167,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .then((_) => _loadProfile());
   }
 
+  void _openUpload() {
+    Navigator.of(context)
+        .pushNamed(AppRoutes.upload)
+        .then((_) => _loadVideoLists());
+  }
+
   void _openMyVideosStatus() {
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const MyVideosStatusScreen()))
@@ -295,6 +301,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: 'Giao diện',
         value: _themeModeLabel(themeManager.mode),
         onTap: () => _showThemePicker(sheetContext),
+      ),
+      _SettingsRowData(
+        icon: Icons.block_rounded,
+        title: 'Người đã chặn',
+        onTap: () {
+          Navigator.of(sheetContext).pop();
+          Navigator.of(context).pushNamed(AppRoutes.blockedUsers);
+        },
       ),
       _SettingsRowData(
         icon: Icons.lock_outline_rounded,
@@ -682,75 +696,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final username = _profile.username.isNotEmpty
         ? '@${_profile.username}'
         : '@learner';
-    final handle = _profile.currentLevel.isNotEmpty
-        ? '$username · ${_profile.currentLevel}'
-        : username;
+    final level = _profile.currentLevel.isNotEmpty
+        ? 'JLPT ${_profile.currentLevel}'
+        : null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top row: avatar + name/handle + menu icon
+          // Hàng trên cùng: @username bên trái, các icon bên phải
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildAvatar(displayName),
-              const SizedBox(width: 14),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: AppPalette.textPrimary,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        if (_profile.isModerator) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppPalette.accentSoft,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              _profile.isAdmin ? 'ADMIN' : 'MOD',
-                              style: TextStyle(
-                                color: AppPalette.accent,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(width: 8),
-                        _buildPlanTag(),
-                      ],
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(
+                    username,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppPalette.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      handle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               ValueListenableBuilder<int>(
@@ -836,6 +807,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          // Avatar + tên + trình độ JLPT và gói
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildAvatar(displayName),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppPalette.textPrimary,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          if (_profile.isModerator) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppPalette.accentSoft,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                _profile.isAdmin ? 'ADMIN' : 'MOD',
+                                style: TextStyle(
+                                  color: AppPalette.accent,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          if (level != null) ...[
+                            Text(
+                              level,
+                              style: TextStyle(
+                                color: AppPalette.textSecondary,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          _buildPlanTag(),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 18),
           // Stats row
           Padding(
@@ -874,8 +917,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
+
+          // Hành động chính: sửa hồ sơ và đăng video
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _buildPrimaryActions(),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPrimaryActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 44,
+            child: OutlinedButton(
+              onPressed: _openEditProfile,
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppPalette.surface,
+                foregroundColor: AppPalette.textPrimary,
+                side: BorderSide(color: AppPalette.border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('Chỉnh sửa'),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: SizedBox(
+            height: 44,
+            child: FilledButton(
+              onPressed: _openUpload,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppPalette.accent,
+                foregroundColor: AppPalette.onAccent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('Đăng video'),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
