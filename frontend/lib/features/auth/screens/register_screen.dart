@@ -471,51 +471,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // 10. Nút Google với icon assets
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: AppPalette.border),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: _isLoading
-                          ? null
-                          : () {
-                              _showSnackBar(
-                                'Tính năng đăng ký Google đang phát triển',
-                                isError: false,
-                              );
-                            },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            'assets/icons/google.png',
-                            height: 20,
-                            width: 20,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Icon(
-                                  Icons.g_mobiledata,
-                                  size: 24,
-                                  color: AppPalette.error,
-                                ),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Google',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppPalette.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  // Nút "Tiếp tục với Google"
+                  GoogleSignInButton(
+                    enabled: !_isLoading,
+                    onSuccess: _onGoogleSuccess,
+                    onError: _onGoogleError,
                   ),
                   const SizedBox(height: 28),
 

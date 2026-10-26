@@ -110,18 +110,18 @@ class ThemePalette {
 
   bool get isDark => brightness == Brightness.dark;
 
-  /// Đen xám: nền gần đen, các tầng sáng dần theo độ nổi.
+  /// Xanh navy đậm: các tầng sáng dần theo độ nổi.
   static const ThemePalette dark = ThemePalette(
     brightness: Brightness.dark,
-    background: Color(0xFF121214),
-    surface: Color(0xFF1C1C1F),
-    surfaceHigh: Color(0xFF2A2A2E),
-    surfaceHighest: Color(0xFF36363B),
+    background: Color(0xFF0A092D),
+    surface: Color(0xFF1A1D42),
+    surfaceHigh: Color(0xFF2E3856),
+    surfaceHighest: Color(0xFF3A4668),
     accent: Color(0xFF4255FF),
     onAccent: Color(0xFFFFFFFF),
     textPrimary: Color(0xFFFFFFFF),
-    textSecondary: Color(0xFF9A9AA3),
-    border: Color(0x409A9AA3),
+    textSecondary: Color(0xFF939BB4),
+    border: Color(0x40939BB4),
     accentSoft: Color(0x2E4255FF),
     scrim: Color(0xB3000000),
     shadow: Color(0x66000000),
@@ -135,7 +135,7 @@ class ThemePalette {
     infoContainer: Color(0xFF10232E),
     gold: Color(0xFFFFD700),
     like: Color(0xFFFE2C55),
-    videoScrim: Color(0xFF0B0B0C),
+    videoScrim: Color(0xFF0A092D),
     onVideo: Color(0xFFFFFFFF),
     onVideoMuted: Color(0xB3FFFFFF),
   );
@@ -165,7 +165,7 @@ class ThemePalette {
     infoContainer: Color(0xFFDCF0FB),
     gold: Color(0xFFD99A00),
     like: Color(0xFFE11D48),
-    videoScrim: Color(0xFF0B0B0C),
+    videoScrim: Color(0xFF0A092D),
     onVideo: Color(0xFFFFFFFF),
     onVideoMuted: Color(0xB3FFFFFF),
   );

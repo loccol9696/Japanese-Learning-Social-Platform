@@ -753,7 +753,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
                   ),
                 if (_practice)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: EdgeInsets.only(top: 8),
                     child: Text(
                       'Lượt luyện tập không làm thay đổi lịch ôn của thẻ.',
                       style: TextStyle(

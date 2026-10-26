@@ -13,7 +13,6 @@ import '../../../follow/presentation/screens/user_profile_screen.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../screens/video_script_screen.dart';
-import '../../../profile/presentation/screens/public_profile_screen.dart';
 import 'bottom_nav_dock.dart';
 import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';

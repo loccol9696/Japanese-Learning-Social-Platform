@@ -31,7 +31,7 @@ class VideoScriptScreen extends StatefulWidget {
 }
 
 class _VideoScriptScreenState extends State<VideoScriptScreen> {
-  static const Color _linkBlue = Color(0xFF38BDF8);
+  static Color get _linkBlue => AppPalette.info;
   static const Color _inactiveText = Color(0xFFA9B0C9);
   static const Color _inactiveTranslation = Color(0xFF7B83A3);
   final ScrollController _listController = ScrollController();
