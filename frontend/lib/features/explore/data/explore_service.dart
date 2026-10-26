@@ -4,10 +4,12 @@ import '../../home/data/datasources/home_remote_datasource.dart';
 import 'explore_video.dart';
 
 /// Bộ lọc của màn Khám phá — mỗi lựa chọn tương ứng 1 tham số thật của
-/// API `GET /videos` (sắp xếp hoặc jlptLevel).
+/// API `GET /videos` (sắp xếp hoặc jlptLevel), riêng [users] chuyển ô tìm kiếm sang tìm
+/// người dùng (`GET /users/search`) và không dùng cho danh sách video.
 enum ExploreFilter {
   trending('Thịnh hành'),
   newest('Mới nhất'),
+  users('Người dùng'),
   n5('JLPT N5'),
   n4('JLPT N4'),
   n3('JLPT N3'),
@@ -16,6 +18,8 @@ enum ExploreFilter {
 
   final String label;
   const ExploreFilter(this.label);
+
+  bool get isUsers => this == ExploreFilter.users;
 
   String get sort =>
       this == ExploreFilter.trending ? 'viewCount,desc' : 'createdAt,desc';

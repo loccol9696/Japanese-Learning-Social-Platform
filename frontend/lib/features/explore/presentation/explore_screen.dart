@@ -6,7 +6,7 @@ import '../../../core/auth/auth_guard.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_toast.dart';
-import '../../follow/presentation/screens/user_search_screen.dart';
+import '../../follow/presentation/widgets/user_search_results.dart';
 import '../../profile/domain/models/topic_model.dart';
 import '../../topic/topic_service.dart';
 import '../data/explore_service.dart';
@@ -150,6 +150,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _searchDebounce = Timer(const Duration(milliseconds: 400), () {
       final next = value.trim();
       if (next == _search) return;
+      if (_filter.isUsers) {
+        // Kết quả người dùng do UserSearchResults tự tải khi từ khoá đổi.
+        setState(() => _search = next);
+        return;
+      }
       _search = next;
       if (next.isNotEmpty) _topicId = null;
       _loadFirstPage();
@@ -161,6 +166,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _searchController.clear();
     if (_search.isEmpty) {
       setState(() {});
+      return;
+    }
+    if (_filter.isUsers) {
+      setState(() => _search = '');
       return;
     }
     _search = '';
@@ -182,7 +191,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   void _selectFilter(ExploreFilter filter) {
     if (filter == _filter) return;
-    setState(() => _filter = filter);
+    // Áp dụng ngay chữ đang gõ (nếu chưa kịp debounce) để hai chế độ dùng chung một từ khoá.
+    _searchDebounce?.cancel();
+    final typed = _searchController.text.trim();
+    final wasUsers = _filter.isUsers;
+    setState(() {
+      _filter = filter;
+      _search = typed;
+      // Máy chủ ưu tiên từ khoá hơn chủ đề: có từ khoá thì bỏ chủ đề đang chọn khi quay lại video.
+      if (wasUsers && typed.isNotEmpty) _topicId = null;
+    });
+    // Chế độ người dùng không có danh sách video để tải.
+    if (filter.isUsers) return;
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     _loadFirstPage();
   }
@@ -258,7 +278,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             _buildSearchBar(),
             const SizedBox(height: 10),
             _buildFilterChips(),
-            if (_topics.isNotEmpty) ...[
+            if (_topics.isNotEmpty && !_filter.isUsers) ...[
               const SizedBox(height: 8),
               _buildTopicChips(),
             ],
@@ -327,7 +347,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
           cursorColor: _accent,
           decoration: InputDecoration(
-            hintText: 'Tìm video theo tiêu đề, nội dung...',
+            hintText: _filter.isUsers
+                ? 'Tìm người dùng theo tên hoặc username...'
+                : 'Tìm video theo tiêu đề, nội dung...',
             hintStyle: TextStyle(color: _textMuted, fontSize: 14),
             prefixIcon: Icon(Icons.search_rounded, color: _textMuted),
             suffixIcon: _searchController.text.isEmpty
@@ -347,14 +369,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       );
 
-    final userSearchButton = IconButton(
-      tooltip: 'Tìm người dùng',
-      onPressed: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const UserSearchScreen()),
-      ),
-      icon: Icon(Icons.person_search_rounded, color: AppPalette.textPrimary),
-    );
-
     return Padding(
       padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
       child: Row(
@@ -370,7 +384,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ),
             ),
           Expanded(child: searchField),
-          userSearchButton,
         ],
       ),
     );
@@ -470,6 +483,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildBody(double bottomInset) {
+    if (_filter.isUsers) {
+      return UserSearchResults(query: _search, bottomInset: bottomInset);
+    }
+
     if (_isLoading && _videos.isEmpty) {
       return Center(child: CircularProgressIndicator(color: _accent));
     }

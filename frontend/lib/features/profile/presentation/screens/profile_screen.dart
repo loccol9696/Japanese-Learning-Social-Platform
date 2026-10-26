@@ -167,11 +167,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .then((_) => _loadProfile());
   }
 
-  void _openUpload() {
-    Navigator.of(context)
-        .pushNamed(AppRoutes.upload)
-        .then((_) => _loadVideoLists());
-  }
 
   void _openMyVideosStatus() {
     Navigator.of(context)
@@ -696,34 +691,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final username = _profile.username.isNotEmpty
         ? '@${_profile.username}'
         : '@learner';
-    final level = _profile.currentLevel.isNotEmpty
-        ? 'JLPT ${_profile.currentLevel}'
-        : null;
+    final cleanLevel = _profile.currentLevel.replaceAll('JLPT', '').trim();
+    final levelText = cleanLevel.isNotEmpty ? ' · $cleanLevel' : '';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 20),
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Hàng trên cùng: @username bên trái, các icon bên phải
+          // Hàng trên cùng: các icon thao tác bên phải
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Text(
-                    username,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppPalette.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
               ValueListenableBuilder<int>(
                 valueListenable: NotificationHub.instance.unreadCount,
                 builder: (context, unread, _) => Stack(
@@ -733,7 +712,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onPressed: _openNotifications,
                       icon: Icon(
                         Icons.notifications_none_rounded,
-                        size: 26,
+                        size: 24,
                         color: AppPalette.textPrimary,
                       ),
                       tooltip: 'Thông báo',
@@ -768,7 +747,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPressed: _openFollowManage,
                 icon: Icon(
                   Icons.people_alt_outlined,
-                  size: 26,
+                  size: 24,
                   color: AppPalette.textPrimary,
                 ),
                 tooltip: 'Quản lý theo dõi',
@@ -781,7 +760,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: _showMoreMenu,
                     icon: Icon(
                       Icons.menu_rounded,
-                      size: 26,
+                      size: 24,
                       color: AppPalette.textPrimary,
                     ),
                     tooltip: 'Tùy chọn & Cài đặt',
@@ -807,7 +786,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           // Avatar + tên + trình độ JLPT và gói
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -815,7 +794,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 _buildAvatar(displayName),
-                const SizedBox(width: 14),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -860,16 +839,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          if (level != null) ...[
-                            Text(
-                              level,
+                          Flexible(
+                            child: Text(
+                              '$username$levelText',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: AppPalette.textSecondary,
                                 fontSize: 14,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                          ],
+                          ),
+                          const SizedBox(width: 8),
                           _buildPlanTag(),
                         ],
                       ),
@@ -882,7 +864,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 18),
           // Stats row
           Padding(
-            padding: const EdgeInsets.only(left: 8),
+            padding: const EdgeInsets.only(left: 4),
             child: Wrap(
               spacing: 20,
               runSpacing: 6,
@@ -906,7 +888,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (_profile.bio.isNotEmpty) ...[
             const SizedBox(height: 14),
             Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: 4),
               child: Text(
                 _profile.bio,
                 style: TextStyle(
@@ -917,64 +899,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
-
-          // Hành động chính: sửa hồ sơ và đăng video
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _buildPrimaryActions(),
-          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPrimaryActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 44,
-            child: OutlinedButton(
-              onPressed: _openEditProfile,
-              style: OutlinedButton.styleFrom(
-                backgroundColor: AppPalette.surface,
-                foregroundColor: AppPalette.textPrimary,
-                side: BorderSide(color: AppPalette.border),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              child: const Text('Chỉnh sửa'),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: SizedBox(
-            height: 44,
-            child: FilledButton(
-              onPressed: _openUpload,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppPalette.accent,
-                foregroundColor: AppPalette.onAccent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              child: const Text('Đăng video'),
-            ),
-          ),
-        ),
-      ],
     );
   }
 

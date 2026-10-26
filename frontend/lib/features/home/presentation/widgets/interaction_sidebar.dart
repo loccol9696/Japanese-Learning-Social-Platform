@@ -54,7 +54,8 @@ class InteractionSidebar extends StatefulWidget {
 
 class _InteractionSidebarState extends State<InteractionSidebar>
     with TickerProviderStateMixin {
-  static Color get _accentBlue => AppPalette.info;
+  /// Màu của nút Lưu khi video đã được lưu (vàng như TikTok).
+  static Color get _savedColor => AppPalette.gold;
 
   late final AnimationController _likeScaleController;
 
@@ -188,8 +189,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
               : Icons.bookmark_border_rounded,
           countText: 'Lưu',
           onTap: _handleSave,
-          iconColor: _isSaved ? _accentBlue : AppPalette.onVideo,
-          countColor: _isSaved ? _accentBlue : AppPalette.onVideo,
+          iconColor: _isSaved ? _savedColor : AppPalette.onVideo,
+          countColor: _isSaved ? _savedColor : AppPalette.onVideo,
         ),
         const SizedBox(height: 8.0),
 

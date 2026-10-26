@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_exception.dart';
@@ -8,60 +6,67 @@ import '../../../chat/data/models/chat_models.dart';
 import '../../../chat/presentation/widgets/chat_avatar.dart';
 import '../../data/follow_models.dart';
 import '../../data/follow_service.dart';
-import 'user_profile_screen.dart';
+import '../screens/user_profile_screen.dart';
 
-/// Tìm người dùng theo username / tên hiển thị, bấm vào để xem trang cá nhân.
-class UserSearchScreen extends StatefulWidget {
+/// Kết quả tìm người dùng theo [query] (username / tên hiển thị); bấm vào một người để xem
+/// trang cá nhân của họ. Ô nhập và việc debounce do màn chứa nó lo: widget này chỉ tải lại
+/// khi [query] đổi.
+class UserSearchResults extends StatefulWidget {
+  /// Từ khoá đã cắt khoảng trắng. Dưới [minQueryLength] ký tự thì chỉ hiện lời nhắc.
+  final String query;
+
+  /// Chừa chỗ ở cuối danh sách (ví dụ cho thanh menu dưới nằm đè lên nội dung).
+  final double bottomInset;
+
   final FollowService? service;
 
-  const UserSearchScreen({super.key, this.service});
+  static const int minQueryLength = 2;
+
+  const UserSearchResults({
+    super.key,
+    required this.query,
+    this.bottomInset = 0,
+    this.service,
+  });
 
   @override
-  State<UserSearchScreen> createState() => _UserSearchScreenState();
+  State<UserSearchResults> createState() => _UserSearchResultsState();
 }
 
-class _UserSearchScreenState extends State<UserSearchScreen> {
-  static const int _minQueryLength = 2;
-
+class _UserSearchResultsState extends State<UserSearchResults> {
   late final FollowService _service = widget.service ?? FollowService();
-  final _controller = TextEditingController();
-  Timer? _debounce;
 
   List<FollowUser> _results = const [];
-  String _query = '';
   bool _loading = false;
   String? _error;
 
-  // Bỏ qua phản hồi của lượt tìm cũ khi người dùng đã gõ tiếp.
+  /// Tăng mỗi lần đổi từ khoá để bỏ qua phản hồi của lượt tìm cũ.
   int _requestSeq = 0;
 
   @override
-  void dispose() {
-    _debounce?.cancel();
-    _controller.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _search();
   }
 
-  void _onChanged(String value) {
-    _debounce?.cancel();
-    final next = value.trim();
-    if (next.length < _minQueryLength) {
-      _requestSeq++;
+  @override
+  void didUpdateWidget(covariant UserSearchResults oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.query != widget.query) _search();
+  }
+
+  Future<void> _search() async {
+    final query = widget.query;
+    final seq = ++_requestSeq;
+    if (query.length < UserSearchResults.minQueryLength) {
       setState(() {
-        _query = next;
         _results = const [];
         _loading = false;
         _error = null;
       });
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 400), () => _search(next));
-  }
-
-  Future<void> _search(String query) async {
-    final seq = ++_requestSeq;
     setState(() {
-      _query = query;
       _loading = true;
       _error = null;
     });
@@ -97,63 +102,51 @@ class _UserSearchScreenState extends State<UserSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        backgroundColor: AppPalette.background,
-        foregroundColor: AppPalette.textPrimary,
-        elevation: 0,
-        title: TextField(
-          controller: _controller,
-          autofocus: true,
-          onChanged: _onChanged,
-          textInputAction: TextInputAction.search,
-          cursorColor: AppPalette.accent,
-          style: TextStyle(color: AppPalette.textPrimary, fontSize: 16),
-          decoration: InputDecoration(
-            hintText: 'Tìm theo tên hoặc username...',
-            hintStyle: TextStyle(color: AppPalette.textSecondary),
-            border: InputBorder.none,
-          ),
-        ),
-        actions: [
-          if (_controller.text.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.close_rounded),
-              onPressed: () {
-                _controller.clear();
-                _onChanged('');
-              },
-            ),
-        ],
-      ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_error != null) return _message(_error!);
-    if (_query.length < _minQueryLength) {
-      return _message('Nhập ít nhất $_minQueryLength ký tự để tìm người dùng.');
+    if (_error != null) {
+      return _message(
+        _error!,
+        action: TextButton(onPressed: _search, child: const Text('Thử lại')),
+      );
+    }
+    if (widget.query.length < UserSearchResults.minQueryLength) {
+      return _message(
+        'Nhập ít nhất ${UserSearchResults.minQueryLength} ký tự để tìm người dùng.',
+        icon: Icons.person_search_rounded,
+      );
     }
     if (_loading && _results.isEmpty) {
       return Center(child: CircularProgressIndicator(color: AppPalette.accent));
     }
-    if (_results.isEmpty) return _message('Không tìm thấy người dùng nào.');
-
+    if (_results.isEmpty) {
+      return _message(
+        'Không tìm thấy người dùng nào cho "${widget.query}".',
+        icon: Icons.person_off_outlined,
+      );
+    }
     return ListView.builder(
+      padding: EdgeInsets.only(bottom: widget.bottomInset),
       itemCount: _results.length,
       itemBuilder: (_, index) => _buildRow(_results[index]),
     );
   }
 
-  Widget _message(String text) => Center(
+  Widget _message(String text, {IconData? icon, Widget? action}) => Center(
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: TextStyle(color: AppPalette.textSecondary, fontSize: 14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 56, color: AppPalette.textSecondary),
+            const SizedBox(height: 12),
+          ],
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppPalette.textSecondary, fontSize: 14),
+          ),
+          ?action,
+        ],
       ),
     ),
   );
@@ -191,10 +184,7 @@ class _UserSearchScreenState extends State<UserSearchScreen> {
                     '@${user.username}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppPalette.textSecondary,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: AppPalette.textSecondary, fontSize: 12),
                   ),
                 ],
               ),

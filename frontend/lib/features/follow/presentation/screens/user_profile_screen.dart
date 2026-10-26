@@ -14,6 +14,8 @@ import '../../data/follow_models.dart';
 import '../../data/follow_service.dart';
 import '../../../report/report_service.dart';
 import '../../../report/report_sheet.dart';
+import '../../../subscription/models/subscription_model.dart';
+import '../../../subscription/services/subscription_service.dart';
 
 /// Trang cá nhân công khai của một người dùng khác: thông tin, nút theo dõi và video đã đăng.
 class UserProfileScreen extends StatefulWidget {
@@ -53,10 +55,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final _chat = ChatService();
 
   PublicProfile? _profile;
+  SubscriptionStatus? _membershipStatus;
   List<UserVideoModel> _videos = const [];
   bool _loading = true;
   bool _busy = false;
   String? _error;
+
+  bool get _isPremium => _membershipStatus?.hasActiveSubscription ?? false;
 
   @override
   void initState() {
@@ -73,6 +78,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final results = await Future.wait([
         _service.fetchPublicProfile(widget.userId),
         _videoSource.fetchUserVideos(userId: widget.userId),
+        SubscriptionService.instance
+            .getMySubscriptionStatus(widget.userId)
+            .then<SubscriptionStatus?>((s) => s)
+            .catchError((_) => null),
       ]);
       if (!mounted) return;
       setState(() {
@@ -80,6 +89,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _videos = (results[1] as List<UserVideoModel>)
             .where((v) => v.isApproved && v.isPublic)
             .toList();
+        _membershipStatus = results[2] as SubscriptionStatus?;
       });
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -199,6 +209,116 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  void _showMoreSheet(PublicProfile profile) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Material(
+          color: AppPalette.navBar,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          clipBehavior: Clip.antiAlias,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 10, 0, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppPalette.textSecondary.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      showReportSheet(
+                        context,
+                        target: ReportTarget.user,
+                        targetId: profile.id,
+                        subject: 'người dùng này',
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.flag_outlined,
+                            size: 22,
+                            color: AppPalette.textPrimary,
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            'Báo cáo',
+                            style: TextStyle(
+                              color: AppPalette.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Divider(
+                      height: 1,
+                      color: AppPalette.border.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      if (profile.isBlocked) {
+                        _setBlocked(profile, false);
+                      } else {
+                        _confirmBlock(profile);
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.block_rounded,
+                            size: 22,
+                            color: profile.isBlocked
+                                ? AppPalette.textPrimary
+                                : AppPalette.error,
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            profile.isBlocked ? 'Bỏ chặn' : 'Chặn người dùng',
+                            style: TextStyle(
+                              color: profile.isBlocked
+                                  ? AppPalette.textPrimary
+                                  : AppPalette.error,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = _profile;
@@ -206,46 +326,24 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       backgroundColor: AppPalette.background,
       appBar: AppBar(
         backgroundColor: AppPalette.background,
-        title: Text(profile?.name ?? widget.initialName ?? 'Trang cá nhân'),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppPalette.textPrimary,
+            size: 20,
+          ),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: null,
+        centerTitle: true,
         actions: [
           if (profile != null && !profile.isSelf)
-            PopupMenuButton<String>(
-              color: AppPalette.surface,
+            IconButton(
               icon: Icon(Icons.more_vert_rounded, color: AppPalette.textPrimary),
-              onSelected: (value) {
-                if (value == 'report') {
-                  showReportSheet(
-                    context,
-                    target: ReportTarget.user,
-                    targetId: profile.id,
-                    subject: 'người dùng này',
-                  );
-                } else if (value == 'block') {
-                  _confirmBlock(profile);
-                } else if (value == 'unblock') {
-                  _setBlocked(profile, false);
-                }
-              },
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: 'report',
-                  child: Text(
-                    'Báo cáo người dùng',
-                    style: TextStyle(color: AppPalette.textPrimary),
-                  ),
-                ),
-                PopupMenuItem(
-                  value: profile.isBlocked ? 'unblock' : 'block',
-                  child: Text(
-                    profile.isBlocked ? 'Bỏ chặn' : 'Chặn người dùng',
-                    style: TextStyle(
-                      color: profile.isBlocked
-                          ? AppPalette.textPrimary
-                          : AppPalette.error,
-                    ),
-                  ),
-                ),
-              ],
+              onPressed: () => _showMoreSheet(profile),
+              tooltip: 'Tùy chọn',
             ),
         ],
       ),
@@ -262,6 +360,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ),
                 slivers: [
                   SliverToBoxAdapter(child: _buildHeader(profile)),
+                  SliverToBoxAdapter(child: _buildTabBar()),
                   _buildVideos(),
                 ],
               ),
@@ -285,9 +384,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildHeader(PublicProfile profile) {
-    final handle = profile.jlptLevel != null && profile.jlptLevel!.isNotEmpty
-        ? '@${profile.username} · ${profile.jlptLevel}'
-        : '@${profile.username}';
+    final cleanLevel = profile.jlptLevel?.replaceAll('JLPT', '').trim() ?? '';
+    final levelText = cleanLevel.isNotEmpty ? ' · $cleanLevel' : '';
+    final handle = '@${profile.username}$levelText';
     final avatarUser = ChatUser(
       id: profile.id,
       username: profile.username,
@@ -296,14 +395,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               ChatAvatar(user: avatarUser, radius: 36),
-              const SizedBox(width: 14),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,43 +413,58 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: AppPalette.textPrimary,
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      handle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 13,
-                      ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            handle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppPalette.textSecondary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildPlanTag(),
+                      ],
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 20,
-            runSpacing: 6,
-            children: [
-              _stat('${profile.followingCount}', 'đang follow'),
-              _stat('${profile.followersCount}', 'follower'),
-              _stat('${profile.likesCount}', 'thích'),
-            ],
+          const SizedBox(height: 18),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Wrap(
+              spacing: 20,
+              runSpacing: 6,
+              children: [
+                _stat(_formatCount(profile.followingCount), 'đang follow'),
+                _stat(_formatCount(profile.followersCount), 'follower'),
+                _stat(_formatCount(profile.likesCount), 'thích'),
+              ],
+            ),
           ),
           if (profile.bio.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              profile.bio,
-              style: TextStyle(
-                color: AppPalette.textPrimary,
-                fontSize: 14,
-                height: 1.4,
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                profile.bio,
+                style: TextStyle(
+                  color: AppPalette.textPrimary,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
               ),
             ),
           ],
@@ -359,6 +473,59 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             _buildActions(profile),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildPlanTag() {
+    final isPremium = _isPremium;
+    final color = AppPalette.info;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
+      ),
+      child: Text(
+        isPremium ? 'PREMIUM' : 'FREE',
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(color: AppPalette.surface),
+        ),
+      ),
+      child: SizedBox(
+        height: 48,
+        child: Stack(
+          children: [
+            Center(
+              child: Icon(
+                Icons.grid_view_outlined,
+                size: 22,
+                color: AppPalette.textPrimary,
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                height: 2,
+                color: AppPalette.info,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -435,10 +602,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ? OutlinedButton(
               onPressed: _busy ? null : _toggleFollow,
               style: OutlinedButton.styleFrom(
+                backgroundColor: AppPalette.surface,
                 foregroundColor: AppPalette.textPrimary,
                 side: BorderSide(color: AppPalette.border),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               child: Text(label),
@@ -451,10 +623,28 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               child: Text(label),
             ),
     );
+  }
+
+  static String _formatCount(int count) {
+    if (count >= 1000000) {
+      final val = count / 1000000.0;
+      final formatted = val.toStringAsFixed(1).replaceAll('.0', '').replaceAll('.', ',');
+      return '${formatted}M';
+    }
+    if (count >= 1000) {
+      final val = count / 1000.0;
+      final formatted = val.toStringAsFixed(1).replaceAll('.0', '').replaceAll('.', ',');
+      return '${formatted}K';
+    }
+    return '$count';
   }
 
   Widget _stat(String value, String label) {
@@ -483,11 +673,31 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 56, horizontal: 24),
-          child: Center(
-            child: Text(
-              'Chưa có video nào',
-              style: TextStyle(color: AppPalette.textSecondary, fontSize: 15),
-            ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppPalette.textSecondary, width: 2),
+                ),
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  size: 28,
+                  color: AppPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Chưa có video nào',
+                style: TextStyle(
+                  color: AppPalette.textSecondary,
+                  fontSize: 15,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -550,7 +760,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   ),
                   const SizedBox(width: 2),
                   Text(
-                    '${video.viewCount}',
+                    _formatCount(video.viewCount),
                     style: TextStyle(
                       color: AppPalette.onVideo,
                       fontWeight: FontWeight.w700,
