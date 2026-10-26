@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../data/models/auth_response_model.dart';
 import '../../../app/routes.dart';
+
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_exception.dart';
@@ -223,7 +225,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: TextStyle(color: AppPalette.textSecondary, fontSize: 14),
-            prefixIcon: Icon(prefixIcon, size: 20, color: AppPalette.textSecondary),
+            prefixIcon: Icon(
+              prefixIcon,
+              size: 20,
+              color: AppPalette.textSecondary,
+            ),
             suffixIcon: suffixIcon,
             filled: true,
             fillColor: AppPalette.surface,
@@ -238,10 +244,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: AppPalette.accent,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: AppPalette.accent, width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -249,10 +252,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: AppPalette.error,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: AppPalette.error, width: 1.5),
             ),
             errorMaxLines: 2,
           ),
@@ -260,7 +260,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ],
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -445,10 +444,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Divider(
-                          color: AppPalette.border,
-                          thickness: 1,
-                        ),
+                        child: Divider(color: AppPalette.border, thickness: 1),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -462,21 +458,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       Expanded(
-                        child: Divider(
-                          color: AppPalette.border,
-                          thickness: 1,
-                        ),
+                        child: Divider(color: AppPalette.border, thickness: 1),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
 
-                  // Nút "Tiếp tục với Google"
-                  GoogleSignInButton(
-                    enabled: !_isLoading,
-                    onSuccess: _onGoogleSuccess,
-                    onError: _onGoogleError,
-                  ),
                   const SizedBox(height: 28),
 
                   // 11. Chuyển sang màn Đăng nhập
@@ -486,7 +473,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         Text(
                           'Đã có tài khoản? ',
-                          style: TextStyle(fontSize: 14, color: AppPalette.textSecondary),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppPalette.textSecondary,
+                          ),
                         ),
                         GestureDetector(
                           onTap: _isLoading
