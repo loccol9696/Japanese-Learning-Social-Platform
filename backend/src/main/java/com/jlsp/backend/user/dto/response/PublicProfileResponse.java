@@ -36,4 +36,7 @@ public class PublicProfileResponse {
 
     /** Đây là trang của chính người đang xem. */
     private Boolean isSelf;
+
+    /** Người đang xem đã chặn người này (để hiện nút "Bỏ chặn"). */
+    private Boolean isBlocked;
 }

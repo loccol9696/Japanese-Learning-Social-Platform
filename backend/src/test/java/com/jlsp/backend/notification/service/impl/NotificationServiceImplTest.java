@@ -43,6 +43,7 @@ class NotificationServiceImplTest {
     private UserRepository userRepository;
     private VideoRepository videoRepository;
     private ApplicationEventPublisher publisher;
+    private com.jlsp.backend.block.service.BlockService blockService;
     private NotificationServiceImpl service;
 
     private User actor;
@@ -54,7 +55,8 @@ class NotificationServiceImplTest {
         userRepository = mock(UserRepository.class);
         videoRepository = mock(VideoRepository.class);
         publisher = mock(ApplicationEventPublisher.class);
-        service = new NotificationServiceImpl(repository, userRepository, videoRepository, publisher);
+        blockService = mock(com.jlsp.backend.block.service.BlockService.class);
+        service = new NotificationServiceImpl(repository, userRepository, videoRepository, publisher, blockService);
 
         actor = User.builder().id(ACTOR).username("actor").displayName("Actor").build();
         recipient = User.builder().id(RECIPIENT).username("recipient").build();
@@ -91,6 +93,24 @@ class NotificationServiceImplTest {
 
         verify(repository, never()).save(any());
         verify(publisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void noNotificationWhenABlockExistsBetweenTheTwoUsers() {
+        when(blockService.isBlockedEitherWay(RECIPIENT, ACTOR)).thenReturn(true);
+
+        service.notify(RECIPIENT, ACTOR, NotificationType.COMMENT, VIDEO_ID, 1L, "chào");
+
+        verify(repository, never()).save(any());
+        verify(publisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void anonymousStaffNotificationsIgnoreBlocks() {
+        service.notify(RECIPIENT, null, NotificationType.VIDEO_REJECTED, VIDEO_ID, null, "Vi phạm");
+
+        verify(blockService, never()).isBlockedEitherWay(any(), any());
+        verify(repository).save(any(Notification.class));
     }
 
     @Test

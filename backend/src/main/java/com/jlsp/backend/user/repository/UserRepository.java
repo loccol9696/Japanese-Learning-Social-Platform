@@ -47,11 +47,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
             Pageable pageable);
 
     /** Tìm công khai theo username / tên hiển thị, chỉ tài khoản đang hoạt động (không dò theo email). */
-    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE u.isActive = true AND (" +
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE u.isActive = true " +
+            "AND u.id NOT IN :excluded AND (" +
             "LOWER(u.username) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
             "LOWER(u.displayName) LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<User> searchActivePublic(
             @org.springframework.data.repository.query.Param("q") String q,
+            @org.springframework.data.repository.query.Param("excluded") java.util.Collection<Long> excluded,
             Pageable pageable);
 
     long countByUsernameStartingWith(String prefix);

@@ -35,29 +35,43 @@ class UserServiceImplSearchPublicTest {
 
     private UserRepository userRepository;
     private FollowRepository followRepository;
+    private com.jlsp.backend.block.service.BlockService blockService;
     private UserServiceImpl service;
 
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
         followRepository = mock(FollowRepository.class);
+        blockService = mock(com.jlsp.backend.block.service.BlockService.class);
         service = new UserServiceImpl(userRepository, new UserMapper(), mock(PasswordEncoder.class),
                 followRepository, mock(VideoRepository.class), mock(RefreshTokenService.class),
-                mock(com.jlsp.backend.topic.service.TopicService.class));
+                mock(com.jlsp.backend.topic.service.TopicService.class), blockService);
     }
 
     @Test
     void rejectsQueriesShorterThanTwoCharacters() {
         assertThatThrownBy(() -> service.searchPublicUsers(VIEWER, " a ", PAGE))
                 .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(400));
-        verify(userRepository, never()).searchActivePublic(any(), any());
+        verify(userRepository, never()).searchActivePublic(any(), any(), any());
+    }
+
+    @Test
+    void excludesPeopleWhoHaveABlockWithTheViewer() {
+        when(blockService.relatedUserIds(VIEWER)).thenReturn(java.util.Set.of(8L));
+        when(userRepository.searchActivePublic(eq("tana"), eq(List.of(8L)), any()))
+                .thenReturn(new PageImpl<>(List.of(), PAGE, 0));
+
+        PageResponse<FollowUserResponse> result = service.searchPublicUsers(VIEWER, "tana", PAGE);
+
+        assertThat(result.getContent()).isEmpty();
+        verify(userRepository).searchActivePublic(eq("tana"), eq(List.of(8L)), any());
     }
 
     @Test
     void marksTheRelationWithTheViewerForEachResult() {
         User followed = User.builder().id(2L).username("tanaka").displayName("Tanaka").build();
         User follower = User.builder().id(3L).username("tanabe").displayName("Tanabe").build();
-        when(userRepository.searchActivePublic(eq("tana"), any()))
+        when(userRepository.searchActivePublic(eq("tana"), eq(List.of(-1L)), any()))
                 .thenReturn(new PageImpl<>(List.of(followed, follower), PAGE, 2));
         when(followRepository.findFollowingIdsByFollowerId(VIEWER)).thenReturn(List.of(2L));
         when(followRepository.findFollowerIdsByFollowingId(VIEWER)).thenReturn(List.of(3L));

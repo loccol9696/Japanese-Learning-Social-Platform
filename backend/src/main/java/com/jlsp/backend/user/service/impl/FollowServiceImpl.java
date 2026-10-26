@@ -28,6 +28,7 @@ public class FollowServiceImpl implements FollowService {
 
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
+    private final com.jlsp.backend.block.service.BlockService blockService;
     private final com.jlsp.backend.notification.service.NotificationService notificationService;
 
     /** Theo dõi một người dùng; gọi lại khi đã theo dõi thì không làm gì (idempotent). */
@@ -41,6 +42,9 @@ public class FollowServiceImpl implements FollowService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", targetUserId));
         if (!Boolean.TRUE.equals(target.getIsActive())) {
             throw new AppException(400, "Tài khoản này đã bị khóa");
+        }
+        if (blockService.isBlockedEitherWay(currentUserId, targetUserId)) {
+            throw new AppException(403, "Bạn không thể theo dõi người dùng này");
         }
 
         if (!followRepository.existsByIdFollowerIdAndIdFollowingId(currentUserId, targetUserId)) {

@@ -29,6 +29,7 @@ public class UserServiceImpl implements UserService {
     private final com.jlsp.backend.video.repository.VideoRepository videoRepository;
     private final com.jlsp.backend.common.security.token.RefreshTokenService refreshTokenService;
     private final com.jlsp.backend.topic.service.TopicService topicService;
+    private final com.jlsp.backend.block.service.BlockService blockService;
 
     @Override
     public UserResponse createUser(CreateUserRequest request) {
@@ -92,6 +93,10 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id)
                 .filter(u -> Boolean.TRUE.equals(u.getIsActive()))
                 .orElseThrow(() -> new AppException(404, "Không tìm thấy người dùng"));
+        // Người đã chặn mình thì coi như không tồn tại; người mình chặn vẫn xem được để bỏ chặn.
+        if (viewerId != null && !viewerId.equals(id) && blockService.hasBlocked(id, viewerId)) {
+            throw new AppException(404, "Không tìm thấy người dùng");
+        }
         UserResponse stats = userMapper.toResponse(user);
         enrichUserStats(stats, id);
         boolean isSelf = id.equals(viewerId);
@@ -111,6 +116,7 @@ public class UserServiceImpl implements UserService {
                 .isFollowedBy(!isSelf && viewerId != null
                         && followRepository.existsByIdFollowerIdAndIdFollowingId(id, viewerId))
                 .isSelf(isSelf)
+                .isBlocked(!isSelf && blockService.hasBlocked(viewerId, id))
                 .build();
     }
 
@@ -146,7 +152,9 @@ public class UserServiceImpl implements UserService {
         if (q.length() < 2) {
             throw new AppException(400, "Từ khóa tìm kiếm phải có ít nhất 2 ký tự");
         }
-        org.springframework.data.domain.Page<User> page = userRepository.searchActivePublic(q, pageable);
+        java.util.Set<Long> related = blockService.relatedUserIds(viewerId);
+        org.springframework.data.domain.Page<User> page = userRepository.searchActivePublic(
+                q, related.isEmpty() ? java.util.List.of(-1L) : java.util.List.copyOf(related), pageable);
 
         java.util.Set<Long> followingIds = new java.util.HashSet<>(
                 followRepository.findFollowingIdsByFollowerId(viewerId));

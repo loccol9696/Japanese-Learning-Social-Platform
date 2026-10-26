@@ -58,6 +58,7 @@ public class VideoServiceImpl implements VideoService {
     private final VideoMapper videoMapper;
     private final com.jlsp.backend.topic.service.TopicService topicService;
     private final com.jlsp.backend.notification.service.NotificationService notificationService;
+    private final com.jlsp.backend.block.service.BlockService blockService;
 
     /**
      * Đăng tải bài học video mới.
@@ -183,15 +184,25 @@ public class VideoServiceImpl implements VideoService {
     public PageResponse<VideoResponse> getForYouFeed(Long currentUserId, JLPTLevel jlptLevel, Pageable pageable) {
         Page<Video> page;
 
+        List<Long> excluded = excludedAuthorIds(currentUserId);
         if (jlptLevel != null) {
             // Lọc video theo cấp độ JLPT chỉ định đã được duyệt
-            page = videoRepository.findByStatusAndModStatusAndJlptLevel(VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, pageable);
+            page = videoRepository.findFeedByJlptLevel(VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, excluded, pageable);
         } else {
             // Lấy tất cả video công khai đã được duyệt
-            page = videoRepository.findByStatusAndModStatus(VideoStatus.PUBLIC, VideoModStatus.APPROVED, pageable);
+            page = videoRepository.findFeed(VideoStatus.PUBLIC, VideoModStatus.APPROVED, excluded, pageable);
         }
 
         return toVideoPageResponse(page, currentUserId);
+    }
+
+    /**
+     * Id tác giả bị loại khỏi feed của người xem (mình chặn họ hoặc họ chặn mình). Luôn khác rỗng
+     * vì mệnh đề {@code NOT IN} với danh sách rỗng không hợp lệ trên mọi CSDL.
+     */
+    private List<Long> excludedAuthorIds(Long viewerId) {
+        Set<Long> related = blockService.relatedUserIds(viewerId);
+        return related.isEmpty() ? List.of(-1L) : List.copyOf(related);
     }
 
     /**
@@ -199,11 +210,12 @@ public class VideoServiceImpl implements VideoService {
      */
     private PageResponse<VideoResponse> getTopicFeed(Long currentUserId, Long topicId, JLPTLevel jlptLevel,
             Pageable pageable) {
+        List<Long> excluded = excludedAuthorIds(currentUserId);
         Page<Video> page = jlptLevel != null
-                ? videoRepository.findByStatusAndModStatusAndJlptLevelAndTopicId(
-                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, topicId, pageable)
-                : videoRepository.findByStatusAndModStatusAndTopicId(
-                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, topicId, pageable);
+                ? videoRepository.findFeedByJlptLevelAndTopic(
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, topicId, excluded, pageable)
+                : videoRepository.findFeedByTopic(
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, topicId, excluded, pageable);
         return toVideoPageResponse(page, currentUserId);
     }
 
@@ -212,11 +224,12 @@ public class VideoServiceImpl implements VideoService {
      */
     private PageResponse<VideoResponse> searchVideos(Long currentUserId, String keyword, JLPTLevel jlptLevel,
             Pageable pageable) {
+        List<Long> excluded = excludedAuthorIds(currentUserId);
         Page<Video> page = jlptLevel != null
                 ? videoRepository.searchPublicVideosByJlptLevel(
-                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, keyword, pageable)
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, keyword, excluded, pageable)
                 : videoRepository.searchPublicVideos(
-                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, keyword, pageable);
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, keyword, excluded, pageable);
         return toVideoPageResponse(page, currentUserId);
     }
 
@@ -297,6 +310,12 @@ public class VideoServiceImpl implements VideoService {
     @Override
     public PageResponse<VideoResponse> getVideosByUserId(Long userId, Long currentUserId, Pageable pageable) {
         Page<Video> page;
+
+        // Hai người đã chặn nhau thì không xem được video của nhau.
+        if (currentUserId != null && !currentUserId.equals(userId)
+                && blockService.isBlockedEitherWay(currentUserId, userId)) {
+            return toVideoPageResponse(Page.empty(pageable), currentUserId);
+        }
 
         // Nếu người xem chính là chủ tài khoản -> xem được cả video Private/Unlisted
         if (currentUserId != null && currentUserId.equals(userId)) {

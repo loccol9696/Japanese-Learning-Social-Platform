@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -24,15 +25,20 @@ public class CommentServiceImpl implements CommentService {
     private final VideoCommentRepository commentRepository;
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
+    private final com.jlsp.backend.block.service.BlockService blockService;
     private final com.jlsp.backend.notification.service.NotificationService notificationService;
 
     @Override
-    public List<VideoCommentResponse> list(Long videoId) {
+    public List<VideoCommentResponse> list(Long videoId, Long viewerId) {
         if (!videoRepository.existsById(videoId)) {
             throw new ResourceNotFoundException("Video", "id", videoId);
         }
+        Set<Long> hidden = blockService.relatedUserIds(viewerId);
         return commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(videoId)
-                .stream().map(this::toResponse).toList();
+                .stream()
+                .filter(c -> !hidden.contains(c.getUser().getId()))
+                .map(c -> toResponse(c, hidden))
+                .toList();
     }
 
     @Override
@@ -42,6 +48,9 @@ public class CommentServiceImpl implements CommentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Video", "id", videoId));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        if (blockService.isBlockedEitherWay(userId, video.getUser().getId())) {
+            throw new AppException(403, "Bạn không thể bình luận trên video này");
+        }
         VideoComment parent = null;
         if (request.getParentId() != null) {
             parent = commentRepository.findById(request.getParentId())
@@ -64,7 +73,7 @@ public class CommentServiceImpl implements CommentService {
         } else {
             notificationService.notify(videoOwnerId, userId, com.jlsp.backend.notification.entity.NotificationType.COMMENT, videoId, comment.getId(), comment.getContent());
         }
-        return toResponse(comment);
+        return toResponse(comment, Set.of());
     }
 
     @Override
@@ -82,7 +91,7 @@ public class CommentServiceImpl implements CommentService {
         commentRepository.delete(comment);
     }
 
-    private VideoCommentResponse toResponse(VideoComment comment) {
+    private VideoCommentResponse toResponse(VideoComment comment, Set<Long> hidden) {
         User user = comment.getUser();
         return VideoCommentResponse.builder()
                 .id(comment.getId())
@@ -96,7 +105,10 @@ public class CommentServiceImpl implements CommentService {
                 .createdAt(comment.getCreatedAt())
                 .replies(comment.getParent() == null
                         ? commentRepository.findByParentIdOrderByCreatedAtAsc(comment.getId())
-                                .stream().map(this::toResponse).toList()
+                                .stream()
+                                .filter(r -> !hidden.contains(r.getUser().getId()))
+                                .map(r -> toResponse(r, hidden))
+                                .toList()
                         : List.of())
                 .build();
     }

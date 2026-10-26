@@ -33,13 +33,15 @@ class FollowServiceImplTest {
 
     private FollowRepository followRepository;
     private UserRepository userRepository;
+    private com.jlsp.backend.block.service.BlockService blockService;
     private FollowServiceImpl service;
 
     @BeforeEach
     void setUp() {
         followRepository = mock(FollowRepository.class);
         userRepository = mock(UserRepository.class);
-        service = new FollowServiceImpl(followRepository, userRepository,
+        blockService = mock(com.jlsp.backend.block.service.BlockService.class);
+        service = new FollowServiceImpl(followRepository, userRepository, blockService,
                 mock(com.jlsp.backend.notification.service.NotificationService.class));
     }
 
@@ -47,6 +49,17 @@ class FollowServiceImplTest {
     void cannotFollowYourself() {
         assertThatThrownBy(() -> service.follow(ME, ME))
                 .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(400));
+        verify(followRepository, never()).save(any());
+    }
+
+    @Test
+    void cannotFollowSomeoneWhenABlockExistsBetweenYou() {
+        User other = User.builder().id(OTHER).username("other").isActive(true).build();
+        when(userRepository.findById(OTHER)).thenReturn(Optional.of(other));
+        when(blockService.isBlockedEitherWay(ME, OTHER)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.follow(ME, OTHER))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(403));
         verify(followRepository, never()).save(any());
     }
 

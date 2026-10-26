@@ -38,6 +38,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final UserRepository userRepository;
     private final VideoRepository videoRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.jlsp.backend.block.service.BlockService blockService;
 
     @Override
     @Transactional
@@ -45,6 +46,10 @@ public class NotificationServiceImpl implements NotificationService {
                        Long videoId, Long commentId, String message) {
         try {
             if (recipientId == null || recipientId.equals(actorId)) {
+                return;
+            }
+            // Có quan hệ chặn thì không thông báo (kiểm duyệt ẩn danh, actorId null, thì không bị ảnh hưởng).
+            if (actorId != null && blockService.isBlockedEitherWay(recipientId, actorId)) {
                 return;
             }
             if (isDuplicate(recipientId, actorId, type, videoId)) {

@@ -38,37 +38,71 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 
     long countByStatusAndModStatus(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus);
 
+    /**
+     * Feed công khai đã duyệt, loại trừ video của những người có quan hệ chặn với người xem.
+     * {@code excluded} không được rỗng (truyền một id không tồn tại như -1 khi không có ai bị loại).
+     */
     @EntityGraph(attributePaths = "user")
-    Page<Video> findByStatusAndModStatusAndJlptLevel(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, JLPTLevel jlptLevel, Pageable pageable);
+    @Query("SELECT v FROM Video v WHERE v.status = :status AND v.modStatus = :modStatus " +
+           "AND v.user.id NOT IN :excluded")
+    Page<Video> findFeed(@Param("status") VideoStatus status,
+                         @Param("modStatus") com.jlsp.backend.video.entity.VideoModStatus modStatus,
+                         @Param("excluded") java.util.Collection<Long> excluded,
+                         Pageable pageable);
+
+    @EntityGraph(attributePaths = "user")
+    @Query("SELECT v FROM Video v WHERE v.status = :status AND v.modStatus = :modStatus " +
+           "AND v.jlptLevel = :jlptLevel AND v.user.id NOT IN :excluded")
+    Page<Video> findFeedByJlptLevel(@Param("status") VideoStatus status,
+                                    @Param("modStatus") com.jlsp.backend.video.entity.VideoModStatus modStatus,
+                                    @Param("jlptLevel") JLPTLevel jlptLevel,
+                                    @Param("excluded") java.util.Collection<Long> excluded,
+                                    Pageable pageable);
+
+    @EntityGraph(attributePaths = "user")
+    @Query("SELECT v FROM Video v WHERE v.status = :status AND v.modStatus = :modStatus " +
+           "AND v.topic.id = :topicId AND v.user.id NOT IN :excluded")
+    Page<Video> findFeedByTopic(@Param("status") VideoStatus status,
+                                @Param("modStatus") com.jlsp.backend.video.entity.VideoModStatus modStatus,
+                                @Param("topicId") Long topicId,
+                                @Param("excluded") java.util.Collection<Long> excluded,
+                                Pageable pageable);
+
+    @EntityGraph(attributePaths = "user")
+    @Query("SELECT v FROM Video v WHERE v.status = :status AND v.modStatus = :modStatus " +
+           "AND v.jlptLevel = :jlptLevel AND v.topic.id = :topicId AND v.user.id NOT IN :excluded")
+    Page<Video> findFeedByJlptLevelAndTopic(@Param("status") VideoStatus status,
+                                            @Param("modStatus") com.jlsp.backend.video.entity.VideoModStatus modStatus,
+                                            @Param("jlptLevel") JLPTLevel jlptLevel,
+                                            @Param("topicId") Long topicId,
+                                            @Param("excluded") java.util.Collection<Long> excluded,
+                                            Pageable pageable);
 
     /**
      * Tìm video công khai đã duyệt theo tiêu đề / mô tả (màn Khám phá), có thể lọc thêm JLPT.
      */
     @EntityGraph(attributePaths = "user")
     @Query("SELECT v FROM Video v WHERE v.status = :status AND v.modStatus = :modStatus " +
+           "AND v.user.id NOT IN :excluded " +
            "AND (LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(COALESCE(v.description, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Video> searchPublicVideos(@Param("status") VideoStatus status,
                                    @Param("modStatus") com.jlsp.backend.video.entity.VideoModStatus modStatus,
                                    @Param("keyword") String keyword,
+                                   @Param("excluded") java.util.Collection<Long> excluded,
                                    Pageable pageable);
 
     @EntityGraph(attributePaths = "user")
     @Query("SELECT v FROM Video v WHERE v.status = :status AND v.modStatus = :modStatus " +
-           "AND v.jlptLevel = :jlptLevel " +
+           "AND v.jlptLevel = :jlptLevel AND v.user.id NOT IN :excluded " +
            "AND (LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(COALESCE(v.description, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Video> searchPublicVideosByJlptLevel(@Param("status") VideoStatus status,
                                               @Param("modStatus") com.jlsp.backend.video.entity.VideoModStatus modStatus,
                                               @Param("jlptLevel") JLPTLevel jlptLevel,
                                               @Param("keyword") String keyword,
+                                              @Param("excluded") java.util.Collection<Long> excluded,
                                               Pageable pageable);
-
-    @EntityGraph(attributePaths = "user")
-    Page<Video> findByStatusAndModStatusAndTopicId(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, Long topicId, Pageable pageable);
-
-    @EntityGraph(attributePaths = "user")
-    Page<Video> findByStatusAndModStatusAndJlptLevelAndTopicId(VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, JLPTLevel jlptLevel, Long topicId, Pageable pageable);
 
     @EntityGraph(attributePaths = "user")
     Page<Video> findByUserIdInAndStatusAndModStatus(List<Long> userIds, VideoStatus status, com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable);

@@ -21,7 +21,7 @@ public class VideoCommentController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<VideoCommentResponse>>> list(@PathVariable Long videoId) {
-        return ResponseEntity.ok(ApiResponse.success(commentService.list(videoId)));
+        return ResponseEntity.ok(ApiResponse.success(commentService.list(videoId, CurrentUser.idOrNull())));
     }
 
     @PostMapping
