@@ -12,6 +12,7 @@ import 'auth_layout.dart';
 import 'login_screen.dart';
 import 'otp_verification_screen.dart';
 import '../../../core/theme/app_palette.dart';
+import '../widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -261,6 +262,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  void _onGoogleSuccess(AuthResponseModel response) {
+    if (!mounted) return;
+    final name = response.user?.displayName ?? response.user?.username ?? 'bạn';
+    ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+    AppToast.showSuccess('Đăng nhập thành công! Chào mừng $name');
+  }
+
+  void _onGoogleError(String message) {
+    if (mounted) _showSnackBar(message, isError: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -464,6 +478,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 20),
 
+                  // Nút "Tiếp tục với Google"
+                  GoogleSignInButton(
+                    enabled: !_isLoading,
+                    onSuccess: _onGoogleSuccess,
+                    onError: _onGoogleError,
+                  ),
                   const SizedBox(height: 28),
 
                   // 11. Chuyển sang màn Đăng nhập
