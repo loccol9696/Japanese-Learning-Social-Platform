@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -80,6 +81,14 @@ public class FollowServiceImpl implements FollowService {
     @Override
     public boolean isMutual(Long userId, Long otherUserId) {
         return followRepository.countFollowsBetween(userId, otherUserId) == 2;
+    }
+
+    @Override
+    public Set<Long> findMutualIdsAmong(Long userId, Collection<Long> otherUserIds) {
+        if (otherUserIds.isEmpty()) {
+            return Set.of();
+        }
+        return followRepository.findMutualIdsAmong(userId, otherUserIds);
     }
 
     @Override

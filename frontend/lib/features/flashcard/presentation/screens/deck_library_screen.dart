@@ -149,7 +149,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppPalette.accent.withOpacity(0.15),
+                color: AppPalette.accent.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -228,86 +228,6 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               style: TextStyle(
                 color: AppPalette.textPrimary,
                 fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCreateDeckDialog() {
-    final titleController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppPalette.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: AppPalette.border, width: 1),
-        ),
-        title: Text(
-          'Tạo bộ từ vựng mới',
-          style: TextStyle(
-            color: AppPalette.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: TextField(
-          controller: titleController,
-          autofocus: true,
-          style: TextStyle(color: AppPalette.textPrimary),
-          decoration: InputDecoration(
-            hintText: 'Nhập tên bộ thẻ...',
-            hintStyle: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.4)),
-            filled: true,
-            fillColor: AppPalette.surface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Hủy',
-              style: TextStyle(color: AppPalette.textPrimary.withValues(alpha: 0.6)),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppPalette.accent,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () async {
-              final title = titleController.text.trim();
-              if (title.isNotEmpty) {
-                Navigator.pop(ctx);
-                setState(() => _isLoading = true);
-                try {
-                  await _service.createSet(title: title);
-                  await _loadDecks(query: _searchController.text);
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Không thể tạo bộ thẻ: $e')),
-                    );
-                    setState(() => _isLoading = false);
-                  }
-                }
-              }
-            },
-            child: Text(
-              'Tạo',
-              style: TextStyle(
-                color: AppPalette.textPrimary,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),

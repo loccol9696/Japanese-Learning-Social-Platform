@@ -8,19 +8,14 @@ import com.jlsp.backend.video.dto.response.VideoResponse;
 import com.jlsp.backend.video.entity.ShadowingPractice;
 import com.jlsp.backend.video.entity.Video;
 import com.jlsp.backend.video.entity.VideoStatus;
-import com.jlsp.backend.video.repository.VideoCommentRepository;
 import org.springframework.stereotype.Component;
 
 /**
  * Mapper chịu trách nhiệm chuyển đổi dữ liệu giữa Entity và DTO cho phân hệ Video.
+ * Không truy vấn DB: số liệu cần đếm (bình luận...) do service nạp gộp rồi truyền vào.
  */
 @Component
 public class VideoMapper {
-    private final VideoCommentRepository videoCommentRepository;
-
-    public VideoMapper(VideoCommentRepository videoCommentRepository) {
-        this.videoCommentRepository = videoCommentRepository;
-    }
 
     /**
      * Chuyển đổi từ CreateVideoRequest và User creator sang Video Entity.
@@ -58,11 +53,12 @@ public class VideoMapper {
      * Chuyển đổi Video Entity sang VideoResponse tóm tắt (dùng cho Feed danh sách).
      *
      * @param video   Entity video
-     * @param isLiked Người dùng hiện tại đã like video này chưa
-     * @param isSaved Người dùng hiện tại đã lưu video này chưa
+     * @param isLiked      Người dùng hiện tại đã like video này chưa
+     * @param isSaved      Người dùng hiện tại đã lưu video này chưa
+     * @param commentCount Số bình luận của video
      * @return VideoResponse DTO
      */
-    public VideoResponse toVideoResponse(Video video, Boolean isLiked, Boolean isSaved) {
+    public VideoResponse toVideoResponse(Video video, Boolean isLiked, Boolean isSaved, long commentCount) {
         if (video == null) {
             return null;
         }
@@ -79,7 +75,7 @@ public class VideoMapper {
                 .viewCount(video.getViewCount())
                 .likeCount(video.getLikeCount())
                 .saveCount(video.getSaveCount())
-                .commentCount(videoCommentRepository.countByVideoId(video.getId()))
+                .commentCount(commentCount)
                 .status(video.getStatus())
                 .modStatus(video.getModStatus())
                 .creatorId(creator != null ? creator.getId() : null)

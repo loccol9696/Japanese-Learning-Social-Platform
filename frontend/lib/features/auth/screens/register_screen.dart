@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../data/models/auth_response_model.dart';
-import '../widgets/google_sign_in_button.dart';
 import '../../../app/routes.dart';
 import 'package:flutter/services.dart';
 
@@ -262,18 +261,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  void _onGoogleSuccess(AuthResponseModel response) {
-    if (!mounted) return;
-    final name = response.user?.displayName ?? response.user?.username ?? 'bạn';
-    ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
-    Navigator.of(context)
-        .pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
-    AppToast.showSuccess('Đăng nhập thành công! Chào mừng $name');
-  }
-
-  void _onGoogleError(String message) {
-    if (mounted) _showSnackBar(message, isError: true);
-  }
 
   @override
   Widget build(BuildContext context) {

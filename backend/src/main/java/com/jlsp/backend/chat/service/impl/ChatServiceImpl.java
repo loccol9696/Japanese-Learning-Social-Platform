@@ -22,6 +22,7 @@ import com.jlsp.backend.chat.service.ChatRateLimiter;
 import com.jlsp.backend.chat.service.ChatService;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
+import com.jlsp.backend.common.repository.IdCount;
 import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.repository.UserRepository;
@@ -40,9 +41,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -79,7 +82,8 @@ public class ChatServiceImpl implements ChatService {
                 .filter(Objects::nonNull)
                 .map(m -> m.getVideoId())
                 .toList());
-        return PageResponse.from(page.map(c -> toConversationResponse(c, userId, videos)));
+        InboxState state = loadInboxState(userId, page.getContent());
+        return PageResponse.from(page.map(c -> toConversationResponse(c, userId, videos, state)));
     }
 
     @Override
@@ -345,26 +349,54 @@ public class ChatServiceImpl implements ChatService {
 
     private ConversationResponse toConversationResponse(Conversation conversation, Long userId,
                                                         Map<Long, Video> videos) {
+        return toConversationResponse(conversation, userId, videos,
+                loadInboxState(userId, List.of(conversation)));
+    }
+
+    private ConversationResponse toConversationResponse(Conversation conversation, Long userId,
+                                                        Map<Long, Video> videos, InboxState state) {
         User other = conversation.getOtherUser(userId);
-        Long myLastRead = participantRepository
-                .findById(new ConversationParticipantId(conversation.getId(), userId))
-                .map(p -> p.getLastReadMessageId())
-                .orElse(null);
-        Long otherLastRead = participantRepository
-                .findById(new ConversationParticipantId(conversation.getId(), other.getId()))
-                .map(p -> p.getLastReadMessageId())
-                .orElse(null);
+        Long otherLastRead = state.lastReadIds()
+                .get(new ConversationParticipantId(conversation.getId(), other.getId()));
 
         return ConversationResponse.builder()
                 .id(conversation.getId())
                 .otherUser(chatMapper.toUserResponse(other))
                 .lastMessage(chatMapper.toMessageResponse(conversation.getLastMessage(), videos))
-                .unreadCount(messageRepository.countUnread(conversation.getId(), userId,
-                        myLastRead != null ? myLastRead : 0L))
+                .unreadCount(state.unreadCounts().getOrDefault(conversation.getId(), 0L))
                 .otherLastReadMessageId(otherLastRead)
-                .canMessage(Boolean.TRUE.equals(other.getIsActive()) && followService.isMutual(userId, other.getId()))
+                .canMessage(Boolean.TRUE.equals(other.getIsActive()) && state.mutualIds().contains(other.getId()))
                 .lastMessageAt(conversation.getLastMessageAt())
                 .build();
+    }
+
+    /**
+     * Mốc đã đọc, số tin chưa đọc và quyền nhắn tin của cả trang hội thoại: 3 truy vấn gộp
+     * thay vì 4 truy vấn cho MỖI hội thoại.
+     */
+    private InboxState loadInboxState(Long userId, List<Conversation> conversations) {
+        if (conversations.isEmpty()) {
+            return new InboxState(Map.of(), Map.of(), Set.of());
+        }
+        List<Long> conversationIds = conversations.stream().map(Conversation::getId).toList();
+        Map<ConversationParticipantId, Long> lastReadIds = new HashMap<>();
+        for (ConversationParticipant participant : participantRepository.findByIdConversationIdIn(conversationIds)) {
+            if (participant.getLastReadMessageId() != null) {
+                lastReadIds.put(participant.getId(), participant.getLastReadMessageId());
+            }
+        }
+        Map<Long, Long> unreadCounts = IdCount.toMap(
+                messageRepository.countUnreadByConversation(userId, conversationIds));
+        List<Long> otherIds = conversations.stream()
+                .map(c -> c.getOtherUser(userId).getId())
+                .distinct()
+                .toList();
+        return new InboxState(lastReadIds, unreadCounts, followService.findMutualIdsAmong(userId, otherIds));
+    }
+
+    private record InboxState(Map<ConversationParticipantId, Long> lastReadIds,
+                              Map<Long, Long> unreadCounts,
+                              Set<Long> mutualIds) {
     }
 
     private List<MessageResponse> toMessageResponses(List<Message> messages) {

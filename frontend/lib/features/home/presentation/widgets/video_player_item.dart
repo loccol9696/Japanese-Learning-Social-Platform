@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -35,6 +36,11 @@ class VideoPlayerItem extends StatefulWidget {
   /// Mở video tại mốc này (vd. khi mở video được bạn bè chia sẻ kèm câu phụ đề).
   final Duration? initialPosition;
 
+  /// false khi video không còn hiện trên màn hình (vd. chuyển sang tab khác của Home,
+  /// mở màn khác đè lên feed): video tạm dừng và phát tiếp khi true trở lại.
+  /// null = luôn được phát.
+  final ValueListenable<bool>? playbackAllowed;
+
   const VideoPlayerItem({
     super.key,
     required this.post,
@@ -45,6 +51,7 @@ class VideoPlayerItem extends StatefulWidget {
     this.onCommentTap,
     this.allowAccountActions = true,
     this.initialPosition,
+    this.playbackAllowed,
   });
 
   @override
@@ -68,7 +75,6 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   bool? _doubleTapLikedOverride;
   int? _doubleTapLikeCountOverride;
   bool _isSeeking = false;
-  double _videoProgress = 0.0;
   Offset? _doubleTapPosition;
   final List<_FloatingHeartEffect> _floatingHearts = [];
 
@@ -139,6 +145,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     if (controller != null &&
         wasPlaying &&
         mounted &&
+        _playbackAllowed &&
         identical(controller, _videoController) &&
         controller.value.isInitialized) {
       controller.play().catchError((error) {
@@ -256,11 +263,13 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   @override
   void initState() {
     super.initState();
+    widget.playbackAllowed?.addListener(_onPlaybackAllowedChanged);
     _initializeVideo();
   }
 
   @override
   void dispose() {
+    widget.playbackAllowed?.removeListener(_onPlaybackAllowedChanged);
     for (final effect in _floatingHearts) {
       effect.controller.dispose();
     }
@@ -268,9 +277,36 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     super.dispose();
   }
 
+  bool get _playbackAllowed => widget.playbackAllowed?.value ?? true;
+
+  /// Video bị dừng vì không còn hiện trên màn hình (không phải người dùng bấm dừng).
+  bool _pausedForHidden = false;
+
+  /// Feed bị che / chuyển tab: dừng hẳn video (không phát và giải mã ngầm phía sau);
+  /// hiện lại thì phát tiếp nếu chính việc bị che đã làm nó dừng.
+  void _onPlaybackAllowedChanged() {
+    final controller = _videoController;
+    if (controller == null || !controller.value.isInitialized) return;
+    if (!_playbackAllowed) {
+      if (controller.value.isPlaying) {
+        _pausedForHidden = true;
+        controller.pause();
+      }
+    } else if (_pausedForHidden) {
+      _pausedForHidden = false;
+      controller.play().catchError((error) {
+        debugPrint('Video playback failed: $error');
+      });
+    }
+  }
+
   @override
   void didUpdateWidget(covariant VideoPlayerItem oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.playbackAllowed != widget.playbackAllowed) {
+      oldWidget.playbackAllowed?.removeListener(_onPlaybackAllowedChanged);
+      widget.playbackAllowed?.addListener(_onPlaybackAllowedChanged);
+    }
     if (oldWidget.post.id != widget.post.id ||
         oldWidget.post.isLiked != widget.post.isLiked ||
         oldWidget.post.likeCount != widget.post.likeCount) {
@@ -307,6 +343,12 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       setState(() {});
       _updateActiveSubtitle();
 
+      // Tải xong khi feed đang bị che: chờ hiện lại mới phát.
+      if (!_playbackAllowed) {
+        _pausedForHidden = true;
+        return;
+      }
+
       try {
         await controller.play();
       } catch (error) {
@@ -332,7 +374,6 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     }
 
     final position = controller.value.position;
-    final duration = controller.value.duration;
     SubtitleCue? active;
     for (final cue in widget.post.subtitleCues) {
       if (cue.contains(position)) {
@@ -341,20 +382,34 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
     }
 
-    final progress = duration.inMilliseconds > 0
-        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
-        : 0.0;
+    // Chỉ dựng lại khi đổi câu phụ đề / trạng thái phát. Vị trí phát đổi liên tục
+    // nên thanh tiến trình tự lắng nghe controller (xem _buildProgressFill).
     final isPlaying = controller.value.isPlaying;
     if (active?.start != _activeSubtitle?.start ||
         active?.end != _activeSubtitle?.end ||
-        progress != _videoProgress ||
         isPlaying != _isPlaying) {
       setState(() {
         _activeSubtitle = active;
-        _videoProgress = progress;
         _isPlaying = isPlaying;
       });
     }
+  }
+
+  /// Phần đã phát của thanh tiến trình. Chỉ widget này dựng lại theo vị trí phát,
+  /// không kéo theo cả video item (phụ đề, sidebar, ảnh đại diện...).
+  Widget _buildProgressFill(Widget Function(double progress) builder) {
+    final controller = _videoController;
+    if (controller == null) return builder(0.0);
+    return ValueListenableBuilder<VideoPlayerValue>(
+      valueListenable: controller,
+      builder: (context, value, _) {
+        final total = value.duration.inMilliseconds;
+        final progress = total > 0
+            ? (value.position.inMilliseconds / total).clamp(0.0, 1.0)
+            : 0.0;
+        return builder(progress);
+      },
+    );
   }
 
   Future<void> _seekToFraction(double fraction) async {
@@ -382,7 +437,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
     } else if (_pausedForLookup) {
       _pausedForLookup = false;
-      if (_isPlaying && mounted) {
+      if (_isPlaying && mounted && _playbackAllowed) {
         controller.play().catchError((error) {
           debugPrint('Video playback failed: $error');
         });
@@ -592,17 +647,19 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                               child: Stack(
                                 children: [
                                   Container(color: theme.progressTrack),
-                                  FractionallySizedBox(
-                                    widthFactor: _videoProgress,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: theme.progressActive,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: theme.progressGlow,
-                                            blurRadius: 8.0,
-                                          ),
-                                        ],
+                                  _buildProgressFill(
+                                    (progress) => FractionallySizedBox(
+                                      widthFactor: progress,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: theme.progressActive,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: theme.progressGlow,
+                                              blurRadius: 8.0,
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -800,9 +857,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                 child: Stack(
                   children: [
                     Container(color: theme.progressTrack),
-                    FractionallySizedBox(
-                      widthFactor: _videoProgress,
-                      child: Container(color: theme.progressActive),
+                    _buildProgressFill(
+                      (progress) => FractionallySizedBox(
+                        widthFactor: progress,
+                        child: Container(color: theme.progressActive),
+                      ),
                     ),
                   ],
                 ),
