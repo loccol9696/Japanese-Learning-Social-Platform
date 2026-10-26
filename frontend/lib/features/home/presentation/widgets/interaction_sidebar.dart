@@ -271,39 +271,35 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       alignment: Alignment.center,
       clipBehavior: Clip.none,
       children: [
-        GestureDetector(
-          onTap: widget.onCreatorTap,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            width: 48.0,
-            height: 48.0,
-            padding: const EdgeInsets.all(2.5),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.periwinkle,
-                  AppColors.lavender,
-                  AppColors.sakuraPink,
-                ],
-                begin: Alignment.bottomLeft,
-                end: Alignment.topRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.lavender.withValues(alpha: 0.5),
-                  blurRadius: 15.0,
-                ),
+        Container(
+          width: 48.0,
+          height: 48.0,
+          padding: const EdgeInsets.all(2.5),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [
+                AppColors.periwinkle,
+                AppColors.lavender,
+                AppColors.sakuraPink,
               ],
+              begin: Alignment.bottomLeft,
+              end: Alignment.topRight,
             ),
-            child: ClipOval(
-              child: Image.network(
-                widget.post.creatorAvatarUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: AppColors.surfaceContainerHigh,
-                  child: Icon(Icons.person, color: AppColors.periwinkle),
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.lavender.withValues(alpha: 0.5),
+                blurRadius: 15.0,
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: Image.network(
+              widget.post.creatorAvatarUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
+                color: AppColors.surfaceContainerHigh,
+                child: Icon(Icons.person, color: AppColors.periwinkle),
               ),
             ),
           ),

@@ -564,7 +564,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final follow = !post.isFollowing;
     _updateFollowState(creatorId, follow);
     try {
-      final confirmed = await _repository.setFollow(creatorId, follow: follow);
+      final confirmed = await _repository.toggleFollow(creatorId.toString());
       if (!mounted) return;
       _updateFollowState(creatorId, confirmed);
       if (confirmed) {

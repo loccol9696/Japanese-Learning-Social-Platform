@@ -24,6 +24,9 @@ public class UserResponse {
     private String bio;
     private UserRole role;
     private Boolean isActive;
+
+    /** LOCAL hoặc GOOGLE: app dùng để ẩn đổi mật khẩu cho tài khoản Google. */
+    private com.jlsp.backend.user.entity.AuthProvider authProvider;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

@@ -27,6 +27,17 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
+    /** LOCAL: đăng ký bằng mật khẩu. GOOGLE: tạo từ đăng nhập Google (mật khẩu là chuỗi ngẫu nhiên không ai biết). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 20,
+            columnDefinition = "varchar(20) default 'LOCAL' not null")
+    @Builder.Default
+    private AuthProvider authProvider = AuthProvider.LOCAL;
+
+    /** Mã người dùng Google ("sub"), ổn định kể cả khi đổi email. Có thể có ở cả tài khoản LOCAL đã liên kết. */
+    @Column(name = "google_sub", unique = true, length = 64)
+    private String googleSub;
+
     @Column(name = "display_name", length = 100)
     private String displayName;
 

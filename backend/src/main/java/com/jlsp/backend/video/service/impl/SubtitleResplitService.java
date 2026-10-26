@@ -125,7 +125,7 @@ public class SubtitleResplitService {
     }
 
     /** Nhận số giây hoặc chuỗi "MM:SS" / "MM:SS.s". */
-    static double parseSeconds(JsonNode node) {
+    public static double parseSeconds(JsonNode node) {
         if (node.isNumber()) {
             return node.asDouble();
         }

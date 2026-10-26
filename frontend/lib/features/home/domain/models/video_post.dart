@@ -6,6 +6,7 @@ class VideoPost {
   final String videoUrl;
   final int? creatorId;
   final String creatorName;
+  /// Id tài khoản người đăng (null nếu server không trả về).
   final String creatorTag;
   final String creatorAvatarUrl;
   final String accentInfo;
@@ -33,6 +34,7 @@ class VideoPost {
     this.videoUrl = '',
     this.creatorId,
     required this.creatorName,
+
     required this.creatorTag,
     required this.creatorAvatarUrl,
     required this.accentInfo,

@@ -7,6 +7,8 @@ import com.jlsp.backend.auth.dto.request.ResetPasswordRequest;
 import com.jlsp.backend.auth.dto.response.AuthResponse;
 import com.jlsp.backend.auth.service.AuthService;
 import com.jlsp.backend.auth.service.LoginAttemptService;
+import com.jlsp.backend.auth.google.GoogleIdentity;
+import com.jlsp.backend.auth.google.GoogleTokenVerifier;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.security.jwt.JwtUtils;
 import com.jlsp.backend.common.security.token.AccessTokenDenylist;
@@ -16,6 +18,7 @@ import com.jlsp.backend.otp.dto.VerifyOtpRequest;
 import com.jlsp.backend.otp.service.EmailService;
 import com.jlsp.backend.otp.service.OtpPurpose;
 import com.jlsp.backend.otp.service.OtpRedisService;
+import com.jlsp.backend.user.entity.AuthProvider;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.entity.UserRole;
 import com.jlsp.backend.user.mapper.UserMapper;
@@ -25,6 +28,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -48,6 +53,8 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final OtpRedisService otpService;
     private final LoginAttemptService loginAttemptService;
+    private final GoogleTokenVerifier googleTokenVerifier;
+    private final SecureRandom random = new SecureRandom();
 
     /** Hash giả để thời gian xử lý khi email không tồn tại giống khi sai mật khẩu. */
     private final String dummyPasswordHash;
@@ -60,7 +67,8 @@ public class AuthServiceImpl implements AuthService {
                            UserMapper userMapper,
                            EmailService emailService,
                            OtpRedisService otpService,
-                           LoginAttemptService loginAttemptService) {
+                           LoginAttemptService loginAttemptService,
+                           GoogleTokenVerifier googleTokenVerifier) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtils = jwtUtils;
@@ -70,6 +78,7 @@ public class AuthServiceImpl implements AuthService {
         this.emailService = emailService;
         this.otpService = otpService;
         this.loginAttemptService = loginAttemptService;
+        this.googleTokenVerifier = googleTokenVerifier;
         this.dummyPasswordHash = passwordEncoder.encode("jlsp-dummy-password-for-timing");
     }
 
@@ -130,6 +139,98 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(403, INACTIVE_ACCOUNT);
         }
         return issueTokens(user);
+    }
+
+    @Override
+    public AuthResponse loginWithGoogle(String idToken) {
+        GoogleIdentity identity = googleTokenVerifier.verify(idToken);
+        if (identity.sub() == null || identity.email() == null || !identity.emailVerified()) {
+            throw new AppException(401, "Email Google chưa được xác minh");
+        }
+        String email = normalizeEmail(identity.email());
+
+        // 1. Đã từng đăng nhập bằng Google: tìm theo mã Google (bền hơn email).
+        Optional<User> bySub = userRepository.findByGoogleSub(identity.sub());
+        if (bySub.isPresent()) {
+            return issueTokensIfActive(bySub.get());
+        }
+
+        // 2. Email đã có tài khoản: liên kết với Google (Google đã xác minh email này).
+        Optional<User> byEmail = userRepository.findByEmailIgnoreCase(email);
+        if (byEmail.isPresent()) {
+            User existing = byEmail.get();
+            // Tài khoản chưa kích hoạt có thể là chưa xác thực OTP hoặc bị admin khoá: không phân biệt
+            // được nên không liên kết, tránh vượt qua việc khoá tài khoản.
+            if (!Boolean.TRUE.equals(existing.getIsActive())) {
+                throw new AppException(403, INACTIVE_ACCOUNT);
+            }
+            existing.setGoogleSub(identity.sub());
+            if (existing.getAvatarUrl() == null || existing.getAvatarUrl().isBlank()) {
+                existing.setAvatarUrl(trimTo(identity.pictureUrl(), 500));
+            }
+            userRepository.save(existing);
+            log.info("Đã liên kết tài khoản id={} với Google", existing.getId());
+            return issueTokens(existing);
+        }
+
+        // 3. Chưa có gì: tạo tài khoản mới, đã kích hoạt vì email đã được Google xác minh.
+        String username = generateUsername(email);
+        String displayName = identity.name() != null && !identity.name().isBlank()
+                ? trimTo(identity.name().trim(), 100)
+                : username;
+        User created = userRepository.save(User.builder()
+                .username(username)
+                .email(email)
+                .passwordHash(passwordEncoder.encode(randomSecret()))
+                .displayName(displayName)
+                .avatarUrl(trimTo(identity.pictureUrl(), 500))
+                .authProvider(AuthProvider.GOOGLE)
+                .googleSub(identity.sub())
+                .role(UserRole.USER)
+                .isActive(true)
+                .build());
+        log.info("Đã tạo tài khoản Google mới id={}", created.getId());
+        return issueTokens(created);
+    }
+
+    private AuthResponse issueTokensIfActive(User user) {
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            throw new AppException(403, INACTIVE_ACCOUNT);
+        }
+        return issueTokens(user);
+    }
+
+    /** Tên đăng nhập từ phần trước dấu @ của email; thêm số ngẫu nhiên nếu trùng. */
+    String generateUsername(String email) {
+        String local = email.contains("@") ? email.substring(0, email.indexOf('@')) : email;
+        String base = local.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]", "_").replaceAll("^_+|_+$", "");
+        if (base.length() < 3) {
+            base = "user" + base;
+        }
+        if (base.length() > 40) {
+            base = base.substring(0, 40);
+        }
+        String candidate = base;
+        for (int i = 0; i < 30; i++) {
+            if (!userRepository.existsByUsername(candidate)) {
+                return candidate;
+            }
+            candidate = base + (1000 + random.nextInt(9000));
+        }
+        return base + System.currentTimeMillis() % 100000000L;
+    }
+
+    private String randomSecret() {
+        byte[] bytes = new byte[32];
+        random.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private static String trimTo(String value, int max) {
+        if (value == null) {
+            return null;
+        }
+        return value.length() > max ? value.substring(0, max) : value;
     }
 
     @Override
@@ -210,6 +311,10 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(404, "Không tìm thấy tài khoản"));
 
+        if (user.getAuthProvider() == AuthProvider.GOOGLE) {
+            throw new AppException(400,
+                    "Tài khoản đăng nhập bằng Google chưa có mật khẩu. Hãy dùng \"Quên mật khẩu\" để đặt mật khẩu.");
+        }
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
             throw new AppException(400, "Mật khẩu hiện tại không chính xác");
         }

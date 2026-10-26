@@ -22,6 +22,7 @@ public class UserMapper {
                 .bio(entity.getBio())
                 .role(entity.getRole())
                 .isActive(entity.getIsActive())
+                .authProvider(entity.getAuthProvider())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .vipExpiresAt(entity.getVipExpiresAt())

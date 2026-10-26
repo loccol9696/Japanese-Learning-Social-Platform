@@ -2,6 +2,7 @@ package com.jlsp.backend.auth.controller;
 
 import com.jlsp.backend.auth.dto.request.ChangePasswordRequest;
 import com.jlsp.backend.auth.dto.request.ForgotPasswordRequest;
+import com.jlsp.backend.auth.dto.request.GoogleLoginRequest;
 import com.jlsp.backend.auth.dto.request.LoginRequest;
 import com.jlsp.backend.auth.dto.request.RefreshTokenRequest;
 import com.jlsp.backend.auth.dto.request.RegisterRequest;
@@ -42,6 +43,12 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(ApiResponse.success(200, "Đăng nhập thành công", authService.login(request)));
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(200, "Đăng nhập thành công",
+                authService.loginWithGoogle(request.getIdToken())));
     }
 
     @PostMapping("/refresh")

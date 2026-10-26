@@ -109,6 +109,13 @@
 			<version>4.2.0-M2</version>
 			<scope>compile</scope>
 		</dependency>
+		<!-- Kiểm tra Google ID token cho đăng nhập bằng Google -->
+		<dependency>
+			<groupId>com.google.api-client</groupId>
+			<artifactId>google-api-client</artifactId>
+			<version>2.7.0</version>
+		</dependency>
+
 		<!-- Source: https://mvnrepository.com/artifact/com.google.cloud/google-cloud-speech -->
 		<dependency>
 			<groupId>com.google.cloud</groupId>

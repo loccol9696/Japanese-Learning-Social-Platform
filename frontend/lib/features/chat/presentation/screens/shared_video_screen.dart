@@ -122,7 +122,7 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
     final follow = !post.isFollowing;
     _update((p) => p.copyWith(isFollowing: follow));
     try {
-      final confirmed = await _dataSource.setFollow(creatorId, follow: follow);
+      final confirmed = await _dataSource.toggleFollow(creatorId.toString());
       _update((p) => p.copyWith(isFollowing: confirmed));
     } catch (error) {
       _update((p) => p.copyWith(isFollowing: !follow));

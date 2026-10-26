@@ -5,7 +5,11 @@ import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.common.security.CurrentUser;
 import com.jlsp.backend.user.entity.JLPTLevel;
 import com.jlsp.backend.video.dto.request.CreateVideoRequest;
+import com.jlsp.backend.video.dto.request.ScoreShadowingLineRequest;
 import com.jlsp.backend.video.dto.request.ShadowingSubmissionRequest;
+import com.jlsp.backend.video.dto.response.ShadowingLineScoreResponse;
+import com.jlsp.backend.video.dto.response.ShadowingSummaryResponse;
+import com.jlsp.backend.video.shadowing.ShadowingLineService;
 import com.jlsp.backend.video.dto.request.UpdateSubtitlesRequest;
 import com.jlsp.backend.video.dto.request.UpdateVideoRequest;
 import com.jlsp.backend.video.dto.response.ShadowingPracticeResponse;
@@ -29,6 +33,7 @@ import java.util.List;
 public class VideoController {
 
     private final VideoService videoService;
+    private final ShadowingLineService shadowingLineService;
 
     /**
      * Hỗ trợ lọc theo loại feed ("for-you", "following"), cấp độ JLPT, hoặc Creator
@@ -269,6 +274,30 @@ public class VideoController {
 
         List<ShadowingPracticeResponse> response = videoService.getShadowingHistory(id, userId);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * Chấm một lượt luyện nói nhại theo cho một dòng phụ đề.
+     * POST /api/v1/videos/{id}/shadowing/lines/{index}/score
+     */
+    @PostMapping("/{id}/shadowing/lines/{index}/score")
+    public ResponseEntity<ApiResponse<ShadowingLineScoreResponse>> scoreShadowingLine(
+            @PathVariable Long id,
+            @PathVariable int index,
+            @Valid @RequestBody ScoreShadowingLineRequest request) {
+        Long userId = CurrentUser.requireId();
+        return ResponseEntity.ok(ApiResponse.success(
+                shadowingLineService.scoreLine(id, userId, index, request.getRecognizedText())));
+    }
+
+    /**
+     * Điểm cao nhất từng dòng và điểm trung bình của người dùng cho video.
+     * GET /api/v1/videos/{id}/shadowing/summary
+     */
+    @GetMapping("/{id}/shadowing/summary")
+    public ResponseEntity<ApiResponse<ShadowingSummaryResponse>> shadowingSummary(@PathVariable Long id) {
+        Long userId = CurrentUser.requireId();
+        return ResponseEntity.ok(ApiResponse.success(shadowingLineService.summary(id, userId)));
     }
 
     /**
