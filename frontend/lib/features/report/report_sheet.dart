@@ -26,7 +26,7 @@ Future<void> showReportSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _ReportSheet(
+    builder: (_) => ReportSheet(
       target: target,
       targetId: targetId,
       subject: subject,
@@ -35,13 +35,15 @@ Future<void> showReportSheet(
   );
 }
 
-class _ReportSheet extends StatefulWidget {
+/// Nội dung bảng báo cáo. Dùng qua [showReportSheet]; để public chỉ để test được riêng.
+class ReportSheet extends StatefulWidget {
   final ReportTarget target;
   final int targetId;
   final String subject;
   final ReportService service;
 
-  const _ReportSheet({
+  const ReportSheet({
+    super.key,
     required this.target,
     required this.targetId,
     required this.subject,
@@ -49,10 +51,13 @@ class _ReportSheet extends StatefulWidget {
   });
 
   @override
-  State<_ReportSheet> createState() => _ReportSheetState();
+  State<ReportSheet> createState() => _ReportSheetState();
 }
 
-class _ReportSheetState extends State<_ReportSheet> {
+class _ReportSheetState extends State<ReportSheet> {
+  /// Đợi hiệu ứng đóng sheet (~250ms) xong rồi mới hiện toast, tránh hai animation chồng nhau.
+  static const Duration _toastDelay = Duration(milliseconds: 300);
+
   final _detailController = TextEditingController();
   ReportReason? _reason;
   bool _submitting = false;
@@ -76,96 +81,101 @@ class _ReportSheetState extends State<_ReportSheet> {
       );
       if (!mounted) return;
       Navigator.of(context).pop();
-      AppToast.showSuccess('Đã gửi báo cáo. Cảm ơn bạn!');
+      Future<void>.delayed(
+        _toastDelay,
+        () => AppToast.showSuccess('Đã gửi báo cáo. Cảm ơn bạn!'),
+      );
+      // Cố ý không đặt lại _submitting: sheet đang trượt xuống, dựng lại nó ở đây gây giật.
+      return;
     } on ApiException catch (e) {
       if (mounted) AppToast.showError(e.message, context: context);
     } catch (_) {
       if (mounted) {
         AppToast.showError('Không thể gửi báo cáo. Vui lòng thử lại.', context: context);
       }
-    } finally {
-      if (mounted) setState(() => _submitting = false);
     }
+    if (mounted) setState(() => _submitting = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
+    // Chỉ phụ thuộc vào viewInsets (bàn phím), không dựng lại theo mọi thay đổi MediaQuery khác.
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: keyboard),
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: AppPalette.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppPalette.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Báo cáo ${widget.subject}',
-                  style: TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Chọn lý do. Báo cáo của bạn được ẩn danh với người bị báo cáo.',
-                  style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                RadioGroup<ReportReason>(
-                  groupValue: _reason,
-                  onChanged: (value) => setState(() => _reason = value),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (final reason in ReportReason.values)
-                        RadioListTile<ReportReason>(
-                          value: reason,
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          activeColor: AppPalette.accent,
-                          title: Text(
-                            reason.label,
-                            style: TextStyle(color: AppPalette.textPrimary),
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppPalette.border,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Báo cáo ${widget.subject}',
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Chọn lý do. Báo cáo của bạn được ẩn danh với người bị báo cáo.',
+                        style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
+                      ),
+                      const SizedBox(height: 8),
+                      for (final reason in ReportReason.values)
+                        _ReasonTile(
+                          reason: reason,
+                          selected: reason == _reason,
+                          onTap: () => setState(() => _reason = reason),
+                        ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _detailController,
+                        maxLength: 500,
+                        maxLines: 3,
+                        style: TextStyle(color: AppPalette.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: 'Mô tả thêm (tuỳ chọn)',
+                          hintStyle: TextStyle(color: AppPalette.textSecondary),
+                          filled: true,
+                          fillColor: AppPalette.background,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: AppPalette.border),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                TextField(
-                  controller: _detailController,
-                  maxLength: 500,
-                  maxLines: 3,
-                  style: TextStyle(color: AppPalette.textPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Mô tả thêm (tuỳ chọn)',
-                    hintStyle: TextStyle(color: AppPalette.textSecondary),
-                    filled: true,
-                    fillColor: AppPalette.background,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppPalette.border),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: SizedBox(
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
@@ -189,8 +199,74 @@ class _ReportSheetState extends State<_ReportSheet> {
                         : const Text('Gửi báo cáo'),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Một lý do: vòng tròn chọn + nhãn. Tự vẽ nhẹ thay cho RadioListTile
+/// (ListTile + InkWell + Radio) để khung hình đầu tiên khi mở sheet không bị nặng.
+class _ReasonTile extends StatelessWidget {
+  final ReportReason reason;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ReasonTile({
+    required this.reason,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      inMutuallyExclusiveGroup: true,
+      checked: selected,
+      button: true,
+      label: reason.label,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: 44,
+          child: Row(
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? AppPalette.accent : AppPalette.textSecondary,
+                    width: 2,
+                  ),
+                ),
+                child: selected
+                    ? Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppPalette.accent,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  reason.label,
+                  style: TextStyle(color: AppPalette.textPrimary, fontSize: 15),
+                ),
+              ),
+            ],
           ),
         ),
       ),
