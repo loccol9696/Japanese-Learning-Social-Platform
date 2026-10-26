@@ -27,6 +27,8 @@ class ChatSocketService {
   final _readController = StreamController<ReadReceipt>.broadcast();
   final _typingController = StreamController<TypingEvent>.broadcast();
   final _connectionController = StreamController<bool>.broadcast();
+  final _notificationController =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   io.Socket? _socket;
   Timer? _retryTimer;
@@ -37,6 +39,10 @@ class ChatSocketService {
   Stream<ChatMessage> get onMessage => _messageController.stream;
   Stream<ReadReceipt> get onRead => _readController.stream;
   Stream<TypingEvent> get onTyping => _typingController.stream;
+
+  /// Thông báo mới: `{notification: {...}, unreadCount: n}` (event `notification:new`).
+  Stream<Map<String, dynamic>> get onNotification =>
+      _notificationController.stream;
 
   /// true khi vừa kết nối được, false khi mất kết nối.
   Stream<bool> get onConnectionChanged => _connectionController.stream;
@@ -116,6 +122,10 @@ class ChatSocketService {
     socket.on('message:read', (data) {
       final json = _asMap(data);
       if (json != null) _readController.add(ReadReceipt.fromJson(json));
+    });
+    socket.on('notification:new', (data) {
+      final json = _asMap(data);
+      if (json != null) _notificationController.add(json);
     });
     socket.on('typing', (data) {
       final json = _asMap(data);

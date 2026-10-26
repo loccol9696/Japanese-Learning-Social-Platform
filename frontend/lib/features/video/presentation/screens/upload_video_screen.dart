@@ -10,6 +10,8 @@ import 'package:http/http.dart' as http;
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../home/presentation/widgets/bottom_nav_dock.dart';
+import '../../../profile/domain/models/topic_model.dart';
+import '../../../topic/topic_service.dart';
 import '../../../../core/theme/app_palette.dart';
 
 class UploadVideoScreen extends StatefulWidget {
@@ -585,6 +587,8 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   final _thumbnailController = TextEditingController();
   final List<_SubtitleDraft> _subtitles = [];
   String _jlptLevel = 'N5';
+  List<TopicModel> _topics = const [];
+  int? _topicId;
   bool _isPublic = true;
   bool _isSubmitting = false;
   bool _isTranscribing = false;
@@ -596,6 +600,15 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     final name = widget.fileName.replaceFirst(RegExp(r'\.[^.]+$'), '');
     _titleController.text = name;
     _thumbnailController.text = widget.thumbnailUrl;
+    _loadTopics();
+  }
+
+  /// Chủ đề là tuỳ chọn: tải lỗi thì ẩn phần chọn, vẫn đăng được video.
+  Future<void> _loadTopics() async {
+    try {
+      final topics = await TopicService().fetchTopics();
+      if (mounted) setState(() => _topics = topics);
+    } catch (_) {}
   }
 
   @override
@@ -753,6 +766,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           'thumbnailUrl': _thumbnailController.text.trim(),
           'duration': widget.duration < 1 ? 1 : widget.duration,
           'jlptLevel': _jlptLevel,
+          if (_topicId != null) 'topicId': _topicId,
           'videoUrl': widget.videoUrl,
           'subtitles': _subtitleJson(),
           'status': asDraft ? 'PRIVATE' : (_isPublic ? 'PUBLIC' : 'PRIVATE'),
@@ -840,6 +854,12 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           _buildSectionTitle('Trình độ JLPT'),
           const SizedBox(height: 10),
           _buildJlptSelector(),
+          if (_topics.isNotEmpty) ...[
+            const SizedBox(height: 22),
+            _buildSectionTitle('Chủ đề (tuỳ chọn)'),
+            const SizedBox(height: 10),
+            _buildTopicSelector(),
+          ],
           const SizedBox(height: 22),
           _buildSectionTitle('Phụ đề & Lời thoại'),
           const SizedBox(height: 10),
@@ -1038,6 +1058,30 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               ),
             ),
           ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildTopicSelector() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _topics.map((topic) {
+        final selected = topic.id == _topicId;
+        return ChoiceChip(
+          label: Text(topic.name),
+          selected: selected,
+          // Bấm lại chủ đề đang chọn để bỏ chọn.
+          onSelected: (_) => setState(() => _topicId = selected ? null : topic.id),
+          selectedColor: AppPalette.accent,
+          backgroundColor: AppPalette.background,
+          side: BorderSide(color: AppPalette.border),
+          labelStyle: TextStyle(
+            color: selected ? AppPalette.onAccent : AppPalette.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+          showCheckmark: false,
         );
       }).toList(),
     );

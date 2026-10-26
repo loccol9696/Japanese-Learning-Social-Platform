@@ -7,6 +7,8 @@ import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../domain/models/video_post.dart';
+import '../../../report/report_service.dart';
+import '../../../report/report_sheet.dart';
 import 'subtitle_mode.dart';
 import '../../../../core/theme/app_palette.dart';
 
@@ -212,7 +214,48 @@ class _InteractionSidebarState extends State<InteractionSidebar>
 
         // 6. Subtitle Toggle Button (below script)
         _buildSubtitleToggleButton(activeTheme),
+
+        // 7. Báo cáo video (ẩn với video của chính mình)
+        if (_canReport) ...[
+          const SizedBox(height: 2.0),
+          _buildReportButton(activeTheme),
+        ],
       ],
+    );
+  }
+
+  bool get _canReport {
+    if (int.tryParse(widget.post.id) == null) return false;
+    final me = AuthSession.instance.user?.id;
+    return me == null || me != widget.post.creatorId;
+  }
+
+  Widget _buildReportButton(AdaptiveVideoTheme theme) {
+    return Tooltip(
+      message: 'Báo cáo video',
+      child: GestureDetector(
+        onTap: () => showReportSheet(
+          context,
+          target: ReportTarget.video,
+          targetId: int.parse(widget.post.id),
+          subject: 'video này',
+        ),
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 36.0,
+          height: 32.0,
+          child: Center(
+            child: Icon(
+              Icons.flag_outlined,
+              size: 22.0,
+              color: theme.isLight
+                  ? theme.textSecondary.withValues(alpha: 0.7)
+                  : AppPalette.onVideoMuted,
+              shadows: theme.textShadows,
+            ),
+          ),
+        ),
+      ),
     );
   }
 

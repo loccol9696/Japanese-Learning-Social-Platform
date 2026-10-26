@@ -6,6 +6,9 @@ import '../../../core/auth/auth_guard.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../follow/presentation/screens/user_search_screen.dart';
+import '../../profile/domain/models/topic_model.dart';
+import '../../topic/topic_service.dart';
 import '../data/explore_service.dart';
 import '../data/explore_video.dart';
 import '../../home/presentation/widgets/video_player_item.dart';
@@ -35,6 +38,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   ExploreFilter _filter = ExploreFilter.trending;
   String _search = '';
+  List<TopicModel> _topics = const [];
+  int? _topicId;
   final List<ExploreVideo> _videos = [];
   int _page = 0;
   bool _isLast = false;
@@ -52,6 +57,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     _loadFirstPage();
+    _loadTopics();
+  }
+
+  /// Chip chủ đề là phần phụ: tải lỗi thì không hiện, danh sách video vẫn dùng được.
+  Future<void> _loadTopics() async {
+    try {
+      final topics = await TopicService().fetchTopics();
+      if (mounted) setState(() => _topics = topics);
+    } catch (_) {}
   }
 
   @override
@@ -74,6 +88,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final result = await _service.fetchVideos(
         filter: _filter,
         search: _search,
+        topicId: _topicId,
       );
       if (!mounted || token != _requestToken) return;
       setState(() {
@@ -102,6 +117,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final result = await _service.fetchVideos(
         filter: _filter,
         search: _search,
+        topicId: _topicId,
         page: _page + 1,
       );
       if (!mounted || token != _requestToken) return;
@@ -135,6 +151,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final next = value.trim();
       if (next == _search) return;
       _search = next;
+      if (next.isNotEmpty) _topicId = null;
       _loadFirstPage();
     });
   }
@@ -147,6 +164,19 @@ class _ExploreScreenState extends State<ExploreScreen> {
       return;
     }
     _search = '';
+    _loadFirstPage();
+  }
+
+  void _selectTopic(int? topicId) {
+    if (topicId == _topicId) return;
+    _searchDebounce?.cancel();
+    // Máy chủ ưu tiên từ khoá hơn chủ đề, nên chọn chủ đề thì xoá ô tìm kiếm.
+    _searchController.clear();
+    setState(() {
+      _topicId = topicId;
+      _search = '';
+    });
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
     _loadFirstPage();
   }
 
@@ -228,6 +258,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
             _buildSearchBar(),
             const SizedBox(height: 10),
             _buildFilterChips(),
+            if (_topics.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _buildTopicChips(),
+            ],
             const SizedBox(height: 12),
             Expanded(child: _buildBody(bottomInset)),
           ],
@@ -313,24 +347,74 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       );
 
+    final userSearchButton = IconButton(
+      tooltip: 'Tìm người dùng',
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const UserSearchScreen()),
+      ),
+      icon: Icon(Icons.person_search_rounded, color: AppPalette.textPrimary),
+    );
+
     return Padding(
       padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
-      child: widget.showBackButton
-          ? Row(
-              children: [
-                IconButton(
-                  tooltip: 'Quay lại',
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: AppPalette.textPrimary,
-                    size: 20,
-                  ),
-                ),
-                Expanded(child: searchField),
-              ],
-            )
-          : searchField,
+      child: Row(
+        children: [
+          if (widget.showBackButton)
+            IconButton(
+              tooltip: 'Quay lại',
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: AppPalette.textPrimary,
+                size: 20,
+              ),
+            ),
+          Expanded(child: searchField),
+          userSearchButton,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopicChips() {
+    Widget chip(String label, bool selected, VoidCallback onTap) {
+      return GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? _accent : _surfaceHigh,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: selected ? AppPalette.onAccent : _textMuted,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 30,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _topics.length + 1,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return chip('Mọi chủ đề', _topicId == null, () => _selectTopic(null));
+          }
+          final topic = _topics[index - 1];
+          return chip(topic.name, topic.id == _topicId, () => _selectTopic(topic.id));
+        },
+      ),
     );
   }
 

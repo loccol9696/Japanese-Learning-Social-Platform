@@ -187,12 +187,33 @@ void main() {
     expect(find.text('Quản lý duyệt nội dung'), findsNothing);
 
     // Hàng chưa có tính năng báo "sẽ hoàn thiện"
-    await tester.tap(find.text('Thông báo'));
+    await tester.tap(find.text('Quyền riêng tư'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Thông báo: Tính năng sẽ được hoàn thiện trong thời gian tới'),
+      find.text('Quyền riêng tư: Tính năng sẽ được hoàn thiện trong thời gian tới'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('ProfileScreen settings "Thông báo" opens the notifications route', (tester) async {
+    final mockRepo = _MockProfileRepository();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ProfileScreen(repository: mockRepo)),
+        routes: {
+          '/notifications': (_) => const Scaffold(body: Text('MÀN THÔNG BÁO')),
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Tùy chọn & Cài đặt'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Thông báo'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('MÀN THÔNG BÁO'), findsOneWidget);
   });
 
   testWidgets('ProfileScreen settings "Tài khoản" opens the edit profile screen', (tester) async {

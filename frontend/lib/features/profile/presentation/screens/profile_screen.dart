@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../../chat/presentation/screens/shared_video_screen.dart';
+import '../../../notification/notification_hub.dart';
 import '../../../follow/presentation/screens/follow_manage_screen.dart';
 import '../../../video/domain/models/user_video_model.dart';
 import '../../../video/presentation/screens/moderation_queue_screen.dart';
@@ -189,6 +190,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .then((_) => _loadProfile());
   }
 
+  void _openNotifications() {
+    if (!mounted) return;
+    Navigator.of(context).pushNamed(AppRoutes.notifications);
+  }
+
   void _showFeatureComingSoon(String featureName) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -260,11 +266,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       ),
       _SettingsRowData(
-        icon: Icons.notifications_none_rounded,
-        title: 'Thông báo',
+        icon: Icons.key_outlined,
+        title: 'Đổi mật khẩu',
         onTap: () {
           Navigator.of(sheetContext).pop();
-          _showFeatureComingSoon('Thông báo');
+          Navigator.of(context).pushNamed(AppRoutes.changePassword);
+        },
+      ),
+      _SettingsRowData(
+        icon: Icons.notifications_none_rounded,
+        title: 'Thông báo',
+        value: NotificationHub.instance.unreadCount.value > 0
+            ? '${NotificationHub.instance.unreadCount.value} mới'
+            : null,
+        onTap: () {
+          Navigator.of(sheetContext).pop();
+          _openNotifications();
         },
       ),
       _SettingsRowData(
@@ -733,6 +750,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         fontSize: 13,
                       ),
                     ),
+                  ],
+                ),
+              ),
+              ValueListenableBuilder<int>(
+                valueListenable: NotificationHub.instance.unreadCount,
+                builder: (context, unread, _) => Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconButton(
+                      onPressed: _openNotifications,
+                      icon: Icon(
+                        Icons.notifications_none_rounded,
+                        size: 26,
+                        color: AppPalette.textPrimary,
+                      ),
+                      tooltip: 'Thông báo',
+                    ),
+                    if (unread > 0)
+                      Positioned(
+                        top: 6,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          constraints: const BoxConstraints(minWidth: 16),
+                          decoration: BoxDecoration(
+                            color: AppPalette.error,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppPalette.background, width: 1.5),
+                          ),
+                          child: Text(
+                            unread > 99 ? '99+' : '$unread',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppPalette.onAccent,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

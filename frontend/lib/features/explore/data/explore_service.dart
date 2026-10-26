@@ -43,6 +43,7 @@ class ExploreService {
   Future<ExplorePage> fetchVideos({
     required ExploreFilter filter,
     String search = '',
+    int? topicId,
     int page = 0,
   }) async {
     // Người xem (để biết đã lưu chưa) do server lấy từ access token.
@@ -53,6 +54,8 @@ class ExploreService {
       'sort': filter.sort,
       if (filter.jlptLevel != null) 'jlptLevel': filter.jlptLevel!,
       if (search.trim().isNotEmpty) 'search': search.trim(),
+      // Server bỏ qua chủ đề khi có từ khoá tìm kiếm.
+      if (topicId != null) 'topicId': '$topicId',
     };
     final uri = Uri.parse('${ApiConstants.baseUrl}/videos')
         .replace(queryParameters: query);

@@ -12,6 +12,8 @@ import '../../../profile/data/datasources/profile_remote_datasource.dart';
 import '../../../video/domain/models/user_video_model.dart';
 import '../../data/follow_models.dart';
 import '../../data/follow_service.dart';
+import '../../../report/report_service.dart';
+import '../../../report/report_sheet.dart';
 
 /// Trang cá nhân công khai của một người dùng khác: thông tin, nút theo dõi và video đã đăng.
 class UserProfileScreen extends StatefulWidget {
@@ -142,6 +144,28 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       appBar: AppBar(
         backgroundColor: AppPalette.background,
         title: Text(profile?.name ?? widget.initialName ?? 'Trang cá nhân'),
+        actions: [
+          if (profile != null && !profile.isSelf)
+            PopupMenuButton<String>(
+              color: AppPalette.surface,
+              icon: Icon(Icons.more_vert_rounded, color: AppPalette.textPrimary),
+              onSelected: (_) => showReportSheet(
+                context,
+                target: ReportTarget.user,
+                targetId: profile.id,
+                subject: 'người dùng này',
+              ),
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'report',
+                  child: Text(
+                    'Báo cáo người dùng',
+                    style: TextStyle(color: AppPalette.textPrimary),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

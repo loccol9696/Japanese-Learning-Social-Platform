@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_toast.dart';
+import '../../data/video_manage_service.dart';
 import '../../../profile/data/datasources/profile_remote_datasource.dart';
 import '../../../profile/data/repositories/profile_repository_impl.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
@@ -17,6 +20,7 @@ class MyVideosStatusScreen extends StatefulWidget {
 
 class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
   late final ProfileRepository _repository;
+  final VideoManageService _manage = VideoManageService();
   bool _isLoading = true;
   List<UserVideoModel> _allVideos = [];
   String _selectedFilter = 'ALL'; // ALL, PENDING, APPROVED, REJECTED
@@ -41,6 +45,134 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);
+    }
+  }
+
+  static const _levels = ['N5', 'N4', 'N3', 'N2', 'N1'];
+
+  Future<void> _editVideo(UserVideoModel video) async {
+    final titleCtrl = TextEditingController(text: video.title);
+    final descCtrl = TextEditingController(text: video.description ?? '');
+    var level = _levels.contains(video.jlptLevel) ? video.jlptLevel : 'N5';
+    final formKey = GlobalKey<FormState>();
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          backgroundColor: AppColors.surfaceCard,
+          title: Text('Sửa video', style: TextStyle(color: AppPalette.textPrimary)),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: titleCtrl,
+                    maxLength: 200,
+                    style: TextStyle(color: AppPalette.textPrimary),
+                    decoration: const InputDecoration(labelText: 'Tiêu đề'),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Tiêu đề không được để trống'
+                        : null,
+                  ),
+                  TextFormField(
+                    controller: descCtrl,
+                    maxLines: 3,
+                    style: TextStyle(color: AppPalette.textPrimary),
+                    decoration: const InputDecoration(labelText: 'Mô tả'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: level,
+                    dropdownColor: AppColors.surfaceCard,
+                    style: TextStyle(color: AppPalette.textPrimary),
+                    decoration: const InputDecoration(labelText: 'Cấp độ JLPT'),
+                    items: [
+                      for (final l in _levels)
+                        DropdownMenuItem(value: l, child: Text(l)),
+                    ],
+                    onChanged: (v) => setLocal(() => level = v ?? level),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Huỷ'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
+              },
+              child: const Text('Lưu'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final title = titleCtrl.text.trim();
+    final desc = descCtrl.text.trim();
+    titleCtrl.dispose();
+    descCtrl.dispose();
+    if (saved != true || !mounted) return;
+
+    try {
+      await _manage.update(
+        video.id,
+        title: title,
+        description: desc,
+        jlptLevel: level,
+      );
+      if (!mounted) return;
+      AppToast.showSuccess('Đã cập nhật video', context: context);
+      await _loadVideos();
+    } on ApiException catch (e) {
+      if (mounted) AppToast.showError(e.message, context: context);
+    } catch (_) {
+      if (mounted) {
+        AppToast.showError('Không thể cập nhật video', context: context);
+      }
+    }
+  }
+
+  Future<void> _deleteVideo(UserVideoModel video) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceCard,
+        title: Text('Xoá video?', style: TextStyle(color: AppPalette.textPrimary)),
+        content: Text(
+          '"${video.title}" sẽ bị xoá vĩnh viễn cùng lượt thích và bình luận.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Huỷ'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Xoá', style: TextStyle(color: AppPalette.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _manage.delete(video.id);
+      if (!mounted) return;
+      setState(() => _allVideos.removeWhere((v) => v.id == video.id));
+      AppToast.showSuccess('Đã xoá video', context: context);
+    } on ApiException catch (e) {
+      if (mounted) AppToast.showError(e.message, context: context);
+    } catch (_) {
+      if (mounted) AppToast.showError('Không thể xoá video', context: context);
     }
   }
 
@@ -314,6 +446,32 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                             ),
                           ),
                           const Spacer(),
+                          SizedBox(
+                            width: 28,
+                            height: 24,
+                            child: PopupMenuButton<String>(
+                              padding: EdgeInsets.zero,
+                              color: AppColors.surfaceCard,
+                              icon: Icon(Icons.more_vert_rounded,
+                                  color: AppColors.textSecondary, size: 18),
+                              onSelected: (v) => v == 'edit'
+                                  ? _editVideo(video)
+                                  : _deleteVideo(video),
+                              itemBuilder: (_) => [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text('Sửa',
+                                      style: TextStyle(color: AppPalette.textPrimary)),
+                                ),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('Xoá',
+                                      style: TextStyle(color: AppPalette.error)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(

@@ -80,6 +80,8 @@ class ApiConstants {
   // Profile endpoints
   static String get profileUrl => '$baseUrl/profile';
   static String get topicsUrl => '$baseUrl/topics';
+  static String get reportsUrl => '$baseUrl/reports';
+  static String get notificationsUrl => '$baseUrl/notifications';
 
   // Video & Moderation endpoints
   static String get myVideosStatusUrl => '$baseUrl/videos/my-status';
@@ -92,6 +94,8 @@ class ApiConstants {
 
   // Follow endpoints (chỉ follow lẫn nhau mới nhắn tin được)
   static String followUrl(int userId) => '$baseUrl/users/$userId/follow';
+  static String userSearchUrl(String query, {int page = 0, int size = 20}) =>
+      '$baseUrl/users/search?q=${Uri.encodeQueryComponent(query)}&page=$page&size=$size';
   static String get myFollowersUrl => '$baseUrl/users/me/followers';
   static String get myFollowingUrl => '$baseUrl/users/me/following';
   static String publicProfileUrl(int userId) =>

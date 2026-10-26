@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/auth/auth_guard.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../report/report_service.dart';
+import '../../../report/report_sheet.dart';
 import '../../data/models/video_comment.dart';
 import '../../data/services/comment_service.dart';
 import '../../../../core/theme/app_palette.dart';
@@ -289,6 +291,29 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                             ),
                           ),
                         ),
+                        if (AuthSession.instance.user?.id != comment.userId) ...[
+                          const SizedBox(width: 12),
+                          TextButton(
+                            onPressed: () => showReportSheet(
+                              context,
+                              target: ReportTarget.comment,
+                              targetId: comment.id,
+                              subject: 'bình luận này',
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              'Báo cáo',
+                              style: TextStyle(
+                                color: AppPalette.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
                         if (_canDelete(comment)) ...[
                           const SizedBox(width: 12),
                           TextButton(
