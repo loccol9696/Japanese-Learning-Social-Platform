@@ -29,7 +29,7 @@ class DeckCardItem extends StatelessWidget {
             color: AppPalette.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.06),
+              color: AppPalette.textPrimary.withValues(alpha: 0.06),
               width: 1,
             ),
           ),
@@ -43,8 +43,8 @@ class DeckCardItem extends StatelessWidget {
                   Expanded(
                     child: Text(
                       deck.title,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.2,
@@ -62,7 +62,7 @@ class DeckCardItem extends StatelessWidget {
               // Bottom Row: X thuật ngữ
               Text(
                 '${deck.totalCards} thuật ngữ',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppPalette.textSecondary,
                   fontSize: 13.5,
                   fontWeight: FontWeight.w500,
@@ -129,15 +129,15 @@ class _DeckMoreMenuButtonState extends State<_DeckMoreMenuButton> {
                     width: 148,
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF232530),
+                      color: AppPalette.surfaceHigh,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: const Color(0xFF333647),
+                        color: AppPalette.surfaceHighest,
                         width: 1,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.45),
+                          color: AppPalette.shadow,
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),
@@ -150,7 +150,7 @@ class _DeckMoreMenuButtonState extends State<_DeckMoreMenuButton> {
                         _MenuActionItem(
                           icon: Icons.edit_outlined,
                           title: 'Chỉnh sửa',
-                          color: const Color(0xFFEEEEF0),
+                          color: AppPalette.textPrimary,
                           onTap: () {
                             _closeMenu();
                             widget.onEdit?.call();
@@ -182,7 +182,7 @@ class _DeckMoreMenuButtonState extends State<_DeckMoreMenuButton> {
             tooltip: 'Tùy chọn',
             splashRadius: 18,
             padding: EdgeInsets.zero,
-            icon: const Icon(
+            icon: Icon(
               Icons.more_vert_rounded,
               color: AppPalette.textSecondary,
               size: 20,

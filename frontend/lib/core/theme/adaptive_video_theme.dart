@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'app_palette.dart';
 
 /// Defines adaptive UI colors based on the underlying video brightness.
 /// - If [isLight] == true (nền video sáng / trắng): UI chuyển sang ĐEN XÁM.
@@ -10,117 +11,117 @@ class AdaptiveVideoTheme {
   const AdaptiveVideoTheme({required this.isLight});
 
   // 1. Màu tương phản chủ đạo (User: Nền trắng -> Đen xám, Nền đen -> Trắng)
-  Color get primaryAdaptive => isLight ? const Color(0xFF1E212D) : Colors.white;
+  Color get primaryAdaptive => isLight ? AppPalette.videoScrim : AppPalette.onVideo;
 
   // Text chính & thứ cấp
-  Color get textPrimary => isLight ? const Color(0xFF0F172A) : Colors.white;
+  Color get textPrimary => isLight ? AppPalette.videoScrim : AppPalette.onVideo;
   Color get textSecondary =>
-      isLight ? const Color(0xFF475569) : const Color(0xFFCBD5E1);
+      isLight ? AppPalette.videoScrim.withValues(alpha: 0.75) : AppPalette.onVideoMuted;
 
   // Badge JLPT
   Color get jlptBadgeBackground =>
-      isLight ? const Color(0xFF1E212D) : Colors.white;
-  Color get jlptBadgeText => isLight ? Colors.white : const Color(0xFF0B0E1E);
+      isLight ? AppPalette.videoScrim : AppPalette.onVideo;
+  Color get jlptBadgeText => isLight ? AppPalette.onVideo : AppPalette.videoScrim;
 
   // Thanh tiến trình video (Scrubber)
-  Color get progressActive => isLight ? const Color(0xFF1E212D) : Colors.white;
+  Color get progressActive => isLight ? AppPalette.videoScrim : AppPalette.onVideo;
   Color get progressTrack => isLight
-      ? const Color(0xFF1E212D).withValues(alpha: 0.18)
-      : Colors.white.withValues(alpha: 0.22);
+      ? AppPalette.videoScrim.withValues(alpha: 0.18)
+      : AppPalette.onVideo.withValues(alpha: 0.22);
   Color get progressGlow => isLight
-      ? const Color(0xFF1E212D).withValues(alpha: 0.4)
-      : Colors.white.withValues(alpha: 0.7);
+      ? AppPalette.videoScrim.withValues(alpha: 0.4)
+      : AppPalette.onVideo.withValues(alpha: 0.7);
 
   // Hiệu ứng Play/Pause Ripple
   Color get playRippleBorder =>
-      isLight ? const Color(0xFF1E212D) : Colors.white;
-  Color get playRippleIcon => isLight ? const Color(0xFF1E212D) : Colors.white;
+      isLight ? AppPalette.videoScrim : AppPalette.onVideo;
+  Color get playRippleIcon => isLight ? AppPalette.videoScrim : AppPalette.onVideo;
   Color get playRippleBackground => isLight
-      ? Colors.white.withValues(alpha: 0.8)
-      : const Color(0xFF0E1326).withValues(alpha: 0.75);
+      ? AppPalette.onVideo.withValues(alpha: 0.8)
+      : AppPalette.videoScrim.withValues(alpha: 0.75);
 
   // Nút hành động tương tác (Sidebar: Like, Comment, Share)
   Color get actionButtonBackground => isLight
-      ? Colors.white.withValues(alpha: 0.82)
-      : const Color(0xFF0E1326).withValues(alpha: 0.72);
+      ? AppPalette.onVideo.withValues(alpha: 0.82)
+      : AppPalette.videoScrim.withValues(alpha: 0.72);
   Color get actionButtonBorder => isLight
-      ? const Color(0xFF1E212D).withValues(alpha: 0.18)
-      : Colors.white.withValues(alpha: 0.25);
+      ? AppPalette.videoScrim.withValues(alpha: 0.18)
+      : AppPalette.onVideo.withValues(alpha: 0.25);
   Color get actionButtonIcon =>
-      isLight ? const Color(0xFF1E212D) : Colors.white;
-  Color get actionCountText => isLight ? const Color(0xFF1E212D) : Colors.white;
+      isLight ? AppPalette.videoScrim : AppPalette.onVideo;
+  Color get actionCountText => isLight ? AppPalette.videoScrim : AppPalette.onVideo;
 
   // Subtitle card (Phụ đề Ruby)
   Color get subtitleCardBackground => isLight
-      ? Colors.white.withValues(alpha: 0.90)
-      : const Color(0xFF101630).withValues(alpha: 0.90);
+      ? AppPalette.onVideo.withValues(alpha: 0.90)
+      : AppPalette.videoScrim.withValues(alpha: 0.90);
   Color get subtitleCardBorder => isLight
-      ? const Color(0xFF1E212D).withValues(alpha: 0.18)
+      ? AppPalette.videoScrim.withValues(alpha: 0.18)
       : AppColors.periwinkle.withValues(alpha: 0.4);
-  Color get kanjiTextColor => isLight ? const Color(0xFF0F172A) : Colors.white;
+  Color get kanjiTextColor => isLight ? AppPalette.videoScrim : AppPalette.onVideo;
   Color get furiganaColor =>
-      isLight ? const Color(0xFFD97706) : AppColors.warmPeach;
+      isLight ? AppPalette.warning : AppColors.warmPeach;
   Color get translationCardBackground => isLight
-      ? Colors.white.withValues(alpha: 0.85)
-      : const Color(0xFF101630).withValues(alpha: 0.88);
+      ? AppPalette.onVideo.withValues(alpha: 0.85)
+      : AppPalette.videoScrim.withValues(alpha: 0.88);
   Color get translationTextColor =>
-      isLight ? const Color(0xFF334155) : const Color(0xFFF4F6FD);
+      isLight ? AppPalette.videoScrim.withValues(alpha: 0.75) : AppPalette.onVideo;
   Color get ttsButtonBackground => isLight
-      ? const Color(0xFF1E212D).withValues(alpha: 0.10)
+      ? AppPalette.videoScrim.withValues(alpha: 0.10)
       : AppColors.periwinkle.withValues(alpha: 0.25);
   Color get ttsButtonIcon =>
-      isLight ? const Color(0xFF1E212D) : AppColors.onSurfaceVariant;
+      isLight ? AppPalette.videoScrim : AppPalette.onVideoMuted;
 
   // Scrim gradients phủ trên và dưới video
   List<Color> get topScrimColors => isLight
       ? [
-          Colors.white.withValues(alpha: 0.88),
-          Colors.white.withValues(alpha: 0.40),
+          AppPalette.onVideo.withValues(alpha: 0.88),
+          AppPalette.onVideo.withValues(alpha: 0.40),
           Colors.transparent,
         ]
       : [
-          const Color(0xFF0A092D).withValues(alpha: 0.85),
-          const Color(0xFF0A092D).withValues(alpha: 0.40),
+          AppPalette.videoScrim.withValues(alpha: 0.85),
+          AppPalette.videoScrim.withValues(alpha: 0.40),
           Colors.transparent,
         ];
 
-  List<Color> get bottomScrimColors => const [
-        Color(0xDE0A092D),
-        Color(0x990A092D),
-        Color(0x330A092D),
+  List<Color> get bottomScrimColors => [
+        AppPalette.videoScrim.withValues(alpha: 0.87),
+        AppPalette.videoScrim.withValues(alpha: 0.60),
+        AppPalette.videoScrim.withValues(alpha: 0.20),
         Colors.transparent,
       ];
 
   // Header switcher
   Color get headerSelectedText =>
-      isLight ? const Color(0xFF0F172A) : Colors.white;
+      isLight ? AppPalette.videoScrim : AppPalette.onVideo;
   Color get headerUnselectedText => isLight
-      ? const Color(0xFF0F172A).withValues(alpha: 0.55)
-      : Colors.white.withValues(alpha: 0.65);
-  Color get headerIndicator => isLight ? const Color(0xFF1E212D) : Colors.white;
+      ? AppPalette.videoScrim.withValues(alpha: 0.55)
+      : AppPalette.onVideo.withValues(alpha: 0.65);
+  Color get headerIndicator => isLight ? AppPalette.videoScrim : AppPalette.onVideo;
   Color get headerSearchIcon =>
-      isLight ? const Color(0xFF0F172A) : Colors.white;
+      isLight ? AppPalette.videoScrim : AppPalette.onVideo;
 
   // Streak & XP pill
   Color get streakBadgeBackground => isLight
-      ? Colors.white.withValues(alpha: 0.90)
-      : const Color(0xFF0E1326).withValues(alpha: 0.88);
+      ? AppPalette.onVideo.withValues(alpha: 0.90)
+      : AppPalette.videoScrim.withValues(alpha: 0.88);
   Color get streakBadgeBorder => isLight
-      ? const Color(0xFF1E212D).withValues(alpha: 0.18)
-      : Colors.white.withValues(alpha: 0.25);
-  Color get streakBadgeText => isLight ? const Color(0xFF0F172A) : Colors.white;
+      ? AppPalette.videoScrim.withValues(alpha: 0.18)
+      : AppPalette.onVideo.withValues(alpha: 0.25);
+  Color get streakBadgeText => isLight ? AppPalette.videoScrim : AppPalette.onVideo;
 
   // Drop Shadows
   List<Shadow> get textShadows => isLight
       ? [
-          const Shadow(
-            color: Colors.white,
+          Shadow(
+            color: AppPalette.onVideo,
             blurRadius: 4.0,
           ),
         ]
       : [
-          const Shadow(
-            color: Colors.black87,
+          Shadow(
+            color: AppPalette.videoScrim.withValues(alpha: 0.87),
             blurRadius: 4.0,
           ),
         ];
@@ -128,14 +129,14 @@ class AdaptiveVideoTheme {
   List<BoxShadow> get cardShadows => isLight
       ? [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: AppPalette.shadow,
             blurRadius: 16.0,
             offset: const Offset(0, 4),
           ),
         ]
       : [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: AppPalette.shadow,
             blurRadius: 20.0,
             offset: const Offset(0, 8),
           ),

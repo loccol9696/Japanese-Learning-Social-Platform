@@ -145,12 +145,12 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
             alignment: Alignment.centerLeft,
             child: IconButton(
               onPressed: () => Navigator.of(context).pop(_controller.bestScores),
-              icon: const Icon(Icons.close, color: AppPalette.textPrimary),
+              icon: Icon(Icons.close, color: AppPalette.textPrimary),
             ),
           ),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppPalette.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w700,
@@ -168,7 +168,7 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
       return Column(
         children: [
           _buildTopBar('Luyện nói theo'),
-          const Expanded(
+          Expanded(
             child: Center(
               child: Text(
                 'Video này chưa có kịch bản để luyện nói',
@@ -199,7 +199,7 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
                   Text(
                     cue.translation,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppPalette.textSecondary,
                       fontSize: 15,
                     ),
@@ -221,7 +221,7 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
 
   /// Câu gốc; sau khi chấm, từ nói sai được tô đỏ.
   Widget _buildSentence(SubtitleCue cue) {
-    const style = TextStyle(
+    final style = TextStyle(
       color: AppPalette.textPrimary,
       fontSize: 24,
       fontWeight: FontWeight.w800,
@@ -268,7 +268,7 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
               const SizedBox(width: 8),
               Text(
                 playing ? 'Đang phát...' : 'Nghe mẫu',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppPalette.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -321,7 +321,7 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
           ],
         );
       case ShadowingPhase.scoring:
-        return const SizedBox(
+        return SizedBox(
           height: 112,
           child: Center(
             child: CircularProgressIndicator(color: AppPalette.accent),
@@ -338,7 +338,7 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
             const SizedBox(height: 14),
             _MicButton(listening: false, onTap: c.startListening),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Chạm để thử lại',
               style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
             ),
@@ -354,7 +354,7 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
               onTap: c.phase == ShadowingPhase.ready ? c.startListening : null,
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Chạm để bắt đầu nói',
               style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
             ),
@@ -381,7 +381,7 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            const Text(
+            Text(
               'giống bản gốc',
               style: TextStyle(color: AppPalette.textSecondary, fontSize: 14),
             ),
@@ -394,7 +394,7 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppPalette.textSecondary, fontSize: 13),
+            style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
           ),
         ],
         const SizedBox(height: 18),
@@ -446,11 +446,11 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
                 ),
                 Text(
                   'điểm trung bình · ${c.practicedCount} câu',
-                  style: const TextStyle(color: AppPalette.textSecondary),
+                  style: TextStyle(color: AppPalette.textSecondary),
                 ),
                 const SizedBox(height: 24),
                 if (weak.isNotEmpty) ...[
-                  const Align(
+                  Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Câu cần luyện thêm',
@@ -469,7 +469,7 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
                             contentPadding: EdgeInsets.zero,
                             title: Text(
                               widget.cues[index].text,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppPalette.textPrimary,
                                 fontSize: 15,
                               ),
@@ -486,7 +486,7 @@ class _ShadowingScreenState extends State<ShadowingScreen> {
                     ),
                   ),
                 ] else
-                  const Expanded(
+                  Expanded(
                     child: Center(
                       child: Text(
                         'Tuyệt vời! Mọi câu đều đạt.',
@@ -594,7 +594,7 @@ class _PillButton extends StatelessWidget {
               ],
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppPalette.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,

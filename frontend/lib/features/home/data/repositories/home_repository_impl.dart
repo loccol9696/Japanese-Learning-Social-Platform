@@ -28,7 +28,7 @@ class HomeRepositoryImpl implements HomeRepository {
   }
 
   @override
-  Future<bool> toggleFollow(String creatorId) {
-    return remoteDataSource.toggleFollow(creatorId);
+  Future<bool> setFollow(int creatorId, {required bool follow}) {
+    return remoteDataSource.setFollow(creatorId, follow: follow);
   }
 }

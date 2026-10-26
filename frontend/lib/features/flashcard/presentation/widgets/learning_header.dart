@@ -6,8 +6,8 @@ class LearningHeader extends StatelessWidget {
   final int totalItems;
   final VoidCallback onClose;
   final VoidCallback? onSettingsClick;
-  final Color progressColor;
-  final Color trackColor;
+  final Color? progressColor;
+  final Color? trackColor;
   final double height;
   final EdgeInsetsGeometry progressPadding;
 
@@ -17,8 +17,8 @@ class LearningHeader extends StatelessWidget {
     required this.totalItems,
     required this.onClose,
     this.onSettingsClick,
-    this.progressColor = AppPalette.accent,
-    this.trackColor = AppPalette.border,
+    this.progressColor,
+    this.trackColor,
     this.height = 3.5,
     this.progressPadding = const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
   });
@@ -41,14 +41,14 @@ class LearningHeader extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: Icon(Icons.close, color: AppPalette.textPrimary),
                 onPressed: onClose,
                 splashRadius: 22,
               ),
               Text(
                 '$displayIndex / $totalItems',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppPalette.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
@@ -56,7 +56,7 @@ class LearningHeader extends StatelessWidget {
               ),
               if (onSettingsClick != null)
                 IconButton(
-                  icon: const Icon(Icons.settings, color: Colors.white),
+                  icon: Icon(Icons.settings, color: AppPalette.textPrimary),
                   onPressed: onSettingsClick,
                   splashRadius: 22,
                 )
@@ -79,8 +79,8 @@ class LearningHeader extends StatelessWidget {
                 return LinearProgressIndicator(
                   value: value,
                   minHeight: height,
-                  backgroundColor: trackColor,
-                  valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                  backgroundColor: trackColor ?? AppPalette.border,
+                  valueColor: AlwaysStoppedAnimation<Color>(progressColor ?? AppPalette.accent),
                 );
               },
             ),

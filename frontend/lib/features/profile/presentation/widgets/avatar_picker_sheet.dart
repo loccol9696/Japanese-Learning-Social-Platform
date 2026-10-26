@@ -70,7 +70,7 @@ class AvatarPickerSheet extends StatelessWidget {
     );
   }
 
-  Widget _divider() => const Padding(
+  Widget _divider() => Padding(
     padding: EdgeInsets.symmetric(horizontal: 28),
     child: Divider(height: 1, color: AppPalette.border),
   );
@@ -80,8 +80,9 @@ class AvatarPickerSheet extends StatelessWidget {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
-    Color color = AppPalette.textPrimary,
+    Color? color,
   }) {
+    final iconColor = color ?? AppPalette.textPrimary;
     return InkWell(
       onTap: () {
         Navigator.pop(context);
@@ -91,13 +92,13 @@ class AvatarPickerSheet extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
         child: Row(
           children: [
-            Icon(icon, color: color, size: 22),
+            Icon(icon, color: iconColor, size: 22),
             const SizedBox(width: 18),
             Expanded(
               child: Text(
                 title,
                 style: TextStyle(
-                  color: color,
+                  color: iconColor,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),

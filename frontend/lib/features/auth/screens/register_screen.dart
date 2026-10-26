@@ -192,7 +192,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
             color: AppPalette.textPrimary,
@@ -215,7 +215,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           onChanged: onChanged,
           onFieldSubmitted: onFieldSubmitted,
           enabled: !_isLoading,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppPalette.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.w500,
@@ -239,19 +239,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
+              borderSide: BorderSide(
                 color: AppPalette.accent,
                 width: 1.5,
               ),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE53935)),
+              borderSide: BorderSide(color: AppPalette.error),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFFE53935),
+              borderSide: BorderSide(
+                color: AppPalette.error,
                 width: 1.5,
               ),
             ),
@@ -291,7 +291,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 8),
 
                   // Tiêu đề
-                  const Text(
+                  Text(
                     'Tạo tài khoản',
                     style: TextStyle(
                       fontSize: 28,
@@ -423,15 +423,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       onPressed: _isLoading ? null : _handleRegister,
                       child: _isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               height: 22,
                               width: 22,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                color: Colors.white,
+                                color: AppPalette.textPrimary,
                               ),
                             )
-                          : const Row(
+                          : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
@@ -439,14 +439,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    color: AppPalette.textPrimary,
                                   ),
                                 ),
                                 SizedBox(width: 8),
                                 Icon(
                                   Icons.arrow_forward,
                                   size: 18,
-                                  color: Colors.white,
+                                  color: AppPalette.textPrimary,
                                 ),
                               ],
                             ),
@@ -497,7 +497,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
+                        Text(
                           'Đã có tài khoản? ',
                           style: TextStyle(fontSize: 14, color: AppPalette.textSecondary),
                         ),
@@ -516,7 +516,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     );
                                   }
                                 },
-                          child: const Text(
+                          child: Text(
                             'Đăng nhập ngay',
                             style: TextStyle(
                               fontSize: 14,

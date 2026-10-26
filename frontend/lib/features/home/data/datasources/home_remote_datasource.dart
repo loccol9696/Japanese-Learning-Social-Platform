@@ -10,9 +10,7 @@ abstract class HomeRemoteDataSource {
   Future<List<VideoPost>> fetchFollowingFeed();
   Future<bool> toggleLike(String postId);
   Future<bool> toggleSave(String postId);
-
-  /// Theo dõi / bỏ theo dõi; trả về true nếu sau khi bấm là đang theo dõi.
-  Future<bool> toggleFollow(String creatorId);
+  Future<bool> setFollow(int creatorId, {required bool follow});
 }
 
 class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
@@ -67,12 +65,13 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     return response is bool ? response : true;
   }
 
+  /// Theo dõi / bỏ theo dõi người đăng. Trả về trạng thái follow sau khi server xử lý.
   @override
-  Future<bool> toggleFollow(String creatorId) async {
-    final response = await _apiClient.post(
-      '${ApiConstants.baseUrl}/users/$creatorId/follow',
-    );
-    return response is Map ? response['following'] == true : true;
+  Future<bool> setFollow(int creatorId, {required bool follow}) async {
+    final response = follow
+        ? await _apiClient.post(ApiConstants.followUrl(creatorId))
+        : await _apiClient.delete(ApiConstants.followUrl(creatorId));
+    return response is Map<String, dynamic> ? response['isFollowing'] == true : follow;
   }
 
   VideoPost _toVideoPost(Map<String, dynamic> json) {
@@ -121,6 +120,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       shareCount: views,
       isLiked: json['isLiked'] == true,
       isSaved: json['isSaved'] == true,
+      isFollowing: json['isFollowing'] == true,
       progress: 0,
       isLightBackground: false,
     );

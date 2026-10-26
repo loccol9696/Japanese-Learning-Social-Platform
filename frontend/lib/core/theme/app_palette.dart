@@ -1,39 +1,72 @@
-import 'package:flutter/painting.dart';
+import 'package:flutter/material.dart';
 
-/// Hệ màu chính của toàn bộ app (nền tối).
+import 'theme_manager.dart';
+import 'theme_palette.dart';
+
+/// Lối vào màu của toàn app: mỗi getter trả về màu của bộ màu ĐANG CHỌN
+/// (tối / sáng) trong [ThemeManager]. Đổi theme là đổi tất cả — không hardcode
+/// màu ở nơi khác. Xem quy tắc đầy đủ ở [ThemePalette].
 ///
-/// Chỉ có 5 màu gốc; các màu còn lại (viền, lớp phủ) đều được suy ra từ chúng.
+/// Các getter không phải hằng số nên không dùng được trong biểu thức `const`.
 class AppPalette {
   AppPalette._();
 
+  static ThemePalette get current => ThemeManager.instance.palette;
+
   /// Nền chính (Scaffold).
-  static const Color background = Color(0xFF0A092D);
+  static Color get background => current.background;
 
   /// Nền thành phần: thẻ, container, thanh tìm kiếm, bảng (bottom sheet).
-  /// Đo từ màn Thư viện thẻ — màn chuẩn để đồng bộ giao diện toàn app.
-  static const Color surface = Color(0xFF1A1D42);
+  static Color get surface => current.surface;
 
-  /// Nền cho điều khiển nhỏ nằm trên nền chính hoặc trên thẻ để nổi bật hơn:
-  /// ô nhập liệu, chip chưa chọn, rãnh công tắc.
-  static const Color surfaceHigh = Color(0xFF2E3856);
+  /// Điều khiển nhỏ trên nền chính / trên thẻ: ô nhập liệu, chip chưa chọn,
+  /// rãnh công tắc.
+  static Color get surfaceHigh => current.surfaceHigh;
 
-  /// Màu nhấn nổi bật: nút +, nút chính, mục đang chọn, con trỏ nhập liệu.
-  static const Color accent = Color(0xFF4255FF);
+  /// Tầng nổi cao nhất (thẻ lồng trong thẻ, trạng thái nhấn).
+  static Color get surfaceHighest => current.surfaceHighest;
+
+  /// Màu nhấn: nút chính, mục đang chọn, con trỏ nhập liệu.
+  static Color get accent => current.accent;
+
+  /// Chữ / icon trên nền [accent].
+  static Color get onAccent => current.onAccent;
 
   /// Chữ chính, tiêu đề, icon đang chọn.
-  static const Color textPrimary = Color(0xFFFFFFFF);
+  static Color get textPrimary => current.textPrimary;
 
   /// Chữ phụ, placeholder, mô tả nhỏ, icon mặc định.
-  static const Color textSecondary = Color(0xFF939BB4);
+  static Color get textSecondary => current.textSecondary;
 
-  /// Tên gọi khác của [surface] cho các bảng / thanh nổi lên trên nền chính.
-  static const Color navBar = surface;
+  /// Tên gọi khác của [surface] cho các bảng / thanh nổi trên nền chính.
+  static Color get navBar => current.surface;
 
-  // ---- Suy ra từ 5 màu gốc ----
+  /// Viền / đường kẻ mảnh.
+  static Color get border => current.border;
 
-  /// Viền / đường kẻ mảnh: [textSecondary] ở độ đậm 25%.
-  static const Color border = Color(0x40939BB4);
+  /// Nền nhấn nhẹ (badge, vùng chọn).
+  static Color get accentSoft => current.accentSoft;
 
-  /// Nền nhấn nhẹ: [accent] ở độ đậm 18% (nền badge, vùng chọn).
-  static const Color accentSoft = Color(0x2E4255FF);
+  /// Lớp phủ mờ phía sau dialog / bottom sheet.
+  static Color get scrim => current.scrim;
+
+  /// Màu đổ bóng.
+  static Color get shadow => current.shadow;
+
+  // ---- Màu ngữ nghĩa ----
+  static Color get success => current.success;
+  static Color get successContainer => current.successContainer;
+  static Color get warning => current.warning;
+  static Color get warningContainer => current.warningContainer;
+  static Color get error => current.error;
+  static Color get errorContainer => current.errorContainer;
+  static Color get info => current.info;
+  static Color get infoContainer => current.infoContainer;
+  static Color get gold => current.gold;
+  static Color get like => current.like;
+
+  // ---- Trên video (luôn tối / sáng cố định ở cả hai chế độ) ----
+  static Color get videoScrim => current.videoScrim;
+  static Color get onVideo => current.onVideo;
+  static Color get onVideoMuted => current.onVideoMuted;
 }

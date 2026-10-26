@@ -103,8 +103,8 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppPalette.background,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Chúc mừng!', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        title: Text('Chúc mừng!', style: TextStyle(color: AppPalette.textPrimary)),
+        content: Text(
           'Bạn đã ghép đôi chính xác tất cả các thẻ!',
           style: TextStyle(color: AppPalette.textSecondary),
         ),
@@ -114,7 +114,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
               Navigator.pop(ctx);
               _loadGame();
             },
-            child: const Text('Chơi lại', style: TextStyle(color: AppPalette.accent)),
+            child: Text('Chơi lại', style: TextStyle(color: AppPalette.accent)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
@@ -122,7 +122,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
               Navigator.pop(ctx);
               Navigator.pop(context);
             },
-            child: const Text('Hoàn tất', style: TextStyle(color: Colors.white)),
+            child: Text('Hoàn tất', style: TextStyle(color: AppPalette.onAccent)),
           ),
         ],
       ),
@@ -132,7 +132,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppPalette.background,
         body: Center(child: CircularProgressIndicator(color: AppPalette.accent)),
       );
@@ -179,13 +179,13 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
                     }
 
                     Color bgColor = AppPalette.background;
-                    Color borderColor = Colors.white.withOpacity(0.08);
+                    Color borderColor = AppPalette.textPrimary.withValues(alpha: 0.08);
 
                     if (isSelected) {
-                      borderColor = const Color(0xFFFF2D55);
+                      borderColor = AppPalette.error;
                     } else if (isWrong) {
-                      borderColor = const Color(0xFFFF453A);
-                      bgColor = const Color(0xFF38151D);
+                      borderColor = AppPalette.error;
+                      bgColor = AppPalette.errorContainer;
                     }
 
                     return Material(
@@ -205,7 +205,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFFFF2D55).withOpacity(0.3),
+                                      color: AppPalette.error.withOpacity(0.3),
                                       blurRadius: 10,
                                       spreadRadius: 1,
                                     )
@@ -218,7 +218,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
                             tile.text,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppPalette.textPrimary,
                               fontSize: tile.type == 'TERM' ? 19 : 16,
                               fontWeight: FontWeight.w700,
                             ),
@@ -237,7 +237,7 @@ class _FlashcardMatchingScreenState extends State<FlashcardMatchingScreen> {
               child: Text(
                 'Chạm 2 thẻ tương ứng để ghép đôi',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.4),
+                  color: AppPalette.textPrimary.withValues(alpha: 0.4),
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),

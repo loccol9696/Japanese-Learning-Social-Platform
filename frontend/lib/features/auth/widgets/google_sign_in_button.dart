@@ -184,7 +184,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
       height: 52,
       child: OutlinedButton(
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppPalette.border),
+          side: BorderSide(color: AppPalette.border),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -210,7 +210,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Text(
+                  Text(
                     'Tiếp tục với Google',
                     style: TextStyle(
                       fontSize: 15,

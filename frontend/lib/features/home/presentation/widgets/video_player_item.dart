@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -7,10 +8,11 @@ import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../chat/presentation/widgets/share_video_sheet.dart';
+import '../../../follow/presentation/screens/user_profile_screen.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../screens/video_script_screen.dart';
-import '../../../profile/presentation/screens/public_profile_screen.dart';
 import 'bottom_nav_dock.dart';
 import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';
@@ -23,8 +25,20 @@ class VideoPlayerItem extends StatefulWidget {
   final VoidCallback? onLikeToggle;
   final VoidCallback? onSaveToggle;
   final VoidCallback? onFollowToggle;
+
+  /// Báo khi người dùng theo dõi / bỏ theo dõi người đăng ngay trên trang cá nhân
+  /// của họ (true = đang theo dõi), để màn chứa video cập nhật nút theo dõi.
+  final ValueChanged<bool>? onCreatorFollowChanged;
   final VoidCallback? onCommentTap;
   final bool allowAccountActions;
+
+  /// Mở video tại mốc này (vd. khi mở video được bạn bè chia sẻ kèm câu phụ đề).
+  final Duration? initialPosition;
+
+  /// false khi video không còn hiện trên màn hình (vd. chuyển sang tab khác của Home,
+  /// mở màn khác đè lên feed): video tạm dừng và phát tiếp khi true trở lại.
+  /// null = luôn được phát.
+  final ValueListenable<bool>? playbackAllowed;
 
   const VideoPlayerItem({
     super.key,
@@ -32,8 +46,11 @@ class VideoPlayerItem extends StatefulWidget {
     this.onLikeToggle,
     this.onSaveToggle,
     this.onFollowToggle,
+    this.onCreatorFollowChanged,
     this.onCommentTap,
     this.allowAccountActions = true,
+    this.initialPosition,
+    this.playbackAllowed,
   });
 
   @override
@@ -57,7 +74,6 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   bool? _doubleTapLikedOverride;
   int? _doubleTapLikeCountOverride;
   bool _isSeeking = false;
-  double _videoProgress = 0.0;
   Offset? _doubleTapPosition;
   final List<_FloatingHeartEffect> _floatingHearts = [];
 
@@ -95,25 +111,69 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     if (mounted) setState(() => _playerEpoch++);
   }
 
-  /// Mở trang cá nhân của người đăng; tạm dừng video và phát tiếp khi quay lại.
+  /// null khi video không có thông tin người đăng (không mở được trang cá nhân).
+  VoidCallback? get _onCreatorTap =>
+      widget.post.creatorId == null ? null : _openCreatorProfile;
+
+  /// Mở trang cá nhân của người đăng. Video tạm dừng trong lúc xem rồi phát tiếp,
+  /// để không còn tiếng phát ở phía sau.
   Future<void> _openCreatorProfile() async {
     final creatorId = widget.post.creatorId;
     if (creatorId == null) return;
+    if (!await requireAuthentication(
+      context,
+      message: 'Vui lòng đăng nhập để xem trang cá nhân.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     RubySubtitleWidget.dismissLookups();
     final controller = _videoController;
-    final wasPlaying = controller?.value.isPlaying ?? false;
-    controller?.pause();
+    final wasPlaying = controller != null && controller.value.isPlaying;
+    if (controller != null && wasPlaying) await controller.pause();
+    if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => PublicProfileScreen(
+        builder: (_) => UserProfileScreen(
           userId: creatorId,
-          fallbackName: widget.post.creatorName,
-          fallbackUsername: widget.post.creatorTag,
-          fallbackAvatarUrl: widget.post.creatorAvatarUrl,
+          initialName: widget.post.creatorName,
+          onFollowChanged: widget.onCreatorFollowChanged,
         ),
       ),
     );
-    if (mounted && wasPlaying) controller?.play();
+    if (controller != null &&
+        wasPlaying &&
+        mounted &&
+        _playbackAllowed &&
+        identical(controller, _videoController) &&
+        controller.value.isInitialized) {
+      controller.play().catchError((error) {
+        debugPrint('Video playback failed: $error');
+      });
+    }
+  }
+
+  /// Chia sẻ video cho bạn bè (follow lẫn nhau). Mốc thời gian gợi ý là câu phụ
+  /// đề đang hiển thị, nếu không có thì là vị trí đang phát.
+  Future<void> _handleShare() async {
+    if (!await requireAuthentication(
+      context,
+      message: 'Vui lòng đăng nhập để chia sẻ video cho bạn bè.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    final position =
+        _activeSubtitle?.start ??
+        _videoController?.value.position ??
+        Duration.zero;
+    await showShareVideoSheet(
+      context,
+      videoId: widget.post.id,
+      title: widget.post.topicTag,
+      thumbnailUrl: widget.post.backgroundImageUrl,
+      startMs: position.inMilliseconds,
+    );
   }
 
   void _handleDoubleTapDown(TapDownDetails details) {
@@ -202,11 +262,13 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   @override
   void initState() {
     super.initState();
+    widget.playbackAllowed?.addListener(_onPlaybackAllowedChanged);
     _initializeVideo();
   }
 
   @override
   void dispose() {
+    widget.playbackAllowed?.removeListener(_onPlaybackAllowedChanged);
     for (final effect in _floatingHearts) {
       effect.controller.dispose();
     }
@@ -214,9 +276,36 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     super.dispose();
   }
 
+  bool get _playbackAllowed => widget.playbackAllowed?.value ?? true;
+
+  /// Video bị dừng vì không còn hiện trên màn hình (không phải người dùng bấm dừng).
+  bool _pausedForHidden = false;
+
+  /// Feed bị che / chuyển tab: dừng hẳn video (không phát và giải mã ngầm phía sau);
+  /// hiện lại thì phát tiếp nếu chính việc bị che đã làm nó dừng.
+  void _onPlaybackAllowedChanged() {
+    final controller = _videoController;
+    if (controller == null || !controller.value.isInitialized) return;
+    if (!_playbackAllowed) {
+      if (controller.value.isPlaying) {
+        _pausedForHidden = true;
+        controller.pause();
+      }
+    } else if (_pausedForHidden) {
+      _pausedForHidden = false;
+      controller.play().catchError((error) {
+        debugPrint('Video playback failed: $error');
+      });
+    }
+  }
+
   @override
   void didUpdateWidget(covariant VideoPlayerItem oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.playbackAllowed != widget.playbackAllowed) {
+      oldWidget.playbackAllowed?.removeListener(_onPlaybackAllowedChanged);
+      widget.playbackAllowed?.addListener(_onPlaybackAllowedChanged);
+    }
     if (oldWidget.post.id != widget.post.id ||
         oldWidget.post.isLiked != widget.post.isLiked ||
         oldWidget.post.likeCount != widget.post.likeCount) {
@@ -244,10 +333,20 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       await controller.initialize();
       await controller.setLooping(true);
       await controller.setVolume(0);
+      final startAt = widget.initialPosition;
+      if (startAt != null && startAt < controller.value.duration) {
+        await controller.seekTo(startAt);
+      }
       controller.addListener(_updateActiveSubtitle);
       if (!mounted || _videoController != controller) return;
       setState(() {});
       _updateActiveSubtitle();
+
+      // Tải xong khi feed đang bị che: chờ hiện lại mới phát.
+      if (!_playbackAllowed) {
+        _pausedForHidden = true;
+        return;
+      }
 
       try {
         await controller.play();
@@ -274,7 +373,6 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     }
 
     final position = controller.value.position;
-    final duration = controller.value.duration;
     SubtitleCue? active;
     for (final cue in widget.post.subtitleCues) {
       if (cue.contains(position)) {
@@ -283,20 +381,34 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
     }
 
-    final progress = duration.inMilliseconds > 0
-        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
-        : 0.0;
+    // Chỉ dựng lại khi đổi câu phụ đề / trạng thái phát. Vị trí phát đổi liên tục
+    // nên thanh tiến trình tự lắng nghe controller (xem _buildProgressFill).
     final isPlaying = controller.value.isPlaying;
     if (active?.start != _activeSubtitle?.start ||
         active?.end != _activeSubtitle?.end ||
-        progress != _videoProgress ||
         isPlaying != _isPlaying) {
       setState(() {
         _activeSubtitle = active;
-        _videoProgress = progress;
         _isPlaying = isPlaying;
       });
     }
+  }
+
+  /// Phần đã phát của thanh tiến trình. Chỉ widget này dựng lại theo vị trí phát,
+  /// không kéo theo cả video item (phụ đề, sidebar, ảnh đại diện...).
+  Widget _buildProgressFill(Widget Function(double progress) builder) {
+    final controller = _videoController;
+    if (controller == null) return builder(0.0);
+    return ValueListenableBuilder<VideoPlayerValue>(
+      valueListenable: controller,
+      builder: (context, value, _) {
+        final total = value.duration.inMilliseconds;
+        final progress = total > 0
+            ? (value.position.inMilliseconds / total).clamp(0.0, 1.0)
+            : 0.0;
+        return builder(progress);
+      },
+    );
   }
 
   Future<void> _seekToFraction(double fraction) async {
@@ -324,7 +436,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
     } else if (_pausedForLookup) {
       _pausedForLookup = false;
-      if (_isPlaying && mounted) {
+      if (_isPlaying && mounted && _playbackAllowed) {
         controller.play().catchError((error) {
           debugPrint('Video playback failed: $error');
         });
@@ -389,7 +501,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           onTap: _handleTapToPlayPause,
           behavior: HitTestBehavior.opaque,
           child: ColoredBox(
-            color: AppPalette.background,
+            color: AppPalette.videoScrim,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -433,14 +545,14 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                   height: MediaQuery.sizeOf(context).height * 0.28,
                   child: IgnorePointer(
                     child: Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
-                            Color(0x800A092D),
-                            Color(0x400A092D),
-                            Color(0x140A092D),
+                            AppPalette.videoScrim.withValues(alpha: 0.50),
+                            AppPalette.videoScrim.withValues(alpha: 0.25),
+                            AppPalette.videoScrim.withValues(alpha: 0.08),
                             Colors.transparent,
                           ],
                           stops: [0.0, 0.34, 0.68, 1.0],
@@ -467,9 +579,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                       onLikeToggle: widget.onLikeToggle,
                       onSaveToggle: widget.onSaveToggle,
                       onFollowToggle: widget.onFollowToggle,
+                      onCreatorTap: _onCreatorTap,
                       onCommentTap: widget.onCommentTap,
+                      onShareTap: _handleShare,
                       onScriptTap: _openScript,
-                      onCreatorTap: widget.post.creatorId == null ? null : _openCreatorProfile,
                       allowAccountActions: widget.allowAccountActions,
                     ),
                   ),
@@ -498,7 +611,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                             onLookupActiveChanged: _handleLookupActiveChanged,
                           ),
                         ),
-                      VideoInfoOverlay(post: widget.post, theme: theme),
+                      VideoInfoOverlay(
+                        post: widget.post,
+                        theme: theme,
+                        onCreatorTap: _onCreatorTap,
+                      ),
                     ],
                   ),
                 ),
@@ -529,17 +646,19 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                               child: Stack(
                                 children: [
                                   Container(color: theme.progressTrack),
-                                  FractionallySizedBox(
-                                    widthFactor: _videoProgress,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: theme.progressActive,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: theme.progressGlow,
-                                            blurRadius: 8.0,
-                                          ),
-                                        ],
+                                  _buildProgressFill(
+                                    (progress) => FractionallySizedBox(
+                                      widthFactor: progress,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: theme.progressActive,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: theme.progressGlow,
+                                              blurRadius: 8.0,
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -567,7 +686,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     required String displayedTranslation,
   }) {
     return ColoredBox(
-      color: AppPalette.background,
+      color: AppPalette.videoScrim,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final mediaPadding = MediaQuery.paddingOf(context);
@@ -606,7 +725,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                         fit: StackFit.expand,
                         children: [
                           ColoredBox(
-                            color: AppPalette.background,
+                            color: AppPalette.videoScrim,
                             child: VideoPlayer(
                               _videoController!,
                               key: ValueKey(_playerEpoch),
@@ -630,7 +749,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     height: contentZoneHeight,
                     child: Container(
                       width: double.infinity,
-                      color: AppPalette.background,
+                      color: AppPalette.videoScrim,
                       padding: const EdgeInsets.fromLTRB(16, 8, 78, 16),
                       child: Align(
                         alignment: Alignment.bottomLeft,
@@ -654,7 +773,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                                         _handleLookupActiveChanged,
                                   ),
                                 ),
-                              VideoInfoOverlay(post: widget.post, theme: theme),
+                              VideoInfoOverlay(
+                                post: widget.post,
+                                theme: theme,
+                                onCreatorTap: _onCreatorTap,
+                              ),
                             ],
                           ),
                         ),
@@ -685,9 +808,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     onLikeToggle: widget.onLikeToggle,
                     onSaveToggle: widget.onSaveToggle,
                     onFollowToggle: widget.onFollowToggle,
+                    onCreatorTap: _onCreatorTap,
                     onCommentTap: widget.onCommentTap,
+                    onShareTap: _handleShare,
                     onScriptTap: _openScript,
-                      onCreatorTap: widget.post.creatorId == null ? null : _openCreatorProfile,
                     allowAccountActions: widget.allowAccountActions,
                   ),
                 ),
@@ -732,9 +856,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                 child: Stack(
                   children: [
                     Container(color: theme.progressTrack),
-                    FractionallySizedBox(
-                      widthFactor: _videoProgress,
-                      child: Container(color: theme.progressActive),
+                    _buildProgressFill(
+                      (progress) => FractionallySizedBox(
+                        widthFactor: progress,
+                        child: Container(color: theme.progressActive),
+                      ),
                     ),
                   ],
                 ),
@@ -759,13 +885,13 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
               width: 84,
               height: 84,
               decoration: BoxDecoration(
-                color: Colors.black38,
+                color: AppPalette.videoScrim.withValues(alpha: 0.38),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.play_arrow_rounded,
                 size: 64,
-                color: Colors.white,
+                color: AppPalette.onVideo,
               ),
             ),
           ),
@@ -792,7 +918,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
 
       return ColoredBox(
-        color: AppPalette.background,
+        color: AppPalette.videoScrim,
         child: Center(
           child: AspectRatio(
             aspectRatio: aspectRatio,
@@ -807,7 +933,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
 
   Widget _videoPlaceholder(AdaptiveVideoTheme theme) {
     return Container(
-      color: AppPalette.background,
+      color: AppPalette.videoScrim,
       child: Center(
         child: Icon(
           Icons.video_library_outlined,

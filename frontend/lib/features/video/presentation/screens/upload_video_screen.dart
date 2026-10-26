@@ -142,7 +142,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
   }
 
   /// Xanh dương nhạt cho gạch chân tab, icon tải lên và nút "Dán".
-  static const Color _linkBlue = Color(0xFF38BDF8);
+  static Color get _linkBlue => AppPalette.info;
 
   bool get _hasYoutubeLink => _youtubeController.text.trim().isNotEmpty;
 
@@ -167,7 +167,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
         centerTitle: true,
         leading: Navigator.canPop(context)
             ? IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_back_ios_new_rounded,
                   color: AppPalette.textPrimary,
                   size: 18,
@@ -175,7 +175,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                 onPressed: () => Navigator.pop(context),
               )
             : null,
-        title: const Text(
+        title: Text(
           'Tải video lên',
           style: TextStyle(
             color: AppPalette.textPrimary,
@@ -284,7 +284,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
     }
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: AppPalette.surface)),
       ),
       child: Row(
@@ -315,7 +315,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
     final file = _selectedFile;
 
     return CustomPaint(
-      foregroundPainter: const _DashedBorderPainter(
+      foregroundPainter: _DashedBorderPainter(
         color: AppPalette.border,
         radius: 20,
       ),
@@ -328,7 +328,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.cloud_upload_outlined,
                   size: 46,
                   color: _linkBlue,
@@ -339,7 +339,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppPalette.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -351,7 +351,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                       ? 'MP4, MOV · Tối đa 500MB · Tỷ lệ 9:16 (dọc)'
                       : 'Chạm để chọn lại video',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppPalette.textSecondary,
                     fontSize: 13.5,
                     height: 1.4,
@@ -369,7 +369,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Liên kết YouTube',
           style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
         ),
@@ -379,10 +379,10 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
           keyboardType: TextInputType.url,
           cursorColor: AppPalette.accent,
           onChanged: (_) => setState(() {}),
-          style: const TextStyle(color: AppPalette.textPrimary, fontSize: 15),
+          style: TextStyle(color: AppPalette.textPrimary, fontSize: 15),
           decoration: InputDecoration(
             hintText: 'Dán liên kết video',
-            hintStyle: const TextStyle(
+            hintStyle: TextStyle(
               color: AppPalette.textSecondary,
               fontSize: 15,
             ),
@@ -394,7 +394,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
             ),
             suffixIcon: TextButton(
               onPressed: _pasteYoutubeLink,
-              child: const Text(
+              child: Text(
                 'Dán',
                 style: TextStyle(
                   color: _linkBlue,
@@ -413,7 +413,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppPalette.accent, width: 1.5),
+              borderSide: BorderSide(color: AppPalette.accent, width: 1.5),
             ),
           ),
         ),
@@ -438,7 +438,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Lưu ý khi đăng video',
                     style: TextStyle(
@@ -472,7 +472,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                           padding: const EdgeInsets.only(bottom: 10),
                           child: Text(
                             note,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppPalette.textPrimary,
                               fontSize: 14,
                               height: 1.4,
@@ -498,17 +498,17 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
             : null,
         style: FilledButton.styleFrom(
           backgroundColor: AppPalette.accent,
-          foregroundColor: AppPalette.textPrimary,
+          foregroundColor: AppPalette.onAccent,
           disabledBackgroundColor:
               _isUploading ? AppPalette.accent : AppPalette.navBar,
           disabledForegroundColor: _isUploading
-              ? AppPalette.textPrimary
+              ? AppPalette.onAccent
               : AppPalette.textSecondary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         child: _isUploading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 22,
                 height: 22,
                 child: CircularProgressIndicator(
@@ -813,7 +813,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         actions: [
           TextButton(
             onPressed: _isSubmitting ? null : () => _publish(asDraft: true),
-            child: const Text(
+            child: Text(
               'Lưu nháp',
               style: TextStyle(color: AppPalette.textSecondary),
             ),
@@ -846,12 +846,12 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           _buildSubtitleModeSelector(),
           const SizedBox(height: 12),
           if (_isTranscribing)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: LinearProgressIndicator(color: AppPalette.accent),
             ),
           if (!_isTranscribing && _subtitles.isEmpty && !_isManualSubtitleMode)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: Text(
                 'Bạn có thể tạo phụ đề bằng AI hoặc tự nhập lời thoại cho video.',
@@ -884,7 +884,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                 ? const SizedBox.shrink()
                 : const Icon(Icons.arrow_forward_rounded),
             label: _isSubmitting
-                ? const CircularProgressIndicator(color: Colors.white)
+                ? CircularProgressIndicator(color: AppPalette.onAccent)
                 : const Text('Đăng video bài học'),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(58),
@@ -942,7 +942,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                 const SizedBox(height: 8),
                 Text(
                   '${_formatDuration(widget.duration)} • Video đã tải lên',
-                  style: const TextStyle(color: AppPalette.textSecondary),
+                  style: TextStyle(color: AppPalette.textSecondary),
                 ),
               ],
             ),
@@ -968,7 +968,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             if (maxLength != null)
               Text(
                 '${controller.text.length}/$maxLength',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppPalette.textSecondary,
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
@@ -982,18 +982,18 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           maxLength: maxLength,
           maxLines: maxLines,
           onChanged: (_) => setState(() {}),
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: AppPalette.textPrimary),
           decoration: InputDecoration(
             counterText: '',
             filled: true,
             fillColor: AppPalette.background,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppPalette.border),
+              borderSide: BorderSide(color: AppPalette.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppPalette.border),
+              borderSide: BorderSide(color: AppPalette.border),
             ),
           ),
         ),
@@ -1032,7 +1032,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                   level,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: selected ? Colors.white : AppPalette.textSecondary,
+                    color: selected ? AppPalette.onAccent : AppPalette.textSecondary,
                   ),
                 ),
               ),
@@ -1090,7 +1090,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF48202D) : Colors.transparent,
+          color: selected ? AppPalette.errorContainer : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -1110,7 +1110,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: enabled
-                      ? (selected ? Colors.white : AppPalette.textSecondary)
+                      ? (selected ? AppPalette.onAccent : AppPalette.textSecondary)
                       : AppPalette.border,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                 ),
@@ -1135,11 +1135,11 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.access_time, size: 15, color: AppPalette.textSecondary),
+              Icon(Icons.access_time, size: 15, color: AppPalette.textSecondary),
               const SizedBox(width: 5),
               Text(
                 '${subtitle.start} - ${subtitle.end}',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppPalette.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -1148,13 +1148,13 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               const Spacer(),
               Text(
                 '#${index + 1}',
-                style: const TextStyle(color: AppPalette.textSecondary),
+                style: TextStyle(color: AppPalette.textSecondary),
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
                 onPressed: () =>
                     setState(() => subtitle.editing = !subtitle.editing),
-                icon: const Icon(Icons.edit, size: 17, color: AppPalette.textSecondary),
+                icon: Icon(Icons.edit, size: 17, color: AppPalette.textSecondary),
               ),
             ],
           ),
@@ -1181,7 +1181,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               subtitle.translation.text.isEmpty
                   ? 'Nhấn biểu tượng bút để nhập phụ đề'
                   : subtitle.translation.text,
-              style: const TextStyle(color: AppPalette.textSecondary),
+              style: TextStyle(color: AppPalette.textSecondary),
             ),
           ],
         ],
@@ -1194,7 +1194,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
       padding: const EdgeInsets.only(top: 8),
       child: TextField(
         controller: controller,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AppPalette.textPrimary),
         decoration: InputDecoration(
           hintText: hint,
           isDense: true,
@@ -1241,13 +1241,13 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF481D2B),
+                            color: AppPalette.errorContainer,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Mặc định',
                             style: TextStyle(
-                              color: Color(0xFFFF6A88),
+                              color: AppPalette.like,
                               fontSize: 12,
                             ),
                           ),
@@ -1260,12 +1260,12 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                     _isPublic
                         ? 'Mọi người đều có thể xem bài học và ôn tập'
                         : 'Chỉ bạn có thể xem bài học này',
-                    style: const TextStyle(color: AppPalette.textSecondary),
+                    style: TextStyle(color: AppPalette.textSecondary),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppPalette.textSecondary),
+            Icon(Icons.chevron_right, color: AppPalette.textSecondary),
           ],
         ),
       ),

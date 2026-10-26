@@ -6,7 +6,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** Hồ sơ công khai của một người dùng: không có email hay thông tin nội bộ. */
+/**
+ * Trang cá nhân công khai của một người dùng. Không có email / vai trò / trạng thái tài khoản,
+ * và có quan hệ theo dõi với người đang xem.
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -19,12 +22,18 @@ public class PublicProfileResponse {
     private String avatarUrl;
     private JLPTLevel jlptLevel;
     private String bio;
-    private long followersCount;
-    private long followingCount;
-    private long likesCount;
-    private long videosCount;
-    /** Người đang xem có đang theo dõi người này không (false nếu chưa đăng nhập). */
-    private boolean isFollowing;
-    /** Người đang xem chính là chủ hồ sơ. */
-    private boolean isSelf;
+
+    private Long followersCount;
+    private Long followingCount;
+    private Long likesCount;
+    private Long videosCount;
+
+    /** Người đang xem có đang theo dõi người này. */
+    private Boolean isFollowing;
+
+    /** Người này có đang theo dõi người đang xem. */
+    private Boolean isFollowedBy;
+
+    /** Đây là trang của chính người đang xem. */
+    private Boolean isSelf;
 }

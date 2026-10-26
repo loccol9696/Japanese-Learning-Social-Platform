@@ -88,6 +88,11 @@ public class VideoResponse {
     private Boolean isSaved;
 
     /**
+     * Người dùng hiện tại đang theo dõi Creator hay không
+     */
+    private Boolean isFollowing;
+
+    /**
      * Lý do từ chối (nếu bị từ chối)
      */
     private String rejectionReason;
