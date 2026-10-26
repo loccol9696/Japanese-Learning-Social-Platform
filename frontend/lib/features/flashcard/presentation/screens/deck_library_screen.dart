@@ -350,7 +350,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                       const SizedBox(height: 2),
                       Text(
                         '$_dueCount thẻ',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppPalette.textPrimary,
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
@@ -362,11 +362,11 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                 Container(
                   width: 44,
                   height: 44,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppPalette.textPrimary,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.arrow_forward_rounded,
                     color: AppPalette.accent,
                     size: 22,

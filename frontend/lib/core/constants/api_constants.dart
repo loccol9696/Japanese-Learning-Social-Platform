@@ -5,18 +5,32 @@ import 'dart:io' show Platform;
 class ApiConstants {
   ApiConstants._();
 
+  static const String _customHost = String.fromEnvironment('API_HOST');
+
+  static const String _lanHost = 'https://untraitorous-huong-conversably.ngrok-free.dev/api/v1';
+
   /// Automatically pick host based on runtime platform
   static String get baseUrl {
+    // 1. Ưu tiên giá trị truyền qua cờ --dart-define nếu có
+    if (_customHost.isNotEmpty) {
+      return _customHost;
+    }
+
+    // 2. Chạy trên trình duyệt Web
     if (kIsWeb) {
       return 'http://localhost:8080/api/v1';
     }
+
     try {
       if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8080/api/v1';
+        // Nếu chạy trên máy thật: BẮT BUỘC dùng IP LAN của máy tính
+        // (Chỉ dùng 10.0.2.2 khi bạn debug trên Android Studio Emulator)
+        return _lanHost;
       }
     } catch (_) {
       // Fallback
     }
+
     return 'http://localhost:8080/api/v1';
   }
 

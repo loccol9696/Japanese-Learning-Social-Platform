@@ -264,7 +264,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       backgroundColor: AppPalette.background,
       body: SafeArea(
         child: _isLoading
-            ? const Center(
+            ? Center(
                 child: CircularProgressIndicator(color: AppPalette.accent),
               )
             : _error != null
@@ -283,7 +283,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
         children: [
           Text(
             _error!,
-            style: const TextStyle(color: AppPalette.textSecondary),
+            style: TextStyle(color: AppPalette.textSecondary),
           ),
           const SizedBox(height: 12),
           TextButton(onPressed: _loadSession, child: const Text('Thử lại')),
@@ -595,7 +595,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
             Text(
               card.term,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppPalette.textPrimary,
                 fontSize: 40,
                 fontWeight: FontWeight.w800,
@@ -616,7 +616,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
             Text(
               sino.toUpperCase(),
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppPalette.textPrimary,
                 fontSize: 22,
                 fontWeight: FontWeight.w500,
@@ -628,7 +628,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
             Text(
               card.meaning,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppPalette.textPrimary,
                 fontSize: 24,
               ),
@@ -636,12 +636,12 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
           ],
           if (card.example != null && card.example!.isNotEmpty) ...[
             const SizedBox(height: 22),
-            const Divider(color: AppPalette.border),
+            Divider(color: AppPalette.border),
             const SizedBox(height: 10),
             Text(
               card.example!,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppPalette.textSecondary,
                 fontSize: 14,
                 fontStyle: FontStyle.italic,
@@ -719,7 +719,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
         Align(
           alignment: Alignment.centerLeft,
           child: IconButton(
-            icon: const Icon(Icons.close, color: AppPalette.textPrimary),
+            icon: Icon(Icons.close, color: AppPalette.textPrimary),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
@@ -736,7 +736,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
                       : _practice
                       ? 'Hoàn thành lượt luyện tập!'
                       : 'Hoàn thành phiên học!',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppPalette.textPrimary,
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -746,14 +746,14 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
                 if (!nothingToStudy)
                   Text(
                     'Bạn đã nhớ $studied thẻ sau ${controller!.reviews} lượt ôn.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppPalette.textSecondary,
                       fontSize: 16,
                     ),
                   ),
                 if (_practice)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       'Lượt luyện tập không làm thay đổi lịch ôn của thẻ.',
                       style: TextStyle(
@@ -767,7 +767,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
                   Text(
                     'Lần ôn tiếp theo: ${_formatNextDue(summary!.nextDueAt!)}'
                     ' (${summary.dueAtNextCount} thẻ).',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppPalette.textSecondary,
                       fontSize: 16,
                     ),
@@ -786,7 +786,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppPalette.textPrimary,
-                  side: const BorderSide(color: AppPalette.border),
+                  side: BorderSide(color: AppPalette.border),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
