@@ -33,11 +33,7 @@ public class UserController {
 
     private final UserService userService;
     private final FollowService followService;
-<<<<<<< HEAD
     private final VideoService videoService;
-=======
-    private final com.jlsp.backend.video.service.VideoService videoService;
->>>>>>> 129d8e003ae183c6519887d87fc8c2d1d9068584
 
     @PostMapping
     public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody CreateUserRequest request) {
