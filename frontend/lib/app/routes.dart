@@ -11,7 +11,6 @@ import '../features/subscription/screens/subscription_screen.dart';
 import '../features/video/presentation/screens/my_videos_status_screen.dart';
 import '../features/video/presentation/screens/moderation_queue_screen.dart';
 import '../features/follow/presentation/screens/blocked_users_screen.dart';
-import '../features/notification/notification_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 
 class AppRoutes {
@@ -29,7 +28,6 @@ class AppRoutes {
   static const String subscription = '/subscription';
   static const String myVideosStatus = '/my-videos-status';
   static const String moderationQueue = '/moderation-queue';
-  static const String notifications = '/notifications';
   static const String blockedUsers = '/blocked-users';
 
   static Map<String, WidgetBuilder> get routes => {
@@ -43,7 +41,6 @@ class AppRoutes {
     profile: (context) => const ProfileScreen(),
     myVideosStatus: (context) => const MyVideosStatusScreen(),
     moderationQueue: (context) => const ModerationQueueScreen(),
-    notifications: (context) => const NotificationScreen(),
     blockedUsers: (context) => const BlockedUsersScreen(),
   };
 }

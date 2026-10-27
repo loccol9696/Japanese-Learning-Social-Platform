@@ -8,7 +8,7 @@ import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/token_storage.dart';
 import 'package:frontend/features/notification/notification_hub.dart';
 import 'package:frontend/features/notification/notification_model.dart';
-import 'package:frontend/features/notification/notification_screen.dart';
+import 'package:frontend/features/notification/notification_sheet.dart';
 import 'package:frontend/features/notification/notification_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -139,7 +139,7 @@ void main() {
     });
   });
 
-  group('NotificationScreen', () {
+  group('NotificationSheet', () {
     List<AppNotification> sample() => [
           AppNotification.fromJson(_raw(
             id: 1, type: 'LIKE', actorId: 2, actor: 'Sakura', videoId: 9, videoTitle: 'Bài 1')),
@@ -149,7 +149,7 @@ void main() {
 
     testWidgets('hiện danh sách, thông báo chưa đọc có chấm', (tester) async {
       await tester.pumpWidget(MaterialApp(
-        home: NotificationScreen(service: _FakeService(sample())),
+        home: Scaffold(body: NotificationSheet(service: _FakeService(sample()))),
       ));
       await tester.pumpAndSettle();
 
@@ -169,7 +169,7 @@ void main() {
     testWidgets('"Đọc tất cả" gọi server và xoá badge', (tester) async {
       final service = _FakeService(sample());
       NotificationHub.instance.setUnread(1);
-      await tester.pumpWidget(MaterialApp(home: NotificationScreen(service: service)));
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: NotificationSheet(service: service))));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Đọc tất cả'));
@@ -179,9 +179,72 @@ void main() {
       expect(NotificationHub.instance.unreadCount.value, 0);
     });
 
+    /// Mở bảng thông báo bằng nút bấm, kèm vài route giả để kiểm tra việc chuyển trang.
+    Future<void> openSheet(WidgetTester tester, _FakeService service) async {
+      await tester.pumpWidget(MaterialApp(
+        routes: {'/my-videos-status': (_) => const Scaffold(body: Text('MÀN QUẢN LÝ ĐĂNG TẢI'))},
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => showNotificationsSheet(context, service: service),
+                child: const Text('mở'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('mở'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('hiện dưới dạng bảng từ dưới lên có tiêu đề và nút đóng', (tester) async {
+      await openSheet(tester, _FakeService(sample()));
+
+      expect(find.text('Thông báo'), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+      expect(find.text('Đọc tất cả'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Thông báo'), findsNothing);
+    });
+
+    testWidgets('ẩn "Đọc tất cả" khi mọi thông báo đã đọc', (tester) async {
+      await openSheet(tester, _FakeService([
+        AppNotification.fromJson(_raw(id: 2, type: 'VIDEO_REJECTED', isRead: true)),
+      ]));
+
+      expect(find.text('Đọc tất cả'), findsNothing);
+    });
+
+    testWidgets('mở thông báo có đích đến thì đóng bảng rồi chuyển trang', (tester) async {
+      await openSheet(tester, _FakeService([
+        AppNotification.fromJson(_raw(id: 2, type: 'VIDEO_REJECTED', isRead: true, message: 'Vi phạm bản quyền')),
+      ]));
+
+      await tester.tap(find.text('Vi phạm bản quyền'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('MÀN QUẢN LÝ ĐĂNG TẢI'), findsOneWidget);
+      expect(find.text('Thông báo'), findsNothing);
+    });
+
+    testWidgets('thông báo không có đích đến thì giữ nguyên bảng', (tester) async {
+      await openSheet(tester, _FakeService([
+        AppNotification.fromJson(_raw(id: 3, type: 'CONTENT_REMOVED', isRead: true, message: 'Nội dung đã bị gỡ')),
+      ]));
+
+      await tester.tap(find.text('Nội dung đã bị gỡ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Thông báo'), findsOneWidget);
+    });
+
     testWidgets('trạng thái trống', (tester) async {
       await tester.pumpWidget(MaterialApp(
-        home: NotificationScreen(service: _FakeService(const [])),
+        home: Scaffold(body: NotificationSheet(service: _FakeService(const []))),
       ));
       await tester.pumpAndSettle();
 

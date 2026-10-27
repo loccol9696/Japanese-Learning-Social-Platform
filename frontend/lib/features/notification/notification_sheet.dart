@@ -14,17 +14,27 @@ import 'notification_hub.dart';
 import 'notification_model.dart';
 import 'notification_service.dart';
 
-/// Danh sách thông báo của người dùng; thông báo mới nhận realtime được chèn lên đầu.
-class NotificationScreen extends StatefulWidget {
-  final NotificationService? service;
-
-  const NotificationScreen({super.key, this.service});
-
-  @override
-  State<NotificationScreen> createState() => _NotificationScreenState();
+/// Mở bảng thông báo từ dưới lên.
+Future<void> showNotificationsSheet(BuildContext context, {NotificationService? service}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => NotificationSheet(service: service),
+  );
 }
 
-class _NotificationScreenState extends State<NotificationScreen> {
+/// Danh sách thông báo của người dùng; thông báo mới nhận realtime được chèn lên đầu.
+class NotificationSheet extends StatefulWidget {
+  final NotificationService? service;
+
+  const NotificationSheet({super.key, this.service});
+
+  @override
+  State<NotificationSheet> createState() => _NotificationSheetState();
+}
+
+class _NotificationSheetState extends State<NotificationSheet> {
   late final NotificationService _service =
       widget.service ?? NotificationService();
   final _scrollController = ScrollController();
@@ -130,31 +140,30 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
 
     final navigator = Navigator.of(context);
-    switch (n.type) {
-      case NotificationType.follow:
-        final actorId = n.actorId;
-        if (actorId != null) {
-          await navigator.push(MaterialPageRoute(
-            builder: (_) => UserProfileScreen(userId: actorId, initialName: n.actorName),
-          ));
-        }
-      case NotificationType.videoRejected:
-        // Màn quản lý đăng tải hiển thị lý do từ chối.
-        await navigator.pushNamed(AppRoutes.myVideosStatus);
-      case NotificationType.like ||
-          NotificationType.comment ||
-          NotificationType.reply ||
-          NotificationType.videoApproved ||
-          NotificationType.reportUpdate:
-        final videoId = n.videoId;
-        if (videoId != null) {
-          await navigator.push(MaterialPageRoute(
-            builder: (_) => SharedVideoScreen(videoId: videoId),
-          ));
-        }
-      case NotificationType.contentRemoved || NotificationType.unknown:
-        break;
-    }
+    final actorId = n.actorId;
+    final videoId = n.videoId;
+    // Đích đến của thông báo; null nghĩa là không có gì để mở nên giữ nguyên bảng.
+    final Future<void> Function()? open = switch (n.type) {
+      NotificationType.follow when actorId != null => () => navigator.push(
+        MaterialPageRoute(
+          builder: (_) => UserProfileScreen(userId: actorId, initialName: n.actorName),
+        ),
+      ),
+      // Màn quản lý đăng tải hiển thị lý do từ chối.
+      NotificationType.videoRejected => () => navigator.pushNamed(AppRoutes.myVideosStatus),
+      NotificationType.like ||
+      NotificationType.comment ||
+      NotificationType.reply ||
+      NotificationType.videoApproved ||
+      NotificationType.reportUpdate when videoId != null => () => navigator.push(
+        MaterialPageRoute(builder: (_) => SharedVideoScreen(videoId: videoId)),
+      ),
+      _ => null,
+    };
+    if (open == null) return;
+    // Đóng bảng trước, rồi mở đích đến trên cùng navigator để không bị chồng lên nhau.
+    navigator.pop();
+    await open();
   }
 
   static String _messageOf(Object e) =>
@@ -172,21 +181,56 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        backgroundColor: AppPalette.background,
-        foregroundColor: AppPalette.textPrimary,
-        elevation: 0,
-        title: const Text('Thông báo'),
-        actions: [
-          TextButton(
-            onPressed: _markAllRead,
-            child: Text('Đọc tất cả', style: TextStyle(color: AppPalette.accent)),
-          ),
-        ],
+    // Cao khoảng 78% màn hình, giống các bảng từ dưới lên khác.
+    final height = MediaQuery.sizeOf(context).height * 0.78;
+    final hasUnread = _items.any((e) => !e.isRead);
+    return SizedBox(
+      height: height,
+      child: Material(
+        color: AppPalette.navBar,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppPalette.textPrimary.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 8, 4),
+              child: Row(
+                children: [
+                  Text(
+                    'Thông báo',
+                    style: TextStyle(
+                      color: AppPalette.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (hasUnread)
+                    TextButton(
+                      onPressed: _markAllRead,
+                      child: Text('Đọc tất cả', style: TextStyle(color: AppPalette.accent)),
+                    ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: Icon(Icons.close_rounded, color: AppPalette.textPrimary),
+                    tooltip: 'Đóng',
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: _buildBody()),
+          ],
+        ),
       ),
-      body: _buildBody(),
     );
   }
 

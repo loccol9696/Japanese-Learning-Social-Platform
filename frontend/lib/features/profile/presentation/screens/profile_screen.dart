@@ -7,6 +7,7 @@ import '../../../../core/storage/token_storage.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../../chat/presentation/screens/shared_video_screen.dart';
 import '../../../notification/notification_hub.dart';
+import '../../../notification/notification_sheet.dart';
 import '../../../follow/presentation/screens/follow_manage_screen.dart';
 import '../../../video/domain/models/user_video_model.dart';
 import '../../../video/presentation/screens/moderation_queue_screen.dart';
@@ -218,36 +219,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _openNotifications() {
     if (!mounted) return;
-    Navigator.of(context).pushNamed(AppRoutes.notifications);
-  }
-
-  void _showFeatureComingSoon(String featureName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.info_outline_rounded,
-              color: AppColors.softSkyBlue,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '$featureName: Tính năng sẽ được hoàn thiện trong thời gian tới',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: AppPalette.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.surfaceContainerHigh,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    showNotificationsSheet(context);
   }
 
   /// Đỏ cho nút đăng xuất.
@@ -300,17 +272,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       ),
       _SettingsRowData(
-        icon: Icons.notifications_none_rounded,
-        title: 'Thông báo',
-        value: NotificationHub.instance.unreadCount.value > 0
-            ? '${NotificationHub.instance.unreadCount.value} mới'
-            : null,
-        onTap: () {
-          Navigator.of(sheetContext).pop();
-          _openNotifications();
-        },
-      ),
-      _SettingsRowData(
         icon: Icons.language_rounded,
         title: 'Ngôn ngữ',
         value: localeManager.currentLanguage.name,
@@ -328,22 +289,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onTap: () {
           Navigator.of(sheetContext).pop();
           Navigator.of(context).pushNamed(AppRoutes.blockedUsers);
-        },
-      ),
-      _SettingsRowData(
-        icon: Icons.lock_outline_rounded,
-        title: 'Quyền riêng tư',
-        onTap: () {
-          Navigator.of(sheetContext).pop();
-          _showFeatureComingSoon('Quyền riêng tư');
-        },
-      ),
-      _SettingsRowData(
-        icon: Icons.help_outline_rounded,
-        title: 'Trợ giúp và phản hồi',
-        onTap: () {
-          Navigator.of(sheetContext).pop();
-          _showFeatureComingSoon('Trợ giúp và phản hồi');
         },
       ),
     ];
@@ -773,15 +718,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                   ],
                 ),
-              ),
-              IconButton(
-                onPressed: _openFollowManage,
-                icon: Icon(
-                  Icons.people_alt_outlined,
-                  size: 24,
-                  color: AppPalette.textPrimary,
-                ),
-                tooltip: 'Quản lý theo dõi',
               ),
               // Menu icon at top right
               Stack(

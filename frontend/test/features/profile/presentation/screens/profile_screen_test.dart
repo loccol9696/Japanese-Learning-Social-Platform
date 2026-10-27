@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/features/notification/notification_sheet.dart';
 import 'package:frontend/core/localization/app_language.dart';
 import 'package:frontend/core/localization/locale_manager.dart';
 import 'package:frontend/features/profile/domain/models/topic_model.dart';
@@ -167,6 +168,9 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    // Lối vào Quản lý theo dõi chỉ còn qua số đang follow / follower, không có icon riêng trên đầu trang.
+    expect(find.byTooltip('Quản lý theo dõi'), findsNothing);
+
     // Tap 3-line menu button
     final menuButton = find.byTooltip('Tùy chọn & Cài đặt');
     expect(menuButton, findsOneWidget);
@@ -176,11 +180,14 @@ void main() {
     // Tiêu đề và các hàng cài đặt
     expect(find.text('Cài đặt'), findsOneWidget);
     expect(find.text('Tài khoản'), findsOneWidget);
-    expect(find.text('Thông báo'), findsOneWidget);
     expect(find.text('Ngôn ngữ'), findsOneWidget);
     expect(find.text('Tiếng Việt'), findsOneWidget);
-    expect(find.text('Quyền riêng tư'), findsOneWidget);
-    expect(find.text('Trợ giúp và phản hồi'), findsOneWidget);
+    expect(find.text('Đổi mật khẩu'), findsOneWidget);
+    expect(find.text('Người đã chặn'), findsOneWidget);
+    // Các mục chưa có tính năng và mục trùng với icon chuông đã được gỡ.
+    expect(find.text('Quyền riêng tư'), findsNothing);
+    expect(find.text('Trợ giúp và phản hồi'), findsNothing);
+    expect(find.text('Thông báo'), findsNothing);
     expect(find.text('Đăng xuất'), findsOneWidget);
 
     // Lối vào quản lý đăng tải luôn hiện, kèm số video chờ duyệt (mock có 1)
@@ -188,35 +195,22 @@ void main() {
     expect(find.text('1 chờ duyệt'), findsOneWidget);
     // Người dùng thường không thấy mục duyệt video
     expect(find.text('Quản lý duyệt nội dung'), findsNothing);
-
-    // Hàng chưa có tính năng báo "sẽ hoàn thiện"
-    await tester.tap(find.text('Quyền riêng tư'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Quyền riêng tư: Tính năng sẽ được hoàn thiện trong thời gian tới'),
-      findsOneWidget,
-    );
   });
 
-  testWidgets('ProfileScreen settings "Thông báo" opens the notifications route', (tester) async {
+  testWidgets('ProfileScreen bell icon opens the notifications sheet', (tester) async {
     final mockRepo = _MockProfileRepository();
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: ProfileScreen(repository: mockRepo)),
-        routes: {
-          '/notifications': (_) => const Scaffold(body: Text('MÀN THÔNG BÁO')),
-        },
-      ),
+      MaterialApp(home: Scaffold(body: ProfileScreen(repository: mockRepo))),
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Tùy chọn & Cài đặt'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Thông báo'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Thông báo'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('MÀN THÔNG BÁO'), findsOneWidget);
+    expect(find.byType(NotificationSheet), findsOneWidget);
+    expect(find.text('Thông báo'), findsOneWidget);
   });
 
   testWidgets('ProfileScreen settings "Tài khoản" opens the edit profile screen', (tester) async {
