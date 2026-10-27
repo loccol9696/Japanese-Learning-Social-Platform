@@ -540,7 +540,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _updatePostLikeState(post.id, optimisticLiked);
 
     try {
-      final confirmedLiked = await _repository.toggleLike(post.id);
+      final confirmedLiked = await _repository.setLiked(post.id, liked: optimisticLiked);
       if (mounted) {
         _updatePostLikeState(post.id, confirmedLiked);
       }
@@ -561,9 +561,10 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {});
     }
     final previousSaved = post.isSaved;
-    _updatePostSaveState(post.id, !previousSaved);
+    final optimisticSaved = !previousSaved;
+    _updatePostSaveState(post.id, optimisticSaved);
     try {
-      final confirmedSaved = await _repository.toggleSave(post.id);
+      final confirmedSaved = await _repository.setSaved(post.id, saved: optimisticSaved);
       if (mounted) {
         _updatePostSaveState(post.id, confirmedSaved);
         AppToast.showSuccess(
