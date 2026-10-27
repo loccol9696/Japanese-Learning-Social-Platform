@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/square_add_button.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../data/models/chat_models.dart';
 import '../../data/services/chat_hub.dart';
@@ -25,6 +26,7 @@ class InboxScreen extends StatefulWidget {
 class _InboxScreenState extends State<InboxScreen> {
   final _service = ChatService();
   final _socket = ChatSocketService.instance;
+  final _searchController = TextEditingController();
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
   List<Conversation> _conversations = const [];
@@ -54,6 +56,7 @@ class _InboxScreenState extends State<InboxScreen> {
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -145,20 +148,70 @@ class _InboxScreenState extends State<InboxScreen> {
             fontWeight: FontWeight.w800,
           ),
         ),
-        // Hộp thư trống đã có nút "Bắt đầu trò chuyện" ở giữa màn nên chưa cần nút soạn tin trên đầu.
-        actions: [
-          if (_conversations.isNotEmpty)
-            IconButton(
-              tooltip: 'Tin nhắn mới',
-              onPressed: _newChat,
-              icon: const Icon(Icons.edit_outlined),
-            ),
-        ],
       ),
       body: Column(
         children: [
           if (!_online) _buildOfflineBanner(),
+          _buildSearchRow(),
           Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
+
+  /// Hội thoại khớp ô tìm kiếm: theo tên, @username hoặc nội dung tin cuối.
+  List<Conversation> get _filtered {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _conversations;
+    return _conversations.where((c) {
+      final preview = c.lastMessage?.previewFor(_myId) ?? '';
+      return c.otherUser.name.toLowerCase().contains(query) ||
+          c.otherUser.username.toLowerCase().contains(query) ||
+          preview.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  /// Ô tìm cuộc trò chuyện + nút "+" soạn tin mới.
+  Widget _buildSearchRow() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppPalette.surface,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: TextField(
+                key: const ValueKey('inbox-search'),
+                controller: _searchController,
+                onChanged: (_) => setState(() {}),
+                style: TextStyle(color: AppPalette.textPrimary, fontSize: 15),
+                cursorColor: AppPalette.accent,
+                decoration: InputDecoration(
+                  hintText: 'Tìm cuộc trò chuyện...',
+                  hintStyle: TextStyle(
+                    color: AppPalette.textPrimary.withValues(alpha: 0.35),
+                    fontSize: 15,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: AppPalette.textPrimary.withValues(alpha: 0.4),
+                    size: 22,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SquareAddButton(
+            key: const ValueKey('new-chat-button'),
+            tooltip: 'Tin nhắn mới',
+            onPressed: _newChat,
+          ),
         ],
       ),
     );
@@ -195,16 +248,27 @@ class _InboxScreenState extends State<InboxScreen> {
     }
     if (_conversations.isEmpty) return _buildEmpty();
 
+    final conversations = _filtered;
+    if (conversations.isEmpty) {
+      return Center(
+        child: Text(
+          'Không tìm thấy cuộc trò chuyện nào',
+          key: const ValueKey('inbox-no-match'),
+          style: TextStyle(color: AppPalette.textSecondary, fontSize: 14),
+        ),
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: () => _load(silent: true),
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _conversations.length,
+        itemCount: conversations.length,
         separatorBuilder: (_, _) => const SizedBox.shrink(),
         itemBuilder: (_, index) => _ConversationTile(
-          conversation: _conversations[index],
+          conversation: conversations[index],
           myId: _myId,
-          onTap: () => _openConversation(_conversations[index]),
+          onTap: () => _openConversation(conversations[index]),
         ),
       ),
     );

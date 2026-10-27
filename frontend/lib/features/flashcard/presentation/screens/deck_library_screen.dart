@@ -5,6 +5,7 @@ import '../../../auth/data/auth_session.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../../data/services/flashcard_store.dart';
+import '../../../../core/widgets/square_add_button.dart';
 import '../widgets/create_deck_tile.dart';
 import '../widgets/deck_card_item.dart';
 import 'deck_editor_screen.dart';
@@ -408,36 +409,48 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               ),
             ),
 
-            // Search Bar
+            // Ô tìm kiếm + nút "+" tạo bộ thẻ mới
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppPalette.surface,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  style: TextStyle(color: AppPalette.textPrimary, fontSize: 15),
-                  onChanged: (val) => _loadDecks(query: val),
-                  decoration: InputDecoration(
-                    hintText: 'Tìm bộ từ vựng...',
-                    hintStyle: TextStyle(
-                      color: AppPalette.textPrimary.withValues(alpha: 0.35),
-                      fontSize: 15,
-                    ),
-                    prefixIcon: Icon(
-                      Icons.search,
-                      color: AppPalette.textPrimary.withValues(alpha: 0.4),
-                      size: 22,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppPalette.surface,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        style: TextStyle(color: AppPalette.textPrimary, fontSize: 15),
+                        onChanged: (val) => _loadDecks(query: val),
+                        decoration: InputDecoration(
+                          hintText: 'Tìm bộ từ vựng...',
+                          hintStyle: TextStyle(
+                            color: AppPalette.textPrimary.withValues(alpha: 0.35),
+                            fontSize: 15,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: AppPalette.textPrimary.withValues(alpha: 0.4),
+                            size: 22,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 15,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  SquareAddButton(
+                    key: const ValueKey('create-deck-button'),
+                    tooltip: 'Tạo bộ thẻ mới',
+                    onPressed: _openCreateDeck,
+                  ),
+                ],
               ),
             ),
             if (_dueCount > 0) _buildDueBanner(),
