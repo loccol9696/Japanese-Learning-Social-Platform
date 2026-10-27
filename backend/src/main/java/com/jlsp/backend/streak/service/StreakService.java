@@ -1,7 +1,9 @@
 package com.jlsp.backend.streak.service;
 
+import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.streak.dto.StreakResponse;
 import com.jlsp.backend.streak.entity.UserStreak;
+import com.jlsp.backend.streak.repository.UserStreakDayRepository;
 import com.jlsp.backend.streak.repository.UserStreakRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +17,8 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 /**
  * Streak học liên tục. Một ngày được tính khi người dùng ôn ít nhất một thẻ hoặc chấm một câu shadowing.
@@ -26,18 +30,25 @@ public class StreakService {
     private static final Logger log = LoggerFactory.getLogger(StreakService.class);
     static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
+    /** Khoảng ngày tối đa một lần xem lịch (một tháng cộng phần tuần lân cận). */
+    static final int MAX_DAYS_RANGE = 62;
+
     private final UserStreakRepository repository;
+    private final UserStreakDayRepository dayRepository;
     private final TransactionTemplate writeTx;
     private final TransactionTemplate readTx;
     private final Clock clock;
 
     @Autowired
-    public StreakService(UserStreakRepository repository, PlatformTransactionManager transactionManager) {
-        this(repository, transactionManager, Clock.system(ZONE));
+    public StreakService(UserStreakRepository repository, UserStreakDayRepository dayRepository,
+                         PlatformTransactionManager transactionManager) {
+        this(repository, dayRepository, transactionManager, Clock.system(ZONE));
     }
 
-    StreakService(UserStreakRepository repository, PlatformTransactionManager transactionManager, Clock clock) {
+    StreakService(UserStreakRepository repository, UserStreakDayRepository dayRepository,
+                  PlatformTransactionManager transactionManager, Clock clock) {
         this.repository = repository;
+        this.dayRepository = dayRepository;
         this.clock = clock;
         // Giao dịch riêng: lỗi streak không được làm hỏng (rollback) việc ôn thẻ / chấm điểm đang chạy.
         this.writeTx = new TransactionTemplate(transactionManager);
@@ -54,6 +65,7 @@ public class StreakService {
         try {
             LocalDate today = today();
             writeTx.executeWithoutResult(status -> {
+                dayRepository.insertIfAbsent(userId, today);
                 repository.insertIfAbsent(userId);
                 UserStreak streak = repository.findForUpdate(userId).orElseThrow();
                 int before = streak.getCurrentStreak();
@@ -81,6 +93,15 @@ public class StreakService {
                 .activeToday(today.equals(streak.getLastActiveDate()))
                 .lastActiveDate(streak.getLastActiveDate())
                 .build();
+    }
+
+    /** Các ngày người dùng đã học trong [from, to], cho lịch chuỗi học. */
+    public List<LocalDate> days(Long userId, LocalDate from, LocalDate to) {
+        if (from == null || to == null || to.isBefore(from)
+                || ChronoUnit.DAYS.between(from, to) + 1 > MAX_DAYS_RANGE) {
+            throw new AppException(400, "Khoảng ngày không hợp lệ (tối đa " + MAX_DAYS_RANGE + " ngày)");
+        }
+        return readTx.execute(status -> dayRepository.findDays(userId, from, to));
     }
 
     private LocalDate today() {

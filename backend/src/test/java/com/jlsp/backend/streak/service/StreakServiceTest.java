@@ -2,6 +2,8 @@ package com.jlsp.backend.streak.service;
 
 import com.jlsp.backend.streak.dto.StreakResponse;
 import com.jlsp.backend.streak.entity.UserStreak;
+import com.jlsp.backend.common.exception.AppException;
+import com.jlsp.backend.streak.repository.UserStreakDayRepository;
 import com.jlsp.backend.streak.repository.UserStreakRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -12,6 +14,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -25,6 +28,7 @@ class StreakServiceTest {
     private static final LocalDate TODAY = LocalDate.of(2026, 10, 27);
 
     private final UserStreakRepository repository = mock(UserStreakRepository.class);
+    private final UserStreakDayRepository dayRepository = mock(UserStreakDayRepository.class);
 
     private static UserStreak streak(int current, int longest, LocalDate last) {
         return UserStreak.builder().userId(USER).currentStreak(current).longestStreak(longest).lastActiveDate(last).build();
@@ -33,7 +37,7 @@ class StreakServiceTest {
     /** Đồng hồ cố định: 12:00 giờ Việt Nam ngày TODAY. */
     private StreakService service() {
         Clock clock = Clock.fixed(Instant.parse("2026-10-27T05:00:00Z"), StreakService.ZONE);
-        return new StreakService(repository, mock(PlatformTransactionManager.class), clock);
+        return new StreakService(repository, dayRepository, mock(PlatformTransactionManager.class), clock);
     }
 
     // ---- quy tắc tính
@@ -101,6 +105,7 @@ class StreakServiceTest {
 
         service().recordActivity(USER);
 
+        verify(dayRepository).insertIfAbsent(USER, TODAY);
         verify(repository).insertIfAbsent(USER);
         verify(repository).save(existing);
         assertThat(existing.getCurrentStreak()).isEqualTo(3);
@@ -108,7 +113,7 @@ class StreakServiceTest {
 
     @Test
     void recordActivityNeverPropagatesFailures() {
-        doThrow(new IllegalStateException("db down")).when(repository).insertIfAbsent(USER);
+        doThrow(new IllegalStateException("db down")).when(dayRepository).insertIfAbsent(USER, TODAY);
 
         service().recordActivity(USER); // không ném
 
@@ -120,6 +125,23 @@ class StreakServiceTest {
         service().recordActivity(null);
 
         verify(repository, never()).insertIfAbsent(any());
+    }
+
+    @Test
+    void daysReturnsStudiedDatesInTheRange() {
+        LocalDate from = LocalDate.of(2026, 9, 27);
+        LocalDate to = LocalDate.of(2026, 11, 7);
+        when(dayRepository.findDays(USER, from, to)).thenReturn(java.util.List.of(TODAY));
+
+        assertThat(service().days(USER, from, to)).containsExactly(TODAY);
+    }
+
+    @Test
+    void daysRejectsReversedOrOversizedRanges() {
+        assertThatThrownBy(() -> service().days(USER, TODAY, TODAY.minusDays(1))).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> service().days(USER, TODAY, TODAY.plusDays(62))).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> service().days(USER, null, TODAY)).isInstanceOf(AppException.class);
+        assertThat(service().days(USER, TODAY, TODAY.plusDays(61))).isEmpty(); // đúng 62 ngày thì được
     }
 
     @Test
