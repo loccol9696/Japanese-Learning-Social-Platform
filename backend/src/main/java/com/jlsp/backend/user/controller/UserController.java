@@ -139,14 +139,20 @@ public class UserController {
 
     /** GET /api/v1/users/me/followers — những người đang theo dõi mình. */
     @GetMapping("/me/followers")
-    public ResponseEntity<ApiResponse<List<FollowUserResponse>>> getMyFollowers() {
-        return ResponseEntity.ok(ApiResponse.success(followService.getFollowers(CurrentUser.requireId())));
+    public ResponseEntity<ApiResponse<List<FollowUserResponse>>> getMyFollowers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "" + FollowService.MAX_LIST_SIZE) int size) {
+        return ResponseEntity.ok(ApiResponse.success(
+                followService.getFollowers(CurrentUser.requireId(), page, size)));
     }
 
     /** GET /api/v1/users/me/following — những người mình đang theo dõi. */
     @GetMapping("/me/following")
-    public ResponseEntity<ApiResponse<List<FollowUserResponse>>> getMyFollowing() {
-        return ResponseEntity.ok(ApiResponse.success(followService.getFollowing(CurrentUser.requireId())));
+    public ResponseEntity<ApiResponse<List<FollowUserResponse>>> getMyFollowing(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "" + FollowService.MAX_LIST_SIZE) int size) {
+        return ResponseEntity.ok(ApiResponse.success(
+                followService.getFollowing(CurrentUser.requireId(), page, size)));
     }
 
     /** GET /api/v1/users/{id}/public-profile — trang cá nhân công khai (không lộ email). */

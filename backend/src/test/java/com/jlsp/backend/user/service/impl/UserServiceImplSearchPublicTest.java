@@ -73,8 +73,8 @@ class UserServiceImplSearchPublicTest {
         User follower = User.builder().id(3L).username("tanabe").displayName("Tanabe").build();
         when(userRepository.searchActivePublic(eq("tana"), eq(List.of(-1L)), any()))
                 .thenReturn(new PageImpl<>(List.of(followed, follower), PAGE, 2));
-        when(followRepository.findFollowingIdsByFollowerId(VIEWER)).thenReturn(List.of(2L));
-        when(followRepository.findFollowerIdsByFollowingId(VIEWER)).thenReturn(List.of(3L));
+        when(followRepository.findFollowingIdsAmong(VIEWER, List.of(2L, 3L))).thenReturn(java.util.Set.of(2L));
+        when(followRepository.findFollowerIdsAmong(VIEWER, List.of(2L, 3L))).thenReturn(java.util.Set.of(3L));
 
         PageResponse<FollowUserResponse> result = service.searchPublicUsers(VIEWER, "  tana ", PAGE);
 

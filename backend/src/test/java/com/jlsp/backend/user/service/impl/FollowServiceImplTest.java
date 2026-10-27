@@ -9,18 +9,22 @@ import com.jlsp.backend.user.entity.FollowId;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.repository.FollowRepository;
 import com.jlsp.backend.user.repository.UserRepository;
+import com.jlsp.backend.user.service.FollowService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -141,11 +145,11 @@ class FollowServiceImplTest {
     @Test
     void followersListMarksWhoIFollowBack() {
         // 2 theo dõi mình và mình theo dõi lại; 3 theo dõi mình nhưng mình chưa theo dõi lại
-        when(followRepository.findFollowingIdsByFollowerId(ME)).thenReturn(List.of(OTHER));
-        when(followRepository.findFollowersOf(ME)).thenReturn(List.of(
+        when(followRepository.findFollowersOf(eq(ME), any(Pageable.class))).thenReturn(List.of(
                 follow(OTHER, ME), follow(3L, ME)));
+        when(followRepository.findFollowingIdsAmong(ME, List.of(OTHER, 3L))).thenReturn(Set.of(OTHER));
 
-        List<FollowUserResponse> followers = service.getFollowers(ME);
+        List<FollowUserResponse> followers = service.getFollowers(ME, 0, 50);
 
         assertThat(followers)
                 .extracting(FollowUserResponse::getId, FollowUserResponse::getIsFollowing,
@@ -156,16 +160,29 @@ class FollowServiceImplTest {
     @Test
     void followingListMarksWhoFollowsMeBack() {
         // Mình theo dõi 2 (2 cũng theo dõi lại) và 3 (3 chưa theo dõi lại)
-        when(followRepository.findFollowerIdsByFollowingId(ME)).thenReturn(List.of(OTHER));
-        when(followRepository.findFollowingOf(ME)).thenReturn(List.of(
+        when(followRepository.findFollowingOf(eq(ME), any(Pageable.class))).thenReturn(List.of(
                 follow(ME, OTHER), follow(ME, 3L)));
+        when(followRepository.findFollowerIdsAmong(ME, List.of(OTHER, 3L))).thenReturn(Set.of(OTHER));
 
-        List<FollowUserResponse> following = service.getFollowing(ME);
+        List<FollowUserResponse> following = service.getFollowing(ME, 0, 50);
 
         assertThat(following)
                 .extracting(FollowUserResponse::getId, FollowUserResponse::getIsFollowing,
                         FollowUserResponse::getIsFollowedBy)
                 .containsExactly(tuple(OTHER, true, true), tuple(3L, true, false));
+    }
+
+    @Test
+    void listPageSizeIsClampedAndEmptyPageSkipsRelationQuery() {
+        when(followRepository.findFollowersOf(eq(ME), any(Pageable.class))).thenReturn(List.of());
+
+        assertThat(service.getFollowers(ME, -3, 100_000)).isEmpty();
+
+        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(followRepository).findFollowersOf(eq(ME), captor.capture());
+        assertThat(captor.getValue().getPageNumber()).isZero();
+        assertThat(captor.getValue().getPageSize()).isEqualTo(FollowService.MAX_LIST_SIZE);
+        verify(followRepository, never()).findFollowingIdsAmong(any(), any());
     }
 
     private static User user(long id, boolean active) {

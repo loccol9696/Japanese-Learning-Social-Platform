@@ -156,10 +156,12 @@ public class UserServiceImpl implements UserService {
         org.springframework.data.domain.Page<User> page = userRepository.searchActivePublic(
                 q, related.isEmpty() ? java.util.List.of(-1L) : java.util.List.copyOf(related), pageable);
 
-        java.util.Set<Long> followingIds = new java.util.HashSet<>(
-                followRepository.findFollowingIdsByFollowerId(viewerId));
-        java.util.Set<Long> followerIds = new java.util.HashSet<>(
-                followRepository.findFollowerIdsByFollowingId(viewerId));
+        // Chỉ hỏi quan hệ với những người có trong trang kết quả, không tải toàn bộ danh sách follow của viewer.
+        java.util.List<Long> resultIds = page.getContent().stream().map(User::getId).toList();
+        java.util.Set<Long> followingIds = resultIds.isEmpty() ? java.util.Set.of()
+                : followRepository.findFollowingIdsAmong(viewerId, resultIds);
+        java.util.Set<Long> followerIds = resultIds.isEmpty() ? java.util.Set.of()
+                : followRepository.findFollowerIdsAmong(viewerId, resultIds);
         return PageResponse.<com.jlsp.backend.user.dto.response.FollowUserResponse>builder()
                 .content(page.getContent().stream()
                         .map(u -> com.jlsp.backend.user.dto.response.FollowUserResponse.builder()

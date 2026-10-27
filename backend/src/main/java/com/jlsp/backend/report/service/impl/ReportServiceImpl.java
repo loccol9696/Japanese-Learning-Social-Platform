@@ -3,6 +3,7 @@ package com.jlsp.backend.report.service.impl;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
 import com.jlsp.backend.common.response.PageResponse;
+import com.jlsp.backend.common.security.ratelimit.RateLimiter;
 import com.jlsp.backend.common.security.token.RefreshTokenService;
 import com.jlsp.backend.report.dto.CreateReportRequest;
 import com.jlsp.backend.report.dto.ReportResponse;
@@ -32,6 +33,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -42,6 +44,8 @@ import java.util.List;
 public class ReportServiceImpl implements ReportService {
 
     private static final int SUMMARY_MAX = 80;
+    /** Mỗi người gửi tối đa chừng này báo cáo mỗi giờ, tránh spam hàng đợi của kiểm duyệt viên. */
+    static final int MAX_REPORTS_PER_HOUR = 20;
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
@@ -51,6 +55,7 @@ public class ReportServiceImpl implements ReportService {
     private final CommentService commentService;
     private final RefreshTokenService refreshTokenService;
     private final com.jlsp.backend.notification.service.NotificationService notificationService;
+    private final RateLimiter rateLimiter;
 
     /** Chủ nội dung bị báo cáo, null nếu đối tượng không còn tồn tại. */
     private record Target(boolean exists, Long ownerId, String ownerUsername, String summary, Long videoId) {
@@ -73,6 +78,13 @@ public class ReportServiceImpl implements ReportService {
         if (reportRepository.existsByReporterIdAndTargetTypeAndTargetIdAndStatus(
                 reporterId, request.getTargetType(), request.getTargetId(), ReportStatus.PENDING)) {
             throw new AppException(409, "Bạn đã báo cáo nội dung này, báo cáo đang chờ xử lý");
+        }
+        // Đặt sau các kiểm tra hợp lệ để báo cáo bị từ chối không tốn lượt.
+        RateLimiter.Decision decision = rateLimiter.tryAcquire(
+                "report:" + reporterId, MAX_REPORTS_PER_HOUR, Duration.ofHours(1));
+        if (!decision.allowed()) {
+            throw new AppException(429, "Bạn gửi báo cáo quá nhanh. Vui lòng thử lại sau "
+                    + (decision.retryAfterSeconds() / 60 + 1) + " phút");
         }
 
         String detail = request.getDetail() == null ? null : request.getDetail().trim();

@@ -31,6 +31,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -58,6 +59,7 @@ class ReportServiceImplTest {
 
     private User reporter;
     private User owner;
+    private com.jlsp.backend.common.security.ratelimit.RateLimiter rateLimiter;
     private Video video;
 
     @BeforeEach
@@ -69,9 +71,12 @@ class ReportServiceImplTest {
         videoService = mock(VideoService.class);
         commentService = mock(CommentService.class);
         refreshTokenService = mock(RefreshTokenService.class);
+        rateLimiter = mock(com.jlsp.backend.common.security.ratelimit.RateLimiter.class);
+        when(rateLimiter.tryAcquire(anyString(), anyInt(), any()))
+                .thenReturn(com.jlsp.backend.common.security.ratelimit.RateLimiter.Decision.ALLOWED);
         service = new ReportServiceImpl(reportRepository, userRepository, videoRepository, commentRepository,
                 videoService, commentService, refreshTokenService,
-                mock(com.jlsp.backend.notification.service.NotificationService.class));
+                mock(com.jlsp.backend.notification.service.NotificationService.class), rateLimiter);
 
         reporter = User.builder().id(REPORTER).username("reporter").build();
         owner = User.builder().id(OWNER).username("owner").role(UserRole.USER).isActive(true).build();
@@ -128,6 +133,25 @@ class ReportServiceImplTest {
         assertThatThrownBy(() -> service.create(REPORTER, request(ReportTargetType.VIDEO, VIDEO_ID)))
                 .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(409));
         verify(reportRepository, never()).save(any());
+    }
+
+    @Test
+    void tooManyReportsInAnHourAreRejectedWith429AndNothingIsSaved() {
+        when(rateLimiter.tryAcquire("report:" + REPORTER, ReportServiceImpl.MAX_REPORTS_PER_HOUR,
+                java.time.Duration.ofHours(1)))
+                .thenReturn(new com.jlsp.backend.common.security.ratelimit.RateLimiter.Decision(false, 600));
+
+        assertThatThrownBy(() -> service.create(REPORTER, request(ReportTargetType.VIDEO, VIDEO_ID)))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(429));
+        verify(reportRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectedReportsDoNotConsumeTheRateLimit() {
+        assertThatThrownBy(() -> service.create(OWNER, request(ReportTargetType.VIDEO, VIDEO_ID)))
+                .isInstanceOf(AppException.class);
+
+        verify(rateLimiter, never()).tryAcquire(anyString(), org.mockito.ArgumentMatchers.anyInt(), any());
     }
 
     // ---- resolve / dismiss
