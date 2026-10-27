@@ -5,7 +5,7 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../chat/data/services/chat_hub.dart';
 import '../../../notification/notification_hub.dart';
 
-/// Tab indices: 0 Home, 1 Messages, 2 Create (+), 3 Flashcard, 4 Profile.
+/// Tab indices: 0 Home, 1 Flashcard, 2 Create (+), 3 Messages, 4 Profile.
 ///
 /// Thanh menu dùng chung cho toàn bộ các tab: cùng màu nền trang, có viền mảnh phía trên.
 class BottomNavDock extends StatelessWidget {
@@ -20,8 +20,9 @@ class BottomNavDock extends StatelessWidget {
     this.isModerator = false,
   });
 
-  static const int messagesIndex = 1;
+  static const int flashcardIndex = 1;
   static const int createIndex = 2;
+  static const int messagesIndex = 3;
   static const int profileIndex = 4;
 
   /// Chiều cao nội dung thanh menu, chưa tính vùng an toàn phía dưới.
@@ -45,16 +46,16 @@ class BottomNavDock extends StatelessWidget {
       inactiveIcon: Icons.home_outlined,
     ),
     _TabItemData(
-      activeIcon: Icons.chat_bubble_rounded,
-      inactiveIcon: Icons.chat_bubble_outline_rounded,
+      activeIcon: Icons.layers_rounded,
+      inactiveIcon: Icons.layers_outlined,
     ),
     _TabItemData(
       activeIcon: Icons.add_rounded,
       inactiveIcon: Icons.add_rounded,
     ),
     _TabItemData(
-      activeIcon: Icons.layers_rounded,
-      inactiveIcon: Icons.layers_outlined,
+      activeIcon: Icons.chat_bubble_rounded,
+      inactiveIcon: Icons.chat_bubble_outline_rounded,
     ),
     _TabItemData(
       activeIcon: Icons.person_rounded,
@@ -68,8 +69,8 @@ class BottomNavDock extends StatelessWidget {
   String _getTabLabel(int index) {
     return switch (index) {
       0 => appStrings.navHome,
-      1 => appStrings.navMessages,
-      3 => appStrings.navFlashcards,
+      flashcardIndex => appStrings.navFlashcards,
+      messagesIndex => appStrings.navMessages,
       4 => appStrings.navProfile,
       _ => '',
     };

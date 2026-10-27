@@ -12,7 +12,7 @@ import '../../data/services/chat_socket_service.dart';
 import '../chat_format.dart';
 import '../widgets/chat_avatar.dart';
 import 'chat_detail_screen.dart';
-import 'new_chat_screen.dart';
+import 'new_chat_sheet.dart';
 
 /// Hộp thư: danh sách hội thoại, mới nhất trước, cập nhật realtime qua Socket.IO.
 class InboxScreen extends StatefulWidget {
@@ -120,9 +120,13 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   Future<void> _newChat() async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const NewChatScreen()));
-    if (mounted) unawaited(_load(silent: true));
+    final conversation = await showNewChatSheet(context);
+    if (!mounted) return;
+    if (conversation != null) {
+      await _openConversation(conversation);
+    } else {
+      unawaited(_load(silent: true));
+    }
   }
 
   @override
@@ -131,13 +135,24 @@ class _InboxScreenState extends State<InboxScreen> {
       backgroundColor: AppPalette.background,
       appBar: AppBar(
         backgroundColor: AppPalette.background,
-        title: const Text('Tin nhắn'),
-        actions: [
-          IconButton(
-            tooltip: 'Tin nhắn mới',
-            onPressed: _newChat,
-            icon: const Icon(Icons.edit_square),
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        title: Text(
+          'Tin nhắn',
+          style: TextStyle(
+            color: AppPalette.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
           ),
+        ),
+        // Hộp thư trống đã có nút "Bắt đầu trò chuyện" ở giữa màn nên chưa cần nút soạn tin trên đầu.
+        actions: [
+          if (_conversations.isNotEmpty)
+            IconButton(
+              tooltip: 'Tin nhắn mới',
+              onPressed: _newChat,
+              icon: const Icon(Icons.edit_square),
+            ),
         ],
       ),
       body: Column(
@@ -202,32 +217,32 @@ class _InboxScreenState extends State<InboxScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.forum_outlined,
-              size: 56,
-              color: AppPalette.textSecondary,
-            ),
-            const SizedBox(height: 14),
             Text(
               'Chưa có cuộc trò chuyện nào',
               style: TextStyle(
                 color: AppPalette.textPrimary,
                 fontSize: 17,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Bạn có thể nhắn tin và chia sẻ video cho những người đã follow lẫn nhau.',
+              'Nhắn tin cho những người đã follow lẫn nhau.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppPalette.textSecondary, height: 1.4),
+              style: TextStyle(color: AppPalette.textSecondary, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 18),
-            FilledButton.icon(
+            FilledButton(
+              key: const ValueKey('start-chat-button'),
               onPressed: _newChat,
-              style: FilledButton.styleFrom(backgroundColor: AppPalette.accent),
-              icon: const Icon(Icons.edit_square, size: 18),
-              label: const Text('Bắt đầu trò chuyện'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppPalette.accent,
+                foregroundColor: AppPalette.onAccent,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+              child: const Text('Bắt đầu trò chuyện'),
             ),
           ],
         ),

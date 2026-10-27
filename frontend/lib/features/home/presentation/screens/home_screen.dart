@@ -236,10 +236,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _onNavTabSelected(int index) async {
-    if (index == BottomNavDock.messagesIndex ||
-        index == 2 ||
-        index == 3 ||
-        index == 4) {
+    // Mọi tab trừ Trang chủ đều cần đăng nhập.
+    if (index >= 1) {
       final authenticated = await _requestAuthenticationAndGetResult();
       if (!mounted || !authenticated) return;
     }
@@ -417,6 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
+                const _KeepAlivePage(child: DeckLibraryScreen()),
                 _KeepAlivePage(
                   child: MessagesTab(
                     bottomInset: hideDockForKeyboard
@@ -425,7 +424,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               MediaQuery.paddingOf(context).bottom,
                   ),
                 ),
-                const _KeepAlivePage(child: DeckLibraryScreen()),
                 const _KeepAlivePage(child: ProfileScreen()),
               ],
             ),
