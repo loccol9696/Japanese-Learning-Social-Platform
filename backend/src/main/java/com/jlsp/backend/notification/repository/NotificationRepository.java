@@ -31,6 +31,16 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     /** Chống thông báo trùng cho "theo dõi" (bấm theo dõi / bỏ theo dõi liên tục). */
     boolean existsByRecipientIdAndActorIdAndType(Long recipientId, Long actorId, NotificationType type);
 
+    /** Xoá thông báo đã đọc tạo trước {@code cutoff}; trả về số dòng đã xoá. */
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.isRead = true AND n.createdAt < :cutoff")
+    int deleteReadBefore(@Param("cutoff") java.time.LocalDateTime cutoff);
+
+    /** Xoá mọi thông báo tạo trước {@code cutoff}, kể cả chưa đọc; trả về số dòng đã xoá. */
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.createdAt < :cutoff")
+    int deleteAllBefore(@Param("cutoff") java.time.LocalDateTime cutoff);
+
     @Modifying
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.recipient.id = :userId AND n.isRead = false")
     int markAllRead(@Param("userId") Long userId);
