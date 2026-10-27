@@ -3,6 +3,7 @@ package com.jlsp.backend.common.config;
 import com.jlsp.backend.common.security.jwt.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -73,6 +74,20 @@ public class SecurityConfig {
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    }
+
+    /**
+     * Spring Boot mặc định đăng ký mọi bean {@code Filter} thành servlet filter độc lập. Với filter JWT
+     * điều đó nguy hiểm: nếu bản độc lập chạy trước chuỗi bảo mật thì {@code SecurityContextHolderFilter}
+     * xoá mất xác thực vừa gắn, còn bản trong chuỗi bị bỏ qua (OncePerRequestFilter). Tắt đăng ký độc lập để
+     * filter này chỉ chạy đúng một lần, trong chuỗi bảo mật, không phụ thuộc thứ tự đăng ký.
+     */
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtAuthenticationFilterRegistration(
+            JwtAuthenticationFilter filter) {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

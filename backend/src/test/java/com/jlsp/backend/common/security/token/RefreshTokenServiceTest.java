@@ -25,6 +25,7 @@ class RefreshTokenServiceTest {
     private StringRedisTemplate redis;
     private ValueOperations<String, String> values;
     private SetOperations<String, String> sets;
+    private AccessTokenDenylist denylist;
     private RefreshTokenService service;
 
     @BeforeEach
@@ -35,7 +36,8 @@ class RefreshTokenServiceTest {
         sets = mock(SetOperations.class);
         when(redis.opsForValue()).thenReturn(values);
         when(redis.opsForSet()).thenReturn(sets);
-        service = new RefreshTokenService(redis, Duration.ofDays(14));
+        denylist = mock(AccessTokenDenylist.class);
+        service = new RefreshTokenService(redis, Duration.ofDays(14), denylist);
     }
 
     @Test
@@ -79,6 +81,8 @@ class RefreshTokenServiceTest {
         when(sets.members("auth:rt:user:7")).thenReturn(java.util.Set.of("h1", "h2"));
 
         service.revokeAll(7L);
+        // Access token đã cấp cũng bị vô hiệu hoá, không chỉ refresh token.
+        verify(denylist).revokeUserTokens(7L);
 
         verify(redis).delete("auth:rt:h1");
         verify(redis).delete("auth:rt:h2");
