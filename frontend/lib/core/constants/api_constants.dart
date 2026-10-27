@@ -59,6 +59,7 @@ class ApiConstants {
   static String shadowingSummaryUrl(String videoId) =>
       '$baseUrl/videos/$videoId/shadowing/summary';
   static String get flashcardReviewUrl => '$baseUrl/flashcards/study/review';
+  static String get streakUrl => '$baseUrl/users/me/streak';
   static String get flashcardDueSummaryUrl =>
       '$baseUrl/flashcards/study/due-summary';
   static String get flashcardSaveVideoUrl => '$baseUrl/flashcards/video/save';

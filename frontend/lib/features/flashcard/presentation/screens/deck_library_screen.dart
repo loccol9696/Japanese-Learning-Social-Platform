@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/auth/auth_guard.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../streak/streak_chip.dart';
+import '../../../streak/streak_model.dart';
+import '../../../streak/streak_service.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../../data/services/flashcard_store.dart';
@@ -25,6 +28,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
   List<FlashcardSetModel> _decks = [];
   bool _isLoading = false;
   int _dueCount = 0;
+  Streak _streak = const Streak();
 
   @override
   void initState() {
@@ -103,6 +107,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
       });
     }
     _loadDueCount();
+    _loadStreak();
   }
 
   /// Số thẻ đã tới hạn ôn (mọi bộ) cho banner "Cần ôn".
@@ -116,6 +121,15 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
     } catch (_) {
       // Không có banner nếu không lấy được; không ảnh hưởng danh sách bộ thẻ.
     }
+  }
+
+  /// Chuỗi ngày học; lỗi thì chỉ ẩn chip, không ảnh hưởng thư viện thẻ.
+  Future<void> _loadStreak() async {
+    if (!AuthSession.instance.isAuthenticated) return;
+    try {
+      final streak = await StreakService().getMine();
+      if (mounted) setState(() => _streak = streak);
+    } catch (_) {}
   }
 
   /// Mở màn hình Chỉnh sửa bộ thẻ (Deck Editor)
@@ -397,14 +411,26 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Thư viện thẻ',
-                    style: TextStyle(
-                      color: AppPalette.textPrimary,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'Thư viện thẻ',
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      if (_streak.currentStreak > 0) ...[
+                        const SizedBox(width: 10),
+                        StreakChip(
+                          key: const ValueKey('streak-chip'),
+                          days: _streak.currentStreak,
+                          activeToday: _streak.activeToday,
+                        ),
+                      ],
+                    ],
                   ),
                   Container(
                     width: 40,
