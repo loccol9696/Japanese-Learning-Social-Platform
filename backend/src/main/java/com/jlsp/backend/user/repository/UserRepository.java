@@ -63,4 +63,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByRoleAndIsActive(com.jlsp.backend.user.entity.UserRole role, Boolean isActive);
 
     long countByIsActive(Boolean isActive);
+
+    /** Số tài khoản đăng ký mỗi ngày trong [from, to) — gộp ở DB, không tải người dùng về. */
+    @org.springframework.data.jpa.repository.Query("SELECT year(u.createdAt) AS yr, month(u.createdAt) AS mo, " +
+            "day(u.createdAt) AS dy, COUNT(u) AS total FROM User u " +
+            "WHERE u.role = :role AND u.createdAt >= :from AND u.createdAt < :to " +
+            "GROUP BY year(u.createdAt), month(u.createdAt), day(u.createdAt)")
+    java.util.List<com.jlsp.backend.admin.dto.DayTotal> countRegistrationsByDay(
+            @org.springframework.data.repository.query.Param("role") com.jlsp.backend.user.entity.UserRole role,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
 }

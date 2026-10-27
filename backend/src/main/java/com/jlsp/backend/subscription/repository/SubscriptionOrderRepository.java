@@ -28,6 +28,33 @@ public interface SubscriptionOrderRepository extends JpaRepository<SubscriptionO
     @EntityGraph(attributePaths = {"user", "plan"})
     Page<SubscriptionOrder> findAll(Pageable pageable);
 
+    long countByStatus(SubscriptionOrder.OrderStatus status);
+
+    /** Doanh thu mỗi ngày của đơn có trạng thái status trong [from, to) — gộp ở DB. */
+    @org.springframework.data.jpa.repository.Query("SELECT year(o.createdAt) AS yr, month(o.createdAt) AS mo, " +
+            "day(o.createdAt) AS dy, SUM(o.amount) AS total FROM SubscriptionOrder o " +
+            "WHERE o.status = :status AND o.createdAt >= :from AND o.createdAt < :to " +
+            "GROUP BY year(o.createdAt), month(o.createdAt), day(o.createdAt)")
+    java.util.List<com.jlsp.backend.admin.dto.DayTotal> sumRevenueByDay(
+            @org.springframework.data.repository.query.Param("status") SubscriptionOrder.OrderStatus status,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
+
+    /** Số đơn và doanh thu theo mã gói, chỉ tính đơn có trạng thái status. */
+    @org.springframework.data.jpa.repository.Query("SELECT o.plan.code AS planCode, COUNT(o) AS salesCount, " +
+            "SUM(o.amount) AS revenue FROM SubscriptionOrder o WHERE o.status = :status AND o.plan IS NOT NULL " +
+            "GROUP BY o.plan.code")
+    java.util.List<PlanSales> summarizeByPlan(
+            @org.springframework.data.repository.query.Param("status") SubscriptionOrder.OrderStatus status);
+
+    interface PlanSales {
+        String getPlanCode();
+
+        Long getSalesCount();
+
+        java.math.BigDecimal getRevenue();
+    }
+
     @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(o.amount), 0) FROM SubscriptionOrder o WHERE o.status = :status")
     java.math.BigDecimal sumTotalAmountByStatus(@org.springframework.data.repository.query.Param("status") SubscriptionOrder.OrderStatus status);
 }
