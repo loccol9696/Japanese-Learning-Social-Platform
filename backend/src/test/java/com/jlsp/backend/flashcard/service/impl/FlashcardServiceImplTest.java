@@ -61,6 +61,7 @@ class FlashcardServiceImplTest {
     private FlashcardProgressRepository progressRepository;
     private UserRepository userRepository;
     private FlashcardServiceImpl service;
+    private com.jlsp.backend.streak.service.StreakService streakService;
 
     private User owner;
     private User stranger;
@@ -72,7 +73,9 @@ class FlashcardServiceImplTest {
         cardRepository = mock(FlashcardRepository.class);
         progressRepository = mock(FlashcardProgressRepository.class);
         userRepository = mock(UserRepository.class);
-        service = new FlashcardServiceImpl(setRepository, cardRepository, progressRepository, userRepository);
+        streakService = org.mockito.Mockito.mock(com.jlsp.backend.streak.service.StreakService.class);
+        service = new FlashcardServiceImpl(setRepository, cardRepository, progressRepository, userRepository,
+                streakService);
 
         owner = User.builder().id(OWNER_ID).username("owner").displayName("Owner").build();
         stranger = User.builder().id(STRANGER_ID).username("stranger").build();
@@ -231,6 +234,36 @@ class FlashcardServiceImplTest {
         assertThatThrownBy(() -> service.reviewCard(STRANGER_ID, review))
                 .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(403));
         verify(progressRepository, never()).save(any());
+    }
+
+    // ================================================================== streak
+
+    @Test
+    void bothReviewEndpointsRecordStreakActivityForTheReviewer() {
+        when(cardRepository.findById(CARD_ID)).thenReturn(Optional.of(card(CARD_ID, "từ", null, privateSet)));
+        SubmitCardAnswerRequest answer = new SubmitCardAnswerRequest();
+        answer.setCardId(CARD_ID);
+        answer.setIsCorrect(true);
+        ReviewCardRequest review = new ReviewCardRequest();
+        review.setCardId(CARD_ID);
+        review.setRating(ReviewRating.GOOD);
+
+        service.submitCardAnswer(OWNER_ID, answer);
+        service.reviewCard(OWNER_ID, review);
+
+        verify(streakService, times(2)).recordActivity(OWNER_ID);
+    }
+
+    @Test
+    void rejectedReviewDoesNotCountTowardsTheStreak() {
+        when(cardRepository.findById(CARD_ID)).thenReturn(Optional.of(card(CARD_ID, "từ", null, privateSet)));
+        ReviewCardRequest review = new ReviewCardRequest();
+        review.setCardId(CARD_ID);
+        review.setRating(ReviewRating.GOOD);
+
+        assertThatThrownBy(() -> service.reviewCard(STRANGER_ID, review)).isInstanceOf(AppException.class);
+
+        verify(streakService, never()).recordActivity(any());
     }
 
     // ================================================================== danh sách bộ thẻ: đếm theo lô

@@ -49,16 +49,19 @@ public class FlashcardServiceImpl implements FlashcardService {
     private final FlashcardRepository cardRepository;
     private final FlashcardProgressRepository progressRepository;
     private final UserRepository userRepository;
+    private final com.jlsp.backend.streak.service.StreakService streakService;
 
     public FlashcardServiceImpl(
             FlashcardSetRepository setRepository,
             FlashcardRepository cardRepository,
             FlashcardProgressRepository progressRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            com.jlsp.backend.streak.service.StreakService streakService) {
         this.setRepository = setRepository;
         this.cardRepository = cardRepository;
         this.progressRepository = progressRepository;
         this.userRepository = userRepository;
+        this.streakService = streakService;
     }
 
     // ------------------------------------------------------------------ bộ thẻ
@@ -301,6 +304,7 @@ public class FlashcardServiceImpl implements FlashcardService {
         }
 
         progressRepository.save(progress);
+        streakService.recordActivity(userId);
     }
 
     // ------------------------------------------------------------------ trò chơi
@@ -513,6 +517,7 @@ public class FlashcardServiceImpl implements FlashcardService {
             progress.setBoxLevel(Math.max(0, box - 1));
         }
         progressRepository.save(progress);
+        streakService.recordActivity(userId);
 
         return ReviewResultResponse.builder()
                 .cardId(card.getCardId())
