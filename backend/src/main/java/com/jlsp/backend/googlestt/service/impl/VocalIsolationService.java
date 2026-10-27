@@ -1,5 +1,6 @@
 package com.jlsp.backend.googlestt.service.impl;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -13,7 +14,13 @@ import com.jlsp.backend.googlestt.service.VocalIsolationServiceIntf;
 public class VocalIsolationService implements VocalIsolationServiceIntf {
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private static final String PYTHON_SERVICE_URL = "http://localhost:8000/api/v1/separate-vocal";
+    private final String serviceUrl;
+
+    /** Địa chỉ dịch vụ tách giọng (vocal-service), cấu hình qua biến môi trường VOCAL_SERVICE_URL. */
+    public VocalIsolationService(
+            @Value("${VOCAL_SERVICE_URL:http://localhost:8000/api/v1/separate-vocal}") String serviceUrl) {
+        this.serviceUrl = serviceUrl;
+    }
 
     public byte[] separateVocals(byte[] audioBytes) throws Exception {
         HttpHeaders headers = new HttpHeaders();
@@ -33,7 +40,7 @@ public class VocalIsolationService implements VocalIsolationServiceIntf {
 
         // Gọi sang FastAPI service chạy cục bộ
         ResponseEntity<byte[]> response = restTemplate.exchange(
-                PYTHON_SERVICE_URL,
+                serviceUrl,
                 HttpMethod.POST,
                 requestEntity,
                 byte[].class);

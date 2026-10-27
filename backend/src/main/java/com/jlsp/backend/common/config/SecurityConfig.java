@@ -62,6 +62,13 @@ public class SecurityConfig {
     @Value("${app.security.enabled:true}")
     private boolean securityEnabled;
 
+    /** Danh sách origin được phép gọi API từ trình duyệt, phân tách bằng dấu phẩy. */
+    @Value("${CORS_ALLOWED_ORIGINS:}")
+    private String corsAllowedOrigins;
+
+    @Value("${spring.profiles.active:dev}")
+    private String activeProfiles;
+
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
@@ -141,13 +148,36 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowedOriginPatterns(
+                resolveCorsOrigins(corsAllowedOrigins, activeProfiles.contains("prod")));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    /**
+     * Origin được phép: lấy từ {@code CORS_ALLOWED_ORIGINS}. Để trống thì dev cho mọi origin; prod
+     * bắt buộc khai báo cụ thể và không được dùng ký tự đại diện {@code *}, nếu không server không khởi động.
+     */
+    static List<String> resolveCorsOrigins(String csv, boolean prod) {
+        List<String> origins = csv == null ? List.of() : java.util.Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(o -> !o.isEmpty())
+                .toList();
+        if (origins.isEmpty()) {
+            if (prod) {
+                throw new IllegalStateException(
+                        "CORS_ALLOWED_ORIGINS là bắt buộc ở profile prod (ví dụ: https://admin.example.com)");
+            }
+            return List.of("*");
+        }
+        if (prod && origins.contains("*")) {
+            throw new IllegalStateException("CORS_ALLOWED_ORIGINS không được chứa \"*\" ở profile prod");
+        }
+        return origins;
     }
 
     @Bean
