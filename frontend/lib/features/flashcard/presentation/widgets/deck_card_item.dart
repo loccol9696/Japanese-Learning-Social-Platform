@@ -22,16 +22,12 @@ class DeckCardItem extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+          padding: const EdgeInsets.fromLTRB(20, 20, 12, 20),
           decoration: BoxDecoration(
             color: AppPalette.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppPalette.textPrimary.withValues(alpha: 0.06),
-              width: 1,
-            ),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -5,6 +5,7 @@ import '../../../auth/data/auth_session.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../../data/services/flashcard_store.dart';
+import '../widgets/create_deck_tile.dart';
 import '../widgets/deck_card_item.dart';
 import 'deck_editor_screen.dart';
 import 'deck_overview_screen.dart';
@@ -391,54 +392,29 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header: Title + Plus Button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Thư viện thẻ',
-                    style: TextStyle(
-                      color: AppPalette.textPrimary,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
+            // Tiêu đề căn giữa; tạo bộ thẻ mới nằm ở ô viền đứt cuối danh sách
+            // Cùng cỡ chữ và chiều cao thanh với tiêu đề "Tin nhắn" (AppBar) để hai tab đồng nhất.
+            SizedBox(
+              height: kToolbarHeight,
+              child: Center(
+                child: Text(
+                  'Thư viện thẻ',
+                  style: TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
                   ),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppPalette.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppPalette.textPrimary.withValues(alpha: 0.08),
-                        width: 1,
-                      ),
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.add,
-                        color: AppPalette.textPrimary,
-                        size: 22,
-                      ),
-                      onPressed: _openCreateDeck,
-                      splashRadius: 20,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
 
             // Search Bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
               child: Container(
                 decoration: BoxDecoration(
                   color: AppPalette.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.06)),
                 ),
                 child: TextField(
                   controller: _searchController,
@@ -467,42 +443,12 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             if (_dueCount > 0) _buildDueBanner(),
             const SizedBox(height: 8),
 
-            // Deck List
+            // Danh sách bộ thẻ + ô "Tạo bộ thẻ mới" ở cuối
             Expanded(
               child: _isLoading
                   ? Center(
                       child: CircularProgressIndicator(
                         color: AppPalette.accent,
-                      ),
-                    )
-                  : _decks.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.folder_open_outlined,
-                            size: 64,
-                            color: AppPalette.textPrimary.withValues(alpha: 0.3),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Chưa có bộ từ vựng nào',
-                            style: TextStyle(
-                              color: AppPalette.textPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Bấm nút + ở góc phải trên để tạo bộ thẻ đầu tiên',
-                            style: TextStyle(
-                              color: AppPalette.textPrimary.withValues(alpha: 0.5),
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
                       ),
                     )
                   : RefreshIndicator(
@@ -513,11 +459,34 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                         forceRefresh: true,
                       ),
                       child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 90),
-                        itemCount: _decks.length,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 90),
+                        itemCount: _decks.length + 1,
                         separatorBuilder: (context, index) =>
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 14),
                         itemBuilder: (context, index) {
+                          if (index == _decks.length) {
+                            return Column(
+                              children: [
+                                if (_decks.isEmpty && _searchController.text.trim().isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 14),
+                                    child: Text(
+                                      'Không tìm thấy bộ thẻ nào',
+                                      key: const ValueKey('no-deck-found'),
+                                      style: TextStyle(
+                                        color: AppPalette.textPrimary.withValues(alpha: 0.5),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                CreateDeckTile(
+                                  key: const ValueKey('create-deck-tile'),
+                                  onTap: _openCreateDeck,
+                                ),
+                              ],
+                            );
+                          }
                           final deck = _decks[index];
                           return DeckCardItem(
                             deck: deck,
