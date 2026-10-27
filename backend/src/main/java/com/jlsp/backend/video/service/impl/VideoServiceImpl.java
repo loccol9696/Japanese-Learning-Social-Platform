@@ -124,14 +124,20 @@ public class VideoServiceImpl implements VideoService {
         // Kiểm tra quyền sở hữu
         validateOwnership(video, currentUserId);
 
-        // Cập nhật các trường có thay đổi
+        // Cập nhật các trường có thay đổi; ghi nhận việc nội dung hiển thị có đổi thật không
+        boolean contentChanged = false;
         if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            contentChanged |= !request.getTitle().trim().equals(video.getTitle() == null ? "" : video.getTitle().trim());
             video.setTitle(request.getTitle());
         }
         if (request.getDescription() != null) {
+            // null và chuỗi rỗng đều nghĩa là "không có mô tả"
+            String before = video.getDescription() == null ? "" : video.getDescription().trim();
+            contentChanged |= !request.getDescription().trim().equals(before);
             video.setDescription(request.getDescription());
         }
         if (request.getThumbnailUrl() != null && !request.getThumbnailUrl().isBlank()) {
+            contentChanged |= !request.getThumbnailUrl().equals(video.getThumbnailUrl());
             video.setThumbnailUrl(request.getThumbnailUrl());
         }
         if (request.getJlptLevel() != null) {
@@ -151,6 +157,17 @@ public class VideoServiceImpl implements VideoService {
                 log.info("Video ID {} chuyển sang PUBLIC -> Đặt trạng thái PENDING chờ Moderator duyệt", id);
             }
             video.setStatus(request.getStatus());
+        }
+
+        // Sửa tiêu đề / mô tả / ảnh bìa của video công khai đã qua kiểm duyệt (hoặc đã bị từ chối)
+        // thì phải được duyệt lại, nếu không người đăng có thể đổi sang nội dung vi phạm sau khi được duyệt.
+        if (contentChanged && video.getStatus() == VideoStatus.PUBLIC
+                && video.getModStatus() != VideoModStatus.PENDING) {
+            video.setModStatus(VideoModStatus.PENDING);
+            video.setModeratedBy(null);
+            video.setModeratedAt(null);
+            video.setRejectionReason(null);
+            log.info("Video ID {} đổi nội dung -> Đặt trạng thái PENDING chờ Moderator duyệt lại", id);
         }
 
         Video updated = videoRepository.save(video);
