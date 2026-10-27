@@ -6,7 +6,6 @@ import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../../data/services/flashcard_store.dart';
 import '../../../../core/widgets/square_add_button.dart';
-import '../widgets/create_deck_tile.dart';
 import '../widgets/deck_card_item.dart';
 import 'deck_editor_screen.dart';
 import 'deck_overview_screen.dart';
@@ -393,7 +392,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Tiêu đề căn giữa; tạo bộ thẻ mới nằm ở ô viền đứt cuối danh sách
+            // Tiêu đề căn giữa
             // Cùng cỡ chữ và chiều cao thanh với tiêu đề "Tin nhắn" (AppBar) để hai tab đồng nhất.
             SizedBox(
               height: kToolbarHeight,
@@ -456,7 +455,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
             if (_dueCount > 0) _buildDueBanner(),
             const SizedBox(height: 8),
 
-            // Danh sách bộ thẻ + ô "Tạo bộ thẻ mới" ở cuối
+            // Danh sách bộ thẻ
             Expanded(
               child: _isLoading
                   ? Center(
@@ -471,21 +470,19 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                         query: _searchController.text,
                         forceRefresh: true,
                       ),
-                      child: ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 90),
-                        itemCount: _decks.length + 1,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 14),
-                        itemBuilder: (context, index) {
-                          if (index == _decks.length) {
-                            return Column(
-                              children: [
-                                if (_decks.isEmpty && _searchController.text.trim().isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 14),
+                      child: _decks.isEmpty
+                          ? LayoutBuilder(
+                              builder: (context, constraints) => SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: constraints.maxHeight,
+                                  ),
+                                  child: Center(
                                     child: Text(
-                                      'Không tìm thấy bộ thẻ nào',
+                                      _searchController.text.trim().isNotEmpty
+                                          ? 'Không tìm thấy bộ thẻ nào'
+                                          : 'Chưa có bộ thẻ nào',
                                       key: const ValueKey('no-deck-found'),
                                       style: TextStyle(
                                         color: AppPalette.textPrimary.withValues(alpha: 0.5),
@@ -493,30 +490,33 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                                       ),
                                     ),
                                   ),
-                                CreateDeckTile(
-                                  key: const ValueKey('create-deck-tile'),
-                                  onTap: _openCreateDeck,
                                 ),
-                              ],
-                            );
-                          }
-                          final deck = _decks[index];
-                          return DeckCardItem(
-                            deck: deck,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      DeckOverviewScreen(deck: deck),
-                                ),
-                              );
-                            },
-                            onEdit: () => _openDeckEditor(deck),
-                            onDelete: () => _showDeleteDeckConfirmDialog(deck),
-                          );
-                        },
-                      ),
+                              ),
+                            )
+                          : ListView.separated(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 90),
+                              itemCount: _decks.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 14),
+                              itemBuilder: (context, index) {
+                                final deck = _decks[index];
+                                return DeckCardItem(
+                                  deck: deck,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            DeckOverviewScreen(deck: deck),
+                                      ),
+                                    );
+                                  },
+                                  onEdit: () => _openDeckEditor(deck),
+                                  onDelete: () => _showDeleteDeckConfirmDialog(deck),
+                                );
+                              },
+                            ),
                     ),
             ),
           ],
