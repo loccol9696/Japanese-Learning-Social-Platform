@@ -18,6 +18,10 @@ import '../../domain/repositories/profile_repository.dart';
 import '../../../subscription/models/subscription_model.dart';
 import '../../../subscription/services/subscription_service.dart';
 import 'profile_update_screen.dart';
+import '../../../streak/streak_chip.dart';
+import '../../../streak/streak_model.dart';
+import '../../../streak/streak_service.dart';
+import '../../../streak/streak_sheet.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../../../core/localization/locale_manager.dart';
@@ -39,6 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final ProfileRepository _repository;
   UserProfileModel _profile = const UserProfileModel();
   SubscriptionStatus? _membershipStatus;
+  Streak _streak = const Streak();
   List<UserVideoModel> _videos = [];
   List<UserVideoModel> _likedVideos = [];
   List<UserVideoModel> _savedVideos = [];
@@ -60,6 +65,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (AuthSession.instance.isAuthenticated || widget.repository != null) {
       _loadProfile();
     }
+  }
+
+  /// Chuỗi ngày học cho chip trên đầu trang; lỗi thì giữ số cũ.
+  Future<void> _loadStreak() async {
+    if (!AuthSession.instance.isAuthenticated) return;
+    try {
+      final streak = await StreakService().getMine();
+      if (mounted) setState(() => _streak = streak);
+    } catch (_) {}
+  }
+
+  void _openStreakSheet() {
+    showStreakSheet(
+      context,
+      streak: _streak,
+      onLoaded: (fresh) {
+        if (mounted) setState(() => _streak = fresh);
+      },
+    );
   }
 
   Future<void> _checkRole() async {
@@ -115,6 +139,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// cũng không làm mất các phần còn lại.
   Future<void> _loadProfile() async {
     final videoLists = _loadVideoLists();
+    _loadStreak();
     try {
       final profile = await _repository.getProfile();
       if (!mounted) return;
@@ -703,6 +728,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              StreakChip(
+                key: const ValueKey('profile-streak-chip'),
+                days: _streak.currentStreak,
+                onTap: _openStreakSheet,
+              ),
+              const SizedBox(width: 4),
               ValueListenableBuilder<int>(
                 valueListenable: NotificationHub.instance.unreadCount,
                 builder: (context, unread, _) => Stack(

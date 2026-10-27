@@ -60,6 +60,11 @@ class ApiConstants {
       '$baseUrl/videos/$videoId/shadowing/summary';
   static String get flashcardReviewUrl => '$baseUrl/flashcards/study/review';
   static String get streakUrl => '$baseUrl/users/me/streak';
+  static String streakDaysUrl(DateTime from, DateTime to) {
+    String iso(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    return '$baseUrl/users/me/streak/days?from=${iso(from)}&to=${iso(to)}';
+  }
   static String get flashcardDueSummaryUrl =>
       '$baseUrl/flashcards/study/due-summary';
   static String get flashcardSaveVideoUrl => '$baseUrl/flashcards/video/save';
