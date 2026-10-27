@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../chat/data/services/chat_hub.dart';
+import '../../../notification/notification_hub.dart';
 
 /// Tab indices: 0 Home, 1 Messages, 2 Create (+), 3 Flashcard, 4 Profile.
 ///
@@ -21,6 +22,7 @@ class BottomNavDock extends StatelessWidget {
 
   static const int messagesIndex = 1;
   static const int createIndex = 2;
+  static const int profileIndex = 4;
 
   /// Chiều cao nội dung thanh menu, chưa tính vùng an toàn phía dưới.
   static const double contentHeight = 56.0;
@@ -143,6 +145,8 @@ class BottomNavDock extends StatelessWidget {
       children: [
         index == messagesIndex
             ? _buildMessagesIcon(isSelected ? tab.activeIcon : tab.inactiveIcon, color)
+            : index == profileIndex
+            ? _buildProfileIcon(isSelected ? tab.activeIcon : tab.inactiveIcon, color)
             : Icon(
                 isSelected ? tab.activeIcon : tab.inactiveIcon,
                 size: _iconSize,
@@ -196,6 +200,36 @@ class BottomNavDock extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       height: 1.3,
                     ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Icon cá nhân kèm chấm đỏ khi có thông báo chưa đọc (chi tiết xem ở màn Thông báo).
+  Widget _buildProfileIcon(IconData icon, Color color) {
+    return ValueListenableBuilder<int>(
+      valueListenable: NotificationHub.instance.unreadCount,
+      builder: (context, unread, _) {
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(icon, size: _iconSize, color: color),
+            if (unread > 0)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: Container(
+                  key: const ValueKey('profile-notification-dot'),
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: AppPalette.like,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppPalette.background, width: 1.5),
                   ),
                 ),
               ),
