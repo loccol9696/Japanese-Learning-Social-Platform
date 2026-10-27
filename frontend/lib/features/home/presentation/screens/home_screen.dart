@@ -43,6 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
   FeedTab _currentFeedTab = FeedTab.forYou;
   int _homeTabIndex = 1;
   int _currentNavIndex = 0;
+  // true khi tab Tin nhắn đang mở một màn con (khung chat...), lúc đó thanh menu dưới được ẩn.
+  bool _messagesChildOpen = false;
   int _followingPostIndex = 0;
   int _forYouPostIndex = 0;
   Offset? _homeDragStartPosition;
@@ -336,10 +338,11 @@ class _HomeScreenState extends State<HomeScreen> {
       isLight: currentPost?.isLightBackground ?? false,
     );
 
-    // Đang soạn tin nhắn: ẩn thanh menu để bàn phím và ô nhập không bị chồng lên nó.
+    // Đang trong một cuộc trò chuyện (hoặc đang gõ phím): ẩn thanh menu để khung chat được trọn màn hình
+    // và bàn phím, ô nhập không bị chồng lên nó.
     final hideDockForKeyboard =
         _currentNavIndex == BottomNavDock.messagesIndex &&
-        MediaQuery.viewInsetsOf(context).bottom > 0;
+        (_messagesChildOpen || MediaQuery.viewInsetsOf(context).bottom > 0);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundCanvas,
@@ -383,8 +386,11 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             child: PageView(
               controller: _tabPageController,
+              // Đang trong khung chat thì vuốt ngang dành cho việc quay lại hộp thư, không đổi tab.
               physics:
-                  !AuthSession.instance.isAuthenticated || _currentNavIndex == 0
+                  !AuthSession.instance.isAuthenticated ||
+                      _currentNavIndex == 0 ||
+                      (_currentNavIndex == BottomNavDock.messagesIndex && _messagesChildOpen)
                   ? const NeverScrollableScrollPhysics()
                   : null,
               onPageChanged: (index) {
@@ -418,6 +424,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 const _KeepAlivePage(child: DeckLibraryScreen()),
                 _KeepAlivePage(
                   child: MessagesTab(
+                    onChildRouteChanged: (open) {
+                      if (open != _messagesChildOpen) {
+                        setState(() => _messagesChildOpen = open);
+                      }
+                    },
                     bottomInset: hideDockForKeyboard
                         ? 0
                         : BottomNavDock.contentHeight +

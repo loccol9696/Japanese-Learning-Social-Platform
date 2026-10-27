@@ -8,6 +8,7 @@ import '../core/localization/locale_manager.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_manager.dart';
 import '../core/widgets/app_toast.dart';
+import '../core/widgets/swipe_back_detector.dart';
 import '../features/auth/data/auth_session.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/chat/data/services/chat_hub.dart';
@@ -98,6 +99,11 @@ class _AppState extends State<App> {
           darkTheme: AppTheme.darkTheme,
           themeMode: themeManager.mode,
           scrollBehavior: const AppScrollBehavior(),
+          // Mọi màn có nút quay lại đều vuốt ngang sang phải để về được, giống tab Tin nhắn.
+          builder: (context, child) => SwipeBackDetector(
+            navigatorKey: AppToast.navigatorKey,
+            child: child ?? const SizedBox.shrink(),
+          ),
           home: const AuthGate(),
           routes: AppRoutes.routes,
           onUnknownRoute: (settings) =>

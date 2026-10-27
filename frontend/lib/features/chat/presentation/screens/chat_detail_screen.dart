@@ -426,8 +426,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final user = _conversation.otherUser;
     return AppBar(
       backgroundColor: AppPalette.background,
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
       titleSpacing: 0,
+      leading: IconButton(
+        icon: Icon(Icons.chevron_left_rounded, color: AppPalette.textPrimary, size: 30),
+        tooltip: 'Quay lại',
+        onPressed: () => Navigator.of(context).maybePop(),
+      ),
+      // Đường kẻ mảnh ngăn tiêu đề với nội dung chat.
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Divider(
+          height: 1,
+          thickness: 1,
+          color: AppPalette.textPrimary.withValues(alpha: 0.08),
+        ),
+      ),
       title: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _openProfile,
@@ -555,10 +570,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
           color: AppPalette.background,
-          border: Border(top: BorderSide(color: AppPalette.border, width: 0.5)),
+          border: Border(
+            top: BorderSide(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -578,14 +595,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   hintStyle: TextStyle(color: AppPalette.textSecondary),
                   counterText: '',
                   filled: true,
-                  fillColor: AppPalette.surfaceHigh,
+                  fillColor: AppPalette.surface,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 11,
+                    horizontal: 18,
+                    vertical: 13,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -593,12 +610,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ),
             const SizedBox(width: 8),
             IconButton.filled(
+              key: const ValueKey('send-button'),
               onPressed: hasText ? _send : null,
               style: IconButton.styleFrom(
+                fixedSize: const Size(46, 46),
                 backgroundColor: AppPalette.accent,
-                disabledBackgroundColor: AppPalette.surfaceHigh,
+                foregroundColor: AppPalette.onAccent,
+                disabledBackgroundColor: AppPalette.surface,
+                disabledForegroundColor: AppPalette.textSecondary,
               ),
-              icon: const Icon(Icons.send_rounded, size: 20),
+              tooltip: 'Gửi',
+              icon: const Icon(Icons.arrow_upward_rounded, size: 22),
             ),
           ],
         ),
@@ -636,7 +658,7 @@ class _DayLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 14),
       child: Text(
         label,
         style: TextStyle(color: AppPalette.textSecondary, fontSize: 12),

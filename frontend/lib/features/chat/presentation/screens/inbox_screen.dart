@@ -151,7 +151,7 @@ class _InboxScreenState extends State<InboxScreen> {
             IconButton(
               tooltip: 'Tin nhắn mới',
               onPressed: _newChat,
-              icon: const Icon(Icons.edit_square),
+              icon: const Icon(Icons.edit_outlined),
             ),
         ],
       ),
@@ -270,11 +270,11 @@ class _ConversationTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         child: Row(
           children: [
-            ChatAvatar(user: conversation.otherUser, radius: 26),
-            const SizedBox(width: 12),
+            ChatAvatar(user: conversation.otherUser, radius: 24),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,7 +286,7 @@ class _ConversationTile extends StatelessWidget {
                     style: TextStyle(
                       color: AppPalette.textPrimary,
                       fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -299,7 +299,7 @@ class _ConversationTile extends StatelessWidget {
                           ? AppPalette.textPrimary
                           : AppPalette.textSecondary,
                       fontWeight: unread > 0
-                          ? FontWeight.w600
+                          ? FontWeight.w700
                           : FontWeight.w400,
                       fontSize: 14,
                     ),
@@ -319,29 +319,19 @@ class _ConversationTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
+                // Chưa đọc: chấm xanh nhỏ dưới giờ (số tin chưa đọc đã có ở huy hiệu tab Tin nhắn).
                 if (unread > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 2,
-                    ),
-                    constraints: const BoxConstraints(minWidth: 20),
+                    key: ValueKey('unread-dot-${conversation.id}'),
+                    width: 9,
+                    height: 9,
                     decoration: BoxDecoration(
-                      color: AppPalette.accent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      unread > 99 ? '99+' : '$unread',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppPalette.onAccent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      color: AppPalette.info,
+                      shape: BoxShape.circle,
                     ),
                   )
                 else
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 9),
               ],
             ),
           ],
