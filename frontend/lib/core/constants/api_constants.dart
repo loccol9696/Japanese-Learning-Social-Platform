@@ -119,6 +119,7 @@ class ApiConstants {
   static String chatReadUrl(int id) => '$baseUrl/chat/conversations/$id/read';
   static String get chatUnreadCountUrl => '$baseUrl/chat/unread-count';
   static String shareVideoUrl(int videoId) => '$baseUrl/videos/$videoId/share';
+  static String shareDeckUrl(int deckId) => '$baseUrl/flashcards/sets/$deckId/share';
   static String videoDetailUrl(String videoId) => '$baseUrl/videos/$videoId';
 
   /// Server Socket.IO của chat: cùng host với API nhưng port riêng (9092).

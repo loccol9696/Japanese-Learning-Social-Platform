@@ -35,7 +35,7 @@ class ChatUser {
   );
 }
 
-enum MessageType { text, videoShare }
+enum MessageType { text, videoShare, deckShare }
 
 enum MessageStatus { sending, sent, failed }
 
@@ -79,6 +79,28 @@ class SharedVideo {
   }
 }
 
+/// Thẻ bộ từ vựng trong tin nhắn chia sẻ. [available] = false khi bộ thẻ đã bị xoá hoặc chuyển riêng tư.
+class SharedDeck {
+  final int id;
+  final bool available;
+  final String title;
+  final int cardCount;
+
+  const SharedDeck({
+    required this.id,
+    required this.available,
+    this.title = '',
+    this.cardCount = 0,
+  });
+
+  factory SharedDeck.fromJson(Map<String, dynamic> json) => SharedDeck(
+    id: _toInt(json['id']),
+    available: json['available'] == true,
+    title: json['title']?.toString() ?? '',
+    cardCount: _toInt(json['cardCount']),
+  );
+}
+
 class ChatMessage {
   /// null khi tin còn ở trạng thái đang gửi (chưa có id từ server).
   final int? id;
@@ -87,6 +109,7 @@ class ChatMessage {
   final MessageType type;
   final String content;
   final SharedVideo? video;
+  final SharedDeck? deck;
   final int? videoStartMs;
   final String clientMsgId;
   final DateTime createdAt;
@@ -101,6 +124,7 @@ class ChatMessage {
     required this.clientMsgId,
     required this.createdAt,
     this.video,
+    this.deck,
     this.videoStartMs,
     this.status = MessageStatus.sent,
   });
@@ -112,6 +136,7 @@ class ChatMessage {
     type: type,
     content: content,
     video: video,
+    deck: deck,
     videoStartMs: videoStartMs,
     clientMsgId: clientMsgId,
     createdAt: createdAt,
@@ -120,15 +145,19 @@ class ChatMessage {
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     final video = json['video'];
+    final deck = json['deck'];
     return ChatMessage(
       id: _toIntOrNull(json['id']),
       conversationId: _toInt(json['conversationId']),
       senderId: _toInt(json['senderId']),
-      type: json['type'] == 'VIDEO_SHARE'
-          ? MessageType.videoShare
-          : MessageType.text,
+      type: switch (json['type']) {
+        'VIDEO_SHARE' => MessageType.videoShare,
+        'DECK_SHARE' => MessageType.deckShare,
+        _ => MessageType.text,
+      },
       content: json['content']?.toString() ?? '',
       video: video is Map<String, dynamic> ? SharedVideo.fromJson(video) : null,
+      deck: deck is Map<String, dynamic> ? SharedDeck.fromJson(deck) : null,
       videoStartMs: _toIntOrNull(json['videoStartMs']),
       clientMsgId: json['clientMsgId']?.toString() ?? '',
       createdAt:
@@ -160,6 +189,10 @@ class ChatMessage {
     if (type == MessageType.videoShare) {
       final title = (video?.available ?? false) ? video!.title : 'Video';
       return '$prefix🎬 $title';
+    }
+    if (type == MessageType.deckShare) {
+      final title = (deck?.available ?? false) ? deck!.title : 'Bộ thẻ';
+      return '$prefix🃏 $title';
     }
     return '$prefix$content';
   }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../data/models/chat_models.dart';
 import '../chat_format.dart';
+import 'deck_share_card.dart';
 import 'video_share_card.dart';
 
 /// Một tin nhắn trong khung chat. Tin của mình nằm bên phải (màu nhấn), của đối
@@ -15,6 +16,7 @@ class MessageBubble extends StatelessWidget {
   final bool showSeen;
   final VoidCallback? onRetry;
   final VoidCallback? onOpenVideo;
+  final VoidCallback? onOpenDeck;
 
   const MessageBubble({
     super.key,
@@ -23,12 +25,15 @@ class MessageBubble extends StatelessWidget {
     this.showSeen = false,
     this.onRetry,
     this.onOpenVideo,
+    this.onOpenDeck,
   });
 
   @override
   Widget build(BuildContext context) {
     final isShare =
         message.type == MessageType.videoShare && message.video != null;
+    final isDeckShare =
+        message.type == MessageType.deckShare && message.deck != null;
     final failed = message.status == MessageStatus.failed;
 
     return Padding(
@@ -78,9 +83,14 @@ class MessageBubble extends StatelessWidget {
                             startMs: message.videoStartMs,
                             onTap: message.video!.available ? onOpenVideo : null,
                           ),
+                        if (isDeckShare)
+                          DeckShareCard(
+                            deck: message.deck!,
+                            onTap: message.deck!.available ? onOpenDeck : null,
+                          ),
                         if (message.content.isNotEmpty)
                           Padding(
-                            padding: EdgeInsets.only(top: isShare ? 8 : 0),
+                            padding: EdgeInsets.only(top: isShare || isDeckShare ? 8 : 0),
                             child: Text(
                               message.content,
                               style: TextStyle(

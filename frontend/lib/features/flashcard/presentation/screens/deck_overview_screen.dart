@@ -12,8 +12,11 @@ import 'flashcard_listening_screen.dart';
 import 'flashcard_matching_screen.dart';
 import 'flashcard_quiz_screen.dart';
 import 'flashcard_typing_screen.dart';
+import '../../../chat/presentation/widgets/share_video_sheet.dart';
+import '../widgets/carousel_card_frame.dart';
 import '../widgets/study_options_bottom_sheet.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 class DeckOverviewScreen extends StatefulWidget {
   final FlashcardSetModel deck;
@@ -25,7 +28,7 @@ class DeckOverviewScreen extends StatefulWidget {
 }
 
 class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
-  final PageController _pageController = PageController();
+  final PageController _pageController = PageController(viewportFraction: kCarouselViewportFraction);
   final FlashcardStore _store = FlashcardStore.instance;
   int _currentPage = 0;
   List<FlashcardItemModel> _allCards = [];
@@ -143,8 +146,26 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 ),
               ),
 
-              // Dòng 1: Chỉnh sửa bộ thẻ
+              // Dòng 1: Chia sẻ cho bạn bè
               _buildDeckActionRow(
+                key: const ValueKey('deck-action-share'),
+                icon: Icons.ios_share_rounded,
+                title: 'Chia sẻ cho bạn bè',
+                color: AppPalette.textPrimary,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showShareDeckSheet(context, deckId: widget.deck.setId);
+                },
+              ),
+
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 28),
+                child: Divider(height: 1, color: AppPalette.border),
+              ),
+
+              // Dòng 2: Chỉnh sửa bộ thẻ
+              _buildDeckActionRow(
+                key: const ValueKey('deck-action-edit'),
                 icon: Icons.edit_outlined,
                 title: 'Chỉnh sửa bộ thẻ',
                 color: AppPalette.textPrimary,
@@ -167,8 +188,9 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 child: Divider(height: 1, color: AppPalette.border),
               ),
 
-              // Dòng 2: Xóa bộ thẻ
+              // Dòng 3: Xóa bộ thẻ
               _buildDeckActionRow(
+                key: const ValueKey('deck-action-delete'),
                 icon: Icons.delete_outline_rounded,
                 title: 'Xóa bộ thẻ',
                 color: _dangerRed,
@@ -186,12 +208,14 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
   }
 
   Widget _buildDeckActionRow({
+    Key? key,
     required IconData icon,
     required String title,
     required Color color,
     required VoidCallback onTap,
   }) {
     return InkWell(
+      key: key,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
@@ -246,23 +270,11 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 widget.deck.setId,
                 onError: (err) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Không thể xóa bộ thẻ: $err'),
-                        backgroundColor: AppPalette.accent,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
+                    AppToast.showError('Không thể xóa bộ thẻ: $err', context: context);
                   }
                 },
               );
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Đã xóa bộ thẻ thành công'),
-                  backgroundColor: AppPalette.surface,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              AppToast.showSuccess('Đã xóa bộ thẻ thành công', context: context);
               Navigator.pop(context, true);
             },
             child: Text('Xóa vĩnh viễn', style: TextStyle(color: AppPalette.textPrimary, fontWeight: FontWeight.w700)),
@@ -306,13 +318,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
       _applyOptions();
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã đặt lại tiến trình thẻ thành công'),
-        backgroundColor: AppPalette.surface,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.showSuccess('Đã đặt lại tiến trình thẻ thành công', context: context);
 
     // Gửi request API ngầm, rollback nếu lỗi
     _store.optimisticResetProgress(
@@ -323,13 +329,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
             _allCards = previousAllCards;
             _applyOptions();
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Không thể đặt lại tiến trình: $err'),
-              backgroundColor: AppPalette.accent,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppToast.showError('Không thể đặt lại tiến trình: $err', context: context);
         }
       },
     );
@@ -369,13 +369,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
             if (allIdx != -1) _allCards[allIdx] = revertedCard;
             _applyOptions();
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Không thể cập nhật gắn sao: $err'),
-              backgroundColor: AppPalette.accent,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppToast.showError('Không thể cập nhật gắn sao: $err', context: context);
         }
       },
     );
@@ -474,15 +468,18 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 ),
 
                 // Interactive Flashcard Carousel
+                // Không có lề ngang để thẻ trượt tới sát mép màn thay vì bị cắt cứng ở lề; khe và phần lấp ló của thẻ kế
+                // bên do viewportFraction + CarouselCardFrame đảm nhiệm.
                 Container(
-                  height: 230,
-                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  height: 240,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
                   child: _isLoading
                       ? Center(
                           child: CircularProgressIndicator(color: AppPalette.accent),
                         )
                       : _cards.isEmpty
                           ? Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
                               decoration: BoxDecoration(
                                 color: AppPalette.surface,
                                 borderRadius: BorderRadius.circular(24),
@@ -501,10 +498,14 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                               itemCount: _cards.length,
                               onPageChanged: (idx) => setState(() => _currentPage = idx),
                               itemBuilder: (context, index) {
-                                return _PreviewFlashcard(
-                                  card: _cards[index],
-                                  displayFrontFace: _options.displayFrontFace,
-                                  onToggleStar: () => _toggleStar(index),
+                                return CarouselCardFrame(
+                                  controller: _pageController,
+                                  index: index,
+                                  child: _PreviewFlashcard(
+                                    card: _cards[index],
+                                    displayFrontFace: _options.displayFrontFace,
+                                    onToggleStar: () => _toggleStar(index),
+                                  ),
                                 );
                               },
                             ),

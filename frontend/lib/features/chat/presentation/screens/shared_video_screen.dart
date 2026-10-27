@@ -148,6 +148,8 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
             VideoPlayerItem(
               key: ValueKey(post.id),
               post: post,
+              // Màn này không có thanh menu dưới.
+              reserveBottomBar: false,
               initialPosition: widget.startMs == null
                   ? null
                   : Duration(milliseconds: widget.startMs!),

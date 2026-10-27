@@ -35,6 +35,11 @@ class ChatService {
     return Conversation.fromJson(_map(data));
   }
 
+  /// Xoá cuộc trò chuyện ở phía mình: tin hiện có bị ẩn và hội thoại ra khỏi hộp thư; người kia vẫn giữ lịch sử.
+  Future<void> deleteConversation(int id) async {
+    await _api.delete(ApiConstants.chatConversationUrl(id));
+  }
+
   /// [before] lấy tin cũ hơn (mới nhất trước); [after] lấy tin mới hơn mốc đó
   /// (cũ nhất trước) để đồng bộ phần đã lỡ. Không dùng cả hai cùng lúc.
   Future<MessagePage> fetchMessages(
@@ -77,6 +82,21 @@ class ChatService {
     final data = await _api.get(ApiConstants.chatUnreadCountUrl);
     final count = data is Map<String, dynamic> ? data['count'] : 0;
     return count is num ? count.toInt() : 0;
+  }
+
+  /// Chia sẻ một bộ thẻ công khai cho nhiều người (người nhận phải follow lẫn nhau với mình).
+  Future<void> shareDeck(
+    int deckId, {
+    required List<int> recipientIds,
+    String? note,
+  }) async {
+    await _api.post(
+      ApiConstants.shareDeckUrl(deckId),
+      body: {
+        'recipientIds': recipientIds,
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      },
+    );
   }
 
   /// Chia sẻ video cho nhiều người; [startMs] để người nhận mở đúng câu phụ đề.

@@ -7,34 +7,72 @@ import '../../data/models/chat_models.dart';
 import '../../data/services/chat_service.dart';
 import 'chat_avatar.dart';
 
+/// Hàm gửi: chia sẻ nội dung (video, bộ thẻ...) cho [recipientIds] kèm lời nhắn [note].
+typedef ShareSender = Future<void> Function(
+  ChatService service,
+  List<int> recipientIds,
+  String note,
+);
+
 /// Mở bảng chia sẻ video cho bạn bè (chỉ những người follow lẫn nhau). Chia sẻ cả video, người nhận mở từ đầu.
 Future<void> showShareVideoSheet(
   BuildContext context, {
   required String videoId,
 }) {
+  return showShareSheet(
+    context,
+    send: (service, recipientIds, note) async {
+      final id = int.tryParse(videoId);
+      if (id == null) {
+        throw ApiException(
+          statusCode: 400,
+          message: 'Video này chưa thể chia sẻ',
+        );
+      }
+      await service.shareVideo(id, recipientIds: recipientIds, note: note);
+    },
+  );
+}
+
+/// Mở bảng chia sẻ bộ thẻ cho bạn bè (chỉ những người follow lẫn nhau; bộ thẻ phải công khai).
+Future<void> showShareDeckSheet(BuildContext context, {required int deckId}) {
+  return showShareSheet(
+    context,
+    send: (service, recipientIds, note) =>
+        service.shareDeck(deckId, recipientIds: recipientIds, note: note),
+  );
+}
+
+/// Bảng chọn bạn bè để chia sẻ một nội dung bất kỳ; việc gửi do [send] thực hiện.
+Future<void> showShareSheet(
+  BuildContext context, {
+  required ShareSender send,
+  ChatService? service,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _ShareVideoSheet(
-      videoId: videoId,
-    ),
+    builder: (_) => ShareFriendsSheet(send: send, service: service),
   );
 }
 
-class _ShareVideoSheet extends StatefulWidget {
-  final String videoId;
+class ShareFriendsSheet extends StatefulWidget {
+  final ShareSender send;
 
-  const _ShareVideoSheet({required this.videoId});
+  /// Cho phép test thay dịch vụ chat.
+  final ChatService? service;
+
+  const ShareFriendsSheet({super.key, required this.send, this.service});
 
   @override
-  State<_ShareVideoSheet> createState() => _ShareVideoSheetState();
+  State<ShareFriendsSheet> createState() => _ShareFriendsSheetState();
 }
 
-class _ShareVideoSheetState extends State<_ShareVideoSheet> {
+class _ShareFriendsSheetState extends State<ShareFriendsSheet> {
   static const int _maxRecipients = 20;
 
-  final _service = ChatService();
+  late final ChatService _service = widget.service ?? ChatService();
   final _searchController = TextEditingController();
   final _noteController = TextEditingController();
   final Set<int> _selected = {};
@@ -100,15 +138,10 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
   }
 
   Future<void> _send() async {
-    final videoId = int.tryParse(widget.videoId);
-    if (videoId == null || _selected.isEmpty || _sending) return;
+    if (_selected.isEmpty || _sending) return;
     setState(() => _sending = true);
     try {
-      await _service.shareVideo(
-        videoId,
-        recipientIds: _selected.toList(),
-        note: _noteController.text,
-      );
+      await widget.send(_service, _selected.toList(), _noteController.text);
       if (!mounted) return;
       final count = _selected.length;
       Navigator.of(context).pop();
@@ -126,28 +159,30 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(bottom: bottomInset),
-        child: Container(
+        // Material (không phải Container tô màu) để hiệu ứng chạm của các dòng bạn bè hiển thị.
+        child: SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.78,
-          decoration: BoxDecoration(
+          child: Material(
             color: AppPalette.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppPalette.textPrimary.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(4),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppPalette.textPrimary.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-              ),
-              _buildHeader(),
-              _buildSearch(),
-              Expanded(child: _buildContacts()),
-              _buildFooter(),
-            ],
+                _buildHeader(),
+                _buildSearch(),
+                Expanded(child: _buildContacts()),
+                _buildFooter(),
+              ],
+            ),
           ),
         ),
       ),
@@ -213,10 +248,7 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              _error!,
-              style: TextStyle(color: AppPalette.textSecondary),
-            ),
+            Text(_error!, style: TextStyle(color: AppPalette.textSecondary)),
             TextButton(onPressed: _load, child: const Text('Thử lại')),
           ],
         ),
@@ -261,10 +293,7 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
           ),
           subtitle: Text(
             '@${user.username}',
-            style: TextStyle(
-              color: AppPalette.textSecondary,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: AppPalette.textSecondary, fontSize: 12),
           ),
           trailing: Icon(
             selected
