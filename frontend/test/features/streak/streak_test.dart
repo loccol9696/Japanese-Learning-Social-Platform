@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/constants/api_constants.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/token_storage.dart';
+import 'package:frontend/core/widgets/flame_icon.dart';
 import 'package:frontend/features/streak/streak_calendar.dart';
 import 'package:frontend/features/streak/streak_chip.dart';
 import 'package:frontend/features/streak/streak_model.dart';
@@ -65,28 +66,37 @@ void main() {
   });
 
   group('monthGridDays', () {
-    test('tháng 10/2026 bắt đầu từ CN 27/9 và kết thúc T7 31/10', () {
+    test('tháng 10/2026 bắt đầu từ CN 27/9 và luôn đủ 6 tuần (42 ô) tới T7 7/11', () {
       final grid = monthGridDays(DateTime(2026, 10));
       expect(grid.first, DateTime(2026, 9, 27));
-      expect(grid.last, DateTime(2026, 10, 31));
-      expect(grid.length, 35);
+      expect(grid.last, DateTime(2026, 11, 7));
+      expect(grid.length, 42);
     });
 
-    test('tháng bắt đầu đúng Chủ nhật không có ô thừa phía trước', () {
+    test('tháng 2/2026 chỉ có 4 tuần vẫn được bù thành 6 hàng', () {
       final grid = monthGridDays(DateTime(2026, 2)); // 1/2/2026 là Chủ nhật
       expect(grid.first, DateTime(2026, 2, 1));
-      expect(grid.last, DateTime(2026, 2, 28));
-      expect(grid.length, 28);
+      expect(grid.length, 42);
+      expect(grid.last, DateTime(2026, 3, 14));
     });
 
-    test('luôn đủ tuần, bắt đầu Chủ nhật, kết thúc Thứ bảy, không trùng ngày', () {
-      for (var m = 1; m <= 12; m++) {
-        final grid = monthGridDays(DateTime(2026, m));
-        expect(grid.length % 7, 0, reason: 'tháng $m');
-        expect(grid.toSet().length, grid.length);
-        expect(grid.first.weekday, DateTime.sunday);
-        expect(grid.last.weekday, DateTime.saturday);
+    test('mọi tháng đều 42 ô, bắt đầu Chủ nhật, kết thúc Thứ bảy, không trùng ngày, phủ kín tháng', () {
+      for (var year = 2025; year <= 2027; year++) {
+        for (var m = 1; m <= 12; m++) {
+          final grid = monthGridDays(DateTime(year, m));
+          expect(grid.length, 42, reason: '$m/$year');
+          expect(grid.toSet().length, 42);
+          expect(grid.first.weekday, DateTime.sunday);
+          expect(grid.last.weekday, DateTime.saturday);
+          expect(grid.contains(DateTime(year, m, 1)), isTrue);
+          expect(grid.contains(DateTime(year, m + 1, 0)), isTrue);
+        }
       }
+    });
+
+    test('khoảng ngày cần hỏi server không vượt giới hạn 62 ngày của backend', () {
+      final grid = monthGridDays(DateTime(2026, 8));
+      expect(grid.last.difference(grid.first).inDays + 1, lessThanOrEqualTo(62));
     });
   });
 
@@ -121,7 +131,7 @@ void main() {
     testWidgets('hiện cả khi chuỗi bằng 0', (tester) async {
       await tester.pumpWidget(const MaterialApp(home: Scaffold(body: StreakChip(days: 0))));
       expect(find.text('0'), findsOneWidget);
-      expect(find.byIcon(Icons.local_fire_department_rounded), findsOneWidget);
+      expect(find.byType(FlameIcon), findsOneWidget);
     });
 
     testWidgets('bấm gọi onTap', (tester) async {
@@ -165,7 +175,62 @@ void main() {
 
     testWidgets('hỏi đúng khoảng ngày phủ lưới tháng', (tester) async {
       final service = await pumpSheet(tester, {});
-      expect(service.asked.first, (DateTime(2026, 9, 27), DateTime(2026, 10, 31)));
+      expect(service.asked.first, (DateTime(2026, 9, 27), DateTime(2026, 11, 7)));
+    });
+
+    testWidgets('số ngày trên ngọn lửa màu tối đậm, ngọn lửa màu cam', (tester) async {
+      await pumpSheet(tester, {DateTime(2026, 10, 27)});
+
+      final cell = find.byKey(const ValueKey('streak-day-active-2026-10-27'));
+      final number = tester.widget<Text>(find.descendant(of: cell, matching: find.text('27')));
+      final flame = tester.widget<FlameIcon>(find.descendant(of: cell, matching: find.byType(FlameIcon)));
+
+      expect(number.style?.color, streakFlameNumberColor);
+      expect(flame.color, streakFlameColor);
+    });
+
+    testWidgets('lịch gọn: hàng cao cố định, không vuông theo chiều rộng màn rộng', (tester) async {
+      tester.view.physicalSize = const Size(900, 2400); // màn rộng
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpSheet(tester, {DateTime(2026, 10, 27)});
+
+      final cell = tester.getSize(find.byKey(const ValueKey('streak-day-active-2026-10-27')));
+      expect(cell.height, dayCellHeight);
+      expect(cell.width, greaterThan(cell.height * 2)); // ô rộng hơn nhiều so với cao
+      // Cả lịch 6 hàng cộng đầu bảng vẫn thấp.
+      expect(tester.getSize(find.byType(StreakSheet)).height, lessThan(560));
+    });
+
+    testWidgets('chiều cao bảng không đổi giữa các tháng 4, 5 và 6 tuần', (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpSheet(tester, {});
+
+      double sheetHeight() => tester.getSize(find.byType(StreakSheet)).height;
+      Future<void> back() async {
+        await tester.tap(find.byKey(const ValueKey('streak-prev')));
+        await tester.pump();
+      }
+
+      final oct = sheetHeight(); // 10/2026: 5 tuần
+      await back();
+      final sep = sheetHeight(); // 9/2026: 5 tuần
+      await back();
+      final aug = sheetHeight(); // 8/2026: 6 tuần
+      await back();
+      await back();
+      await back();
+      await back();
+      await back();
+      await back(); // 2/2026: 4 tuần
+
+      expect(find.text('tháng 2 năm 2026'), findsOneWidget);
+      final feb = sheetHeight();
+      expect(sep, oct);
+      expect(aug, oct);
+      expect(feb, oct);
     });
 
     testWidgets('không cho đi tới tháng tương lai, lùi được về tháng trước', (tester) async {

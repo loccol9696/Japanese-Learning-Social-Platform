@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/flame_icon.dart';
 import 'streak_calendar.dart';
 import 'streak_chip.dart';
 import 'streak_model.dart';
@@ -20,6 +21,9 @@ Future<void> showStreakSheet(
     builder: (_) => StreakSheet(initial: streak, service: service, onLoaded: onLoaded),
   );
 }
+
+/// Chiều cao mỗi hàng của lịch tháng.
+const double dayCellHeight = 38;
 
 class StreakSheet extends StatefulWidget {
   const StreakSheet({super.key, required this.initial, this.service, this.onLoaded, this.today});
@@ -93,7 +97,8 @@ class _StreakSheetState extends State<StreakSheet> {
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
-        child: Padding(
+        // Cuộn được để màn thấp vẫn xem hết lịch 6 hàng mà không tràn.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -126,8 +131,7 @@ class _StreakSheetState extends State<StreakSheet> {
                 ],
               ),
               const SizedBox(height: 4),
-              Icon(
-                Icons.local_fire_department_rounded,
+              FlameIcon(
                 size: 56,
                 color: _streak.currentStreak > 0
                     ? streakFlameColor
@@ -171,11 +175,15 @@ class _StreakSheetState extends State<StreakSheet> {
                 ],
               ),
               const SizedBox(height: 6),
-              GridView.count(
-                crossAxisCount: 7,
+              // Chiều cao hàng cố định (không theo chiều rộng màn) để lịch 6 hàng luôn gọn dù màn rộng.
+              GridView(
                 shrinkWrap: true,
+                padding: EdgeInsets.zero,
                 physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 1,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  mainAxisExtent: dayCellHeight,
+                ),
                 children: [for (final day in grid) _buildDay(day)],
               ),
             ],
@@ -225,12 +233,18 @@ class _StreakSheetState extends State<StreakSheet> {
         key: ValueKey('streak-day-active-${day.year}-${day.month}-${day.day}'),
         alignment: Alignment.center,
         children: [
-          Icon(Icons.local_fire_department_rounded, size: 40, color: flame),
+          FlameIcon(size: dayCellHeight, color: flame),
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            // Số nằm trong thân tròn của ngọn lửa (phần dưới), không ở giữa hộp bao.
+            padding: const EdgeInsets.only(top: 14),
             child: Text(
               '${day.day}',
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                color: streakFlameNumberColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
             ),
           ),
         ],
@@ -241,7 +255,7 @@ class _StreakSheetState extends State<StreakSheet> {
         '${day.day}',
         style: TextStyle(
           color: future ? textColor : textColor.withValues(alpha: inMonth ? 0.7 : 0.3),
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w700,
         ),
       ),
