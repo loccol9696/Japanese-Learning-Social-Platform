@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,8 +59,12 @@ class CommentServiceImplBlockTest {
     }
 
     private VideoComment comment(long id, long authorId, String text) {
+        return reply(id, authorId, text, null);
+    }
+
+    private VideoComment reply(long id, long authorId, String text, VideoComment parent) {
         User author = User.builder().id(authorId).username("u" + authorId).build();
-        return VideoComment.builder().id(id).video(video).user(author).content(text).build();
+        return VideoComment.builder().id(id).video(video).user(author).parent(parent).content(text).build();
     }
 
     @Test
@@ -78,12 +83,12 @@ class CommentServiceImplBlockTest {
     void hidesCommentsAndRepliesOfBlockedPeopleFromTheViewer() {
         VideoComment visible = comment(1L, FRIEND, "bình thường");
         VideoComment hiddenTop = comment(2L, BLOCKED, "người bị chặn");
-        VideoComment hiddenReply = comment(3L, BLOCKED, "trả lời từ người bị chặn");
-        VideoComment shownReply = comment(4L, OWNER, "trả lời hợp lệ");
+        VideoComment hiddenReply = reply(3L, BLOCKED, "trả lời từ người bị chặn", visible);
+        VideoComment shownReply = reply(4L, OWNER, "trả lời hợp lệ", visible);
         when(blockService.relatedUserIds(VIEWER)).thenReturn(Set.of(BLOCKED));
         when(commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(VIDEO_ID))
                 .thenReturn(List.of(visible, hiddenTop));
-        when(commentRepository.findByParentIdOrderByCreatedAtAsc(1L))
+        when(commentRepository.findByVideoIdAndParentIsNotNullOrderByCreatedAtAsc(VIDEO_ID))
                 .thenReturn(List.of(hiddenReply, shownReply));
 
         List<VideoCommentResponse> result = service.list(VIDEO_ID, VIEWER);
@@ -91,6 +96,30 @@ class CommentServiceImplBlockTest {
         assertThat(result).extracting(VideoCommentResponse::getContent).containsExactly("bình thường");
         assertThat(result.get(0).getReplies()).extracting(VideoCommentResponse::getContent)
                 .containsExactly("trả lời hợp lệ");
+    }
+
+    @Test
+    void loadsAllRepliesOfTheVideoInOneQueryInsteadOfOnePerComment() {
+        VideoComment first = comment(1L, FRIEND, "gốc 1");
+        VideoComment second = comment(2L, FRIEND, "gốc 2");
+        VideoComment third = comment(3L, FRIEND, "gốc 3");
+        when(blockService.relatedUserIds(VIEWER)).thenReturn(Set.of());
+        when(commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(VIDEO_ID))
+                .thenReturn(List.of(first, second, third));
+        when(commentRepository.findByVideoIdAndParentIsNotNullOrderByCreatedAtAsc(VIDEO_ID))
+                .thenReturn(List.of(
+                        reply(10L, OWNER, "trả lời gốc 1", first),
+                        reply(11L, OWNER, "trả lời gốc 3 (a)", third),
+                        reply(12L, FRIEND, "trả lời gốc 3 (b)", third)));
+
+        List<VideoCommentResponse> result = service.list(VIDEO_ID, VIEWER);
+
+        assertThat(result).extracting(r -> r.getReplies().size()).containsExactly(1, 0, 2);
+        assertThat(result.get(2).getReplies()).extracting(VideoCommentResponse::getContent)
+                .containsExactly("trả lời gốc 3 (a)", "trả lời gốc 3 (b)");
+        // Đúng một truy vấn cho phản hồi, bất kể có bao nhiêu bình luận gốc.
+        verify(commentRepository, times(1)).findByVideoIdAndParentIsNotNullOrderByCreatedAtAsc(VIDEO_ID);
+        verify(commentRepository, times(1)).findByVideoIdAndParentIsNullOrderByCreatedAtDesc(VIDEO_ID);
     }
 
     @Test

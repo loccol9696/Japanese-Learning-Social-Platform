@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,10 +36,14 @@ public class CommentServiceImpl implements CommentService {
             throw new ResourceNotFoundException("Video", "id", videoId);
         }
         Set<Long> hidden = blockService.relatedUserIds(viewerId);
+        // Hai truy vấn cho cả video (gốc và phản hồi), ghép lại trong bộ nhớ.
+        Map<Long, List<VideoComment>> repliesByParent = commentRepository
+                .findByVideoIdAndParentIsNotNullOrderByCreatedAtAsc(videoId).stream()
+                .collect(Collectors.groupingBy(r -> r.getParent().getId()));
         return commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(videoId)
                 .stream()
                 .filter(c -> !hidden.contains(c.getUser().getId()))
-                .map(c -> toResponse(c, hidden))
+                .map(c -> toResponse(c, hidden, repliesByParent))
                 .toList();
     }
 
@@ -73,7 +79,7 @@ public class CommentServiceImpl implements CommentService {
         } else {
             notificationService.notify(videoOwnerId, userId, com.jlsp.backend.notification.entity.NotificationType.COMMENT, videoId, comment.getId(), comment.getContent());
         }
-        return toResponse(comment, Set.of());
+        return toResponse(comment, Set.of(), Map.of());
     }
 
     @Override
@@ -91,7 +97,8 @@ public class CommentServiceImpl implements CommentService {
         commentRepository.delete(comment);
     }
 
-    private VideoCommentResponse toResponse(VideoComment comment, Set<Long> hidden) {
+    private VideoCommentResponse toResponse(VideoComment comment, Set<Long> hidden,
+                                            Map<Long, List<VideoComment>> repliesByParent) {
         User user = comment.getUser();
         return VideoCommentResponse.builder()
                 .id(comment.getId())
@@ -104,10 +111,10 @@ public class CommentServiceImpl implements CommentService {
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
                 .replies(comment.getParent() == null
-                        ? commentRepository.findByParentIdOrderByCreatedAtAsc(comment.getId())
+                        ? repliesByParent.getOrDefault(comment.getId(), List.of())
                                 .stream()
                                 .filter(r -> !hidden.contains(r.getUser().getId()))
-                                .map(r -> toResponse(r, hidden))
+                                .map(r -> toResponse(r, hidden, repliesByParent))
                                 .toList()
                         : List.of())
                 .build();
