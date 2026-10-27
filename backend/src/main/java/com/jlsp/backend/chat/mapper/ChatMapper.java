@@ -2,8 +2,10 @@ package com.jlsp.backend.chat.mapper;
 
 import com.jlsp.backend.chat.dto.response.ChatUserResponse;
 import com.jlsp.backend.chat.dto.response.MessageResponse;
+import com.jlsp.backend.chat.dto.response.SharedDeckResponse;
 import com.jlsp.backend.chat.dto.response.SharedVideoResponse;
 import com.jlsp.backend.chat.entity.Message;
+import com.jlsp.backend.flashcard.entity.FlashcardSet;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.video.entity.Video;
 import com.jlsp.backend.video.entity.VideoModStatus;
@@ -28,13 +30,22 @@ public class ChatMapper {
                 .build();
     }
 
+    public MessageResponse toMessageResponse(Message message, Map<Long, Video> videos) {
+        return toMessageResponse(message, videos, Map.of());
+    }
+
     /**
      * @param videos video đã tải sẵn theo id (tránh truy vấn từng tin nhắn)
+     * @param decks  thẻ bộ từ vựng đã dựng sẵn theo id (cũng để tránh truy vấn từng tin nhắn)
      */
-    public MessageResponse toMessageResponse(Message message, Map<Long, Video> videos) {
+    public MessageResponse toMessageResponse(Message message, Map<Long, Video> videos,
+                                             Map<Long, SharedDeckResponse> decks) {
         if (message == null) {
             return null;
         }
+        SharedDeckResponse deck = message.getDeckId() == null
+                ? null
+                : decks.getOrDefault(message.getDeckId(), toSharedDeckResponse(message.getDeckId(), null, 0));
         SharedVideoResponse video = message.getVideoId() == null
                 ? null
                 : toSharedVideoResponse(message.getVideoId(), videos.get(message.getVideoId()));
@@ -45,6 +56,7 @@ public class ChatMapper {
                 .type(message.getType())
                 .content(message.getContent())
                 .video(video)
+                .deck(deck)
                 .videoStartMs(message.getVideoStartMs())
                 .clientMsgId(message.getClientMsgId())
                 .createdAt(message.getCreatedAt())
@@ -69,6 +81,23 @@ public class ChatMapper {
                 .creatorDisplayName(creator != null ? creator.getDisplayName() : null)
                 .creatorAvatarUrl(creator != null ? creator.getAvatarUrl() : null)
                 .build();
+    }
+
+    public SharedDeckResponse toSharedDeckResponse(Long deckId, FlashcardSet deck, long cardCount) {
+        if (!isShareable(deck)) {
+            return SharedDeckResponse.builder().id(deckId).available(false).build();
+        }
+        return SharedDeckResponse.builder()
+                .id(deck.getSetId())
+                .available(true)
+                .title(deck.getTitle())
+                .cardCount((int) cardCount)
+                .build();
+    }
+
+    /** Chỉ bộ thẻ công khai mới được chia sẻ / hiển thị trong chat (người nhận chỉ đọc được bộ công khai). */
+    public boolean isShareable(FlashcardSet deck) {
+        return deck != null && Boolean.TRUE.equals(deck.getIsPublic());
     }
 
     /** Chỉ video đã được duyệt và không ở chế độ riêng tư mới được chia sẻ / hiển thị trong chat. */

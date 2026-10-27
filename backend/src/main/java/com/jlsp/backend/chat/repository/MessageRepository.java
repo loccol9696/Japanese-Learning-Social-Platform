@@ -16,14 +16,15 @@ import java.util.Optional;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
-    /** Trang tin nhắn mới nhất (mới nhất trước). */
+    /** Trang tin nhắn mới nhất (mới nhất trước), bỏ qua các tin có id không lớn hơn minId (đã xoá phía người xem). */
     @EntityGraph(attributePaths = "sender")
-    List<Message> findByConversationIdOrderByIdDesc(Long conversationId, Pageable pageable);
+    List<Message> findByConversationIdAndIdGreaterThanOrderByIdDesc(Long conversationId, Long minId,
+                                                                   Pageable pageable);
 
-    /** Tin nhắn cũ hơn cursor beforeId (kéo lên để xem thêm). */
+    /** Tin nhắn cũ hơn cursor beforeId (kéo lên để xem thêm), vẫn bỏ qua các tin có id không lớn hơn minId. */
     @EntityGraph(attributePaths = "sender")
-    List<Message> findByConversationIdAndIdLessThanOrderByIdDesc(Long conversationId, Long beforeId,
-                                                                Pageable pageable);
+    List<Message> findByConversationIdAndIdLessThanAndIdGreaterThanOrderByIdDesc(Long conversationId, Long beforeId,
+                                                                                Long minId, Pageable pageable);
 
     /** Tin mới hơn cursor afterId, cũ nhất trước (đồng bộ phần đã lỡ sau khi mất kết nối). */
     @EntityGraph(attributePaths = "sender")

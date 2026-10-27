@@ -48,6 +48,13 @@ public class Message {
     private Long videoId;
 
     /**
+     * Bộ thẻ được chia sẻ (DECK_SHARE). Không đặt khóa ngoại để việc xoá bộ thẻ không bị chặn;
+     * bộ thẻ đã xoá sẽ hiển thị là "không còn khả dụng".
+     */
+    @Column(name = "deck_id")
+    private Long deckId;
+
+    /**
      * Mốc thời gian (ms) để mở video đúng câu phụ đề được chia sẻ
      */
     @Column(name = "video_start_ms")

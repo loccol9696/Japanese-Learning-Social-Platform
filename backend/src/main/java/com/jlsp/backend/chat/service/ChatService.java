@@ -1,6 +1,7 @@
 package com.jlsp.backend.chat.service;
 
 import com.jlsp.backend.chat.dto.request.SendMessageRequest;
+import com.jlsp.backend.chat.dto.request.ShareDeckRequest;
 import com.jlsp.backend.chat.dto.request.ShareVideoRequest;
 import com.jlsp.backend.chat.dto.response.ChatUserResponse;
 import com.jlsp.backend.chat.dto.response.ConversationResponse;
@@ -37,7 +38,16 @@ public interface ChatService {
 
     MessageResponse sendMessage(Long userId, SendMessageRequest request);
 
+    /**
+     * Xoá cuộc trò chuyện chỉ ở phía người dùng: ẩn toàn bộ tin hiện có và đưa hội thoại ra khỏi hộp thư,
+     * hội thoại hiện lại (chỉ với tin mới) khi có tin nhắn mới. Người kia vẫn giữ nguyên lịch sử.
+     */
+    void clearConversation(Long userId, Long conversationId);
+
     List<MessageResponse> shareVideo(Long userId, Long videoId, ShareVideoRequest request);
+
+    /** Chia sẻ một bộ thẻ công khai cho nhiều người (follow lẫn nhau); mỗi người nhận một tin DECK_SHARE. */
+    List<MessageResponse> shareDeck(Long userId, Long deckId, ShareDeckRequest request);
 
     ReadReceiptResponse markAsRead(Long userId, Long conversationId, Long lastMessageId);
 

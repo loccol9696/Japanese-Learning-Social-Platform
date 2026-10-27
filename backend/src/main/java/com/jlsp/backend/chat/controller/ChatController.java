@@ -3,6 +3,7 @@ package com.jlsp.backend.chat.controller;
 import com.jlsp.backend.chat.dto.request.CreateConversationRequest;
 import com.jlsp.backend.chat.dto.request.MarkReadRequest;
 import com.jlsp.backend.chat.dto.request.SendMessageRequest;
+import com.jlsp.backend.chat.dto.request.ShareDeckRequest;
 import com.jlsp.backend.chat.dto.request.ShareVideoRequest;
 import com.jlsp.backend.chat.dto.response.ChatUserResponse;
 import com.jlsp.backend.chat.dto.response.ConversationResponse;
@@ -63,6 +64,13 @@ public class ChatController {
         return ResponseEntity.ok(ApiResponse.success(chatService.getConversation(CurrentUser.requireId(), id)));
     }
 
+    /** DELETE /api/v1/chat/conversations/{id} — xoá cuộc trò chuyện ở phía mình (người kia vẫn giữ lịch sử). */
+    @DeleteMapping("/chat/conversations/{id}")
+    public ResponseEntity<ApiResponse<Void>> clearConversation(@PathVariable Long id) {
+        chatService.clearConversation(CurrentUser.requireId(), id);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã xoá cuộc trò chuyện", null));
+    }
+
     /**
      * GET /api/v1/chat/conversations/{id}/messages?before={messageId}&size=30 — lịch sử, mới nhất trước.
      * <br>GET .../messages?after={messageId}&size=30 — tin mới hơn mốc đó, cũ nhất trước
@@ -117,6 +125,15 @@ public class ChatController {
             @PathVariable Long id,
             @Valid @RequestBody ShareVideoRequest request) {
         List<MessageResponse> sent = chatService.shareVideo(CurrentUser.requireId(), id, request);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã chia sẻ cho " + sent.size() + " người", sent));
+    }
+
+    /** POST /api/v1/flashcards/sets/{id}/share — chia sẻ bộ thẻ công khai cho nhiều người (follow lẫn nhau). */
+    @PostMapping("/flashcards/sets/{id}/share")
+    public ResponseEntity<ApiResponse<List<MessageResponse>>> shareDeck(
+            @PathVariable Long id,
+            @Valid @RequestBody ShareDeckRequest request) {
+        List<MessageResponse> sent = chatService.shareDeck(CurrentUser.requireId(), id, request);
         return ResponseEntity.ok(ApiResponse.success(200, "Đã chia sẻ cho " + sent.size() + " người", sent));
     }
 }

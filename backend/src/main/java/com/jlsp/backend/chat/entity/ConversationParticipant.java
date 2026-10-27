@@ -38,6 +38,13 @@ public class ConversationParticipant {
     @Column(name = "last_read_message_id")
     private Long lastReadMessageId;
 
+    /**
+     * Người này đã "xoá cuộc trò chuyện" (chỉ phía họ): các tin có id nhỏ hơn hoặc bằng giá trị này bị ẩn khỏi
+     * lịch sử và hội thoại biến mất khỏi hộp thư cho tới khi có tin mới hơn. Người kia không bị ảnh hưởng.
+     */
+    @Column(name = "cleared_before_message_id")
+    private Long clearedBeforeMessageId;
+
     @Column(name = "joined_at", nullable = false, updatable = false)
     private LocalDateTime joinedAt;
 
