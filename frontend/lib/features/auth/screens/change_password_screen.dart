@@ -4,6 +4,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../data/services/auth_service.dart';
+import '../password_policy.dart';
 
 /// Đổi mật khẩu cho người đang đăng nhập. Server thu hồi phiên ở các thiết bị
 /// khác và trả cặp token mới cho thiết bị này (AuthService đã lưu lại).
@@ -17,8 +18,6 @@ class ChangePasswordScreen extends StatefulWidget {
 }
 
 class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
-  static const int _passwordMin = 6;
-  static const int _passwordMax = 72;
 
   final _formKey = GlobalKey<FormState>();
   final _confirmFieldKey = GlobalKey<FormFieldState<String>>();
@@ -149,10 +148,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   },
                   validator: (v) {
                     final value = v ?? '';
-                    if (value.length < _passwordMin ||
-                        value.length > _passwordMax) {
-                      return 'Mật khẩu phải từ $_passwordMin đến $_passwordMax ký tự';
-                    }
+                    final problem = validateNewPassword(value);
+                    if (problem != null) return problem;
                     if (value == _oldController.text) {
                       return 'Mật khẩu mới phải khác mật khẩu hiện tại';
                     }

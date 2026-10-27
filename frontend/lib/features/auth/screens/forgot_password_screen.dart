@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../data/services/auth_service.dart';
+import '../password_policy.dart';
 import 'auth_layout.dart';
 import '../../../core/theme/app_palette.dart';
 
@@ -24,7 +25,6 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   static const int _otpLength = 6;
-  static const int _passwordMin = 6;
   static const int _passwordMax = 72;
   static const int _resendCooldownSeconds = 60;
 
@@ -144,13 +144,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   String? _validatePassword(String? value) {
     final password = value ?? '';
     if (password.isEmpty) return 'Vui lòng nhập mật khẩu mới';
-    if (password.length < _passwordMin) {
-      return 'Mật khẩu phải có ít nhất $_passwordMin ký tự';
-    }
     if (password.trim() != password) {
       return 'Mật khẩu không được bắt đầu hoặc kết thúc bằng khoảng trắng';
     }
-    return null;
+    return validateNewPassword(password);
   }
 
   String? _validateConfirm(String? value) {
