@@ -59,6 +59,10 @@ public class VideoServiceImpl implements VideoService {
     private final com.jlsp.backend.topic.service.TopicService topicService;
     private final com.jlsp.backend.notification.service.NotificationService notificationService;
     private final com.jlsp.backend.block.service.BlockService blockService;
+    private final com.jlsp.backend.common.security.ratelimit.RateLimiter rateLimiter;
+
+    /** Một người xem chỉ được tính một lượt xem cho mỗi video trong khoảng này. */
+    static final java.time.Duration VIEW_DEDUP_WINDOW = java.time.Duration.ofMinutes(30);
 
     /**
      * Đăng tải bài học video mới.
@@ -429,9 +433,14 @@ public class VideoServiceImpl implements VideoService {
      */
     @Override
     @Transactional
-    public void incrementViewCount(Long videoId) {
+    public void incrementViewCount(Long videoId, String viewerKey) {
         if (!videoRepository.existsById(videoId)) {
             throw new ResourceNotFoundException("Video", "id", videoId);
+        }
+        // Kiểm tra sau khi video tồn tại để id bừa không tạo khoá rác trong Redis.
+        if (viewerKey != null
+                && !rateLimiter.tryAcquire("view:" + videoId + ":" + viewerKey, 1, VIEW_DEDUP_WINDOW).allowed()) {
+            return;
         }
         videoRepository.incrementViewCount(videoId);
     }

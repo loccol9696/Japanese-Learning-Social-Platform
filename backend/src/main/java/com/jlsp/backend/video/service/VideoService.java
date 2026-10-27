@@ -110,11 +110,13 @@ public interface VideoService {
     boolean toggleSave(Long videoId, Long currentUserId);
 
     /**
-     * Ghi nhận lượt xem hợp lệ cho video.
+     * Ghi nhận lượt xem hợp lệ cho video. Mỗi người xem (tài khoản, hoặc IP với khách) chỉ được tính một
+     * lượt cho mỗi video trong một khoảng thời gian, để không bơm lượt xem bằng cách gọi lặp.
      *
-     * @param videoId ID của video
+     * @param videoId   ID của video
+     * @param viewerKey định danh người xem (vd. "u12" hoặc "ip203.0.113.9"); null thì luôn tính
      */
-    void incrementViewCount(Long videoId);
+    void incrementViewCount(Long videoId, String viewerKey);
 
     /**
      * Cập nhật dữ liệu phụ đề tương tác JSON (chứa phân đoạn start/end, text,

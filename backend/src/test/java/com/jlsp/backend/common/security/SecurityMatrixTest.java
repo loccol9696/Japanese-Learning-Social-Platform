@@ -2,6 +2,7 @@ package com.jlsp.backend.common.security;
 
 import com.jlsp.backend.common.config.SecurityConfig;
 import com.jlsp.backend.common.security.jwt.JwtUtils;
+import com.jlsp.backend.common.security.ratelimit.ClientIpResolver;
 import com.jlsp.backend.common.security.ratelimit.RateLimiter;
 import com.jlsp.backend.common.security.token.AccessTokenDenylist;
 import com.jlsp.backend.user.entity.User;
@@ -38,7 +39,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * Thêm endpoint mới cần phân quyền đặc biệt thì thêm một dòng vào bảng bên dưới.
  */
 @WebMvcTest(controllers = SecurityMatrixTest.EchoController.class)
-@Import({SecurityConfig.class, JwtUtils.class, SecurityMatrixTest.EchoController.class})
+@Import({SecurityConfig.class, JwtUtils.class, ClientIpResolver.class, SecurityMatrixTest.EchoController.class})
 @TestPropertySource(properties = {
         "jwt.secret=test-secret-key-that-is-long-enough-for-hs256!!",
         "jwt.issuer=jlsp-backend"

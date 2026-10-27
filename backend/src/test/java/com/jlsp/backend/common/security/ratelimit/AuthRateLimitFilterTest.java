@@ -31,7 +31,7 @@ class AuthRateLimitFilterTest {
     }
 
     private AuthRateLimitFilter filter(boolean enabled, boolean trustForwardedFor) {
-        return new AuthRateLimitFilter(limiter, enabled, trustForwardedFor);
+        return new AuthRateLimitFilter(limiter, enabled, new ClientIpResolver(trustForwardedFor));
     }
 
     private static MockHttpServletRequest post(String path) {

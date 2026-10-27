@@ -22,12 +22,7 @@ import java.util.Map;
  * việc khoá theo tài khoản ở {@code LoginAttemptService} (chỉ chặn dò mật khẩu một tài khoản) và giới hạn
  * OTP theo email: lớp này chặn một nguồn thử nhiều tài khoản, đăng ký hàng loạt, spam gửi mail.
  *
- * <ul>
- *   <li>Tắt bằng {@code RATE_LIMIT_ENABLED=false}.</li>
- *   <li>Mặc định lấy IP từ kết nối trực tiếp. Chỉ khi chạy sau reverse proxy đáng tin mới đặt
- *       {@code TRUST_FORWARDED_FOR=true} để dùng {@code X-Forwarded-For}; nếu không, mọi người dùng chung
- *       một IP của proxy và sẽ chặn lẫn nhau, còn nếu bật mà không có proxy thì kẻ tấn công tự giả IP.</li>
- * </ul>
+ * <p>Tắt bằng {@code RATE_LIMIT_ENABLED=false}. Cách xác định IP xem {@link ClientIpResolver}.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
@@ -48,14 +43,14 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 
     private final RateLimiter rateLimiter;
     private final boolean enabled;
-    private final boolean trustForwardedFor;
+    private final ClientIpResolver clientIpResolver;
 
     public AuthRateLimitFilter(RateLimiter rateLimiter,
                                @Value("${RATE_LIMIT_ENABLED:true}") boolean enabled,
-                               @Value("${TRUST_FORWARDED_FOR:false}") boolean trustForwardedFor) {
+                               ClientIpResolver clientIpResolver) {
         this.rateLimiter = rateLimiter;
         this.enabled = enabled;
-        this.trustForwardedFor = trustForwardedFor;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Override
@@ -70,7 +65,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         Rule rule = RULES.get(normalizedPath(request));
         RateLimiter.Decision decision = rateLimiter.tryAcquire(
-                rule.name() + ":" + clientIp(request), rule.maxRequests(), rule.window());
+                rule.name() + ":" + clientIpResolver.resolve(request), rule.maxRequests(), rule.window());
 
         if (decision.allowed()) {
             chain.doFilter(request, response);
@@ -89,16 +84,5 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     private static String normalizedPath(HttpServletRequest request) {
         String path = request.getRequestURI();
         return path.length() > 1 && path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
-    }
-
-    String clientIp(HttpServletRequest request) {
-        if (trustForwardedFor) {
-            String forwarded = request.getHeader("X-Forwarded-For");
-            if (forwarded != null && !forwarded.isBlank()) {
-                // Phần tử đầu là client gốc; các phần tử sau là các proxy trung gian.
-                return forwarded.split(",")[0].trim();
-            }
-        }
-        return request.getRemoteAddr();
     }
 }
