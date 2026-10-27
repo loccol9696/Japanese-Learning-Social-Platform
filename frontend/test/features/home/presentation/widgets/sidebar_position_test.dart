@@ -48,4 +48,32 @@ void main() {
     // Nếu bị căn giữa thì tâm cột sẽ ở khoảng giữa màn hình (450); neo đáy thì lệch hẳn xuống dưới.
     expect(rect.center.dy, greaterThan(900 / 2 + 20));
   });
+
+  testWidgets('màn không có thanh menu dưới (reserveBottomBar = false): cột nút kéo sát đáy, không chừa khoảng trống', (tester) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    Future<Rect> sidebarRect({required bool reserve}) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            height: 900,
+            child: VideoPlayerItem(key: ValueKey(reserve), post: _post(), reserveBottomBar: reserve),
+          ),
+        ),
+      ));
+      await tester.pump();
+      return tester.getRect(find.byType(InteractionSidebar));
+    }
+
+    final withBar = await sidebarRect(reserve: true);
+    final withoutBar = await sidebarRect(reserve: false);
+
+    // Có thanh menu: đáy cột cách đáy màn một thanh menu + 28; không có: chỉ còn khoảng đệm 28.
+    expect(withBar.bottom, closeTo(900 - BottomNavDock.contentHeight - 28.0, 0.5));
+    expect(withoutBar.bottom, closeTo(900 - 28.0, 0.5));
+    expect(withoutBar.bottom - withBar.bottom, closeTo(BottomNavDock.contentHeight, 0.5));
+  });
 }

@@ -11,6 +11,7 @@ import 'deck_editor_screen.dart';
 import 'deck_overview_screen.dart';
 import 'srs_study_screen.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 class DeckLibraryScreen extends StatefulWidget {
   const DeckLibraryScreen({super.key});
@@ -205,24 +206,12 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                 deck.setId,
                 onError: (err) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Không thể xóa bộ thẻ: $err'),
-                        backgroundColor: AppPalette.accent,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
+                    AppToast.showError('Không thể xóa bộ thẻ: $err', context: context);
                   }
                 },
               );
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Đã xóa bộ thẻ thành công'),
-                  backgroundColor: AppPalette.surface,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              AppToast.showSuccess('Đã xóa bộ thẻ thành công', context: context);
             },
             child: Text(
               'Xóa bộ thẻ',
@@ -296,9 +285,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                   await _loadDecks(query: _searchController.text);
                 } catch (e) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Không thể tạo bộ thẻ: $e')),
-                    );
+                    AppToast.showError('Không thể tạo bộ thẻ: $e', context: context);
                     setState(() => _isLoading = false);
                   }
                 }

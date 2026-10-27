@@ -12,6 +12,7 @@ import '../../topic/topic_service.dart';
 import '../data/explore_service.dart';
 import '../data/explore_video.dart';
 import '../../home/presentation/widgets/video_player_item.dart';
+import '../../../core/widgets/swipe_back_detector.dart';
 
 /// Màn Khám phá: tìm kiếm + lọc + lưới video, dữ liệu lấy hoàn toàn từ backend.
 class ExploreScreen extends StatefulWidget {
@@ -24,7 +25,7 @@ class ExploreScreen extends StatefulWidget {
   State<ExploreScreen> createState() => _ExploreScreenState();
 }
 
-class _ExploreScreenState extends State<ExploreScreen> {
+class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProviderStateMixin {
   static Color get _background => AppPalette.background;
   static Color get _surface => AppPalette.surface;
   static Color get _surfaceHigh => AppPalette.surface;
@@ -48,6 +49,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String? _error;
   int? _selectedVideoIndex;
   PageController? _videoFeedController;
+
+  /// Mức hiện của khung xem video: 1 = phủ kín, 0 = trượt hết ra ngoài phải. Điều khiển cả hiệu ứng mở / đóng lẫn
+  /// việc trượt theo ngón tay khi vuốt quay lại, giống cách một trang thật chuyển cảnh.
+  late final AnimationController _feedAnim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+  );
+  bool _closingFeed = false;
 
   /// Tăng mỗi lần đổi bộ lọc/từ khoá để bỏ qua kết quả của request cũ.
   int _requestToken = 0;
@@ -73,6 +82,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _searchDebounce?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
+    _feedAnim.dispose();
     _videoFeedController?.dispose();
     super.dispose();
   }
@@ -229,19 +239,45 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   void _openVideo(int index) {
+    if (_closingFeed) return;
     _videoFeedController?.dispose();
     setState(() {
       _selectedVideoIndex = index;
       _videoFeedController = PageController(initialPage: index);
     });
+    _feedAnim.forward(from: 0); // video trượt vào từ bên phải
   }
 
-  void _closeVideoFeed() {
-    _videoFeedController?.dispose();
+  /// Đóng khung xem video: trượt ra bên phải rồi gỡ khỏi cây widget, danh sách kết quả vừa tìm vẫn nằm sẵn bên dưới
+  /// (giữ nguyên vị trí cuộn).
+  Future<void> _closeVideoFeed() async {
+    if (_closingFeed || _selectedVideoIndex == null) return;
+    _closingFeed = true;
+    await _feedAnim.reverse();
+    if (!mounted) return;
+    final controller = _videoFeedController;
     setState(() {
       _videoFeedController = null;
       _selectedVideoIndex = null;
+      _closingFeed = false;
     });
+    // Huỷ sau khi khung hình đã gỡ PageView ra khỏi cây.
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller?.dispose());
+  }
+
+  /// Vuốt quay lại: khung video trượt theo ngón tay.
+  void _onFeedDrag(double fraction) {
+    if (_closingFeed) return;
+    _feedAnim.value = (_feedAnim.value - fraction).clamp(0.0, 1.0);
+  }
+
+  void _onFeedDragEnd(bool goBack) {
+    if (_closingFeed) return;
+    if (goBack) {
+      _closeVideoFeed();
+    } else {
+      _feedAnim.animateTo(1.0, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+    }
   }
 
   String _messageOf(Object e) {
@@ -259,10 +295,63 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_selectedVideoIndex != null) {
-      return _buildVideoFeed();
-    }
+    final inVideoFeed = _selectedVideoIndex != null;
+    // Đang xem video trong cùng trang: vuốt quay lại và nút Back của hệ thống chỉ đóng video để về danh sách tìm
+    // kiếm vừa rồi, không đóng cả trang Khám phá (về thẳng Trang chủ).
+    return SwipeBackOverride(
+      active: inVideoFeed,
+      onBack: _closeVideoFeed,
+      onDragDelta: _onFeedDrag,
+      onDragEnd: _onFeedDragEnd,
+      child: PopScope(
+        canPop: !inVideoFeed,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && inVideoFeed) _closeVideoFeed();
+        },
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            return AnimatedBuilder(
+              animation: _feedAnim,
+              builder: (context, _) {
+                final shown = _feedAnim.value;
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Danh sách kết quả luôn nằm bên dưới, dịch nhẹ sang trái khi video trượt vào (như chuyển trang).
+                    Transform.translate(
+                      offset: Offset(-width * 0.3 * shown, 0),
+                      child: IgnorePointer(
+                        ignoring: inVideoFeed,
+                        child: ExcludeFocus(excluding: inVideoFeed, child: _buildResults()),
+                      ),
+                    ),
+                    if (inVideoFeed)
+                      Transform.translate(
+                        offset: Offset(width * (1 - shown), 0),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppPalette.shadow.withValues(alpha: 0.35 * shown),
+                                blurRadius: 24,
+                              ),
+                            ],
+                          ),
+                          child: _buildVideoFeed(),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
 
+  Widget _buildResults() {
     // Chừa chỗ cho thanh menu dưới (nằm đè lên nội dung trong HomeScreen).
     final bottomInset =
         MediaQuery.of(context).padding.bottom +
@@ -307,7 +396,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
             itemCount: _videos.length,
             itemBuilder: (context, index) {
               final video = _videos[index];
-              return VideoPlayerItem(key: ValueKey(video.id), post: video.post);
+              return VideoPlayerItem(
+                key: ValueKey(video.id),
+                post: video.post,
+                // Mở từ trang tìm kiếm (có nút quay lại) thì không có thanh menu dưới nên không chừa chỗ cho nó.
+                reserveBottomBar: !widget.showBackButton,
+              );
             },
           ),
           Positioned(

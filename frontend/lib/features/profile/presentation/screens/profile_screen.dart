@@ -27,6 +27,7 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/theme_manager.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ProfileRepository? repository;
@@ -548,14 +549,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         localeManager.changeLanguage(language);
                         Navigator.of(pickerContext).pop();
                         Navigator.of(settingsSheetContext).pop();
-                        ScaffoldMessenger.of(context)
-                          ..hideCurrentSnackBar()
-                          ..showSnackBar(
-                            SnackBar(
-                              content: Text(appStrings.languageChanged),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                        AppToast.showSuccess(appStrings.languageChanged, context: context);
                       },
                     ),
                 ],

@@ -159,4 +159,148 @@ void main() {
     expect(detector.onHorizontalDragStart, isNull);
     expect(detector.onHorizontalDragEnd, isNull);
   });
+
+  group('SwipeBackOverride', () {
+    /// Màn có trạng thái con: [inChild] true thì vuốt quay lại / nút Back chỉ thu về trạng thái cha.
+    Widget childAwareScreen(ValueNotifier<bool> inChild, List<String> log) => ValueListenableBuilder<bool>(
+      valueListenable: inChild,
+      builder: (context, active, _) => SwipeBackOverride(
+        active: active,
+        onBack: () {
+          log.add('thu về');
+          inChild.value = false;
+        },
+        child: PopScope(
+          canPop: !active,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && active) {
+              log.add('thu về (nút Back)');
+              inChild.value = false;
+            }
+          },
+          child: Scaffold(body: Center(child: Text(active ? 'chế độ con' : 'danh sách'))),
+        ),
+      ),
+    );
+
+    testWidgets('đang ở trạng thái con: vuốt chỉ thu về trạng thái cha, không đóng cả màn', (tester) async {
+      await pumpApp(tester);
+      final inChild = ValueNotifier<bool>(true);
+      final log = <String>[];
+      await push(tester, MaterialPageRoute<void>(builder: (_) => childAwareScreen(inChild, log)));
+      expect(find.text('chế độ con'), findsOneWidget);
+
+      await swipeRight(tester, find.text('chế độ con'));
+
+      expect(log, ['thu về']);
+      expect(find.text('danh sách'), findsOneWidget); // vẫn ở màn này
+      expect(navigatorKey.currentState!.canPop(), isTrue);
+
+      // Hết trạng thái con: lần vuốt sau đóng cả màn như bình thường.
+      await swipeRight(tester, find.text('danh sách'));
+      expect(find.text('danh sách'), findsNothing);
+      expect(find.text('trang chủ'), findsOneWidget);
+    });
+
+    testWidgets('nút Back của hệ thống cũng chỉ thu về trạng thái cha', (tester) async {
+      await pumpApp(tester);
+      final inChild = ValueNotifier<bool>(true);
+      final log = <String>[];
+      await push(tester, MaterialPageRoute<void>(builder: (_) => childAwareScreen(inChild, log)));
+
+      await navigatorKey.currentState!.maybePop();
+      await tester.pumpAndSettle();
+
+      expect(log, ['thu về (nút Back)']);
+      expect(find.text('danh sách'), findsOneWidget);
+    });
+
+    testWidgets('kéo ngắn và chậm thì chưa tính là quay lại', (tester) async {
+      await pumpApp(tester);
+      final inChild = ValueNotifier<bool>(true);
+      final log = <String>[];
+      await push(tester, MaterialPageRoute<void>(builder: (_) => childAwareScreen(inChild, log)));
+
+      final gesture = await tester.startGesture(tester.getCenter(find.text('chế độ con')));
+      await gesture.moveBy(const Offset(30, 0));
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump(const Duration(seconds: 1)); // dừng lại: tốc độ về 0
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(log, isEmpty);
+      expect(find.text('chế độ con'), findsOneWidget);
+    });
+
+    testWidgets('màn khác đè lên trên: vuốt đóng màn trên cùng, hàm của màn bên dưới không bị gọi', (tester) async {
+      await pumpApp(tester);
+      final inChild = ValueNotifier<bool>(true);
+      final log = <String>[];
+      await push(tester, MaterialPageRoute<void>(builder: (_) => childAwareScreen(inChild, log)));
+      await push(
+        tester,
+        MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Center(child: Text('trang cá nhân')))),
+      );
+
+      await swipeRight(tester, find.text('trang cá nhân'));
+
+      expect(log, isEmpty);
+      expect(find.text('trang cá nhân'), findsNothing);
+      expect(find.text('chế độ con'), findsOneWidget);
+    });
+
+    testWidgets('onDragDelta nhận phần chiều rộng đã kéo; onDragEnd(true) khi kéo đủ xa, thay cho onBack', (tester) async {
+      await pumpApp(tester);
+      final deltas = <double>[];
+      final ends = <bool>[];
+      var backCalls = 0;
+      await push(
+        tester,
+        MaterialPageRoute<void>(
+          builder: (_) => SwipeBackOverride(
+            active: true,
+            onBack: () => backCalls++,
+            onDragDelta: deltas.add,
+            onDragEnd: ends.add,
+            child: const Scaffold(body: Center(child: Text('có kéo theo tay'))),
+          ),
+        ),
+      );
+
+      await swipeRight(tester, find.text('có kéo theo tay'));
+
+      expect(deltas, isNotEmpty);
+      expect(deltas.every((d) => d > 0), isTrue);
+      // Tổng phần đã kéo xấp xỉ quãng ngón tay di chuyển / chiều rộng màn (800).
+      expect(deltas.fold<double>(0, (a, b) => a + b), closeTo(0.5, 0.15));
+      expect(ends, [true]);
+      expect(backCalls, 0);
+    });
+
+    testWidgets('kéo ngắn rồi thả: onDragEnd(false) để màn tự trả nội dung về chỗ cũ', (tester) async {
+      await pumpApp(tester);
+      final ends = <bool>[];
+      await push(
+        tester,
+        MaterialPageRoute<void>(
+          builder: (_) => SwipeBackOverride(
+            active: true,
+            onBack: () {},
+            onDragDelta: (_) {},
+            onDragEnd: ends.add,
+            child: const Scaffold(body: Center(child: Text('kéo ngắn'))),
+          ),
+        ),
+      );
+
+      final gesture = await tester.startGesture(tester.getCenter(find.text('kéo ngắn')));
+      await gesture.moveBy(const Offset(60, 0));
+      await gesture.moveBy(const Offset(60, 0));
+      await tester.pump(const Duration(milliseconds: 800)); // dừng lại trước khi thả: tốc độ về 0
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(ends, [false]);
+    });
+  });
 }

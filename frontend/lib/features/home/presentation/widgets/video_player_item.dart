@@ -40,6 +40,11 @@ class VideoPlayerItem extends StatefulWidget {
   /// null = luôn được phát.
   final ValueListenable<bool>? playbackAllowed;
 
+  /// true (mặc định) khi video nằm trong Home và thanh menu dưới đè lên nội dung nên phải chừa chỗ cho nó.
+  /// false ở các màn không có thanh menu (xem video từ kết quả tìm kiếm, video được chia sẻ) để video và phụ đề
+  /// kéo sát đáy màn hình, không bị chừa một khoảng trống.
+  final bool reserveBottomBar;
+
   const VideoPlayerItem({
     super.key,
     required this.post,
@@ -51,6 +56,7 @@ class VideoPlayerItem extends StatefulWidget {
     this.allowAccountActions = true,
     this.initialPosition,
     this.playbackAllowed,
+    this.reserveBottomBar = true,
   });
 
   @override
@@ -494,13 +500,16 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     );
   }
 
+  /// Chiều cao thanh menu dưới cần chừa (0 khi màn này không có thanh menu), chưa gồm vùng an toàn.
+  double get _barHeight => widget.reserveBottomBar ? BottomNavDock.contentHeight : 0.0;
+
   @override
   Widget build(BuildContext context) {
     // Dynamic contrast theme based on background brightness
     final theme = AdaptiveVideoTheme(isLight: widget.post.isLightBackground);
     // Chiều cao thanh menu dưới (kể cả vùng an toàn) để các lớp phủ né ra.
     final navBarHeight =
-        BottomNavDock.contentHeight + MediaQuery.paddingOf(context).bottom;
+        _barHeight + MediaQuery.paddingOf(context).bottom;
     final activeCue = _activeSubtitle;
     final displayedSegments = widget.post.subtitleCues.isEmpty
         ? widget.post.rubySegments
@@ -700,7 +709,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           final mediaPadding = MediaQuery.paddingOf(context);
           final topReservedHeight = mediaPadding.top + 56.0;
           final bottomReservedHeight =
-              BottomNavDock.contentHeight + mediaPadding.bottom;
+              _barHeight + mediaPadding.bottom;
           final contentHeight = math.max(
             0.0,
             constraints.maxHeight - topReservedHeight - bottomReservedHeight,

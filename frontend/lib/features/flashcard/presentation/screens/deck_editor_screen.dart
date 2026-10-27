@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../../data/services/flashcard_store.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 class DeckEditorScreen extends StatefulWidget {
   final FlashcardSetModel? deck;
@@ -18,12 +20,9 @@ class _CardDraft {
   final TextEditingController termController;
   final TextEditingController meaningController;
 
-  _CardDraft({
-    this.cardId,
-    required String term,
-    required String meaning,
-  })  : termController = TextEditingController(text: term),
-        meaningController = TextEditingController(text: meaning);
+  _CardDraft({this.cardId, required String term, required String meaning})
+    : termController = TextEditingController(text: term),
+      meaningController = TextEditingController(text: meaning);
 
   void dispose() {
     termController.dispose();
@@ -38,6 +37,9 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _descController;
 
+  /// Số ô thẻ trống để sẵn khi bộ chưa có thuật ngữ nào, để người dùng nhập ngay không cần bấm "Thêm thẻ".
+  static const int _starterCardCount = 2;
+
   final List<_CardDraft> _cards = [];
   final List<int> _deletedCardIds = [];
 
@@ -50,12 +52,23 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.deck?.title ?? '');
-    _descController =
-        TextEditingController(text: widget.deck?.description ?? '');
+    _descController = TextEditingController(
+      text: widget.deck?.description ?? '',
+    );
     if (_isEditing) {
       _loadInitialCards();
     } else {
+      _ensureStarterCards();
       _isLoading = false;
+    }
+  }
+
+  /// Chưa có thẻ nào thì để sẵn [_starterCardCount] ô trống. Ô trống cả thuật ngữ lẫn định nghĩa sẽ bị bỏ qua khi
+  /// lưu nên không tạo thẻ rác. Đã có thẻ (kể cả chỉ một ô trống) thì giữ nguyên.
+  void _ensureStarterCards() {
+    if (_cards.isNotEmpty) return;
+    for (var i = 0; i < _starterCardCount; i++) {
+      _cards.add(_CardDraft(term: '', meaning: ''));
     }
   }
 
@@ -85,12 +98,14 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
               ),
             );
           }
+          _ensureStarterCards();
           _isLoading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
+          _ensureStarterCards();
           _isLoading = false;
         });
       }
@@ -118,19 +133,14 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
       _deletedCardIds.add(removed.cardId!);
     }
     removed.dispose();
-    setState(() {});
+    // Xoá hết thẻ thì để lại ô trống sẵn như lúc mới tạo.
+    setState(_ensureStarterCards);
   }
 
   Future<void> _saveDeck() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Vui lòng nhập tiêu đề bộ thẻ'),
-          backgroundColor: AppPalette.surface,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.showError('Vui lòng nhập tiêu đề bộ thẻ', context: context);
       return;
     }
 
@@ -220,32 +230,20 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _isEditing
-                  ? 'Đã lưu thay đổi bộ thẻ thành công'
-                  : 'Đã tạo bộ thẻ mới thành công',
-            ),
-            backgroundColor: AppPalette.surface,
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppToast.showSuccess(
+          _isEditing
+              ? 'Đã lưu thay đổi bộ thẻ thành công'
+              : 'Đã tạo bộ thẻ mới thành công',
+          context: context,
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _isEditing
-                  ? 'Không thể lưu bộ thẻ: $e'
-                  : 'Không thể tạo bộ thẻ: $e',
-            ),
-            backgroundColor: AppPalette.accent,
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppToast.showError(
+          _isEditing ? 'Không thể lưu bộ thẻ: $e' : 'Không thể tạo bộ thẻ: $e',
+          context: context,
         );
       }
     }
@@ -288,7 +286,10 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                   foregroundColor: AppPalette.onAccent,
                   disabledBackgroundColor: AppPalette.accent.withOpacity(0.5),
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 8,
+                  ),
                   minimumSize: const Size(60, 36),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
@@ -316,9 +317,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
         ],
       ),
       body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(color: AppPalette.accent),
-            )
+          ? Center(child: CircularProgressIndicator(color: AppPalette.accent))
           : ListView(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
@@ -439,6 +438,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 14),
                     child: Container(
+                      key: ValueKey('card-draft-$index'),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: AppPalette.surface,

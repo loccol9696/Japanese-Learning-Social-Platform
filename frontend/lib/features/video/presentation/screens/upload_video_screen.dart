@@ -13,6 +13,7 @@ import '../../../home/presentation/widgets/bottom_nav_dock.dart';
 import '../../../profile/domain/models/topic_model.dart';
 import '../../../topic/topic_service.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 class UploadVideoScreen extends StatefulWidget {
   const UploadVideoScreen({super.key});
@@ -138,9 +139,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    AppToast.show(message, context: context);
   }
 
   /// Xanh dương nhạt cho gạch chân tab, icon tải lên và nút "Dán".
@@ -804,9 +803,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    AppToast.show(message, context: context);
   }
 
   void _handleNavigation(int index) {

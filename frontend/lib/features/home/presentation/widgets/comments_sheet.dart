@@ -7,6 +7,7 @@ import '../../../report/report_sheet.dart';
 import '../../data/models/video_comment.dart';
 import '../../data/services/comment_service.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 Future<void> showCommentsSheet(
   BuildContext context, {
@@ -115,9 +116,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     } catch (error) {
       if (mounted) {
         setState(() => _sending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể đăng bình luận: $error')),
-        );
+        AppToast.showError('Không thể đăng bình luận: $error', context: context);
       }
     }
   }
@@ -152,9 +151,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không thể xóa bình luận: $error')),
-      );
+      AppToast.showError('Không thể xóa bình luận: $error', context: context);
     }
   }
 
