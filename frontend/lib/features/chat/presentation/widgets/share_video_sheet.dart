@@ -5,19 +5,12 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../data/models/chat_models.dart';
 import '../../data/services/chat_service.dart';
-import '../chat_format.dart';
 import 'chat_avatar.dart';
 
-/// Mở bảng chia sẻ video cho bạn bè (chỉ những người follow lẫn nhau).
-///
-/// [startMs] là mốc thời gian gợi ý (câu phụ đề đang xem): người nhận bấm vào
-/// sẽ mở video đúng đoạn đó.
+/// Mở bảng chia sẻ video cho bạn bè (chỉ những người follow lẫn nhau). Chia sẻ cả video, người nhận mở từ đầu.
 Future<void> showShareVideoSheet(
   BuildContext context, {
   required String videoId,
-  required String title,
-  required String thumbnailUrl,
-  int startMs = 0,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -25,25 +18,14 @@ Future<void> showShareVideoSheet(
     backgroundColor: Colors.transparent,
     builder: (_) => _ShareVideoSheet(
       videoId: videoId,
-      title: title,
-      thumbnailUrl: thumbnailUrl,
-      startMs: startMs,
     ),
   );
 }
 
 class _ShareVideoSheet extends StatefulWidget {
   final String videoId;
-  final String title;
-  final String thumbnailUrl;
-  final int startMs;
 
-  const _ShareVideoSheet({
-    required this.videoId,
-    required this.title,
-    required this.thumbnailUrl,
-    required this.startMs,
-  });
+  const _ShareVideoSheet({required this.videoId});
 
   @override
   State<_ShareVideoSheet> createState() => _ShareVideoSheetState();
@@ -61,7 +43,6 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
   bool _loading = true;
   bool _sending = false;
   String? _error;
-  late bool _useTimestamp = widget.startMs >= 1000;
 
   @override
   void initState() {
@@ -127,7 +108,6 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
         videoId,
         recipientIds: _selected.toList(),
         note: _noteController.text,
-        startMs: _useTimestamp ? widget.startMs : null,
       );
       if (!mounted) return;
       final count = _selected.length;
@@ -164,7 +144,6 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
                 ),
               ),
               _buildHeader(),
-              _buildVideoCard(),
               _buildSearch(),
               Expanded(child: _buildContacts()),
               _buildFooter(),
@@ -194,80 +173,6 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
             onPressed: () => Navigator.of(context).pop(),
             icon: Icon(Icons.close, color: AppPalette.textSecondary),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVideoCard() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: AppPalette.surfaceHigh,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 44,
-                  height: 58,
-                  child: widget.thumbnailUrl.isEmpty
-                      ? ColoredBox(color: AppPalette.background)
-                      : Image.network(
-                          widget.thumbnailUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              ColoredBox(color: AppPalette.background),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  widget.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (widget.startMs >= 1000)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    size: 16,
-                    color: AppPalette.textSecondary,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Bắt đầu từ ${formatMillis(widget.startMs)}',
-                      style: TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  Switch(
-                    value: _useTimestamp,
-                    activeThumbColor: AppPalette.accent,
-                    onChanged: (value) => setState(() => _useTimestamp = value),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );

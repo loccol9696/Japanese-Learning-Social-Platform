@@ -163,16 +163,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       return;
     }
     if (!mounted) return;
-    final position =
-        _activeSubtitle?.start ??
-        _videoController?.value.position ??
-        Duration.zero;
     await showShareVideoSheet(
       context,
       videoId: widget.post.id,
-      title: widget.post.topicTag,
-      thumbnailUrl: widget.post.backgroundImageUrl,
-      startMs: position.inMilliseconds,
     );
   }
 
@@ -466,6 +459,41 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     }
   }
 
+  /// Khoảng cách từ mép trên thanh menu dưới tới đáy cột tương tác; đủ để né thanh tiến trình.
+  /// Cả bố cục dọc lẫn ngang dùng chung để cột không nhảy vị trí khi video tải xong.
+  static const double _sidebarBottomGap = 28.0;
+  static const double _actionBarRightShift = 6.0;
+
+  Widget _buildInteractionSidebar({
+    required AdaptiveVideoTheme theme,
+    required double bottom,
+    required double width,
+  }) {
+    return Positioned(
+      right: -_actionBarRightShift,
+      bottom: bottom,
+      width: width,
+      child: Center(
+        child: InteractionSidebar(
+          post: widget.post,
+          theme: theme,
+          subtitleMode: _subtitleMode,
+          isLikedOverride: _doubleTapLikedOverride,
+          likeCountOverride: _doubleTapLikeCountOverride,
+          onToggleSubtitles: _cycleSubtitleMode,
+          onLikeToggle: widget.onLikeToggle,
+          onSaveToggle: widget.onSaveToggle,
+          onFollowToggle: widget.onFollowToggle,
+          onCreatorTap: _onCreatorTap,
+          onCommentTap: widget.onCommentTap,
+          onShareTap: _handleShare,
+          onScriptTap: _openScript,
+          allowAccountActions: widget.allowAccountActions,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Dynamic contrast theme based on background brightness
@@ -473,7 +501,6 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     // Chiều cao thanh menu dưới (kể cả vùng an toàn) để các lớp phủ né ra.
     final navBarHeight =
         BottomNavDock.contentHeight + MediaQuery.paddingOf(context).bottom;
-    const actionBarRightShift = 6.0;
     final activeCue = _activeSubtitle;
     final displayedSegments = widget.post.subtitleCues.isEmpty
         ? widget.post.rubySegments
@@ -562,30 +589,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                   ),
                 ),
 
-                // 4. Right Side Interaction Sidebar (căn giữa theo chiều dọc)
-                Positioned(
-                  right: -actionBarRightShift,
-                  top: 0,
-                  bottom: 0,
+                // 4. Cột tương tác bên phải, neo sát đáy (cùng vị trí với bố cục ngang)
+                _buildInteractionSidebar(
+                  theme: theme,
+                  bottom: navBarHeight + _sidebarBottomGap,
                   width: tabWidth,
-                  child: Center(
-                    child: InteractionSidebar(
-                      post: widget.post,
-                      theme: theme,
-                      subtitleMode: _subtitleMode,
-                      isLikedOverride: _doubleTapLikedOverride,
-                      likeCountOverride: _doubleTapLikeCountOverride,
-                      onToggleSubtitles: _cycleSubtitleMode,
-                      onLikeToggle: widget.onLikeToggle,
-                      onSaveToggle: widget.onSaveToggle,
-                      onFollowToggle: widget.onFollowToggle,
-                      onCreatorTap: _onCreatorTap,
-                      onCommentTap: widget.onCommentTap,
-                      onShareTap: _handleShare,
-                      onScriptTap: _openScript,
-                      allowAccountActions: widget.allowAccountActions,
-                    ),
-                  ),
                 ),
                 Positioned.fill(child: _buildFloatingHearts()),
 
@@ -702,7 +710,6 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           final remainingHeight = math.max(0.0, contentHeight - videoHeight);
           final contentZoneHeight = math.min(220.0, remainingHeight);
           final tabWidth = constraints.maxWidth / 5;
-          const actionBarRightShift = 6.0;
           final topVideoSpacer = math.max(
             0.0,
             remainingHeight - contentZoneHeight,
@@ -793,28 +800,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                 bottom: bottomReservedHeight,
                 child: _buildProgressBar(theme),
               ),
-              Positioned(
-                right: -actionBarRightShift,
-                bottom: bottomReservedHeight + 16,
+              _buildInteractionSidebar(
+                theme: theme,
+                bottom: bottomReservedHeight + _sidebarBottomGap,
                 width: tabWidth,
-                child: Center(
-                  child: InteractionSidebar(
-                    post: widget.post,
-                    theme: theme,
-                    subtitleMode: _subtitleMode,
-                    isLikedOverride: _doubleTapLikedOverride,
-                    likeCountOverride: _doubleTapLikeCountOverride,
-                    onToggleSubtitles: _cycleSubtitleMode,
-                    onLikeToggle: widget.onLikeToggle,
-                    onSaveToggle: widget.onSaveToggle,
-                    onFollowToggle: widget.onFollowToggle,
-                    onCreatorTap: _onCreatorTap,
-                    onCommentTap: widget.onCommentTap,
-                    onShareTap: _handleShare,
-                    onScriptTap: _openScript,
-                    allowAccountActions: widget.allowAccountActions,
-                  ),
-                ),
               ),
             ],
           );
