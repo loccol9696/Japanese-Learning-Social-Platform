@@ -734,7 +734,7 @@ class _ExploreVideoCard extends StatelessWidget {
                   ? Icons.bookmark_rounded
                   : Icons.bookmark_border_rounded,
               size: 20,
-              color: video.isSaved ? AppPalette.warning : AppPalette.onVideo,
+              color: video.isSaved ? AppPalette.gold : AppPalette.onVideo,
             ),
           ),
         ),

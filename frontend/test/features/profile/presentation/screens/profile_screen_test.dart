@@ -115,9 +115,8 @@ void main() {
 
     // Verify user info
     expect(find.text('Yamada Kenji'), findsOneWidget);
-    // Tên đăng nhập ở hàng trên cùng; cấp độ JLPT nằm dưới tên, cạnh thẻ gói.
-    expect(find.text('@yamada_san'), findsOneWidget);
-    expect(find.text('JLPT N3'), findsOneWidget);
+    // Dưới tên: tên đăng nhập kèm cấp độ JLPT trên cùng một dòng, cạnh thẻ gói.
+    expect(find.text('@yamada_san · N3'), findsOneWidget);
     // Hồ sơ mẫu đang có gói VIP còn hạn nên hiện thẻ PREMIUM.
     expect(find.text('PREMIUM'), findsOneWidget);
 
@@ -126,9 +125,10 @@ void main() {
     expect(find.textContaining('follower'), findsOneWidget);
     expect(find.textContaining('thích'), findsOneWidget);
 
-    // Hai nút hành động chính; không có thẻ "Gói Miễn phí" riêng
-    expect(find.text('Chỉnh sửa'), findsOneWidget);
-    expect(find.text('Đăng video'), findsOneWidget);
+    // Header gọn: không có hàng nút "Chỉnh sửa" / "Đăng video" và thẻ "Gói Miễn phí" riêng
+    // (sửa hồ sơ mở từ avatar hoặc Cài đặt, đăng video mở từ nút tạo ở thanh điều hướng)
+    expect(find.text('Chỉnh sửa'), findsNothing);
+    expect(find.text('Đăng video'), findsNothing);
     expect(find.text('Gói Miễn phí'), findsNothing);
 
     // Verify "Quản lý upload" button is NOT in main profile body (moved to 3-line menu)
@@ -152,41 +152,6 @@ void main() {
     await tester.tap(find.byTooltip('Video đã thích'));
     await tester.pumpAndSettle();
     expect(find.text('Chưa có video đã thích'), findsOneWidget);
-  });
-
-  testWidgets('ProfileScreen "Đăng video" mở màn đăng video', (tester) async {
-    final mockRepo = _MockProfileRepository();
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: ProfileScreen(repository: mockRepo)),
-        routes: {'/upload': (_) => const Scaffold(body: Text('MÀN ĐĂNG VIDEO'))},
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Đăng video'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('MÀN ĐĂNG VIDEO'), findsOneWidget);
-  });
-
-  testWidgets('ProfileScreen "Chỉnh sửa" mở màn sửa hồ sơ', (tester) async {
-    final mockRepo = _MockProfileRepository();
-
-    await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: ProfileScreen(repository: mockRepo))),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Chỉnh sửa'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(find.byType(ProfileUpdateScreen), findsOneWidget);
-
-    // Màn chỉnh sửa gọi mạng thật (timeout 4s) — chờ hết timer trước khi kết thúc test.
-    await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets('ProfileScreen settings sheet lists the settings rows and logout', (tester) async {
