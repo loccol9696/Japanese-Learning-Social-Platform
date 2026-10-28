@@ -16,6 +16,7 @@ import com.jlsp.backend.flashcard.dto.response.QuizQuestionResponse;
 import com.jlsp.backend.flashcard.entity.Flashcard;
 import com.jlsp.backend.flashcard.entity.FlashcardProgress;
 import com.jlsp.backend.flashcard.entity.FlashcardProgressId;
+import com.jlsp.backend.flashcard.srs.CardState;
 import com.jlsp.backend.flashcard.entity.FlashcardSet;
 import com.jlsp.backend.flashcard.repository.FlashcardProgressRepository;
 import com.jlsp.backend.flashcard.repository.FlashcardRepository;
@@ -568,5 +569,126 @@ class FlashcardServiceImplTest {
         List<FlashcardResponse> result = service.getCardsInSet(OWNER_ID, SET_ID, false, false);
 
         assertThat(result).extracting(FlashcardResponse::getCardId).containsExactly(2L, 1L);
+    }
+
+    // ================================================================== một nguồn lịch ôn + xóa dây chuyền
+
+    private FlashcardProgress reviewProgress(Flashcard card, LocalDateTime nextReviewAt, int intervalDays) {
+        return FlashcardProgress.builder()
+                .id(new FlashcardProgressId(OWNER_ID, card.getCardId()))
+                .user(owner)
+                .flashcard(card)
+                .srsState(CardState.REVIEW)
+                .intervalDays(intervalDays)
+                .easeFactor(2.3)
+                .nextReviewAt(nextReviewAt)
+                .build();
+    }
+
+    @Test
+    void practiceAnswersNeverChangeTheSrsSchedule() {
+        Flashcard card = card(CARD_ID, "từ", null, privateSet);
+        when(cardRepository.findById(CARD_ID)).thenReturn(Optional.of(card));
+        LocalDateTime scheduled = LocalDateTime.now().plusDays(30);
+        FlashcardProgress progress = reviewProgress(card, scheduled, 30);
+        when(progressRepository.findByIdUserIdAndIdCardId(OWNER_ID, CARD_ID)).thenReturn(Optional.of(progress));
+
+        SubmitCardAnswerRequest wrong = new SubmitCardAnswerRequest();
+        wrong.setCardId(CARD_ID);
+        wrong.setIsCorrect(false);
+        SubmitCardAnswerRequest right = new SubmitCardAnswerRequest();
+        right.setCardId(CARD_ID);
+        right.setIsCorrect(true);
+        service.submitCardAnswer(OWNER_ID, wrong);
+        service.submitCardAnswer(OWNER_ID, right);
+
+        assertThat(progress.getNextReviewAt()).isEqualTo(scheduled);
+        assertThat(progress.getIntervalDays()).isEqualTo(30);
+        assertThat(progress.getSrsState()).isEqualTo(CardState.REVIEW);
+        assertThat(progress.getEaseFactor()).isEqualTo(2.3);
+        assertThat(progress.getIncorrectCount()).isEqualTo(1);
+        assertThat(progress.getCorrectCount()).isEqualTo(1);
+    }
+
+    @Test
+    void practicingANeverStudiedCardDoesNotMakeItDue() {
+        Flashcard card = card(CARD_ID, "từ", null, privateSet);
+        when(cardRepository.findById(CARD_ID)).thenReturn(Optional.of(card));
+        when(progressRepository.findByIdUserIdAndIdCardId(OWNER_ID, CARD_ID)).thenReturn(Optional.empty());
+        SubmitCardAnswerRequest wrong = new SubmitCardAnswerRequest();
+        wrong.setCardId(CARD_ID);
+        wrong.setIsCorrect(false);
+
+        service.submitCardAnswer(OWNER_ID, wrong);
+
+        ArgumentCaptor<FlashcardProgress> saved = ArgumentCaptor.forClass(FlashcardProgress.class);
+        verify(progressRepository).save(saved.capture());
+        assertThat(saved.getValue().getNextReviewAt()).isNull();
+        assertThat(saved.getValue().getSrsState()).isEqualTo(CardState.NEW);
+        assertThat(saved.getValue().getIncorrectCount()).isEqualTo(1);
+    }
+
+    @Test
+    void deletingACardAlsoDeletesEveryonesProgressOnIt() {
+        Flashcard card = card(CARD_ID, "từ", null, privateSet);
+        when(cardRepository.findById(CARD_ID)).thenReturn(Optional.of(card));
+
+        service.deleteCard(OWNER_ID, CARD_ID);
+
+        var order = org.mockito.Mockito.inOrder(progressRepository, cardRepository);
+        order.verify(progressRepository).deleteByCardId(CARD_ID);
+        order.verify(cardRepository).delete(card);
+    }
+
+    @Test
+    void deletingASetDeletesProgressOfAllUsersNotJustTheOwner() {
+        service.deleteSet(OWNER_ID, SET_ID);
+
+        var order = org.mockito.Mockito.inOrder(progressRepository, setRepository);
+        order.verify(progressRepository).deleteAllBySetId(SET_ID);
+        order.verify(setRepository).delete(privateSet);
+        verify(progressRepository, never()).deleteByUserIdAndSetId(anyLong(), anyLong());
+    }
+
+    @Test
+    void srsReviewKeepsCountingCorrectAndIncorrectWithoutTouchingBoxLevel() {
+        Flashcard card = card(CARD_ID, "từ", null, privateSet);
+        when(cardRepository.findById(CARD_ID)).thenReturn(Optional.of(card));
+        FlashcardProgress progress = reviewProgress(card, LocalDateTime.now().minusMinutes(1), 10);
+        when(progressRepository.findByIdUserIdAndIdCardId(OWNER_ID, CARD_ID)).thenReturn(Optional.of(progress));
+        ReviewCardRequest easy = new ReviewCardRequest();
+        easy.setCardId(CARD_ID);
+        easy.setRating(ReviewRating.EASY);
+        ReviewCardRequest again = new ReviewCardRequest();
+        again.setCardId(CARD_ID);
+        again.setRating(ReviewRating.AGAIN);
+
+        service.reviewCard(OWNER_ID, easy);
+        service.reviewCard(OWNER_ID, again);
+
+        assertThat(progress.getCorrectCount()).isEqualTo(1);
+        assertThat(progress.getIncorrectCount()).isEqualTo(1);
+        assertThat(progress.getBoxLevel()).isZero();
+    }
+
+    @Test
+    void newCardsInAStudySessionFollowTheUsersOrder() {
+        Flashcard first = card(1, "a", null, privateSet), second = card(2, "b", null, privateSet),
+                third = card(3, "c", null, privateSet);
+        when(cardRepository.findOrderedBySetId(SET_ID)).thenReturn(List.of(third, first, second));
+        when(progressRepository.findByUserIdAndSetId(OWNER_ID, SET_ID)).thenReturn(List.of());
+
+        var session = service.getStudySession(OWNER_ID, SET_ID, 2);
+
+        assertThat(session.getCards()).extracting(c -> c.getCard().getCardId()).containsExactly(3L, 1L);
+    }
+
+    @Test
+    void resettingProgressKeepsStarsInsteadOfDeletingEverything() {
+        service.resetSetProgress(OWNER_ID, SET_ID);
+
+        verify(progressRepository).deleteUnstarredByUserIdAndSetId(OWNER_ID, SET_ID);
+        verify(progressRepository).resetStarredByUserIdAndSetId(OWNER_ID, SET_ID);
+        verify(progressRepository, never()).deleteByUserIdAndSetId(anyLong(), anyLong());
     }
 }

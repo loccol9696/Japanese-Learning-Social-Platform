@@ -160,6 +160,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
     if (_finishHandled) return;
     _finishHandled = true;
     if (_practice) return;
+    await _controller?.flushUnsent();
     FlashcardStore.instance.invalidateAll();
     try {
       final summary = await _service.getDueSummary();
@@ -434,6 +435,10 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
     );
   }
 
+  /// Mức "Xem lại / Khó / Ổn" ghi số thẻ xen giữa đúng như hàng đợi trong phiên; "Dễ" ghi số ngày từ server.
+  String _labelFor(StudyCard study, ReviewRating rating) =>
+      _controller?.repeatLabel(rating) ?? study.labelFor(rating);
+
   Widget _buildRatingOverlay(StudyCard study, ReviewRating rating) {
     final color = _ratingColor(rating);
     final when = _practice
@@ -442,7 +447,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
               : 'Học lại trong lượt này')
         : rating == ReviewRating.easy
         ? 'Quay lại sau ${study.labelFor(rating)}'
-        : 'Quay lại sau tối đa ${study.labelFor(rating)}';
+        : 'Quay lại ${_labelFor(study, rating).toLowerCase()}';
     return Container(
       decoration: BoxDecoration(
         color: AppPalette.surface,
@@ -690,7 +695,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          study.labelFor(ratings[i]),
+                          _labelFor(study, ratings[i]),
                           style: TextStyle(
                             color: pending == ratings[i]
                                 ? AppPalette.background
