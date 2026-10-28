@@ -303,4 +303,40 @@ void main() {
       expect(ends, [false]);
     });
   });
+
+  testWidgets('SwipeBackBlocker: vuốt bắt đầu trong vùng này không quay lại; ngoài vùng vẫn quay lại', (tester) async {
+    await pumpApp(tester);
+    await push(
+      tester,
+      page(
+        'chi tiết',
+        body: Center(
+          child: SizedBox(
+            width: 300,
+            height: 300,
+            child: SwipeBackBlocker(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanUpdate: (_) {},
+                child: const Center(child: Text('thẻ')),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await swipeRight(tester, find.text('thẻ'));
+    expect(find.text('thẻ'), findsOneWidget);
+    expect(find.text('trang chủ'), findsNothing);
+
+    // Nhấc tay rồi: vuốt ở khoảng trống ngoài vùng chặn vẫn quay lại được.
+    final gesture = await tester.startGesture(const Offset(40, 900));
+    await gesture.moveBy(const Offset(100, 0));
+    await gesture.moveBy(const Offset(400, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.text('trang chủ'), findsOneWidget);
+  });
 }

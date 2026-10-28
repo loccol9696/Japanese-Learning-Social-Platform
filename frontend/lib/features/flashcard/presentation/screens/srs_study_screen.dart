@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/services/tts_service.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/swipe_back_detector.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/models/study_session_model.dart';
 import '../../data/services/flashcard_service.dart';
@@ -67,13 +68,14 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       vsync: this,
       duration: const Duration(milliseconds: 320),
     );
-    _settleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-    )..addListener(() {
-        final anim = _settleAnimation;
-        if (anim != null) setState(() => _drag = anim.value);
-      });
+    _settleController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 220),
+        )..addListener(() {
+          final anim = _settleAnimation;
+          if (anim != null) setState(() => _drag = anim.value);
+        });
     _loadSession();
   }
 
@@ -233,7 +235,9 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
     final card = study.card;
     final starred = !card.isStarred;
     _service.updateStar(card.cardId, starred);
-    controller.replaceCurrent(study.withCard(card.copyWith(isStarred: starred)));
+    controller.replaceCurrent(
+      study.withCard(card.copyWith(isStarred: starred)),
+    );
   }
 
   void _openSettings() {
@@ -264,9 +268,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       backgroundColor: AppPalette.background,
       body: SafeArea(
         child: _isLoading
-            ? Center(
-                child: CircularProgressIndicator(color: AppPalette.accent),
-              )
+            ? Center(child: CircularProgressIndicator(color: AppPalette.accent))
             : _error != null
             ? _buildError()
             : controller == null || controller.isFinished
@@ -281,10 +283,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            _error!,
-            style: TextStyle(color: AppPalette.textSecondary),
-          ),
+          Text(_error!, style: TextStyle(color: AppPalette.textSecondary)),
           const SizedBox(height: 12),
           TextButton(onPressed: _loadSession, child: const Text('Thử lại')),
         ],
@@ -378,14 +377,17 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       _committedRating = rating;
     });
     final dir = _drag / _drag.distance;
-    _animateDragTo(dir * 700, onDone: () async {
-      setState(() {
-        _drag = Offset.zero;
-        _isSettling = false;
-        _committedRating = null;
-      });
-      await _rate(rating);
-    });
+    _animateDragTo(
+      dir * 700,
+      onDone: () async {
+        setState(() {
+          _drag = Offset.zero;
+          _isSettling = false;
+          _committedRating = null;
+        });
+        await _rate(rating);
+      },
+    );
   }
 
   Widget _buildDraggableCard(StudyCard study) {
@@ -397,32 +399,35 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
         ? 1.0
         : ((_drag.dx.abs() - _showThreshold) / 30).clamp(0.0, 1.0);
 
-    return GestureDetector(
-      onTap: _flip,
-      onPanStart: _onPanStart,
-      onPanUpdate: _onPanUpdate,
-      onPanEnd: _onPanEnd,
-      behavior: HitTestBehavior.opaque,
-      child: Transform.translate(
-        offset: _drag,
-        child: Transform.rotate(
-          angle: angle,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Opacity(
-                  opacity: 1 - overlayOpacity,
-                  child: _buildFlipCard(study),
-                ),
-              ),
-              if (rating != null)
+    // Vuốt bắt đầu trên thẻ chỉ là chấm điểm, không bao giờ là vuốt-quay-lại toàn app.
+    return SwipeBackBlocker(
+      child: GestureDetector(
+        onTap: _flip,
+        onPanStart: _onPanStart,
+        onPanUpdate: _onPanUpdate,
+        onPanEnd: _onPanEnd,
+        behavior: HitTestBehavior.opaque,
+        child: Transform.translate(
+          offset: _drag,
+          child: Transform.rotate(
+            angle: angle,
+            child: Stack(
+              children: [
                 Positioned.fill(
                   child: Opacity(
-                    opacity: overlayOpacity,
-                    child: _buildRatingOverlay(study, rating),
+                    opacity: 1 - overlayOpacity,
+                    child: _buildFlipCard(study),
                   ),
                 ),
-            ],
+                if (rating != null)
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: overlayOpacity,
+                      child: _buildRatingOverlay(study, rating),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -628,10 +633,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
             Text(
               card.meaning,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppPalette.textPrimary,
-                fontSize: 24,
-              ),
+              style: TextStyle(color: AppPalette.textPrimary, fontSize: 24),
             ),
           ],
           if (card.example != null && card.example!.isNotEmpty) ...[
