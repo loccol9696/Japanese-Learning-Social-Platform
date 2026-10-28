@@ -83,6 +83,24 @@ class FlashcardService {
     return FlashcardSetModel.fromJson(res as Map<String, dynamic>);
   }
 
+  /// Lưu thứ tự bộ thẻ trong thư viện sau khi kéo thả ([setIds] theo thứ tự mới).
+  Future<void> reorderSets(List<int> setIds) async {
+    await _api.put(
+      ApiConstants.flashcardSetsOrderUrl,
+      body: {'ids': setIds},
+      withAuth: true,
+    );
+  }
+
+  /// Lưu thứ tự thẻ trong một bộ ([cardIds] theo thứ tự mới).
+  Future<void> reorderCards(int setId, List<int> cardIds) async {
+    await _api.put(
+      ApiConstants.flashcardCardsOrderUrl(setId),
+      body: {'ids': cardIds},
+      withAuth: true,
+    );
+  }
+
   /// Xóa bộ thẻ
   Future<void> deleteSet(int setId) async {
     await _api.delete(

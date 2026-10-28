@@ -39,6 +39,9 @@ class ApiConstants {
   // Flashcard endpoints
   static String get flashcardSetsUrl => '$baseUrl/flashcards/sets';
   static String flashcardSetDetailUrl(int id) => '$baseUrl/flashcards/sets/$id';
+  static String get flashcardSetsOrderUrl => '$baseUrl/flashcards/sets/order';
+  static String flashcardCardsOrderUrl(int setId) =>
+      '$baseUrl/flashcards/sets/$setId/cards/order';
   static String flashcardCardsUrl(int setId) =>
       '$baseUrl/flashcards/sets/$setId/cards';
   static String flashcardQuizUrl(int setId) =>

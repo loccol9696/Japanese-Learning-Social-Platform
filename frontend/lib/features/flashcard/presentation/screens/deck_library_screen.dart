@@ -120,6 +120,22 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
     }
   }
 
+  /// Chỉ cho kéo đổi chỗ khi đang xem toàn bộ thư viện (kết quả tìm kiếm chỉ là một phần của thứ tự).
+  bool get _canReorder => _searchController.text.trim().isEmpty;
+
+  void _onReorderDecks(int oldIndex, int newIndex) {
+    if (!_canReorder) return;
+    // Bộ ghim từ video luôn nằm trên cùng.
+    if (newIndex == 0 && _decks.isNotEmpty && _decks.first.isVideoSaved) return;
+    _store.optimisticReorderSets(
+      oldIndex,
+      newIndex,
+      onError: (err) {
+        if (mounted) AppToast.showError('Không thể lưu thứ tự bộ thẻ: $err', context: context);
+      },
+    );
+  }
+
   /// Mở màn hình Chỉnh sửa bộ thẻ (Deck Editor)
   void _openDeckEditor(FlashcardSetModel deck) {
     Navigator.push(
@@ -480,15 +496,17 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                                 ),
                               ),
                             )
-                          : ListView.separated(
+                          : ReorderableListView.builder(
                               physics: const AlwaysScrollableScrollPhysics(),
                               padding: const EdgeInsets.fromLTRB(20, 12, 20, 90),
                               itemCount: _decks.length,
-                              separatorBuilder: (context, index) =>
-                                  const SizedBox(height: 14),
+                              buildDefaultDragHandles: false,
+                              proxyDecorator: (child, index, animation) =>
+                                  Material(color: Colors.transparent, child: child),
+                              onReorderItem: _onReorderDecks,
                               itemBuilder: (context, index) {
                                 final deck = _decks[index];
-                                return DeckCardItem(
+                                final card = DeckCardItem(
                                   deck: deck,
                                   onTap: () {
                                     Navigator.push(
@@ -501,6 +519,17 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                                   },
                                   onEdit: () => _openDeckEditor(deck),
                                   onDelete: () => _showDeleteDeckConfirmDialog(deck),
+                                );
+                                return Padding(
+                                  key: ValueKey('deck-${deck.setId}'),
+                                  padding: const EdgeInsets.only(bottom: 14),
+                                  // Nhấn giữ để kéo đổi chỗ; đang tìm kiếm hoặc bộ ghim (từ video) thì không kéo.
+                                  child: _canReorder && !deck.isVideoSaved
+                                      ? ReorderableDelayedDragStartListener(
+                                          index: index,
+                                          child: card,
+                                        )
+                                      : card,
                                 );
                               },
                             ),
