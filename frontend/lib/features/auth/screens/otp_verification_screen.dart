@@ -102,6 +102,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       _otpController.clear();
+      setState(() {});
       // 409: tài khoản đã kích hoạt từ trước -> chỉ cần đăng nhập.
       if (e.statusCode == 409) {
         _showSnackBar(e.message);
@@ -163,6 +164,79 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
   }
 
+  bool get _isComplete => _otpController.text.length == _otpLength;
+
+  /// 6 ô số theo thiết kế. Một TextField vô hình phủ lên trên nhận phím và dán mã; các ô chỉ để hiển thị.
+  Widget _buildOtpBoxes() {
+    final text = _otpController.text;
+    return SizedBox(
+      height: 56,
+      child: Stack(
+        children: [
+          Row(
+            children: [
+              for (var i = 0; i < _otpLength; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    key: ValueKey('otp-box-$i'),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppPalette.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: i == text.length && !_isLoading
+                            ? AppPalette.accent
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: Text(
+                      i < text.length ? text[i] : '',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: AppPalette.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          Positioned.fill(
+            child: TextField(
+              controller: _otpController,
+              keyboardType: TextInputType.number,
+              enabled: !_isLoading,
+              autofocus: true,
+              autofillHints: const [AutofillHints.oneTimeCode],
+              textInputAction: TextInputAction.done,
+              enableInteractiveSelection: false,
+              showCursor: false,
+              onChanged: (value) {
+                setState(() {});
+                // Tự xác thực khi nhập đủ 6 số
+                if (value.length == _otpLength) _handleVerifyOtp();
+              },
+              onSubmitted: (_) => _handleVerifyOtp(),
+              maxLength: _otpLength,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: const TextStyle(color: Colors.transparent),
+              cursorColor: Colors.transparent,
+              decoration: const InputDecoration(
+                counterText: '',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -177,7 +251,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 icon: Icon(
-                  Icons.arrow_back_ios,
+                  Icons.arrow_back_ios_new_rounded,
                   size: 20,
                   color: AppPalette.textPrimary,
                 ),
@@ -198,8 +272,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               Text(
                 'Xác thực OTP',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
                   color: AppPalette.textPrimary,
                 ),
               ),
@@ -212,9 +286,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     height: 1.4,
                   ),
                   children: [
-                    const TextSpan(
-                      text: 'Mã xác thực gồm 6 chữ số đã được gửi tới email:\n',
-                    ),
+                    const TextSpan(text: 'Mã gồm 6 chữ số đã được gửi tới\n'),
                     TextSpan(
                       text: widget.email,
                       style: TextStyle(
@@ -225,68 +297,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 36),
+              const SizedBox(height: 32),
 
-              Text(
-                'Mã OTP',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: AppPalette.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              TextField(
-                controller: _otpController,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                enabled: !_isLoading,
-                autofocus: true,
-                autofillHints: const [AutofillHints.oneTimeCode],
-                textInputAction: TextInputAction.done,
-                onChanged: (value) {
-                  // Tự xác thực khi nhập đủ 6 số
-                  if (value.length == _otpLength) _handleVerifyOtp();
-                },
-                onSubmitted: (_) => _handleVerifyOtp(),
-                maxLength: _otpLength,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: TextStyle(
-                  fontSize: 24,
-                  letterSpacing: 8,
-                  fontWeight: FontWeight.bold,
-                  color: AppPalette.textPrimary,
-                ),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: '• • • • • •',
-                  hintStyle: TextStyle(
-                    fontSize: 24,
-                    letterSpacing: 8,
-                    color: AppPalette.textSecondary,
-                  ),
-                  filled: true,
-                  fillColor: AppPalette.surface,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 18),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppPalette.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppPalette.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: AppPalette.accent,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 28),
+              _buildOtpBoxes(),
+              const SizedBox(height: 24),
 
               SizedBox(
                 width: double.infinity,
@@ -294,12 +308,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppPalette.accent,
+                    disabledBackgroundColor: AppPalette.surface,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  onPressed: _isLoading ? null : _handleVerifyOtp,
+                  onPressed: _isLoading || !_isComplete
+                      ? null
+                      : _handleVerifyOtp,
                   child: _isLoading
                       ? SizedBox(
                           height: 22,
@@ -309,28 +326,19 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             color: AppPalette.textPrimary,
                           ),
                         )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Xác thực tài khoản',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppPalette.textPrimary,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(
-                              Icons.check_circle_outline,
-                              size: 20,
-                              color: AppPalette.textPrimary,
-                            ),
-                          ],
+                      : Text(
+                          'Xác thực',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: _isComplete
+                                ? AppPalette.textPrimary
+                                : AppPalette.textSecondary,
+                          ),
                         ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               Center(
                 child: _resendCountdown > 0 || _isResending
@@ -339,28 +347,22 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             ? 'Đang gửi mã...'
                             : 'Gửi lại mã sau $_resendCountdown giây',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           color: AppPalette.textSecondary,
                         ),
                       )
-                    : TextButton(
-                        onPressed: _isResending ? null : _handleResendOtp,
-                        child: _isResending
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                'Gửi lại mã OTP',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppPalette.textPrimary,
-                                ),
-                              ),
+                    : GestureDetector(
+                        onTap: _handleResendOtp,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            'Gửi lại mã',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppPalette.textSecondary,
+                            ),
+                          ),
+                        ),
                       ),
               ),
             ],
