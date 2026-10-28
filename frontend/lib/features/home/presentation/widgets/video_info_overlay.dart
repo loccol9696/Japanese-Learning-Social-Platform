@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../domain/models/video_post.dart';
 import '../../../../core/theme/app_palette.dart';
@@ -58,7 +59,7 @@ class VideoInfoOverlay extends StatelessWidget {
             ),
           ),
 
-        // Dòng 2: biểu tượng video + tên video, kèm huy hiệu JLPT viền xanh
+        // Dòng 2: tên video kèm huy hiệu JLPT viền xanh
         if (hasTitle || hasJlpt) ...[
           if (hasCreator) const SizedBox(height: 6.0),
           Row(
@@ -66,12 +67,6 @@ class VideoInfoOverlay extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               if (hasTitle) ...[
-                Icon(
-                  Icons.smart_display_outlined,
-                  size: 18.0,
-                  color: AppPalette.onVideo.withValues(alpha: 0.85),
-                ),
-                const SizedBox(width: 6.0),
                 Flexible(
                   child: Text(
                     post.topicTag,

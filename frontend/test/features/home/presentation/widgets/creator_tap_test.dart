@@ -85,6 +85,6 @@ void infoOverlayLayoutTests() {
     expect(title.dy, greaterThan(creator.dy));
     expect((badge.dy - title.dy).abs(), lessThan(8)); // cùng một hàng
     expect(badge.dx, greaterThan(title.dx));
-    expect(find.byIcon(Icons.smart_display_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.smart_display_outlined), findsNothing);
   });
 }
