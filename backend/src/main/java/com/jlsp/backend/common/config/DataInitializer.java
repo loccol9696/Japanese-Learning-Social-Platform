@@ -189,6 +189,8 @@ public class DataInitializer implements CommandLineRunner {
             jdbcTemplate.execute("UPDATE subscription_plans SET code = 'PRO_MONTHLY' WHERE id = 2 AND code IS NULL");
             jdbcTemplate.execute("UPDATE subscription_plans SET code = 'PRO_YEARLY' WHERE id = 3 AND code IS NULL");
             jdbcTemplate.execute("UPDATE subscription_plans SET code = 'VIP_SPECIAL' WHERE id = 4 AND code IS NULL");
+            jdbcTemplate.execute("UPDATE subscription_plans SET duration_days = 30 WHERE code = 'PRO_MONTHLY'");
+            jdbcTemplate.execute("UPDATE subscription_plans SET duration_days = 365 WHERE code = 'PRO_YEARLY'");
 
             // Đảm bảo luôn tồn tại gói FREE trong database để Admin cấu hình Token limit cho học viên miễn phí
             Integer freeCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM subscription_plans WHERE code = 'FREE'", Integer.class);

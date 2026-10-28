@@ -1,6 +1,5 @@
 package com.jlsp.backend.subscription.dto.request;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 @Data
@@ -14,4 +13,6 @@ public class CreateQrOrderRequest {
     private String planCode;
 
     private Long userId;
+
+    private String orderCode;
 }

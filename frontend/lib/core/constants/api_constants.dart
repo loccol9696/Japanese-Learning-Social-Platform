@@ -7,7 +7,7 @@ class ApiConstants {
 
   static const String _customHost = String.fromEnvironment('API_HOST');
 
-  static const String _lanHost = 'https://untraitorous-huong-conversably.ngrok-free.dev/api/v1';
+  static const String _lanHost = 'http://10.0.2.2:8080/api/v1';
 
   /// Automatically pick host based on runtime platform
   static String get baseUrl {

@@ -36,3 +36,6 @@ frontend/windows/
 frontend/macos/
 
 frontend/android/build/
+backend/cloudflared.exe
+backend/*.bat
+push-code.bat

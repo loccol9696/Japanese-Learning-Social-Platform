@@ -233,6 +233,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildSettingsSheet(BuildContext sheetContext) {
     final rows = <_SettingsRowData>[
       _SettingsRowData(
+        icon: Icons.workspace_premium_rounded,
+        iconColor: AppPalette.gold,
+        title: 'Gói thành viên Premium',
+        value: _isPremium
+            ? (_membershipStatus?.planName ?? 'Đang kích hoạt')
+            : 'Nâng cấp ngay',
+        valueColor: AppPalette.gold,
+        onTap: () {
+          Navigator.of(sheetContext).pop();
+          _openSubscription();
+        },
+      ),
+      _SettingsRowData(
         icon: Icons.cloud_upload_outlined,
         title: 'Quản lý đăng tải',
         value: _pendingCount > 0 ? '$_pendingCount chờ duyệt' : null,
@@ -395,7 +408,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
               children: [
-                Icon(row.icon, size: 22, color: AppPalette.textPrimary),
+                Icon(row.icon, size: 22, color: row.iconColor ?? AppPalette.textPrimary),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
@@ -409,6 +422,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (row.value != null) ...[
                   Text(
                     row.value!,
+                    style: TextStyle(
+                      color: row.valueColor ?? AppPalette.textPrimary,
+                      fontSize: 14,
+                      fontWeight: row.valueColor != null
+                          ? FontWeight.w700
+                          : FontWeight.normal,
+                    ),
+                  ),
+                  if (false) Text(
+                    '',
                     style: TextStyle(
                       color: AppPalette.textPrimary,
                       fontSize: 14,
@@ -606,6 +629,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   slivers: [
                     SliverToBoxAdapter(child: _buildProfileHeader()),
+                    SliverToBoxAdapter(child: _buildCompactMembershipBanner()),
                     SliverToBoxAdapter(child: _buildTabBar()),
                     _buildVideoContent(),
                   ],
@@ -822,6 +846,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildCompactMembershipBanner() {
+    final isPremium = _isPremium;
+    final status = _membershipStatus;
+    final accentColor = isPremium ? AppPalette.gold : AppPalette.info;
+
+    final String titleText = isPremium
+        ? (status?.planName ?? _profile.subscriptionPlanName ?? 'JLSP Premium')
+        : 'Nâng cấp JLSP Premium';
+    final String subtitleText = isPremium
+        ? (status == null
+              ? 'Đang kích hoạt đặc quyền VIP'
+              : (status.isLifetime
+                    ? 'Vĩnh viễn · ${status.effectiveTokenLimit} Token AI/ngày'
+                    : 'Còn ${status.daysRemaining} ngày · ${status.effectiveTokenLimit} Token AI/ngày'))
+        : 'Mở khóa Token AI, Shadowing & Flashcard không giới hạn';
+    final String ctaText = isPremium ? 'Đổi / Gia hạn' : 'Mua gói';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      child: Material(
+        color: accentColor.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: _openSubscription,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: accentColor.withValues(alpha: 0.40),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.workspace_premium_rounded,
+                    color: accentColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        titleText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitleText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppPalette.textSecondary,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    ctaText,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Tag gói cạnh tên: vàng cho Premium, xanh cho Free.
   /// Ưu tiên trạng thái gói tải từ subscription; nếu chưa tải được thì dựa vào hồ sơ.
   Widget _buildPlanTag() {
@@ -975,7 +1103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         return _buildPlanDetails(snapshot.data, isPremium);
                       },
                     ),
-                    if (!isPremium) ...[
+                    if (true) ...[
                       const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
@@ -986,7 +1114,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _openSubscription();
                           },
                           icon: const Icon(Icons.workspace_premium_rounded),
-                          label: const Text('Nâng cấp Premium'),
+                          label: Text(isPremium ? 'Xem các gói & Gia hạn / Đổi gói' : 'Nâng cấp Premium'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppPalette.accent,
                             foregroundColor: AppPalette.onAccent,
@@ -1388,12 +1516,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 class _SettingsRowData {
   final IconData icon;
+  final Color? iconColor;
+  final Color? valueColor;
   final String title;
   final String? value;
   final VoidCallback onTap;
 
   const _SettingsRowData({
     required this.icon,
+    this.iconColor,
+    this.valueColor,
     required this.title,
     this.value,
     required this.onTap,

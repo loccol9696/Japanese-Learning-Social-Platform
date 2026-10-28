@@ -25,6 +25,9 @@ public class SubscriptionOrderResponse {
     private String paymentMethod;
     private SubscriptionOrder.OrderStatus status;
     private String qrUrl;
+    private String bankName;
+    private String accountNo;
+    private String accountName;
     private String paymentWebUrl;
     private LocalDateTime createdAt;
     private LocalDateTime completedAt;

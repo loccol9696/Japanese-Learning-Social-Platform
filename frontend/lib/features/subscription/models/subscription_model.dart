@@ -77,8 +77,15 @@ class SubscriptionPlan {
     return _formatNumber(perMonth);
   }
 
+  bool get isLifetime {
+    final lower = name.toLowerCase();
+    return durationDays >= 3650 ||
+        lower.contains('trọn đời') ||
+        lower.contains('lifetime');
+  }
+
   String get durationLabel {
-    if (durationDays >= 3650) return 'Trọn đời';
+    if (isLifetime) return 'Trọn đời';
     if (durationDays >= 365) return '${(durationDays / 365).round()} Năm';
     if (durationDays >= 30) return '${(durationDays / 30).round()} Tháng';
     return '$durationDays Ngày';
@@ -109,6 +116,12 @@ class PaymentResponse {
   final String? planName;
   final int? subscriptionId;
   final String? paymentUrl;
+  final String? qrUrl;
+  final String? orderCode;
+  final String? verificationCode;
+  final String? bankName;
+  final String? accountNo;
+  final String? accountName;
   final DateTime? paidAt;
   final DateTime? createdAt;
 
@@ -122,21 +135,39 @@ class PaymentResponse {
     this.planName,
     this.subscriptionId,
     this.paymentUrl,
+    this.qrUrl,
+    this.orderCode,
+    this.verificationCode,
+    this.bankName,
+    this.accountNo,
+    this.accountName,
     this.paidAt,
     this.createdAt,
   });
 
   factory PaymentResponse.fromJson(Map<String, dynamic> json) {
+    final rawId = json['id'] ?? json['paymentId'];
+    final int parsedId = rawId is int
+        ? rawId
+        : (int.tryParse(rawId?.toString() ?? '') ?? 0);
+    final rawRef = json['orderCode'] ?? json['transactionRef'] ?? '';
+
     return PaymentResponse(
-      paymentId: json['paymentId'] as int? ?? 0,
-      transactionRef: json['transactionRef'] as String? ?? '',
+      paymentId: parsedId,
+      transactionRef: rawRef.toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      paymentMethod: json['paymentMethod'] as String? ?? 'MOCK',
-      status: json['status'] as String? ?? 'SUCCESS',
+      paymentMethod: json['paymentMethod'] as String? ?? 'VIETQR',
+      status: json['status'] as String? ?? 'PENDING',
       planId: json['planId'] as int?,
       planName: json['planName'] as String?,
       subscriptionId: json['subscriptionId'] as int?,
       paymentUrl: json['paymentUrl'] as String?,
+      qrUrl: json['qrUrl'] as String?,
+      orderCode: json['orderCode'] as String? ?? rawRef.toString(),
+      verificationCode: json['verificationCode'] as String?,
+      bankName: json['bankName'] as String? ?? 'ACB - Ngân hàng TMCP Á Châu',
+      accountNo: json['accountNo'] as String? ?? '28442991',
+      accountName: json['accountName'] as String? ?? 'PHAM CONG NGUYEN',
       paidAt: json['paidAt'] != null ? DateTime.tryParse(json['paidAt']) : null,
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'])
@@ -154,6 +185,7 @@ class SubscriptionStatus {
   final DateTime? startDate;
   final DateTime? endDate;
   final int remainingDays;
+  final int? dailyTokenLimit;
 
   const SubscriptionStatus({
     required this.isVip,
@@ -164,11 +196,13 @@ class SubscriptionStatus {
     this.startDate,
     this.endDate,
     required this.remainingDays,
+    this.dailyTokenLimit,
   });
 
   factory SubscriptionStatus.fromJson(Map<String, dynamic> json) {
+    final isVipVal = json['isVip'] as bool? ?? false;
     return SubscriptionStatus(
-      isVip: json['isVip'] as bool? ?? false,
+      isVip: isVipVal,
       subscriptionId: json['subscriptionId'] as int?,
       planId: json['planId'] as int?,
       planName: json['planName'] as String?,
@@ -180,14 +214,24 @@ class SubscriptionStatus {
           ? DateTime.tryParse(json['endDate'])
           : null,
       remainingDays: (json['remainingDays'] as num?)?.toInt() ?? 0,
+      dailyTokenLimit: (json['dailyTokenLimit'] as num?)?.toInt() ?? (isVipVal ? 500 : 50),
     );
   }
 
   bool get hasActiveSubscription => isVip;
   bool get isLifetime {
-    final normalizedName = (planName ?? '').toLowerCase();
-    return normalizedName.contains('trọn đời') ||
-        normalizedName.contains('lifetime') ||
+    if (!isVip) return false;
+    final name = (planName ?? '').toLowerCase();
+    if (name.contains('1 tháng') ||
+        name.contains('3 tháng') ||
+        name.contains('1 năm') ||
+        name.contains('12 tháng') ||
+        name.contains('pro') ||
+        name.contains('mastery')) {
+      return false;
+    }
+    return name.contains('trọn đời') ||
+        name.contains('lifetime') ||
         remainingDays >= 3650;
   }
 
@@ -197,4 +241,5 @@ class SubscriptionStatus {
   }
 
   int get daysRemaining => remainingDays;
+  int get effectiveTokenLimit => dailyTokenLimit ?? (isVip ? 500 : 50);
 }

@@ -11,6 +11,7 @@ import com.jlsp.backend.subscription.entity.SubscriptionOrder;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Map;
 
 public interface SubscriptionService {
 
@@ -37,4 +38,10 @@ public interface SubscriptionService {
     TokenQuotaResponse checkTokenQuota(Long userId);
 
     void validateAndDeductTokens(Long userId, int tokensRequired);
+
+    Map<String, Object> getUserSubscriptionStatus(Long userId);
+
+    Map<String, Object> saveSepayApiToken(String apiToken);
+
+    Map<String, Object> getSepayTokenStatus();
 }

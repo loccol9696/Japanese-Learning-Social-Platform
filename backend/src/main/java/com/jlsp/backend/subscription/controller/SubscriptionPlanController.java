@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/subscription-plans")
+@RequestMapping({"/api/v1/subscription-plans", "/api/v1/subscriptions/plans"})
 @RequiredArgsConstructor
 public class SubscriptionPlanController {
 

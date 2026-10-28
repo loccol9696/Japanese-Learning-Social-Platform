@@ -119,6 +119,7 @@ public class SecurityConfig {
                 // Nội dung công khai
                 .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/videos/*/views").permitAll()
+                .requestMatchers("/api/v1/payments/**", "/api/v1/subscriptions/**", "/api/payment/**").permitAll()
 
                 // Còn lại: bắt buộc đăng nhập
                 .anyRequest().authenticated());

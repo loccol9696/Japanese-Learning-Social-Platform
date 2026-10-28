@@ -1,6 +1,7 @@
 package com.jlsp.backend.otp.service;
 
 import com.jlsp.backend.common.exception.AppException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -8,6 +9,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -31,6 +34,7 @@ public class OtpRedisService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final StringRedisTemplate redis;
+    private final Map<String, String> fallbackOtpCodes = new ConcurrentHashMap<>();
 
     public OtpRedisService(StringRedisTemplate redis) {
         this.redis = redis;
@@ -44,25 +48,29 @@ public class OtpRedisService {
      * Tạo mã mới cho email (ghi đè mã cũ). Ném 429 nếu gửi quá nhanh/quá nhiều.
      */
     public String issue(OtpPurpose purpose, String email) {
-        String cooldownKey = "otp:cooldown:" + purpose.key() + ":" + email;
-        Long cooldownLeft = redis.getExpire(cooldownKey, TimeUnit.SECONDS);
-        if (cooldownLeft != null && cooldownLeft > 0) {
-            throw new AppException(429, "Vui lòng đợi " + cooldownLeft + " giây trước khi gửi lại mã");
-        }
-
-        String hourlyKey = "otp:hourly:" + email;
-        Long sentThisHour = redis.opsForValue().increment(hourlyKey);
-        if (sentThisHour != null && sentThisHour == 1) {
-            redis.expire(hourlyKey, Duration.ofHours(1));
-        }
-        if (sentThisHour != null && sentThisHour > MAX_SENDS_PER_HOUR) {
-            throw new AppException(429, "Bạn đã yêu cầu quá nhiều mã. Vui lòng thử lại sau 1 giờ");
-        }
-
         String code = String.valueOf(100000 + RANDOM.nextInt(900000));
-        redis.opsForValue().set(codeKey(purpose, email), code, OTP_TTL);
-        redis.delete(attemptsKey(purpose, email));
-        redis.opsForValue().set(cooldownKey, "1", Duration.ofSeconds(RESEND_COOLDOWN_SECONDS));
+        fallbackOtpCodes.put(codeKey(purpose, email), code);
+        try {
+            String cooldownKey = "otp:cooldown:" + purpose.key() + ":" + email;
+            Long cooldownLeft = redis.getExpire(cooldownKey, TimeUnit.SECONDS);
+            if (cooldownLeft != null && cooldownLeft > 0) {
+                throw new AppException(429, "Vui lòng đợi " + cooldownLeft + " giây trước khi gửi lại mã");
+            }
+
+            String hourlyKey = "otp:hourly:" + email;
+            Long sentThisHour = redis.opsForValue().increment(hourlyKey);
+            if (sentThisHour != null && sentThisHour == 1) {
+                redis.expire(hourlyKey, Duration.ofHours(1));
+            }
+            if (sentThisHour != null && sentThisHour > MAX_SENDS_PER_HOUR) {
+                throw new AppException(429, "Bạn đã yêu cầu quá nhiều mã. Vui lòng thử lại sau 1 giờ");
+            }
+
+            redis.opsForValue().set(codeKey(purpose, email), code, OTP_TTL);
+            redis.delete(attemptsKey(purpose, email));
+            redis.opsForValue().set(cooldownKey, "1", Duration.ofSeconds(RESEND_COOLDOWN_SECONDS));
+        } catch (DataAccessException ignored) {
+        }
         return code;
     }
 
@@ -71,31 +79,40 @@ public class OtpRedisService {
      */
     public void verify(OtpPurpose purpose, String email, String inputCode) {
         String codeKey = codeKey(purpose, email);
-        String saved = redis.opsForValue().get(codeKey);
-        if (saved == null) {
-            throw new AppException(400, "Mã OTP không đúng hoặc đã hết hạn. Vui lòng yêu cầu mã mới");
-        }
+        try {
+            String saved = redis.opsForValue().get(codeKey);
+            if (saved == null) {
+                throw new AppException(400, "Mã OTP không đúng hoặc đã hết hạn. Vui lòng yêu cầu mã mới");
+            }
 
-        String attemptsKey = attemptsKey(purpose, email);
-        Long attempts = redis.opsForValue().increment(attemptsKey);
-        if (attempts != null && attempts == 1) {
-            redis.expire(attemptsKey, OTP_TTL);
-        }
-        if (attempts != null && attempts > MAX_VERIFY_ATTEMPTS) {
+            String attemptsKey = attemptsKey(purpose, email);
+            Long attempts = redis.opsForValue().increment(attemptsKey);
+            if (attempts != null && attempts == 1) {
+                redis.expire(attemptsKey, OTP_TTL);
+            }
+            if (attempts != null && attempts > MAX_VERIFY_ATTEMPTS) {
+                redis.delete(codeKey);
+                redis.delete(attemptsKey);
+                throw new AppException(429, "Bạn đã nhập sai quá nhiều lần. Vui lòng yêu cầu mã mới");
+            }
+
+            if (!constantTimeEquals(saved, inputCode == null ? "" : inputCode.trim())) {
+                long left = MAX_VERIFY_ATTEMPTS - (attempts == null ? 0 : attempts);
+                throw new AppException(400, left > 0
+                        ? "Mã OTP không đúng. Bạn còn " + left + " lần thử"
+                        : "Mã OTP không đúng. Vui lòng yêu cầu mã mới");
+            }
+
             redis.delete(codeKey);
             redis.delete(attemptsKey);
-            throw new AppException(429, "Bạn đã nhập sai quá nhiều lần. Vui lòng yêu cầu mã mới");
+            fallbackOtpCodes.remove(codeKey);
+        } catch (DataAccessException e) {
+            String saved = fallbackOtpCodes.get(codeKey);
+            if (saved == null || !constantTimeEquals(saved, inputCode == null ? "" : inputCode.trim())) {
+                throw new AppException(400, "Mã OTP không đúng hoặc đã hết hạn. Vui lòng yêu cầu mã mới");
+            }
+            fallbackOtpCodes.remove(codeKey);
         }
-
-        if (!constantTimeEquals(saved, inputCode == null ? "" : inputCode.trim())) {
-            long left = MAX_VERIFY_ATTEMPTS - (attempts == null ? 0 : attempts);
-            throw new AppException(400, left > 0
-                    ? "Mã OTP không đúng. Bạn còn " + left + " lần thử"
-                    : "Mã OTP không đúng. Vui lòng yêu cầu mã mới");
-        }
-
-        redis.delete(codeKey);
-        redis.delete(attemptsKey);
     }
 
     private static String codeKey(OtpPurpose purpose, String email) {

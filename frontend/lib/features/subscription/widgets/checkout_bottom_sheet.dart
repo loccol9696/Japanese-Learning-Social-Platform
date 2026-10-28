@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-
 import '../../../core/theme/app_colors.dart';
 import '../models/subscription_model.dart';
 import '../services/subscription_service.dart';
 import 'url_helper.dart';
+import 'vietqr_payment_sheet.dart';
 import 'vnpay_instruction_dialog.dart';
-import '../../../core/theme/app_palette.dart';
 
 class CheckoutBottomSheet extends StatefulWidget {
   final SubscriptionPlan plan;
@@ -25,7 +24,7 @@ class CheckoutBottomSheet extends StatefulWidget {
 
 class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
   final SubscriptionService _service = SubscriptionService();
-  String _selectedMethod = 'MOCK';
+  String _selectedMethod = 'VIETQR';
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -43,6 +42,34 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
     });
 
     try {
+      if (_selectedMethod == 'VIETQR') {
+        final payment = await _service.createQrOrder(
+          userId: widget.userId,
+          planId: widget.plan.id,
+          planName: widget.plan.name,
+          price: widget.plan.price,
+        );
+
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+
+        // Đóng BottomSheet chọn phương thức và mở Màn hình quét mã VietQR Napas
+        Navigator.of(context).pop();
+
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (ctx) => VietQrPaymentSheet(
+            plan: widget.plan,
+            payment: payment,
+            userId: widget.userId,
+            onSuccess: widget.onSuccess,
+          ),
+        );
+        return;
+      }
+
       final payment = await _service.checkout(
         userId: widget.userId,
         planId: widget.plan.id,
@@ -50,10 +77,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
       );
 
       if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
 
       if (_selectedMethod == 'VNPAY') {
         final vnpayUrl = payment.paymentUrl ?? _previewVnpayUrl;
@@ -77,6 +101,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             userId: widget.userId,
             planId: widget.plan.id,
             planName: widget.plan.name,
+            durationDays: widget.plan.durationDays,
           );
           if (mounted) {
             Navigator.of(context).pop();
@@ -103,11 +128,11 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
       padding: EdgeInsets.only(
         left: 24,
         right: 24,
-        top: 24,
+        top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      decoration: BoxDecoration(
-        color: AppPalette.surface,
+      decoration: const BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
@@ -116,197 +141,156 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
         children: [
           Center(
             child: Container(
-              width: 48,
+              width: 44,
               height: 5,
               decoration: BoxDecoration(
-                color: AppPalette.border,
+                color: Colors.grey.shade300,
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
           ),
-          const SizedBox(height: 18),
-          Text(
-            'Xác nhận thông tin đơn hàng',
+          const SizedBox(height: 16),
+          const Text(
+            'Chọn phương thức thanh toán',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: AppPalette.textPrimary,
+              color: Color(0xFF0F172A),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
+
+          // Plan Summary Box
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.2),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFF0FDF4), Color(0xFFECFDF5)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF86EFAC)),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
+                    color: const Color(0xFF16A34A).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    Icons.workspace_premium,
-                    color: AppColors.primary,
-                    size: 28,
+                  child: const Icon(
+                    Icons.workspace_premium_rounded,
+                    color: Color(0xFF16A34A),
+                    size: 26,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         widget.plan.name,
-                        style: TextStyle(
-                          fontSize: 16,
+                        style: const TextStyle(
+                          fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: AppPalette.textPrimary,
+                          color: Color(0xFF0F172A),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         'Thời hạn: ${widget.plan.durationLabel}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppPalette.textSecondary,
-                        ),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
                       ),
                     ],
                   ),
                 ),
                 Text(
                   widget.plan.formattedPrice,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF16A34A),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
-          Text(
-            'Phương thức thanh toán',
+          const SizedBox(height: 18),
+
+          const Text(
+            'Phương thức khả dụng',
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: AppPalette.textPrimary,
+              color: Color(0xFF334155),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
+
+          // Option 1: VietQR
           _buildPaymentMethodOption(
-            value: 'MOCK',
-            title: 'Mô phỏng tức thì (Mock Payment)',
-            subtitle: 'Thử nghiệm môi trường DEV/Demo - Kích hoạt ngay',
-            icon: Icons.flash_on_rounded,
-            iconColor: AppPalette.warning,
+            value: 'VIETQR',
+            title: 'Chuyển khoản Ngân hàng (VietQR Napas 24/7)',
+            subtitle: 'Quét mã qua Timo, VCB, MB, Techcombank, MoMo...',
+            icon: Icons.qr_code_2_rounded,
+            iconColor: const Color(0xFF0284C7),
             enabled: true,
+            badge: 'Khuyên dùng',
           ),
+
+          // Option 2: VNPay Sandbox
           _buildPaymentMethodOption(
             value: 'VNPAY',
             title: 'Cổng thanh toán VNPAY (Sandbox)',
-            subtitle: 'Tạm khóa: máy chủ chưa cấu hình VNPay',
+            subtitle: 'Thẻ ATM nội địa NCB, QR Pay giả lập',
             icon: Icons.account_balance_rounded,
-            iconColor: AppColors.primary,
-            enabled: false,
+            iconColor: const Color(0xFF2563EB),
+            enabled: true,
           ),
-          if (_selectedMethod == 'VNPAY')
-            Container(
-              margin: const EdgeInsets.only(top: 4, bottom: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppPalette.accentSoft,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppPalette.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.link_rounded,
-                        size: 16,
-                        color: AppPalette.accent,
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'Đường link thanh toán VNPAY Sandbox:',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppPalette.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  GestureDetector(
-                    onTap: _handlePayment,
-                    child: Text(
-                      _previewVnpayUrl,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: AppPalette.accent,
-                        decoration: TextDecoration.underline,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+
+          // Option 3: Mock Test
           _buildPaymentMethodOption(
-            value: 'MOMO',
-            title: 'Ví điện tử MoMo',
-            subtitle: 'Quét mã MoMo nhanh chóng (Sắp ra mắt)',
-            icon: Icons.wallet_rounded,
-            iconColor: AppPalette.like,
-            enabled: false,
+            value: 'MOCK',
+            title: 'Mô phỏng tức thì (Test nhanh)',
+            subtitle: 'Kích hoạt ngay không cần chuyển khoản',
+            icon: Icons.flash_on_rounded,
+            iconColor: const Color(0xFFD97706),
+            enabled: true,
           ),
+
           if (_errorMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              _errorMessage!,
-              style: TextStyle(color: AppColors.error, fontSize: 13),
-            ),
+            const SizedBox(height: 10),
+            Text(_errorMessage!, style: TextStyle(color: AppColors.error, fontSize: 12.5)),
           ],
-          const SizedBox(height: 24),
+
+          const SizedBox(height: 18),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Tổng thanh toán:',
-                style: TextStyle(fontSize: 15, color: AppPalette.textSecondary),
-              ),
+              const Text('Tổng thanh toán:',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF64748B))),
               Text(
                 widget.plan.formattedPrice,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.primary,
+                  color: Color(0xFF0F172A),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
+
           SizedBox(
             width: double.infinity,
             height: 50,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppPalette.accent,
-                foregroundColor: AppPalette.onAccent,
+                backgroundColor: const Color(0xFF0F172A),
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -314,26 +298,25 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
               ),
               onPressed: _isLoading ? null : _handlePayment,
               child: _isLoading
-                  ? SizedBox(
-                      width: 24,
-                      height: 24,
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
                       child: CircularProgressIndicator(
-                        color: AppPalette.textPrimary,
-                        strokeWidth: 2.5,
+                        color: Colors.white,
+                        strokeWidth: 2.2,
                       ),
                     )
-                  : const Row(
+                  : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Xác nhận & Thanh toán ngay',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          _selectedMethod == 'VIETQR'
+                              ? 'Lấy mã VietQR chuyển khoản'
+                              : 'Xác nhận & Thanh toán',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                         ),
-                        SizedBox(width: 8),
-                        Icon(Icons.arrow_forward, size: 18),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_forward_rounded, size: 18),
                       ],
                     ),
             ),
@@ -350,61 +333,77 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
     required IconData icon,
     required Color iconColor,
     required bool enabled,
+    String? badge,
   }) {
     final isSelected = _selectedMethod == value;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: isSelected
-            ? AppColors.primary.withValues(alpha: 0.06)
-            : AppPalette.background,
-        borderRadius: BorderRadius.circular(12),
+        color: isSelected ? const Color(0xFFF0F9FF) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isSelected
-              ? AppColors.primary
-              : (enabled ? AppPalette.border : AppPalette.border),
+              ? const Color(0xFF0284C7)
+              : (enabled ? const Color(0xFFE2E8F0) : const Color(0xFFF1F5F9)),
           width: isSelected ? 1.8 : 1,
         ),
       ),
       child: ListTile(
         enabled: enabled,
         dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
         onTap: enabled ? () => setState(() => _selectedMethod = value) : null,
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: enabled
-                ? iconColor.withValues(alpha: 0.1)
-                : AppPalette.border,
-            shape: BoxShape.circle,
+            color: enabled ? iconColor.withValues(alpha: 0.1) : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(
-            icon,
-            color: enabled ? iconColor : AppPalette.textSecondary,
-            size: 20,
-          ),
+          child: Icon(icon, color: enabled ? iconColor : Colors.grey.shade400, size: 22),
         ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: enabled ? AppPalette.textPrimary : AppPalette.textSecondary,
-          ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: enabled ? const Color(0xFF0F172A) : Colors.grey.shade500,
+                ),
+              ),
+            ),
+            if (badge != null) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  badge,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0284C7),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
         subtitle: Text(
           subtitle,
           style: TextStyle(
             fontSize: 11.5,
-            color: enabled ? AppPalette.textSecondary : AppPalette.textSecondary,
+            color: enabled ? const Color(0xFF64748B) : Colors.grey.shade400,
           ),
         ),
         trailing: Icon(
-          isSelected
-              ? Icons.check_circle_rounded
-              : Icons.radio_button_unchecked,
-          color: isSelected ? AppColors.primary : AppPalette.border,
+          isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+          color: isSelected ? const Color(0xFF0284C7) : Colors.grey.shade300,
           size: 20,
         ),
       ),
