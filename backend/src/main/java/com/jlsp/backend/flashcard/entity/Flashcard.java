@@ -43,6 +43,10 @@ public class Flashcard {
     @Column(name = "audio_url", length = 500)
     private String audioUrl;
 
+    /** Thứ tự người dùng tự sắp xếp trong bộ; null (thẻ mới) xếp sau cùng theo thứ tự tạo. */
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

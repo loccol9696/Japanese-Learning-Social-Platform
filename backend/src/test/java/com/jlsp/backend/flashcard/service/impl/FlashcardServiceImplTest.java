@@ -495,4 +495,78 @@ class FlashcardServiceImplTest {
         assertThat(response.getTerm()).isEqualTo("新しい");
         verify(cardRepository).save(any(Flashcard.class));
     }
+
+    // ================================================================== sắp xếp thủ công
+
+    private FlashcardSet setOf(long id) {
+        return FlashcardSet.builder().setId(id).user(owner).title("Bộ " + id).build();
+    }
+
+    @Test
+    void reorderingSetsNumbersThemInTheRequestedOrder() {
+        FlashcardSet a = setOf(1), b = setOf(2), c = setOf(3);
+        when(setRepository.findAllOrderedByUserId(OWNER_ID)).thenReturn(List.of(a, b, c));
+
+        service.reorderSets(OWNER_ID, List.of(3L, 1L, 2L));
+
+        assertThat(c.getSortOrder()).isEqualTo(0);
+        assertThat(a.getSortOrder()).isEqualTo(1);
+        assertThat(b.getSortOrder()).isEqualTo(2);
+    }
+
+    @Test
+    void reorderingOnlyTheVisiblePartKeepsTheOtherSetsInTheirSlots() {
+        FlashcardSet a = setOf(1), b = setOf(2), c = setOf(3), d = setOf(4);
+        when(setRepository.findAllOrderedByUserId(OWNER_ID)).thenReturn(List.of(a, b, c, d));
+
+        // Máy mới tải 2 bộ đầu và đảo chúng; bộ 3, 4 chưa tải phải giữ nguyên chỗ.
+        service.reorderSets(OWNER_ID, List.of(2L, 1L));
+
+        assertThat(b.getSortOrder()).isEqualTo(0);
+        assertThat(a.getSortOrder()).isEqualTo(1);
+        assertThat(c.getSortOrder()).isEqualTo(2);
+        assertThat(d.getSortOrder()).isEqualTo(3);
+    }
+
+    @Test
+    void reorderIgnoresUnknownAndDuplicateIds() {
+        FlashcardSet a = setOf(1), b = setOf(2);
+        when(setRepository.findAllOrderedByUserId(OWNER_ID)).thenReturn(List.of(a, b));
+
+        service.reorderSets(OWNER_ID, List.of(2L, 999L, 2L, 1L));
+
+        assertThat(b.getSortOrder()).isEqualTo(0);
+        assertThat(a.getSortOrder()).isEqualTo(1);
+    }
+
+    @Test
+    void reorderingCardsNumbersThemAndNewCardsStayLast() {
+        Flashcard one = card(1, "t1", "r", privateSet), two = card(2, "t2", "r", privateSet),
+                three = card(3, "t3", "r", privateSet);
+        when(cardRepository.findOrderedBySetId(SET_ID)).thenReturn(List.of(one, two, three));
+
+        service.reorderCards(OWNER_ID, SET_ID, List.of(3L, 2L, 1L));
+
+        assertThat(three.getSortOrder()).isEqualTo(0);
+        assertThat(two.getSortOrder()).isEqualTo(1);
+        assertThat(one.getSortOrder()).isEqualTo(2);
+    }
+
+    @Test
+    void onlyTheOwnerMayReorderCards() {
+        assertThatThrownBy(() -> service.reorderCards(STRANGER_ID, SET_ID, List.of(1L)))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(403));
+        verify(cardRepository, never()).findOrderedBySetId(anyLong());
+    }
+
+    @Test
+    void cardsAreListedInTheirSavedOrder() {
+        Flashcard one = card(1, "t1", "r", privateSet), two = card(2, "t2", "r", privateSet);
+        when(cardRepository.findOrderedBySetId(SET_ID)).thenReturn(List.of(two, one));
+        when(progressRepository.findByUserIdAndSetId(OWNER_ID, SET_ID)).thenReturn(List.of());
+
+        List<FlashcardResponse> result = service.getCardsInSet(OWNER_ID, SET_ID, false, false);
+
+        assertThat(result).extracting(FlashcardResponse::getCardId).containsExactly(2L, 1L);
+    }
 }

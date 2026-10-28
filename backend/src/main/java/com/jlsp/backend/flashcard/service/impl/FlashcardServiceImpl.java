@@ -161,7 +161,7 @@ public class FlashcardServiceImpl implements FlashcardService {
     public FlashcardSetResponse getSetById(Long userId, Long setId) {
         FlashcardSet set = requireReadableSet(userId, setId);
         List<FlashcardResponse> preview = cardRepository
-                .findByFlashcardSetSetId(setId, PageRequest.of(0, DETAIL_PREVIEW_CARDS, Sort.by("cardId")))
+                .findByFlashcardSetSetId(setId, PageRequest.of(0, DETAIL_PREVIEW_CARDS, Sort.by(Sort.Order.asc("sortOrder").nullsLast(), Sort.Order.asc("cardId"))))
                 .getContent().stream()
                 .map(c -> mapToCardResponse(c, null))
                 .collect(Collectors.toList());
@@ -177,13 +177,44 @@ public class FlashcardServiceImpl implements FlashcardService {
         setRepository.delete(set);
     }
 
+    @Override
+    @Transactional
+    public void reorderSets(Long userId, List<Long> orderedSetIds) {
+        List<FlashcardSet> sets = setRepository.findAllOrderedByUserId(userId);
+        List<Long> current = sets.stream().map(FlashcardSet::getSetId).toList();
+        List<Long> order = ReorderUtil.apply(current, orderedSetIds);
+        Map<Long, FlashcardSet> byId = sets.stream().collect(Collectors.toMap(FlashcardSet::getSetId, s -> s));
+        for (int i = 0; i < order.size(); i++) {
+            FlashcardSet set = byId.get(order.get(i));
+            if (!Objects.equals(set.getSortOrder(), i)) {
+                set.setSortOrder(i);
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void reorderCards(Long userId, Long setId, List<Long> orderedCardIds) {
+        requireOwnedSet(userId, setId, "You do not have permission to reorder cards in this set");
+        List<Flashcard> cards = cardRepository.findOrderedBySetId(setId);
+        List<Long> current = cards.stream().map(Flashcard::getCardId).toList();
+        List<Long> order = ReorderUtil.apply(current, orderedCardIds);
+        Map<Long, Flashcard> byId = cards.stream().collect(Collectors.toMap(Flashcard::getCardId, c -> c));
+        for (int i = 0; i < order.size(); i++) {
+            Flashcard card = byId.get(order.get(i));
+            if (!Objects.equals(card.getSortOrder(), i)) {
+                card.setSortOrder(i);
+            }
+        }
+    }
+
     // ------------------------------------------------------------------ thẻ
 
     @Override
     @Transactional(readOnly = true)
     public List<FlashcardResponse> getCardsInSet(Long userId, Long setId, Boolean starredOnly, Boolean shuffle) {
         requireReadableSet(userId, setId);
-        List<Flashcard> cards = cardRepository.findByFlashcardSetSetId(setId);
+        List<Flashcard> cards = cardRepository.findOrderedBySetId(setId);
         Map<Long, FlashcardProgress> progressMap = progressRepository.findByUserIdAndSetId(userId, setId).stream()
                 .collect(Collectors.toMap(p -> p.getId().getCardId(), p -> p));
 
