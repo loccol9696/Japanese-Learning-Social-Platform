@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/video_post.dart';
 import '../../../../core/theme/app_palette.dart';
 
-/// Thông tin video ở góc dưới: gom nhóm @username và Badge JLPT gọn gàng bên dưới phần script
+/// Thông tin video ở góc dưới: @username ở dòng trên; dòng dưới là tên video kèm huy hiệu JLPT viền xanh.
 class VideoInfoOverlay extends StatelessWidget {
   final VideoPost post;
   final AdaptiveVideoTheme? theme;
@@ -21,7 +20,6 @@ class VideoInfoOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeTheme = theme ?? const AdaptiveVideoTheme(isLight: false);
     final hasCreator = post.creatorTag.isNotEmpty;
     final hasJlpt = post.jlptLevel.isNotEmpty;
     final hasTitle = post.topicTag.isNotEmpty;
@@ -30,106 +28,85 @@ class VideoInfoOverlay extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final shadow = [
+      Shadow(
+        color: AppPalette.videoScrim.withValues(alpha: 0.60),
+        offset: const Offset(0, 1),
+        blurRadius: 4.0,
+      ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Gom nhóm @username và Badge JLPT gọn gàng trên cùng 1 hàng
-        if (hasCreator || hasJlpt)
+        // Dòng 1: @username
+        if (hasCreator)
+          GestureDetector(
+            onTap: onCreatorTap,
+            behavior: HitTestBehavior.opaque,
+            child: Text(
+              post.creatorTag,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 18.0,
+                fontWeight: FontWeight.w800,
+                color: AppPalette.onVideo,
+                shadows: shadow,
+              ),
+            ),
+          ),
+
+        // Dòng 2: biểu tượng video + tên video, kèm huy hiệu JLPT viền xanh
+        if (hasTitle || hasJlpt) ...[
+          if (hasCreator) const SizedBox(height: 6.0),
           Row(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (hasCreator)
+              if (hasTitle) ...[
+                Icon(
+                  Icons.smart_display_outlined,
+                  size: 18.0,
+                  color: AppPalette.onVideo.withValues(alpha: 0.85),
+                ),
+                const SizedBox(width: 6.0),
                 Flexible(
-                  child: GestureDetector(
-                    onTap: onCreatorTap,
-                    behavior: HitTestBehavior.opaque,
-                    child: Text(
-                      post.creatorTag,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 15.0,
-                        fontWeight: FontWeight.bold,
-                        color: AppPalette.onVideo,
-                        shadows: [
-                          Shadow(
-                            color: AppPalette.videoScrim.withValues(
-                              alpha: 0.60,
-                            ),
-                            offset: Offset(0, 1),
-                            blurRadius: 4.0,
-                          ),
-                        ],
-                      ),
+                  child: Text(
+                    post.topicTag,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w500,
+                      color: AppPalette.onVideo.withValues(alpha: 0.9),
+                      shadows: shadow,
                     ),
                   ),
                 ),
-              if (hasCreator && hasJlpt) const SizedBox(width: 8.0),
+              ],
+              if (hasTitle && hasJlpt) const SizedBox(width: 10.0),
               if (hasJlpt)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8.0,
-                    vertical: 2.0,
+                    horizontal: 12.0,
+                    vertical: 3.0,
                   ),
                   decoration: BoxDecoration(
-                    color: activeTheme.jlptBadgeBackground,
-                    borderRadius: BorderRadius.circular(10.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppPalette.videoScrim.withValues(alpha: 0.25),
-                        blurRadius: 4.0,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.circular(16.0),
+                    border: Border.all(color: AppPalette.info, width: 1.2),
                   ),
                   child: Text(
                     post.jlptLevel,
                     style: TextStyle(
-                      fontSize: 11.0,
-                      fontWeight: FontWeight.bold,
-                      color: activeTheme.jlptBadgeText,
+                      fontSize: 13.0,
+                      fontWeight: FontWeight.w800,
+                      color: AppPalette.info,
                       letterSpacing: 0.2,
                     ),
                   ),
                 ),
-            ],
-          ),
-
-        // Video title / topic tag nếu có
-        if (hasTitle) ...[
-          const SizedBox(height: 5.0),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.local_cafe_rounded,
-                size: 13.0,
-                color: activeTheme.isLight
-                    ? AppPalette.warning
-                    : AppColors.warmPeach,
-              ),
-              const SizedBox(width: 4.0),
-              Flexible(
-                child: Text(
-                  post.topicTag,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12.0,
-                    fontWeight: FontWeight.w500,
-                    color: AppPalette.onVideo.withValues(alpha: 0.85),
-                    shadows: [
-                      Shadow(
-                        color: AppPalette.videoScrim.withValues(alpha: 0.50),
-                        offset: Offset(0, 1),
-                        blurRadius: 3.0,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ],
           ),
         ],
