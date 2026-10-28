@@ -24,10 +24,7 @@ import '../../../streak/streak_model.dart';
 import '../../../streak/streak_service.dart';
 import '../../../streak/streak_sheet.dart';
 import '../../../../core/theme/app_palette.dart';
-import '../../../../core/localization/app_language.dart';
-import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/theme_manager.dart';
-import '../../../../core/widgets/app_toast.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ProfileRepository? repository;
@@ -273,12 +270,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       ),
       _SettingsRowData(
-        icon: Icons.language_rounded,
-        title: 'Ngôn ngữ',
-        value: localeManager.currentLanguage.name,
-        onTap: () => _showLanguagePicker(sheetContext),
-      ),
-      _SettingsRowData(
         icon: Icons.brightness_6_outlined,
         title: 'Giao diện',
         value: _themeModeLabel(themeManager.mode),
@@ -428,15 +419,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   static String _themeModeLabel(ThemeMode mode) => switch (mode) {
-    ThemeMode.system => 'Theo hệ thống',
     ThemeMode.light => 'Sáng',
-    ThemeMode.dark => 'Tối',
+    _ => 'Tối',
   };
 
-  /// Chọn giao diện sáng / tối / theo hệ thống; đổi xong đóng cả hai bảng.
+  /// Chọn giao diện sáng / tối; đổi xong đóng cả hai bảng.
   void _showThemePicker(BuildContext settingsSheetContext) {
     const options = [
-      (ThemeMode.system, Icons.brightness_auto_outlined),
       (ThemeMode.light, Icons.light_mode_outlined),
       (ThemeMode.dark, Icons.dark_mode_outlined),
     ];
@@ -485,71 +474,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         themeManager.setMode(mode);
                         Navigator.of(pickerContext).pop();
                         Navigator.of(settingsSheetContext).pop();
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Chọn ngôn ngữ giao diện; chọn xong đóng cả hai bảng.
-  void _showLanguagePicker(BuildContext settingsSheetContext) {
-    showModalBottomSheet(
-      context: settingsSheetContext,
-      backgroundColor: Colors.transparent,
-      builder: (pickerContext) {
-        return Material(
-          color: AppPalette.navBar,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          clipBehavior: Clip.antiAlias,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      'Ngôn ngữ',
-                      style: TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  for (final language in AppLanguage.values)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Text(
-                        language.flag,
-                        style: const TextStyle(fontSize: 22),
-                      ),
-                      title: Text(
-                        language.name,
-                        style: TextStyle(
-                          color: AppPalette.textPrimary,
-                          fontSize: 16,
-                        ),
-                      ),
-                      trailing: language == localeManager.currentLanguage
-                          ? Icon(
-                              Icons.check_rounded,
-                              color: AppPalette.accent,
-                            )
-                          : null,
-                      onTap: () {
-                        localeManager.changeLanguage(language);
-                        Navigator.of(pickerContext).pop();
-                        Navigator.of(settingsSheetContext).pop();
-                        AppToast.showSuccess(appStrings.languageChanged, context: context);
                       },
                     ),
                 ],
