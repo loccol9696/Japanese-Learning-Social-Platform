@@ -24,7 +24,7 @@ public class VideoMapper {
      * @param creator Thực thể người dùng đăng tải
      * @return Video entity đã khởi tạo
      */
-    public Video toEntity(CreateVideoRequest request, User creator) {
+    public Video toEntity(CreateVideoRequest request, User creator, com.jlsp.backend.topic.entity.Topic topic) {
         if (request == null) {
             return null;
         }
@@ -36,6 +36,7 @@ public class VideoMapper {
                 .thumbnailUrl(request.getThumbnailUrl())
                 .duration(request.getDuration())
                 .jlptLevel(request.getJlptLevel())
+                .topic(topic)
                 .videoUrl(request.getVideoUrl())
                 .subtitles(request.getSubtitles())
                 .grammarAnalysis(request.getGrammarAnalysis())
@@ -71,6 +72,8 @@ public class VideoMapper {
                 .thumbnailUrl(video.getThumbnailUrl())
                 .duration(video.getDuration())
                 .jlptLevel(video.getJlptLevel())
+                .topicId(video.getTopic() != null ? video.getTopic().getId() : null)
+                .topicName(video.getTopic() != null ? video.getTopic().getName() : null)
                 .videoUrl(video.getVideoUrl())
                 .viewCount(video.getViewCount())
                 .likeCount(video.getLikeCount())
@@ -113,6 +116,8 @@ public class VideoMapper {
                 .thumbnailUrl(video.getThumbnailUrl())
                 .duration(video.getDuration())
                 .jlptLevel(video.getJlptLevel())
+                .topicId(video.getTopic() != null ? video.getTopic().getId() : null)
+                .topicName(video.getTopic() != null ? video.getTopic().getName() : null)
                 .videoUrl(video.getVideoUrl())
                 .subtitles(video.getSubtitles())
                 .grammarAnalysis(video.getGrammarAnalysis())

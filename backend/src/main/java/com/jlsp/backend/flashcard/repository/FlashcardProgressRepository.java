@@ -38,6 +38,18 @@ public interface FlashcardProgressRepository extends JpaRepository<FlashcardProg
     @Query("SELECT COUNT(p) FROM FlashcardProgress p WHERE p.user.id = :userId AND p.nextReviewAt >= :from AND p.nextReviewAt < :to")
     long countDueBetween(@Param("userId") Long userId, @Param("from") java.time.LocalDateTime from, @Param("to") java.time.LocalDateTime to);
 
-    @Query("SELECT p FROM FlashcardProgress p WHERE p.user.id = :userId AND p.nextReviewAt IS NOT NULL AND p.nextReviewAt <= :now ORDER BY p.nextReviewAt ASC")
-    List<FlashcardProgress> findDueByUserId(@Param("userId") Long userId, @Param("now") java.time.LocalDateTime now);
+    /** Thẻ đã đến hạn của người dùng (cũ nhất trước), kèm thẻ và bộ thẻ trong cùng truy vấn; giới hạn bằng [pageable]. */
+    @Query("SELECT p FROM FlashcardProgress p JOIN FETCH p.flashcard f JOIN FETCH f.flashcardSet " +
+           "WHERE p.user.id = :userId AND p.nextReviewAt IS NOT NULL AND p.nextReviewAt <= :now " +
+           "ORDER BY p.nextReviewAt ASC")
+    List<FlashcardProgress> findDueByUserId(@Param("userId") Long userId,
+                                            @Param("now") java.time.LocalDateTime now,
+                                            org.springframework.data.domain.Pageable pageable);
+
+    /** Số thẻ đã thuộc của người dùng cho nhiều bộ trong MỘT truy vấn. */
+    @Query("SELECT p.flashcard.flashcardSet.setId AS id, COUNT(p) AS total FROM FlashcardProgress p " +
+           "WHERE p.user.id = :userId AND p.boxLevel >= 3 AND p.flashcard.flashcardSet.setId IN :setIds " +
+           "GROUP BY p.flashcard.flashcardSet.setId")
+    List<com.jlsp.backend.common.repository.IdCount> countMasteredBySetIds(
+            @Param("userId") Long userId, @Param("setIds") java.util.Collection<Long> setIds);
 }

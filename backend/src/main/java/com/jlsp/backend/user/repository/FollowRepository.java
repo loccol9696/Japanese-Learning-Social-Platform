@@ -3,6 +3,7 @@ package com.jlsp.backend.user.repository;
 import com.jlsp.backend.user.entity.Follow;
 import com.jlsp.backend.user.entity.FollowId;
 import com.jlsp.backend.user.entity.User;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -70,17 +71,23 @@ public interface FollowRepository extends JpaRepository<Follow, FollowId> {
     @Query("SELECT f.id.followerId FROM Follow f WHERE f.id.followingId = :userId")
     List<Long> findFollowerIdsByFollowingId(@Param("userId") Long userId);
 
-    /** Những người đang theo dõi userId (chỉ tài khoản đang hoạt động), mới nhất trước. */
+    /** Trong số userIds, những người đang theo dõi followedId — thay cho tải toàn bộ danh sách follower. */
+    @Query("SELECT f.id.followerId FROM Follow f " +
+            "WHERE f.id.followingId = :followedId AND f.id.followerId IN :userIds")
+    Set<Long> findFollowerIdsAmong(@Param("followedId") Long followedId,
+                                   @Param("userIds") Collection<Long> userIds);
+
+    /** Một trang những người đang theo dõi userId (chỉ tài khoản đang hoạt động), mới nhất trước. */
     @Query("SELECT f FROM Follow f JOIN FETCH f.follower u " +
             "WHERE f.id.followingId = :userId AND u.isActive = true " +
             "ORDER BY f.createdAt DESC")
-    List<Follow> findFollowersOf(@Param("userId") Long userId);
+    List<Follow> findFollowersOf(@Param("userId") Long userId, Pageable pageable);
 
-    /** Những người userId đang theo dõi (chỉ tài khoản đang hoạt động), mới nhất trước. */
+    /** Một trang những người userId đang theo dõi (chỉ tài khoản đang hoạt động), mới nhất trước. */
     @Query("SELECT f FROM Follow f JOIN FETCH f.following u " +
             "WHERE f.id.followerId = :userId AND u.isActive = true " +
             "ORDER BY f.createdAt DESC")
-    List<Follow> findFollowingOf(@Param("userId") Long userId);
+    List<Follow> findFollowingOf(@Param("userId") Long userId, Pageable pageable);
 
     /**
      * Những người dùng (đang hoạt động) mà userId và họ follow lẫn nhau.

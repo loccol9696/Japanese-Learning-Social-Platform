@@ -6,9 +6,13 @@ import '../../../core/auth/auth_guard.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_palette.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../follow/presentation/widgets/user_search_results.dart';
+import '../../profile/domain/models/topic_model.dart';
+import '../../topic/topic_service.dart';
 import '../data/explore_service.dart';
 import '../data/explore_video.dart';
 import '../../home/presentation/widgets/video_player_item.dart';
+import '../../../core/widgets/swipe_back_detector.dart';
 
 /// Màn Khám phá: tìm kiếm + lọc + lưới video, dữ liệu lấy hoàn toàn từ backend.
 class ExploreScreen extends StatefulWidget {
@@ -21,7 +25,7 @@ class ExploreScreen extends StatefulWidget {
   State<ExploreScreen> createState() => _ExploreScreenState();
 }
 
-class _ExploreScreenState extends State<ExploreScreen> {
+class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProviderStateMixin {
   static Color get _background => AppPalette.background;
   static Color get _surface => AppPalette.surface;
   static Color get _surfaceHigh => AppPalette.surface;
@@ -35,6 +39,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   ExploreFilter _filter = ExploreFilter.trending;
   String _search = '';
+  List<TopicModel> _topics = const [];
+  int? _topicId;
   final List<ExploreVideo> _videos = [];
   int _page = 0;
   bool _isLast = false;
@@ -44,6 +50,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
   int? _selectedVideoIndex;
   PageController? _videoFeedController;
 
+  /// Mức hiện của khung xem video: 1 = phủ kín, 0 = trượt hết ra ngoài phải. Điều khiển cả hiệu ứng mở / đóng lẫn
+  /// việc trượt theo ngón tay khi vuốt quay lại, giống cách một trang thật chuyển cảnh.
+  late final AnimationController _feedAnim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+  );
+  bool _closingFeed = false;
+
   /// Tăng mỗi lần đổi bộ lọc/từ khoá để bỏ qua kết quả của request cũ.
   int _requestToken = 0;
 
@@ -52,6 +66,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     _loadFirstPage();
+    _loadTopics();
+  }
+
+  /// Chip chủ đề là phần phụ: tải lỗi thì không hiện, danh sách video vẫn dùng được.
+  Future<void> _loadTopics() async {
+    try {
+      final topics = await TopicService().fetchTopics();
+      if (mounted) setState(() => _topics = topics);
+    } catch (_) {}
   }
 
   @override
@@ -59,6 +82,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _searchDebounce?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
+    _feedAnim.dispose();
     _videoFeedController?.dispose();
     super.dispose();
   }
@@ -74,6 +98,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final result = await _service.fetchVideos(
         filter: _filter,
         search: _search,
+        topicId: _topicId,
       );
       if (!mounted || token != _requestToken) return;
       setState(() {
@@ -102,6 +127,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final result = await _service.fetchVideos(
         filter: _filter,
         search: _search,
+        topicId: _topicId,
         page: _page + 1,
       );
       if (!mounted || token != _requestToken) return;
@@ -134,7 +160,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _searchDebounce = Timer(const Duration(milliseconds: 400), () {
       final next = value.trim();
       if (next == _search) return;
+      if (_filter.isUsers) {
+        // Kết quả người dùng do UserSearchResults tự tải khi từ khoá đổi.
+        setState(() => _search = next);
+        return;
+      }
       _search = next;
+      if (next.isNotEmpty) _topicId = null;
       _loadFirstPage();
     });
   }
@@ -146,13 +178,41 @@ class _ExploreScreenState extends State<ExploreScreen> {
       setState(() {});
       return;
     }
+    if (_filter.isUsers) {
+      setState(() => _search = '');
+      return;
+    }
     _search = '';
+    _loadFirstPage();
+  }
+
+  void _selectTopic(int? topicId) {
+    if (topicId == _topicId) return;
+    _searchDebounce?.cancel();
+    // Máy chủ ưu tiên từ khoá hơn chủ đề, nên chọn chủ đề thì xoá ô tìm kiếm.
+    _searchController.clear();
+    setState(() {
+      _topicId = topicId;
+      _search = '';
+    });
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
     _loadFirstPage();
   }
 
   void _selectFilter(ExploreFilter filter) {
     if (filter == _filter) return;
-    setState(() => _filter = filter);
+    // Áp dụng ngay chữ đang gõ (nếu chưa kịp debounce) để hai chế độ dùng chung một từ khoá.
+    _searchDebounce?.cancel();
+    final typed = _searchController.text.trim();
+    final wasUsers = _filter.isUsers;
+    setState(() {
+      _filter = filter;
+      _search = typed;
+      // Máy chủ ưu tiên từ khoá hơn chủ đề: có từ khoá thì bỏ chủ đề đang chọn khi quay lại video.
+      if (wasUsers && typed.isNotEmpty) _topicId = null;
+    });
+    // Chế độ người dùng không có danh sách video để tải.
+    if (filter.isUsers) return;
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     _loadFirstPage();
   }
@@ -179,19 +239,45 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   void _openVideo(int index) {
+    if (_closingFeed) return;
     _videoFeedController?.dispose();
     setState(() {
       _selectedVideoIndex = index;
       _videoFeedController = PageController(initialPage: index);
     });
+    _feedAnim.forward(from: 0); // video trượt vào từ bên phải
   }
 
-  void _closeVideoFeed() {
-    _videoFeedController?.dispose();
+  /// Đóng khung xem video: trượt ra bên phải rồi gỡ khỏi cây widget, danh sách kết quả vừa tìm vẫn nằm sẵn bên dưới
+  /// (giữ nguyên vị trí cuộn).
+  Future<void> _closeVideoFeed() async {
+    if (_closingFeed || _selectedVideoIndex == null) return;
+    _closingFeed = true;
+    await _feedAnim.reverse();
+    if (!mounted) return;
+    final controller = _videoFeedController;
     setState(() {
       _videoFeedController = null;
       _selectedVideoIndex = null;
+      _closingFeed = false;
     });
+    // Huỷ sau khi khung hình đã gỡ PageView ra khỏi cây.
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller?.dispose());
+  }
+
+  /// Vuốt quay lại: khung video trượt theo ngón tay.
+  void _onFeedDrag(double fraction) {
+    if (_closingFeed) return;
+    _feedAnim.value = (_feedAnim.value - fraction).clamp(0.0, 1.0);
+  }
+
+  void _onFeedDragEnd(bool goBack) {
+    if (_closingFeed) return;
+    if (goBack) {
+      _closeVideoFeed();
+    } else {
+      _feedAnim.animateTo(1.0, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+    }
   }
 
   String _messageOf(Object e) {
@@ -209,10 +295,63 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_selectedVideoIndex != null) {
-      return _buildVideoFeed();
-    }
+    final inVideoFeed = _selectedVideoIndex != null;
+    // Đang xem video trong cùng trang: vuốt quay lại và nút Back của hệ thống chỉ đóng video để về danh sách tìm
+    // kiếm vừa rồi, không đóng cả trang Khám phá (về thẳng Trang chủ).
+    return SwipeBackOverride(
+      active: inVideoFeed,
+      onBack: _closeVideoFeed,
+      onDragDelta: _onFeedDrag,
+      onDragEnd: _onFeedDragEnd,
+      child: PopScope(
+        canPop: !inVideoFeed,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && inVideoFeed) _closeVideoFeed();
+        },
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            return AnimatedBuilder(
+              animation: _feedAnim,
+              builder: (context, _) {
+                final shown = _feedAnim.value;
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Danh sách kết quả luôn nằm bên dưới, dịch nhẹ sang trái khi video trượt vào (như chuyển trang).
+                    Transform.translate(
+                      offset: Offset(-width * 0.3 * shown, 0),
+                      child: IgnorePointer(
+                        ignoring: inVideoFeed,
+                        child: ExcludeFocus(excluding: inVideoFeed, child: _buildResults()),
+                      ),
+                    ),
+                    if (inVideoFeed)
+                      Transform.translate(
+                        offset: Offset(width * (1 - shown), 0),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppPalette.shadow.withValues(alpha: 0.35 * shown),
+                                blurRadius: 24,
+                              ),
+                            ],
+                          ),
+                          child: _buildVideoFeed(),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
 
+  Widget _buildResults() {
     // Chừa chỗ cho thanh menu dưới (nằm đè lên nội dung trong HomeScreen).
     final bottomInset =
         MediaQuery.of(context).padding.bottom +
@@ -228,6 +367,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
             _buildSearchBar(),
             const SizedBox(height: 10),
             _buildFilterChips(),
+            if (_topics.isNotEmpty && !_filter.isUsers) ...[
+              const SizedBox(height: 8),
+              _buildTopicChips(),
+            ],
             const SizedBox(height: 12),
             Expanded(child: _buildBody(bottomInset)),
           ],
@@ -253,7 +396,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
             itemCount: _videos.length,
             itemBuilder: (context, index) {
               final video = _videos[index];
-              return VideoPlayerItem(key: ValueKey(video.id), post: video.post);
+              return VideoPlayerItem(
+                key: ValueKey(video.id),
+                post: video.post,
+                // Mở từ trang tìm kiếm (có nút quay lại) thì không có thanh menu dưới nên không chừa chỗ cho nó.
+                reserveBottomBar: !widget.showBackButton,
+              );
             },
           ),
           Positioned(
@@ -293,7 +441,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
           cursorColor: _accent,
           decoration: InputDecoration(
-            hintText: 'Tìm video theo tiêu đề, nội dung...',
+            hintText: _filter.isUsers
+                ? 'Tìm người dùng theo tên hoặc username...'
+                : 'Tìm video theo tiêu đề, nội dung...',
             hintStyle: TextStyle(color: _textMuted, fontSize: 14),
             prefixIcon: Icon(Icons.search_rounded, color: _textMuted),
             suffixIcon: _searchController.text.isEmpty
@@ -315,22 +465,63 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     return Padding(
       padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
-      child: widget.showBackButton
-          ? Row(
-              children: [
-                IconButton(
-                  tooltip: 'Quay lại',
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: AppPalette.textPrimary,
-                    size: 20,
-                  ),
-                ),
-                Expanded(child: searchField),
-              ],
-            )
-          : searchField,
+      child: Row(
+        children: [
+          if (widget.showBackButton)
+            IconButton(
+              tooltip: 'Quay lại',
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: AppPalette.textPrimary,
+                size: 20,
+              ),
+            ),
+          Expanded(child: searchField),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopicChips() {
+    Widget chip(String label, bool selected, VoidCallback onTap) {
+      return GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? _accent : _surfaceHigh,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: selected ? AppPalette.onAccent : _textMuted,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 30,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _topics.length + 1,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return chip('Mọi chủ đề', _topicId == null, () => _selectTopic(null));
+          }
+          final topic = _topics[index - 1];
+          return chip(topic.name, topic.id == _topicId, () => _selectTopic(topic.id));
+        },
+      ),
     );
   }
 
@@ -386,6 +577,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildBody(double bottomInset) {
+    if (_filter.isUsers) {
+      return UserSearchResults(query: _search, bottomInset: bottomInset);
+    }
+
     if (_isLoading && _videos.isEmpty) {
       return Center(child: CircularProgressIndicator(color: _accent));
     }
@@ -633,7 +828,7 @@ class _ExploreVideoCard extends StatelessWidget {
                   ? Icons.bookmark_rounded
                   : Icons.bookmark_border_rounded,
               size: 20,
-              color: video.isSaved ? AppPalette.warning : AppPalette.onVideo,
+              color: video.isSaved ? AppPalette.gold : AppPalette.onVideo,
             ),
           ),
         ),

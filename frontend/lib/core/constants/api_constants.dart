@@ -73,6 +73,12 @@ class ApiConstants {
   static String shadowingSummaryUrl(String videoId) =>
       '$baseUrl/videos/$videoId/shadowing/summary';
   static String get flashcardReviewUrl => '$baseUrl/flashcards/study/review';
+  static String get streakUrl => '$baseUrl/users/me/streak';
+  static String streakDaysUrl(DateTime from, DateTime to) {
+    String iso(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    return '$baseUrl/users/me/streak/days?from=${iso(from)}&to=${iso(to)}';
+  }
   static String get flashcardDueSummaryUrl =>
       '$baseUrl/flashcards/study/due-summary';
   static String get flashcardSaveVideoUrl => '$baseUrl/flashcards/video/save';
@@ -96,6 +102,8 @@ class ApiConstants {
   // Profile endpoints
   static String get profileUrl => '$baseUrl/profile';
   static String get topicsUrl => '$baseUrl/topics';
+  static String get reportsUrl => '$baseUrl/reports';
+  static String get notificationsUrl => '$baseUrl/notifications';
 
   // Video & Moderation endpoints
   static String get myVideosStatusUrl => '$baseUrl/videos/my-status';
@@ -108,6 +116,10 @@ class ApiConstants {
 
   // Follow endpoints (chỉ follow lẫn nhau mới nhắn tin được)
   static String followUrl(int userId) => '$baseUrl/users/$userId/follow';
+  static String userSearchUrl(String query, {int page = 0, int size = 20}) =>
+      '$baseUrl/users/search?q=${Uri.encodeQueryComponent(query)}&page=$page&size=$size';
+  static String blockUrl(int userId) => '$baseUrl/users/$userId/block';
+  static String get blockedUsersUrl => '$baseUrl/users/me/blocked';
   static String get myFollowersUrl => '$baseUrl/users/me/followers';
   static String get myFollowingUrl => '$baseUrl/users/me/following';
   static String publicProfileUrl(int userId) =>
@@ -123,6 +135,7 @@ class ApiConstants {
   static String chatReadUrl(int id) => '$baseUrl/chat/conversations/$id/read';
   static String get chatUnreadCountUrl => '$baseUrl/chat/unread-count';
   static String shareVideoUrl(int videoId) => '$baseUrl/videos/$videoId/share';
+  static String shareDeckUrl(int deckId) => '$baseUrl/flashcards/sets/$deckId/share';
   static String videoDetailUrl(String videoId) => '$baseUrl/videos/$videoId';
 
   /// Server Socket.IO của chat: cùng host với API nhưng port riêng (9092).

@@ -181,7 +181,8 @@ public class FlashcardController {
     public ResponseEntity<ApiResponse<MatchingGameResponse>> generateMatchingGame(
             @PathVariable Long setId,
             @RequestParam(required = false, defaultValue = "5") Integer pairCount) {
-        MatchingGameResponse response = flashcardService.generateMatchingGame(setId, pairCount);
+        Long userId = CurrentUser.requireId();
+        MatchingGameResponse response = flashcardService.generateMatchingGame(userId, setId, pairCount);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

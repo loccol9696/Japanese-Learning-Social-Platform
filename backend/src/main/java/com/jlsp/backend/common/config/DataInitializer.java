@@ -22,8 +22,10 @@ public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final com.jlsp.backend.subscription.repository.SubscriptionPlanRepository subscriptionPlanRepository;
+    private final com.jlsp.backend.topic.repository.TopicRepository topicRepository;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
-    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final AdminAccountSeeder adminAccountSeeder;
+    private final org.springframework.core.env.Environment environment;
 
     // BCrypt hash của mật khẩu "password123"
     private static final String DEFAULT_PASSWORD_HASH = "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi";
@@ -32,7 +34,13 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) {
         migrateDatabaseColumns();
         seedSubscriptionPlans();
-        ensureAdminAccount();
+        seedTopics();
+        adminAccountSeeder.seed();
+
+        // Tài khoản mẫu dùng mật khẩu công khai "password123" nên chỉ được tạo ở môi trường dev.
+        if (!environment.acceptsProfiles(org.springframework.core.env.Profiles.of("dev"))) {
+            return;
+        }
 
         if (userRepository.count() > 0) {
             log.info("Dữ liệu người dùng đã tồn tại trong database (tổng cộng {} users), bỏ qua bước khởi tạo.",
@@ -121,6 +129,23 @@ public class DataInitializer implements CommandLineRunner {
         log.info("  4. Learner: sakura_learner / password123 (Role: USER)");
         log.info("  5. Learner: modern_learner / password123 (Role: USER)");
         log.info("==================================================================");
+    }
+
+    /** Chủ đề mặc định, chỉ tạo khi bảng còn trống (giữ nguyên thứ tự / id 1..9 như danh sách cũ). */
+    private void seedTopics() {
+        if (topicRepository.count() > 0) {
+            return;
+        }
+        List<String> names = List.of(
+                "Anime & Manga", "Giao tiếp hằng ngày", "Luyện thi JLPT", "Văn hóa & Du lịch",
+                "Âm nhạc J-Pop", "Ẩm thực Nhật Bản", "Kanji & Hán tự", "Công việc & IT", "Tin tức thời sự");
+        for (int i = 0; i < names.size(); i++) {
+            topicRepository.save(com.jlsp.backend.topic.entity.Topic.builder()
+                    .name(names.get(i))
+                    .sortOrder(i + 1)
+                    .build());
+        }
+        log.info("Đã khởi tạo {} chủ đề mặc định.", names.size());
     }
 
     private void seedSubscriptionPlans() {
@@ -226,43 +251,6 @@ public class DataInitializer implements CommandLineRunner {
             log.info("Migration cột database thành công hoàn tất!");
         } catch (Exception e) {
             log.warn("Lưu ý trong quá trình migration cột database: {}", e.getMessage());
-        }
-    }
-
-    private void ensureAdminAccount() {
-        try {
-            User admin = userRepository.findByUsername("admin")
-                    .orElseGet(() -> userRepository.findByEmail("admin@jlsp.com").orElse(null));
-
-            String encodedPassword = passwordEncoder.encode("AdminPassword123@");
-
-            if (admin != null) {
-                admin.setUsername("admin");
-                admin.setEmail("admin@jlsp.com");
-                admin.setPasswordHash(encodedPassword);
-                admin.setRole(UserRole.ADMIN);
-                admin.setIsActive(true);
-                userRepository.save(admin);
-                log.info("==> [SUCCESS] Đã đồng bộ tài khoản admin: username='admin', role=ADMIN, password=AdminPassword123@");
-            } else {
-                admin = User.builder()
-                        .username("admin")
-                        .email("admin@jlsp.com")
-                        .passwordHash(encodedPassword)
-                        .displayName("Hệ thống Quản trị (Admin)")
-                        .avatarUrl("https://picsum.photos/seed/admin88/200/200")
-                        .role(UserRole.ADMIN)
-                        .jlptLevel(JLPTLevel.N1)
-                        .bio("Tài khoản quản trị viên hệ thống JLSP")
-                        .isActive(true)
-                        .createdAt(LocalDateTime.now())
-                        .updatedAt(LocalDateTime.now())
-                        .build();
-                userRepository.save(admin);
-                log.info("==> [SUCCESS] Đã tạo mới tài khoản admin: username='admin', role=ADMIN, password=AdminPassword123@");
-            }
-        } catch (Exception e) {
-            log.error("Lỗi khi đồng bộ tài khoản admin: {}", e.getMessage(), e);
         }
     }
 }

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_palette.dart';
+import 'streak_progress_bar.dart';
 
 class LearningHeader extends StatelessWidget {
   final int currentIndex;
   final int totalItems;
   final VoidCallback onClose;
   final VoidCallback? onSettingsClick;
-  final Color? progressColor;
-  final Color? trackColor;
+  /// Số câu đúng liên tiếp; từ 2 trở lên thanh tiến trình đổi màu và hiện ngọn lửa kèm số.
+  final int streak;
   final double height;
   final EdgeInsetsGeometry progressPadding;
 
@@ -17,10 +18,9 @@ class LearningHeader extends StatelessWidget {
     required this.totalItems,
     required this.onClose,
     this.onSettingsClick,
-    this.progressColor,
-    this.trackColor,
-    this.height = 3.5,
-    this.progressPadding = const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+    this.streak = 0,
+    this.height = 8,
+    this.progressPadding = const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
   });
 
   @override
@@ -66,25 +66,10 @@ class LearningHeader extends StatelessWidget {
           ),
         ),
 
-        // Continuous Progress Bar
+        // Thanh tiến trình: đổi màu cam + ngọn lửa khi đúng liên tiếp
         Padding(
           padding: progressPadding,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: progress, end: progress),
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, _) {
-                return LinearProgressIndicator(
-                  value: value,
-                  minHeight: height,
-                  backgroundColor: trackColor ?? AppPalette.border,
-                  valueColor: AlwaysStoppedAnimation<Color>(progressColor ?? AppPalette.accent),
-                );
-              },
-            ),
-          ),
+          child: StreakProgressBar(progress: progress, streak: streak, height: height),
         ),
       ],
     );

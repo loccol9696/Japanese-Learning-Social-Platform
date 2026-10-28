@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_toast.dart';
+import '../../data/video_manage_service.dart';
 import '../../../profile/data/datasources/profile_remote_datasource.dart';
 import '../../../profile/data/repositories/profile_repository_impl.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
@@ -17,6 +20,7 @@ class MyVideosStatusScreen extends StatefulWidget {
 
 class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
   late final ProfileRepository _repository;
+  final VideoManageService _manage = VideoManageService();
   bool _isLoading = true;
   List<UserVideoModel> _allVideos = [];
   String _selectedFilter = 'ALL'; // ALL, PENDING, APPROVED, REJECTED
@@ -44,6 +48,134 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
     }
   }
 
+  static const _levels = ['N5', 'N4', 'N3', 'N2', 'N1'];
+
+  Future<void> _editVideo(UserVideoModel video) async {
+    final titleCtrl = TextEditingController(text: video.title);
+    final descCtrl = TextEditingController(text: video.description ?? '');
+    var level = _levels.contains(video.jlptLevel) ? video.jlptLevel : 'N5';
+    final formKey = GlobalKey<FormState>();
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          backgroundColor: AppColors.surfaceCard,
+          title: Text('Sửa video', style: TextStyle(color: AppPalette.textPrimary)),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: titleCtrl,
+                    maxLength: 200,
+                    style: TextStyle(color: AppPalette.textPrimary),
+                    decoration: const InputDecoration(labelText: 'Tiêu đề'),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Tiêu đề không được để trống'
+                        : null,
+                  ),
+                  TextFormField(
+                    controller: descCtrl,
+                    maxLines: 3,
+                    style: TextStyle(color: AppPalette.textPrimary),
+                    decoration: const InputDecoration(labelText: 'Mô tả'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: level,
+                    dropdownColor: AppColors.surfaceCard,
+                    style: TextStyle(color: AppPalette.textPrimary),
+                    decoration: const InputDecoration(labelText: 'Cấp độ JLPT'),
+                    items: [
+                      for (final l in _levels)
+                        DropdownMenuItem(value: l, child: Text(l)),
+                    ],
+                    onChanged: (v) => setLocal(() => level = v ?? level),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Huỷ'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
+              },
+              child: const Text('Lưu'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final title = titleCtrl.text.trim();
+    final desc = descCtrl.text.trim();
+    titleCtrl.dispose();
+    descCtrl.dispose();
+    if (saved != true || !mounted) return;
+
+    try {
+      await _manage.update(
+        video.id,
+        title: title,
+        description: desc,
+        jlptLevel: level,
+      );
+      if (!mounted) return;
+      AppToast.showSuccess('Đã cập nhật video', context: context);
+      await _loadVideos();
+    } on ApiException catch (e) {
+      if (mounted) AppToast.showError(e.message, context: context);
+    } catch (_) {
+      if (mounted) {
+        AppToast.showError('Không thể cập nhật video', context: context);
+      }
+    }
+  }
+
+  Future<void> _deleteVideo(UserVideoModel video) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceCard,
+        title: Text('Xoá video?', style: TextStyle(color: AppPalette.textPrimary)),
+        content: Text(
+          '"${video.title}" sẽ bị xoá vĩnh viễn cùng lượt thích và bình luận.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Huỷ'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Xoá', style: TextStyle(color: AppPalette.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _manage.delete(video.id);
+      if (!mounted) return;
+      setState(() => _allVideos.removeWhere((v) => v.id == video.id));
+      AppToast.showSuccess('Đã xoá video', context: context);
+    } on ApiException catch (e) {
+      if (mounted) AppToast.showError(e.message, context: context);
+    } catch (_) {
+      if (mounted) AppToast.showError('Không thể xoá video', context: context);
+    }
+  }
+
   List<UserVideoModel> get _filteredVideos {
     if (_selectedFilter == 'ALL') return _allVideos;
     return _allVideos
@@ -59,52 +191,49 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundCanvas,
+      backgroundColor: AppPalette.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppPalette.background,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppPalette.textPrimary, size: 20),
+          icon: Icon(Icons.chevron_left_rounded, color: AppPalette.textPrimary, size: 30),
+          tooltip: 'Quay lại',
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Danh Sách Chờ Duyệt',
+          'Chờ duyệt',
           style: TextStyle(
             color: AppPalette.textPrimary,
             fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: AppColors.softSkyBlue),
-            onPressed: _loadVideos,
-          ),
-        ],
       ),
       body: Column(
         children: [
           _buildFilterBar(),
           Expanded(
             child: _isLoading
-                ? Center(
-                    child: CircularProgressIndicator(color: AppColors.periwinkle),
-                  )
+                ? Center(child: CircularProgressIndicator(color: AppPalette.info))
                 : RefreshIndicator(
                     onRefresh: _loadVideos,
-                    color: AppColors.periwinkle,
-                    backgroundColor: AppColors.surfaceCard,
+                    color: AppPalette.info,
+                    backgroundColor: AppPalette.surface,
                     child: _filteredVideos.isEmpty
                         ? _buildEmptyState()
                         : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                             itemCount: _filteredVideos.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 14),
-                            itemBuilder: (context, index) {
-                              final video = _filteredVideos[index];
-                              return _buildVideoCard(video);
-                            },
+                            separatorBuilder: (_, _) => Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: AppPalette.textPrimary.withValues(alpha: 0.07),
+                            ),
+                            itemBuilder: (context, index) =>
+                                _buildVideoRow(_filteredVideos[index]),
                           ),
                   ),
           ),
@@ -113,375 +242,224 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
     );
   }
 
+  /// Thanh tab gạch chân: nhãn + số lượng, tab đang chọn đậm với số và gạch màu xanh.
   Widget _buildFilterBar() {
-    final filters = [
-      {'key': 'ALL', 'label': 'Tất cả'},
-      {'key': 'PENDING', 'label': 'Chờ duyệt'},
-      {'key': 'APPROVED', 'label': 'Đã duyệt'},
-      {'key': 'REJECTED', 'label': 'Từ chối'},
+    const filters = [
+      ('ALL', 'Tất cả'),
+      ('PENDING', 'Chờ duyệt'),
+      ('APPROVED', 'Đã duyệt'),
+      ('REJECTED', 'Từ chối'),
     ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
         border: Border(
-          bottom: BorderSide(
-            color: AppColors.outlineVariant.withValues(alpha: 0.3),
-          ),
+          bottom: BorderSide(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
         ),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: filters.map((f) {
-            final key = f['key']!;
-            final label = f['label']!;
-            final isSelected = _selectedFilter == key;
-            final count = _countByStatus(key);
-
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
+      child: Row(
+        children: [
+          for (final (key, label) in filters)
+            Expanded(
               child: InkWell(
+                key: ValueKey('status-tab-$key'),
                 onTap: () => setState(() => _selectedFilter = key),
-                borderRadius: BorderRadius.circular(20),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.periwinkle : AppColors.surfaceCard,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppColors.periwinkle
-                          : AppColors.outlineVariant.withValues(alpha: 0.4),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: _selectedFilter == key ? AppPalette.info : Colors.transparent,
+                        width: 2,
+                      ),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: isSelected ? AppPalette.onAccent : AppColors.textSecondary,
-                          fontSize: 13,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: label,
+                              style: TextStyle(
+                                color: _selectedFilter == key
+                                    ? AppPalette.textPrimary
+                                    : AppPalette.textPrimary.withValues(alpha: 0.6),
+                                fontWeight: _selectedFilter == key
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                              ),
+                            ),
+                            TextSpan(
+                              text: '  ${_countByStatus(key)}',
+                              style: TextStyle(
+                                color: _selectedFilter == key
+                                    ? AppPalette.info
+                                    : AppPalette.textPrimary.withValues(alpha: 0.45),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
+                        style: const TextStyle(fontSize: 13),
+                        maxLines: 1,
                       ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppPalette.textPrimary.withValues(alpha: 0.25)
-                              : AppColors.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '$count',
-                          style: TextStyle(
-                            color: isSelected ? AppPalette.onAccent : AppColors.softSkyBlue,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            );
-          }).toList(),
-        ),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildVideoCard(UserVideoModel video) {
-    Color statusColor;
-    String statusText;
-    IconData statusIcon;
-
+  Widget _buildVideoRow(UserVideoModel video) {
+    final Color statusColor;
+    final String statusText;
     if (video.isApproved) {
-      statusColor = AppPalette.success; // Emerald
-      statusText = 'ĐÃ DUYỆT';
-      statusIcon = Icons.check_circle_rounded;
+      statusColor = AppPalette.success;
+      statusText = 'Đã duyệt';
     } else if (video.isRejected) {
-      statusColor = AppPalette.error; // Red
-      statusText = 'TỪ CHỐI';
-      statusIcon = Icons.cancel_rounded;
+      statusColor = AppPalette.error;
+      statusText = 'Từ chối';
     } else {
-      statusColor = AppPalette.warning; // Amber
-      statusText = 'CHỜ DUYỆT';
-      statusIcon = Icons.hourglass_top_rounded;
+      statusColor = AppPalette.warning;
+      statusText = 'Chờ duyệt';
     }
+    final mutedText = AppPalette.textPrimary.withValues(alpha: 0.6);
+    final date = formatVideoDate(video.createdAt, DateTime.now());
+    final reason = video.rejectionReason?.trim() ?? '';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: video.isRejected
-              ? AppPalette.error.withValues(alpha: 0.3)
-              : AppColors.outlineVariant.withValues(alpha: 0.4),
-          width: video.isRejected ? 1.2 : 1.0,
-        ),
-      ),
-      child: Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Thumbnail
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    width: 90,
-                    height: 120,
-                    color: AppColors.surfaceContainerHigh,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty)
-                          Image.network(
-                            video.thumbnailUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Center(
-                              child: Icon(Icons.video_library_rounded, color: AppPalette.border, size: 36),
-                            ),
-                          )
-                        else
-                          Center(
-                            child: Icon(Icons.video_library_rounded, color: AppPalette.border, size: 36),
-                          ),
-                        // Duration badge
-                        Positioned(
-                          right: 4,
-                          bottom: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppPalette.videoScrim.withValues(alpha: 0.87),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              _formatDuration(video.duration),
-                              style: TextStyle(
-                                color: AppPalette.onVideo,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 56,
+              height: 76,
+              color: AppPalette.surface,
+              child: video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
+                  ? Image.network(
+                      video.thumbnailUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    video.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppPalette.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      height: 1.25,
                     ),
                   ),
-                ),
-                const SizedBox(width: 14),
-
-                // Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 6),
+                  Row(
                     children: [
-                      // Status Badge & JLPT
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: statusColor.withValues(alpha: 0.4)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(statusIcon, color: statusColor, size: 12),
-                                const SizedBox(width: 4),
-                                Text(
-                                  statusText,
-                                  style: TextStyle(
-                                    color: statusColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.periwinkle.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              video.jlptLevel,
-                              style: TextStyle(
-                                color: AppColors.periwinkle,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
                       ),
-                      const SizedBox(height: 8),
-
-                      // Title
-                      Text(
-                        video.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppPalette.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          height: 1.25,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-
-                      // Description
-                      if (video.description != null && video.description!.isNotEmpty)
-                        Text(
-                          video.description!,
-                          maxLines: 2,
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          date.isEmpty ? statusText : '$statusText  ·  $date',
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: AppPalette.textPrimary.withValues(alpha: 0.6),
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: mutedText, fontSize: 12.5),
                         ),
-
-                      const SizedBox(height: 10),
-
-                      // Stats
-                      Row(
-                        children: [
-                          Icon(Icons.visibility_outlined, size: 14, color: AppColors.textSecondary),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${video.viewCount}',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(Icons.favorite_border_rounded, size: 14, color: AppColors.textSecondary),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${video.likeCount}',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
-                          ),
-                        ],
                       ),
                     ],
                   ),
+                  if (video.isRejected && reason.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      reason,
+                      key: const ValueKey('rejection-reason'),
+                      style: TextStyle(color: AppPalette.error, fontSize: 12.5, height: 1.3),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 28,
+            height: 28,
+            child: PopupMenuButton<String>(
+              padding: EdgeInsets.zero,
+              color: AppPalette.surface,
+              tooltip: 'Tùy chọn',
+              icon: Icon(Icons.more_vert_rounded, color: mutedText, size: 18),
+              onSelected: (v) => v == 'edit' ? _editVideo(video) : _deleteVideo(video),
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Text('Sửa', style: TextStyle(color: AppPalette.textPrimary)),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Text('Xoá', style: TextStyle(color: AppPalette.error)),
                 ),
               ],
             ),
           ),
-
-          // Rejection Reason Banner
-          if (video.isRejected && video.rejectionReason != null && video.rejectionReason!.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppPalette.error.withValues(alpha: 0.1),
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                border: Border(
-                  top: BorderSide(
-                    color: AppPalette.error.withValues(alpha: 0.2),
-                  ),
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.info_outline_rounded, color: AppPalette.error, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Lý do từ chối: ${video.rejectionReason}',
-                      style: TextStyle(
-                        color: AppPalette.error,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceCard,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.periwinkle.withValues(alpha: 0.3),
-                  width: 2,
-                ),
-              ),
-              child: const Icon(
-                Icons.video_library_outlined,
-                color: AppColors.softSkyBlue,
-                size: 38,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              _selectedFilter == 'PENDING'
-                  ? 'Không có video nào đang chờ duyệt'
-                  : _selectedFilter == 'APPROVED'
-                      ? 'Chưa có video nào được duyệt'
-                      : _selectedFilter == 'REJECTED'
-                          ? 'Không có video nào bị từ chối'
-                          : 'Bạn chưa tải lên video nào',
-              textAlign: TextAlign.center,
+    // Cuộn được để kéo-làm-mới vẫn hoạt động khi danh sách rỗng.
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: constraints.maxHeight,
+          child: Center(
+            child: Text(
+              'Chưa có video nào',
+              key: const ValueKey('empty-videos'),
               style: TextStyle(
-                color: AppPalette.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                color: AppPalette.textPrimary.withValues(alpha: 0.55),
+                fontSize: 14,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Các bài học bạn chia sẻ ở chế độ Công khai sẽ xuất hiện tại đây để theo dõi tiến trình kiểm duyệt.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                height: 1.4,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+}
 
-  String _formatDuration(int seconds) {
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+/// "Hôm nay, 21:40" cho video đăng trong ngày, còn lại "25/10" (thêm năm nếu khác năm hiện tại).
+/// Trả chuỗi rỗng nếu không đọc được thời gian.
+String formatVideoDate(String? iso, DateTime now) {
+  final parsed = iso == null ? null : DateTime.tryParse(iso);
+  if (parsed == null) return '';
+  final t = parsed.toLocal();
+  String two(int v) => v.toString().padLeft(2, '0');
+  if (t.year == now.year && t.month == now.month && t.day == now.day) {
+    return 'Hôm nay, ${two(t.hour)}:${two(t.minute)}';
   }
+  final day = '${two(t.day)}/${two(t.month)}';
+  return t.year == now.year ? day : '$day/${t.year}';
 }

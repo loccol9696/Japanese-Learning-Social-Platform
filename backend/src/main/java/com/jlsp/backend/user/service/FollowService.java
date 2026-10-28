@@ -24,9 +24,15 @@ public interface FollowService {
 
     List<User> getMutualFollows(Long userId);
 
-    /** Những người đang theo dõi userId; isFollowing cho biết userId đã theo dõi lại chưa. */
-    List<FollowUserResponse> getFollowers(Long userId);
+    /** Số phần tử tối đa của một trang danh sách follower / following (cũng là mặc định). */
+    int MAX_LIST_SIZE = 500;
 
-    /** Những người userId đang theo dõi. */
-    List<FollowUserResponse> getFollowing(Long userId);
+    /**
+     * Một trang những người đang theo dõi userId, mới nhất trước; isFollowing cho biết userId đã theo dõi
+     * lại chưa. {@code size} bị chặn trong [1, {@link #MAX_LIST_SIZE}].
+     */
+    List<FollowUserResponse> getFollowers(Long userId, int page, int size);
+
+    /** Một trang những người userId đang theo dõi, mới nhất trước. */
+    List<FollowUserResponse> getFollowing(Long userId, int page, int size);
 }

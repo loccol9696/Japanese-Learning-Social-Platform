@@ -76,7 +76,7 @@ class ViStrings implements AppStrings {
   @override
   String get forYou => 'Dành cho bạn';
   @override
-  String get searchPlaceholder => 'Tìm kiếm bài học / Kanji / Slang...';
+  String get searchPlaceholder => 'Tìm video, người dùng...';
 
   @override
   String get noVideos => 'Không có video nào.';
@@ -173,7 +173,7 @@ class EnStrings implements AppStrings {
   @override
   String get forYou => 'For You';
   @override
-  String get searchPlaceholder => 'Search lessons, Kanji, Slang...';
+  String get searchPlaceholder => 'Search videos, users...';
 
   @override
   String get noVideos => 'No videos available.';

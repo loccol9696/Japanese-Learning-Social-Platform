@@ -43,6 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
   FeedTab _currentFeedTab = FeedTab.forYou;
   int _homeTabIndex = 1;
   int _currentNavIndex = 0;
+  // true khi tab Tin nhắn đang mở một màn con (khung chat...), lúc đó thanh menu dưới được ẩn.
+  bool _messagesChildOpen = false;
   int _followingPostIndex = 0;
   int _forYouPostIndex = 0;
   Offset? _homeDragStartPosition;
@@ -236,10 +238,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _onNavTabSelected(int index) async {
-    if (index == BottomNavDock.messagesIndex ||
-        index == 2 ||
-        index == 3 ||
-        index == 4) {
+    // Mọi tab trừ Trang chủ đều cần đăng nhập.
+    if (index >= 1) {
       final authenticated = await _requestAuthenticationAndGetResult();
       if (!mounted || !authenticated) return;
     }
@@ -338,10 +338,11 @@ class _HomeScreenState extends State<HomeScreen> {
       isLight: currentPost?.isLightBackground ?? false,
     );
 
-    // Đang soạn tin nhắn: ẩn thanh menu để bàn phím và ô nhập không bị chồng lên nó.
+    // Đang trong một cuộc trò chuyện (hoặc đang gõ phím): ẩn thanh menu để khung chat được trọn màn hình
+    // và bàn phím, ô nhập không bị chồng lên nó.
     final hideDockForKeyboard =
         _currentNavIndex == BottomNavDock.messagesIndex &&
-        MediaQuery.viewInsetsOf(context).bottom > 0;
+        (_messagesChildOpen || MediaQuery.viewInsetsOf(context).bottom > 0);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundCanvas,
@@ -385,8 +386,11 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             child: PageView(
               controller: _tabPageController,
+              // Đang trong khung chat thì vuốt ngang dành cho việc quay lại hộp thư, không đổi tab.
               physics:
-                  !AuthSession.instance.isAuthenticated || _currentNavIndex == 0
+                  !AuthSession.instance.isAuthenticated ||
+                      _currentNavIndex == 0 ||
+                      (_currentNavIndex == BottomNavDock.messagesIndex && _messagesChildOpen)
                   ? const NeverScrollableScrollPhysics()
                   : null,
               onPageChanged: (index) {
@@ -417,15 +421,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
+                const _KeepAlivePage(child: DeckLibraryScreen()),
                 _KeepAlivePage(
                   child: MessagesTab(
+                    onChildRouteChanged: (open) {
+                      if (open != _messagesChildOpen) {
+                        setState(() => _messagesChildOpen = open);
+                      }
+                    },
                     bottomInset: hideDockForKeyboard
                         ? 0
                         : BottomNavDock.contentHeight +
                               MediaQuery.paddingOf(context).bottom,
                   ),
                 ),
-                const _KeepAlivePage(child: DeckLibraryScreen()),
                 const _KeepAlivePage(child: ProfileScreen()),
               ],
             ),
@@ -540,7 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _updatePostLikeState(post.id, optimisticLiked);
 
     try {
-      final confirmedLiked = await _repository.toggleLike(post.id);
+      final confirmedLiked = await _repository.setLiked(post.id, liked: optimisticLiked);
       if (mounted) {
         _updatePostLikeState(post.id, confirmedLiked);
       }
@@ -561,9 +570,10 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {});
     }
     final previousSaved = post.isSaved;
-    _updatePostSaveState(post.id, !previousSaved);
+    final optimisticSaved = !previousSaved;
+    _updatePostSaveState(post.id, optimisticSaved);
     try {
-      final confirmedSaved = await _repository.toggleSave(post.id);
+      final confirmedSaved = await _repository.setSaved(post.id, saved: optimisticSaved);
       if (mounted) {
         _updatePostSaveState(post.id, confirmedSaved);
         AppToast.showSuccess(

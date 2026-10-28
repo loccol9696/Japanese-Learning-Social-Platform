@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/square_add_button.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../data/models/chat_models.dart';
 import '../../data/services/chat_hub.dart';
@@ -12,7 +13,7 @@ import '../../data/services/chat_socket_service.dart';
 import '../chat_format.dart';
 import '../widgets/chat_avatar.dart';
 import 'chat_detail_screen.dart';
-import 'new_chat_screen.dart';
+import 'new_chat_sheet.dart';
 
 /// Hộp thư: danh sách hội thoại, mới nhất trước, cập nhật realtime qua Socket.IO.
 class InboxScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class InboxScreen extends StatefulWidget {
 class _InboxScreenState extends State<InboxScreen> {
   final _service = ChatService();
   final _socket = ChatSocketService.instance;
+  final _searchController = TextEditingController();
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
   List<Conversation> _conversations = const [];
@@ -54,6 +56,7 @@ class _InboxScreenState extends State<InboxScreen> {
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -120,9 +123,13 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   Future<void> _newChat() async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const NewChatScreen()));
-    if (mounted) unawaited(_load(silent: true));
+    final conversation = await showNewChatSheet(context);
+    if (!mounted) return;
+    if (conversation != null) {
+      await _openConversation(conversation);
+    } else {
+      unawaited(_load(silent: true));
+    }
   }
 
   @override
@@ -131,19 +138,80 @@ class _InboxScreenState extends State<InboxScreen> {
       backgroundColor: AppPalette.background,
       appBar: AppBar(
         backgroundColor: AppPalette.background,
-        title: const Text('Tin nhắn'),
-        actions: [
-          IconButton(
-            tooltip: 'Tin nhắn mới',
-            onPressed: _newChat,
-            icon: const Icon(Icons.edit_square),
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        title: Text(
+          'Tin nhắn',
+          style: TextStyle(
+            color: AppPalette.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
           ),
-        ],
+        ),
       ),
       body: Column(
         children: [
           if (!_online) _buildOfflineBanner(),
+          _buildSearchRow(),
           Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
+
+  /// Hội thoại khớp ô tìm kiếm: theo tên, @username hoặc nội dung tin cuối.
+  List<Conversation> get _filtered {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _conversations;
+    return _conversations.where((c) {
+      final preview = c.lastMessage?.previewFor(_myId) ?? '';
+      return c.otherUser.name.toLowerCase().contains(query) ||
+          c.otherUser.username.toLowerCase().contains(query) ||
+          preview.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  /// Ô tìm cuộc trò chuyện + nút "+" soạn tin mới.
+  Widget _buildSearchRow() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppPalette.surface,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: TextField(
+                key: const ValueKey('inbox-search'),
+                controller: _searchController,
+                onChanged: (_) => setState(() {}),
+                style: TextStyle(color: AppPalette.textPrimary, fontSize: 15),
+                cursorColor: AppPalette.accent,
+                decoration: InputDecoration(
+                  hintText: 'Tìm cuộc trò chuyện...',
+                  hintStyle: TextStyle(
+                    color: AppPalette.textPrimary.withValues(alpha: 0.35),
+                    fontSize: 15,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: AppPalette.textPrimary.withValues(alpha: 0.4),
+                    size: 22,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SquareAddButton(
+            key: const ValueKey('new-chat-button'),
+            tooltip: 'Tin nhắn mới',
+            onPressed: _newChat,
+          ),
         ],
       ),
     );
@@ -180,16 +248,27 @@ class _InboxScreenState extends State<InboxScreen> {
     }
     if (_conversations.isEmpty) return _buildEmpty();
 
+    final conversations = _filtered;
+    if (conversations.isEmpty) {
+      return Center(
+        child: Text(
+          'Không tìm thấy cuộc trò chuyện nào',
+          key: const ValueKey('inbox-no-match'),
+          style: TextStyle(color: AppPalette.textSecondary, fontSize: 14),
+        ),
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: () => _load(silent: true),
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _conversations.length,
+        itemCount: conversations.length,
         separatorBuilder: (_, _) => const SizedBox.shrink(),
         itemBuilder: (_, index) => _ConversationTile(
-          conversation: _conversations[index],
+          conversation: conversations[index],
           myId: _myId,
-          onTap: () => _openConversation(_conversations[index]),
+          onTap: () => _openConversation(conversations[index]),
         ),
       ),
     );
@@ -202,32 +281,32 @@ class _InboxScreenState extends State<InboxScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.forum_outlined,
-              size: 56,
-              color: AppPalette.textSecondary,
-            ),
-            const SizedBox(height: 14),
             Text(
               'Chưa có cuộc trò chuyện nào',
               style: TextStyle(
                 color: AppPalette.textPrimary,
                 fontSize: 17,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Bạn có thể nhắn tin và chia sẻ video cho những người đã follow lẫn nhau.',
+              'Nhắn tin cho những người đã follow lẫn nhau.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppPalette.textSecondary, height: 1.4),
+              style: TextStyle(color: AppPalette.textSecondary, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 18),
-            FilledButton.icon(
+            FilledButton(
+              key: const ValueKey('start-chat-button'),
               onPressed: _newChat,
-              style: FilledButton.styleFrom(backgroundColor: AppPalette.accent),
-              icon: const Icon(Icons.edit_square, size: 18),
-              label: const Text('Bắt đầu trò chuyện'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppPalette.accent,
+                foregroundColor: AppPalette.onAccent,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+              child: const Text('Bắt đầu trò chuyện'),
             ),
           ],
         ),
@@ -255,11 +334,11 @@ class _ConversationTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         child: Row(
           children: [
-            ChatAvatar(user: conversation.otherUser, radius: 26),
-            const SizedBox(width: 12),
+            ChatAvatar(user: conversation.otherUser, radius: 24),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +350,7 @@ class _ConversationTile extends StatelessWidget {
                     style: TextStyle(
                       color: AppPalette.textPrimary,
                       fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -284,7 +363,7 @@ class _ConversationTile extends StatelessWidget {
                           ? AppPalette.textPrimary
                           : AppPalette.textSecondary,
                       fontWeight: unread > 0
-                          ? FontWeight.w600
+                          ? FontWeight.w700
                           : FontWeight.w400,
                       fontSize: 14,
                     ),
@@ -304,29 +383,19 @@ class _ConversationTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
+                // Chưa đọc: chấm xanh nhỏ dưới giờ (số tin chưa đọc đã có ở huy hiệu tab Tin nhắn).
                 if (unread > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 2,
-                    ),
-                    constraints: const BoxConstraints(minWidth: 20),
+                    key: ValueKey('unread-dot-${conversation.id}'),
+                    width: 9,
+                    height: 9,
                     decoration: BoxDecoration(
-                      color: AppPalette.accent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      unread > 99 ? '99+' : '$unread',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppPalette.onAccent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      color: AppPalette.info,
+                      shape: BoxShape.circle,
                     ),
                   )
                 else
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 9),
               ],
             ),
           ],

@@ -1,9 +1,10 @@
+import { useEffect, useState } from 'react';
 import type { UserProfile } from '../types/auth';
+import { authFetch, getToken, readJson } from '../services/session';
 import { 
   LogOut, 
   Flame, 
   Sparkles, 
-  Trophy, 
   BookOpen, 
   Video, 
   Layers, 
@@ -18,6 +19,24 @@ interface DashboardViewProps {
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
+  const [streakDays, setStreakDays] = useState<number | null>(null);
+
+  // Chuỗi ngày học thật từ server; không lấy được thì hiện dấu gạch thay vì số giả.
+  useEffect(() => {
+    let cancelled = false;
+    authFetch('/api/v1/users/me/streak', {
+      headers: { Authorization: `Bearer ${getToken() ?? ''}` },
+    })
+      .then(async (res) => (res.ok ? readJson(res) : null))
+      .then((body) => {
+        if (!cancelled && body?.data) setStreakDays(body.data.currentStreak ?? 0);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="dashboard-container">
       {/* Top Floating Glass Navigation */}
@@ -88,18 +107,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) 
                   <Flame size={20} />
                 </div>
                 <div className="metric-data">
-                  <span className="metric-value">{user.streakDays || 7} <small>ngày</small></span>
+                  <span className="metric-value">{streakDays ?? '—'} <small>ngày</small></span>
                   <span className="metric-label">Chuỗi học tập</span>
-                </div>
-              </div>
-
-              <div className="metric-card">
-                <div className="metric-icon-box gold">
-                  <Trophy size={20} />
-                </div>
-                <div className="metric-data">
-                  <span className="metric-value">{user.xp || 350} <small>XP</small></span>
-                  <span className="metric-label">Điểm tích lũy</span>
                 </div>
               </div>
 

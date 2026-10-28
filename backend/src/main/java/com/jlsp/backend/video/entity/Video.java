@@ -12,7 +12,16 @@ import java.time.LocalDateTime;
         // Feed / Khám phá: lọc PUBLIC + APPROVED rồi sắp theo created_at.
         @Index(name = "idx_videos_feed", columnList = "status, mod_status, created_at"),
         // Video của một người (hồ sơ, quản lý đăng tải, feed Following).
-        @Index(name = "idx_videos_user_created", columnList = "user_id, created_at")
+        @Index(name = "idx_videos_user_created", columnList = "user_id, created_at"),
+        // Cố ý KHÔNG đánh chỉ mục view_count cho tab "Thịnh hành": cột này bị UPDATE ở
+        // mỗi lượt xem, có chỉ
+        // mục thì mọi lượt xem đều ghi thêm vào chỉ mục (mất cập nhật HOT, chỉ mục
+        // phình). Cần thì dùng
+        // bảng xếp hạng được tính định kỳ / Redis thay vì sắp xếp trực tiếp trên cột
+        // nóng.
+        // Lọc theo chủ đề rồi sắp theo thời gian (topic_id hầu như không đổi nên chỉ
+        // mục rẻ).
+        @Index(name = "idx_videos_topic_feed", columnList = "topic_id, status, mod_status, created_at")
 })
 @Getter
 @Setter
@@ -80,6 +89,14 @@ public class Video {
      */
     @Column(columnDefinition = "TEXT")
     private String subtitles;
+
+    /**
+     * Chủ đề của video (tuỳ chọn). EAGER vì bảng chủ đề rất nhỏ và luôn được hiển
+     * thị kèm video.
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "topic_id")
+    private com.jlsp.backend.topic.entity.Topic topic;
 
     /**
      * Kết quả phân tích ngữ pháp do AI (Gemini) sinh ra từ subtitles, định dạng

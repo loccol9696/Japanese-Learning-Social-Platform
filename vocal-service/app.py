@@ -128,6 +128,16 @@ async def separate_vocal(file: UploadFile = File(...)):
             if not vocal_path or not os.path.exists(vocal_path):
                 raise HTTPException(status_code=500, detail="Không tìm thấy file vocal xuất ra.")
 
+            # Chuyển vocal sang 16kHz mono: nhẹ hơn ~5 lần, Google STT khuyên dùng định dạng này
+            small_path = os.path.join(task_dir, "vocals_16k_mono.wav")
+            conv = subprocess.run(
+                ["ffmpeg", "-y", "-i", vocal_path, "-ac", "1", "-ar", "16000",
+                 "-acodec", "pcm_s16le", small_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            if conv.returncode == 0 and os.path.exists(small_path):
+                vocal_path = small_path
+
             # Trả file vocal về cho Spring Boot
             return FileResponse(
                 vocal_path,

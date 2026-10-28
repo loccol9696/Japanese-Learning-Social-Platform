@@ -79,6 +79,7 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
             taskResultMap.put(taskId, segments);
             taskStatusMap.put(taskId, "COMPLETED");
         } catch (Exception e) {
+            log.error("AI transcription thất bại cho task {}", taskId, e);
             taskStatusMap.put(taskId, "FAILED: " + e.getMessage());
         }
     }
@@ -117,13 +118,16 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
             throw new IllegalStateException("GCP Speech/Storage service is not available. Please check credentials.");
         }
         // Đổi đuôi file sang .mp3 và contentType sang audio/mpeg
+        long t0 = System.currentTimeMillis();
         byte[] cleanVocalBytes = vocalIsolationService.separateVocals(fileBytes);
+        log.info("[STT] Tách vocal xong ({} KB) sau {} ms", cleanVocalBytes.length / 1024, System.currentTimeMillis() - t0);
 
         // 2. Upload file vocal mp3 sạch lên GCS
         String fileName = "audio-transcribe/" + UUID.randomUUID() + ".wav";
         BlobId blobId = BlobId.of(bucketName, fileName);
         BlobInfo blobInfo = BlobInfo.newBuilder(blobId).setContentType("audio/wav").build();
         storage.create(blobInfo, cleanVocalBytes);
+        log.info("[STT] Upload GCS xong sau {} ms, gửi Google STT...", System.currentTimeMillis() - t0);
 
         String gcsUri = String.format("gs://%s/%s", bucketName, fileName);
         try {
@@ -131,7 +135,7 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
                     .setEncoding(RecognitionConfig.AudioEncoding.LINEAR16)
                     .setLanguageCode("ja-JP")
                     .setModel("latest_long") // Sử dụng model mới nhất
-                    .setAudioChannelCount(2) // Nhận diện 2 kênh nếu file là stereo
+                    .setAudioChannelCount(1) // vocal-service trả WAV 16kHz mono
                     .setUseEnhanced(true)
                     .setEnableAutomaticPunctuation(true)
                     .setEnableWordTimeOffsets(true) // BẬT ĐO MỐC THỜI GIAN
@@ -144,7 +148,8 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
             OperationFuture<LongRunningRecognizeResponse, LongRunningRecognizeMetadata> responseFuture = speechClient
                     .longRunningRecognizeAsync(config, audio);
 
-            LongRunningRecognizeResponse response = responseFuture.get();
+            LongRunningRecognizeResponse response = responseFuture.get(15, java.util.concurrent.TimeUnit.MINUTES);
+            log.info("[STT] Google STT trả {} kết quả sau {} ms", response.getResultsCount(), System.currentTimeMillis() - t0);
             List<ScriptSegment> segments = new ArrayList<>();
 
             // System.out.println("========== BẮT ĐẦU DUYỆT KẾT QUẢ GOOGLE ==========");
@@ -179,11 +184,37 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
                                 .startTime(piece.start())
                                 .endTime(piece.end())
                                 .text(piece.text())
-                                .translatedText(translator.translate(piece.text()))
                                 .build());
                     }
+                } else if (!alternative.getTranscript().isBlank()) {
+                    // Không có mốc thời gian theo từ: dùng mốc kết thúc của kết quả, không bỏ mất câu.
+                    double end = toSeconds(result.getResultEndTime());
+                    double start = segments.isEmpty() ? 0 : segments.get(segments.size() - 1).getEndTime();
+                    segments.add(ScriptSegment.builder()
+                            .startTime(start)
+                            .endTime(Math.max(end, start))
+                            .text(alternative.getTranscript().trim())
+                            .build());
                 }
             }
+
+            log.info("[STT] Tách được {} đoạn phụ đề, bắt đầu dịch...", segments.size());
+            // Dịch song song (giới hạn 6 luồng) để video dài không phải chờ từng câu.
+            java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(6);
+            try {
+                List<java.util.concurrent.CompletableFuture<Void>> jobs = new ArrayList<>();
+                for (ScriptSegment segment : segments) {
+                    jobs.add(java.util.concurrent.CompletableFuture.runAsync(
+                            () -> segment.setTranslatedText(translator.translate(segment.getText())), pool));
+                }
+                java.util.concurrent.CompletableFuture.allOf(jobs.toArray(new java.util.concurrent.CompletableFuture[0]))
+                        .get(5, java.util.concurrent.TimeUnit.MINUTES);
+            } catch (java.util.concurrent.TimeoutException te) {
+                log.warn("[STT] Dịch quá lâu, trả phụ đề với phần dịch còn thiếu.");
+            } finally {
+                pool.shutdownNow();
+            }
+            log.info("[STT] Hoàn tất {} đoạn sau {} ms", segments.size(), System.currentTimeMillis() - t0);
 
             // System.out.println("TỔNG SỐ SEGMENTS TẠO RA: " + segments.size());
             // System.out.println("==================================================");

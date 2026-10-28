@@ -59,6 +59,13 @@ public class VideoServiceImpl implements VideoService {
     private final FollowRepository followRepository;
     private final VideoMapper videoMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.jlsp.backend.topic.service.TopicService topicService;
+    private final com.jlsp.backend.notification.service.NotificationService notificationService;
+    private final com.jlsp.backend.block.service.BlockService blockService;
+    private final com.jlsp.backend.common.security.ratelimit.RateLimiter rateLimiter;
+
+    /** Một người xem chỉ được tính một lượt xem cho mỗi video trong khoảng này. */
+    static final java.time.Duration VIEW_DEDUP_WINDOW = java.time.Duration.ofMinutes(30);
 
     /**
      * Đăng tải bài học video mới.
@@ -74,7 +81,10 @@ public class VideoServiceImpl implements VideoService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUserId));
 
         // 2. Chuyển đổi DTO sang Entity và lưu DB
-        Video video = videoMapper.toEntity(request, creator);
+        com.jlsp.backend.topic.entity.Topic topic = request.getTopicId() != null
+                ? topicService.requireActive(request.getTopicId())
+                : null;
+        Video video = videoMapper.toEntity(request, creator, topic);
         Video savedVideo = videoRepository.save(video);
 
         // Có subtitles và chưa có kết quả phân tích ngữ pháp trước đó -> phân tích ngữ pháp bằng AI sau khi commit
@@ -127,18 +137,28 @@ public class VideoServiceImpl implements VideoService {
         // Kiểm tra quyền sở hữu
         validateOwnership(video, currentUserId);
 
-        // Cập nhật các trường có thay đổi
+        // Cập nhật các trường có thay đổi; ghi nhận việc nội dung hiển thị có đổi thật không
+        boolean contentChanged = false;
         if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            contentChanged |= !request.getTitle().trim().equals(video.getTitle() == null ? "" : video.getTitle().trim());
             video.setTitle(request.getTitle());
         }
         if (request.getDescription() != null) {
+            // null và chuỗi rỗng đều nghĩa là "không có mô tả"
+            String before = video.getDescription() == null ? "" : video.getDescription().trim();
+            contentChanged |= !request.getDescription().trim().equals(before);
             video.setDescription(request.getDescription());
         }
         if (request.getThumbnailUrl() != null && !request.getThumbnailUrl().isBlank()) {
+            contentChanged |= !request.getThumbnailUrl().equals(video.getThumbnailUrl());
             video.setThumbnailUrl(request.getThumbnailUrl());
         }
         if (request.getJlptLevel() != null) {
             video.setJlptLevel(request.getJlptLevel());
+        }
+        if (request.getTopicId() != null) {
+            // Số không/âm nghĩa là bỏ chủ đề; ngược lại phải là chủ đề đang hiển thị.
+            video.setTopic(request.getTopicId() > 0 ? topicService.requireActive(request.getTopicId()) : null);
         }
         if (request.getStatus() != null) {
             // Nếu người dùng chuyển video từ PRIVATE/UNLISTED sang PUBLIC thì cần Moderator duyệt (PENDING)
@@ -150,6 +170,17 @@ public class VideoServiceImpl implements VideoService {
                 log.info("Video ID {} chuyển sang PUBLIC -> Đặt trạng thái PENDING chờ Moderator duyệt", id);
             }
             video.setStatus(request.getStatus());
+        }
+
+        // Sửa tiêu đề / mô tả / ảnh bìa của video công khai đã qua kiểm duyệt (hoặc đã bị từ chối)
+        // thì phải được duyệt lại, nếu không người đăng có thể đổi sang nội dung vi phạm sau khi được duyệt.
+        if (contentChanged && video.getStatus() == VideoStatus.PUBLIC
+                && video.getModStatus() != VideoModStatus.PENDING) {
+            video.setModStatus(VideoModStatus.PENDING);
+            video.setModeratedBy(null);
+            video.setModeratedAt(null);
+            video.setRejectionReason(null);
+            log.info("Video ID {} đổi nội dung -> Đặt trạng thái PENDING chờ Moderator duyệt lại", id);
         }
 
         Video updated = videoRepository.save(video);
@@ -183,14 +214,38 @@ public class VideoServiceImpl implements VideoService {
     public PageResponse<VideoResponse> getForYouFeed(Long currentUserId, JLPTLevel jlptLevel, Pageable pageable) {
         Page<Video> page;
 
+        List<Long> excluded = excludedAuthorIds(currentUserId);
         if (jlptLevel != null) {
             // Lọc video theo cấp độ JLPT chỉ định đã được duyệt
-            page = videoRepository.findByStatusAndModStatusAndJlptLevel(VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, pageable);
+            page = videoRepository.findFeedByJlptLevel(VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, excluded, pageable);
         } else {
             // Lấy tất cả video công khai đã được duyệt
-            page = videoRepository.findByStatusAndModStatus(VideoStatus.PUBLIC, VideoModStatus.APPROVED, pageable);
+            page = videoRepository.findFeed(VideoStatus.PUBLIC, VideoModStatus.APPROVED, excluded, pageable);
         }
 
+        return toVideoPageResponse(page, currentUserId);
+    }
+
+    /**
+     * Id tác giả bị loại khỏi feed của người xem (mình chặn họ hoặc họ chặn mình). Luôn khác rỗng
+     * vì mệnh đề {@code NOT IN} với danh sách rỗng không hợp lệ trên mọi CSDL.
+     */
+    private List<Long> excludedAuthorIds(Long viewerId) {
+        Set<Long> related = blockService.relatedUserIds(viewerId);
+        return related.isEmpty() ? List.of(-1L) : List.copyOf(related);
+    }
+
+    /**
+     * Video công khai đã duyệt thuộc một chủ đề, có thể lọc thêm JLPT.
+     */
+    private PageResponse<VideoResponse> getTopicFeed(Long currentUserId, Long topicId, JLPTLevel jlptLevel,
+            Pageable pageable) {
+        List<Long> excluded = excludedAuthorIds(currentUserId);
+        Page<Video> page = jlptLevel != null
+                ? videoRepository.findFeedByJlptLevelAndTopic(
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, topicId, excluded, pageable)
+                : videoRepository.findFeedByTopic(
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, topicId, excluded, pageable);
         return toVideoPageResponse(page, currentUserId);
     }
 
@@ -199,11 +254,12 @@ public class VideoServiceImpl implements VideoService {
      */
     private PageResponse<VideoResponse> searchVideos(Long currentUserId, String keyword, JLPTLevel jlptLevel,
             Pageable pageable) {
+        List<Long> excluded = excludedAuthorIds(currentUserId);
         Page<Video> page = jlptLevel != null
                 ? videoRepository.searchPublicVideosByJlptLevel(
-                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, keyword, pageable)
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, jlptLevel, keyword, excluded, pageable)
                 : videoRepository.searchPublicVideos(
-                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, keyword, pageable);
+                        VideoStatus.PUBLIC, VideoModStatus.APPROVED, keyword, excluded, pageable);
         return toVideoPageResponse(page, currentUserId);
     }
 
@@ -285,6 +341,12 @@ public class VideoServiceImpl implements VideoService {
     public PageResponse<VideoResponse> getVideosByUserId(Long userId, Long currentUserId, Pageable pageable) {
         Page<Video> page;
 
+        // Hai người đã chặn nhau thì không xem được video của nhau.
+        if (currentUserId != null && !currentUserId.equals(userId)
+                && blockService.isBlockedEitherWay(currentUserId, userId)) {
+            return toVideoPageResponse(Page.empty(pageable), currentUserId);
+        }
+
         // Nếu người xem chính là chủ tài khoản -> xem được cả video Private/Unlisted
         if (currentUserId != null && currentUserId.equals(userId)) {
             page = videoRepository.findByUserId(userId, pageable);
@@ -335,6 +397,7 @@ public class VideoServiceImpl implements VideoService {
             videoLikeRepository.save(like);
             videoRepository.updateLikeCount(videoId, 1);
             log.info("User ID: {} đã LIKE video ID: {}", currentUserId, videoId);
+            notificationService.notify(video.getUser().getId(), currentUserId, com.jlsp.backend.notification.entity.NotificationType.LIKE, videoId, null, null);
             return true;
         }
     }
@@ -379,9 +442,14 @@ public class VideoServiceImpl implements VideoService {
      */
     @Override
     @Transactional
-    public void incrementViewCount(Long videoId) {
+    public void incrementViewCount(Long videoId, String viewerKey) {
         if (!videoRepository.existsById(videoId)) {
             throw new ResourceNotFoundException("Video", "id", videoId);
+        }
+        // Kiểm tra sau khi video tồn tại để id bừa không tạo khoá rác trong Redis.
+        if (viewerKey != null
+                && !rateLimiter.tryAcquire("view:" + videoId + ":" + viewerKey, 1, VIEW_DEDUP_WINDOW).allowed()) {
+            return;
         }
         videoRepository.incrementViewCount(videoId);
     }
@@ -464,7 +532,7 @@ public class VideoServiceImpl implements VideoService {
      */
     @Override
     public PageResponse<VideoResponse> getAllVideos(Long currentUserId, String feed, JLPTLevel jlptLevel, Long userId,
-            String search, Pageable pageable) {
+            String search, Long topicId, Pageable pageable) {
         if (userId != null) {
             return getVideosByUserId(userId, currentUserId, pageable);
         }
@@ -473,6 +541,9 @@ public class VideoServiceImpl implements VideoService {
         }
         if ("following".equalsIgnoreCase(feed)) {
             return getFollowingFeed(currentUserId, pageable);
+        }
+        if (topicId != null) {
+            return getTopicFeed(currentUserId, topicId, jlptLevel, pageable);
         }
         return getForYouFeed(currentUserId, jlptLevel, pageable);
     }
@@ -610,6 +681,8 @@ public class VideoServiceImpl implements VideoService {
 
         Video saved = videoRepository.save(video);
         log.info("Moderator ID {} đã DUYỆT video ID {}", moderatorId, videoId);
+        // actor = null: kiểm duyệt viên ẩn danh với người đăng.
+        notificationService.notify(video.getUser().getId(), null, com.jlsp.backend.notification.entity.NotificationType.VIDEO_APPROVED, videoId, null, null);
         return videoMapper.toVideoDetailResponse(saved, false, false);
     }
 
@@ -632,6 +705,8 @@ public class VideoServiceImpl implements VideoService {
 
         Video saved = videoRepository.save(video);
         log.info("Moderator ID {} đã TỪ CHỐI video ID {} với lý do: {}", moderatorId, videoId, video.getRejectionReason());
+        notificationService.notify(video.getUser().getId(), null, com.jlsp.backend.notification.entity.NotificationType.VIDEO_REJECTED, videoId, null,
+                video.getRejectionReason());
         return videoMapper.toVideoDetailResponse(saved, false, false);
     }
 

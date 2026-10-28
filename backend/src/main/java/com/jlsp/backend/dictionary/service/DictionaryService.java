@@ -8,6 +8,7 @@ import com.jlsp.backend.dictionary.dto.TokenResponse;
 import com.jlsp.backend.dictionary.dto.WordLookupResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -15,10 +16,11 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Tách từ câu tiếng Nhật (Kuromoji, offline) và tra nghĩa từng từ
@@ -31,6 +33,10 @@ public class DictionaryService {
 
     private static final int MAX_CACHE_SIZE = 5000;
     private static final int MAX_TEXT_LENGTH = 500;
+    /** Từ tra dài hơn mức này không phải một từ — không gửi ra dịch vụ ngoài. */
+    static final int MAX_WORD_LENGTH = 50;
+    private static final int CONNECT_TIMEOUT_MS = 3_000;
+    private static final int READ_TIMEOUT_MS = 6_000;
 
     /** Từ loại không cần tra: trợ từ, trợ động từ, ký hiệu, thán từ, tiền tố, filler... */
     private static final Set<String> NON_LOOKUP_POS = Set.of(
@@ -39,11 +45,37 @@ public class DictionaryService {
     /** Danh từ phụ thuộc / hậu tố (の, ん, こと dạng ngữ pháp...) cũng không cần tra. */
     private static final Set<String> NON_LOOKUP_NOUN_SUBTYPES = Set.of("非自立", "接尾", "特殊");
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private final Map<String, List<TokenResponse>> tokenCache = new ConcurrentHashMap<>();
-    private final Map<String, WordLookupResponse> lookupCache = new ConcurrentHashMap<>();
+    private final Map<String, List<TokenResponse>> tokenCache = boundedLruCache();
+    private final Map<String, WordLookupResponse> lookupCache = boundedLruCache();
+
+    public DictionaryService() {
+        this(defaultRestTemplate());
+    }
+
+    DictionaryService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+
+    /** Không đặt timeout thì một lần Jisho/MyMemory treo sẽ giữ luồng request vô thời hạn. */
+    private static RestTemplate defaultRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(CONNECT_TIMEOUT_MS);
+        factory.setReadTimeout(READ_TIMEOUT_MS);
+        return new RestTemplate(factory);
+    }
+
+    /** LRU có giới hạn: đầy thì bỏ mục ít dùng nhất, không xoá cả cache như trước. */
+    private static <V> Map<String, V> boundedLruCache() {
+        return Collections.synchronizedMap(new LinkedHashMap<>(256, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, V> eldest) {
+                return size() > MAX_CACHE_SIZE;
+            }
+        });
+    }
 
     /** Từ điển IPADIC khá nặng nên chỉ nạp khi có request đầu tiên. */
     private volatile Tokenizer tokenizer;
@@ -94,8 +126,9 @@ public class DictionaryService {
                     .build());
         }
 
-        putBounded(tokenCache, normalized, result);
-        return result;
+        List<TokenResponse> immutable = List.copyOf(result);
+        tokenCache.put(normalized, immutable);
+        return immutable;
     }
 
     public WordLookupResponse lookup(String word) {
@@ -103,6 +136,9 @@ public class DictionaryService {
             return WordLookupResponse.builder().term("").found(false).build();
         }
         String term = word.trim();
+        if (term.length() > MAX_WORD_LENGTH) {
+            return WordLookupResponse.builder().term(term.substring(0, MAX_WORD_LENGTH)).found(false).build();
+        }
 
         WordLookupResponse cached = lookupCache.get(term);
         if (cached != null) {
@@ -171,7 +207,7 @@ public class DictionaryService {
 
         // Chỉ cache khi tra thành công để lần sau có thể thử lại nếu dịch vụ ngoài lỗi.
         if (found) {
-            putBounded(lookupCache, term, response);
+            lookupCache.put(term, response);
         }
         return response;
     }
@@ -307,12 +343,5 @@ public class DictionaryService {
             sb.append(c >= 0x30A1 && c <= 0x30F6 ? (char) (c - 0x60) : c);
         }
         return sb.toString();
-    }
-
-    private static <V> void putBounded(Map<String, V> cache, String key, V value) {
-        if (cache.size() >= MAX_CACHE_SIZE) {
-            cache.clear();
-        }
-        cache.put(key, value);
     }
 }

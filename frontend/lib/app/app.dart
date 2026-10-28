@@ -8,9 +8,11 @@ import '../core/localization/locale_manager.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_manager.dart';
 import '../core/widgets/app_toast.dart';
+import '../core/widgets/swipe_back_detector.dart';
 import '../features/auth/data/auth_session.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/chat/data/services/chat_hub.dart';
+import '../features/notification/notification_hub.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import 'routes.dart';
 
@@ -50,6 +52,8 @@ class _AppState extends State<App> {
     super.initState();
     // Chat: bật/tắt socket theo đăng nhập và theo dõi số tin chưa đọc.
     ChatHub.instance.init();
+    // Thông báo: giữ số chưa đọc và nhận thông báo mới qua cùng kết nối socket.
+    NotificationHub.instance.init();
     // Theme: khôi phục lựa chọn sáng/tối đã lưu; đổi theme thì dựng lại toàn bộ
     // cây widget để cả các widget `const` cũng nhận màu mới.
     themeManager.init();
@@ -95,6 +99,11 @@ class _AppState extends State<App> {
           darkTheme: AppTheme.darkTheme,
           themeMode: themeManager.mode,
           scrollBehavior: const AppScrollBehavior(),
+          // Mọi màn có nút quay lại đều vuốt ngang sang phải để về được, giống tab Tin nhắn.
+          builder: (context, child) => SwipeBackDetector(
+            navigatorKey: AppToast.navigatorKey,
+            child: child ?? const SizedBox.shrink(),
+          ),
           home: const AuthGate(),
           routes: AppRoutes.routes,
           onUnknownRoute: (settings) =>

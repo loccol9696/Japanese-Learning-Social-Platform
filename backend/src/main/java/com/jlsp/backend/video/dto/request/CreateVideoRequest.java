@@ -47,6 +47,11 @@ public class CreateVideoRequest {
     private JLPTLevel jlptLevel;
 
     /**
+     * Chủ đề của video (tùy chọn)
+     */
+    private Long topicId;
+
+    /**
      * Đường dẫn file video (MP4 hoặc HLS .m3u8)
      */
     @NotBlank(message = "Đường dẫn video (videoUrl) không được để trống")

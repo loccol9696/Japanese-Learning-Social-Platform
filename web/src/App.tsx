@@ -3,34 +3,43 @@ import { LoginForm } from './components/LoginForm';
 import { DashboardView } from './components/DashboardView';
 import { AdminDashboard } from './components/AdminDashboard';
 import type { UserProfile } from './types/auth';
+import { SESSION_EXPIRED_EVENT, clearSession, getToken, isTokenExpired, saveSession } from './services/session';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
 
-  // Restore session from localStorage if available
+  // Khôi phục phiên đã lưu, trừ khi token đã hết hạn.
   useEffect(() => {
     const savedUser = localStorage.getItem('jlsp_user');
-    const token = localStorage.getItem('jlsp_token');
+    const token = getToken();
     if (savedUser && token) {
+      if (isTokenExpired(token)) {
+        clearSession();
+        return;
+      }
       try {
         setCurrentUser(JSON.parse(savedUser));
-      } catch (e) {
-        localStorage.removeItem('jlsp_user');
-        localStorage.removeItem('jlsp_token');
+      } catch {
+        clearSession();
       }
     }
   }, []);
 
+  // Server từ chối token giữa chừng (hết hạn / bị thu hồi): về màn đăng nhập.
+  useEffect(() => {
+    const onExpired = () => setCurrentUser(null);
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
+
   const handleLoginSuccess = (user: UserProfile, token: string) => {
     setCurrentUser(user);
-    localStorage.setItem('jlsp_user', JSON.stringify(user));
-    localStorage.setItem('jlsp_token', token);
+    saveSession(user, token);
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('jlsp_user');
-    localStorage.removeItem('jlsp_token');
+    clearSession();
   };
 
   return (

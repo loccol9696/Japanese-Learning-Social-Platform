@@ -1,6 +1,7 @@
 package com.jlsp.backend.auth.dto.request;
 
 import jakarta.validation.constraints.Email;
+import com.jlsp.backend.auth.validation.StrongPassword;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -27,7 +28,7 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "Vui lòng nhập mật khẩu")
-    @Size(min = 6, max = 72, message = "Mật khẩu phải từ 6 đến 72 ký tự")
+    @StrongPassword
     private String password;
 
     @Size(max = 100, message = "Họ và tên tối đa 100 ký tự")

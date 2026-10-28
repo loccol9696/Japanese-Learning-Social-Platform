@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/auth/auth_guard.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../report/report_service.dart';
+import '../../../report/report_sheet.dart';
 import '../../data/models/video_comment.dart';
 import '../../data/services/comment_service.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 Future<void> showCommentsSheet(
   BuildContext context, {
@@ -31,13 +34,19 @@ class _CommentsSheet extends StatefulWidget {
 }
 
 class _CommentsSheetState extends State<_CommentsSheet> {
+  /// Lề trái của phản hồi so với bình luận gốc.
+  static const double _replyIndent = 46;
+
   final _service = CommentService();
   final _controller = TextEditingController();
+  final _inputFocus = FocusNode();
   List<VideoComment> _comments = const [];
   bool _loading = true;
   bool _sending = false;
   String? _error;
-  int? _replyTo;
+
+  /// Bình luận đang được trả lời (được tô nổi bật và hiện ở thanh "Đang trả lời").
+  VideoComment? _replyTarget;
 
   /// Tổng số bình luận bao gồm cả reply lồng nhau.
   int get _totalCommentCount =>
@@ -52,6 +61,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   @override
   void dispose() {
     _controller.dispose();
+    _inputFocus.dispose();
     super.dispose();
   }
 
@@ -66,6 +76,13 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     }
   }
 
+  void _startReply(VideoComment comment) {
+    setState(() => _replyTarget = comment);
+    _inputFocus.requestFocus();
+  }
+
+  void _cancelReply() => setState(() => _replyTarget = null);
+
   Future<void> _send() async {
     final content = _controller.text.trim();
     if (content.isEmpty || _sending) return;
@@ -78,15 +95,17 @@ class _CommentsSheetState extends State<_CommentsSheet> {
 
     setState(() => _sending = true);
     try {
+      // Phản hồi luôn gắn vào bình luận gốc: máy chủ chỉ hiển thị một cấp trả lời.
+      final target = _replyTarget;
       final comment = await _service.createComment(
         widget.videoId,
         content,
-        parentId: _replyTo,
+        parentId: target == null ? null : (target.parentId ?? target.id),
       );
       if (!mounted) return;
       setState(() {
         _controller.clear();
-        _replyTo = null;
+        _replyTarget = null;
         _sending = false;
         if (comment.parentId == null) {
           _comments = [comment, ..._comments];
@@ -97,9 +116,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     } catch (error) {
       if (mounted) {
         setState(() => _sending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể đăng bình luận: $error')),
-        );
+        AppToast.showError('Không thể đăng bình luận: $error', context: context);
       }
     }
   }
@@ -130,13 +147,26 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     if (confirmed != true || !mounted) return;
     try {
       await _service.deleteComment(widget.videoId, comment.id);
+      if (_replyTarget?.id == comment.id) _replyTarget = null;
       await _load();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không thể xóa bình luận: $error')),
-      );
+      AppToast.showError('Không thể xóa bình luận: $error', context: context);
     }
+  }
+
+  static String _displayName(VideoComment comment) =>
+      comment.displayName.isNotEmpty ? comment.displayName : comment.username;
+
+  /// "Vừa xong", "5 phút trước", "2 giờ trước"... như ảnh mẫu.
+  static String _timeAgo(DateTime? time) {
+    if (time == null) return '';
+    final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 1) return 'Vừa xong';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
+    if (diff.inHours < 24) return '${diff.inHours} giờ trước';
+    if (diff.inDays < 7) return '${diff.inDays} ngày trước';
+    return '${time.day.toString().padLeft(2, '0')}/${time.month.toString().padLeft(2, '0')}/${time.year}';
   }
 
   @override
@@ -149,7 +179,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
           height: MediaQuery.sizeOf(context).height * 0.72,
           decoration: BoxDecoration(
             color: AppPalette.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
@@ -172,6 +202,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                           '${_loading ? widget.initialCount : _totalCommentCount} bình luận',
                           style: TextStyle(
                             color: AppPalette.textPrimary,
+                            fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -209,184 +240,252 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
       itemCount: _comments.length,
-      itemBuilder: (_, index) => _buildComment(_comments[index], false),
+      itemBuilder: (_, index) {
+        final comment = _comments[index];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildComment(comment, isReply: false),
+            for (final reply in comment.replies)
+              _buildComment(reply, isReply: true),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildComment(VideoComment comment, bool isReply) {
-    final name = comment.displayName.isNotEmpty
-        ? comment.displayName
-        : comment.username;
-    return Padding(
-      padding: EdgeInsets.only(
-        left: isReply ? 38 : 0,
-        top: isReply ? 6 : 0,
-        bottom: 16,
-      ),
-      child: Column(
+  /// Một dòng bình luận; dòng đang được trả lời được tô nền nổi bật trải hết chiều ngang.
+  Widget _buildComment(VideoComment comment, {required bool isReply}) {
+    final name = _displayName(comment);
+    final highlighted = _replyTarget?.id == comment.id;
+    final avatarRadius = isReply ? 14.0 : 18.0;
+
+    return Container(
+      color: highlighted ? AppPalette.accentSoft : null,
+      padding: EdgeInsets.fromLTRB(16 + (isReply ? _replyIndent : 0), 8, 16, 8),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: AppPalette.surfaceHigh,
-                backgroundImage: comment.avatarUrl.isNotEmpty
-                    ? NetworkImage(comment.avatarUrl)
-                    : null,
-                child: comment.avatarUrl.isEmpty
-                    ? Text(
-                        name.isEmpty ? '?' : name[0].toUpperCase(),
-                        style: TextStyle(
-                          color: AppPalette.textPrimary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          CircleAvatar(
+            radius: avatarRadius,
+            backgroundColor: AppPalette.surfaceHigh,
+            backgroundImage: comment.avatarUrl.isNotEmpty
+                ? NetworkImage(comment.avatarUrl)
+                : null,
+            child: comment.avatarUrl.isEmpty
+                ? Text(
+                    name.isEmpty ? '?' : name[0].toUpperCase(),
+                    style: TextStyle(
+                      color: AppPalette.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: isReply ? 12 : 14,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      name,
-                      style: TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      comment.content,
-                      style: TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () =>
-                              setState(() => _replyTo = comment.id),
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: Text(
-                            'Trả lời',
-                            style: TextStyle(
-                              color: AppPalette.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
+                    Flexible(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppPalette.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
-                        if (_canDelete(comment)) ...[
-                          const SizedBox(width: 12),
-                          TextButton(
-                            onPressed: () => _deleteComment(comment),
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: Text(
-                              'Xóa',
-                              style: TextStyle(
-                                color: AppPalette.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _timeAgo(comment.createdAt),
+                      style: TextStyle(
+                        color: AppPalette.textSecondary.withValues(alpha: 0.8),
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  comment.content,
+                  style: TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    _actionButton('Trả lời', () => _startReply(comment)),
+                    if (AuthSession.instance.user?.id != comment.userId)
+                      _actionButton(
+                        'Báo cáo',
+                        () => showReportSheet(
+                          context,
+                          target: ReportTarget.comment,
+                          targetId: comment.id,
+                          subject: 'bình luận này',
+                        ),
+                      ),
+                    if (_canDelete(comment))
+                      _actionButton('Xóa', () => _deleteComment(comment)),
+                  ],
+                ),
+              ],
+            ),
           ),
-          for (final reply in comment.replies) _buildComment(reply, true),
         ],
       ),
     );
   }
 
-  Widget _buildComposer() {
+  Widget _actionButton(String label, VoidCallback onPressed) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              minLines: 1,
-              maxLines: 3,
-              style: TextStyle(color: AppPalette.textPrimary),
-              decoration: InputDecoration(
-                hintText: _replyTo == null
-                    ? 'Thêm bình luận hoặc câu hỏi...'
-                    : 'Đang trả lời bình luận',
-                hintStyle: TextStyle(
-                  color: AppPalette.textSecondary,
-                  fontSize: 14,
-                ),
-                filled: true,
-                fillColor: AppPalette.surfaceHigh,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(
-                    color: AppPalette.accent.withValues(alpha: 0.5),
-                    width: 1.5,
-                  ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 12,
-                ),
-              ),
+      padding: const EdgeInsets.only(right: 16),
+      child: GestureDetector(
+        onTap: onPressed,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: AppPalette.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: AppPalette.accent,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              onPressed: _sending ? null : _send,
-              icon: _sending
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppPalette.onAccent,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComposer() {
+    final target = _replyTarget;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: AppPalette.border)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (target != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Đang trả lời ',
+                            style: TextStyle(color: AppPalette.textSecondary),
+                          ),
+                          TextSpan(
+                            text: _displayName(target),
+                            style: TextStyle(
+                              color: AppPalette.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
-                    )
-                  : Icon(
-                      Icons.send_rounded,
-                      color: AppPalette.textPrimary,
-                      size: 20,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13),
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Hủy trả lời',
+                    onPressed: _cancelReply,
+                    icon: Icon(Icons.close, size: 20, color: AppPalette.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _inputFocus,
+                    minLines: 1,
+                    maxLines: 3,
+                    style: TextStyle(color: AppPalette.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: target == null
+                          ? 'Thêm bình luận...'
+                          : 'Thêm phản hồi...',
+                      hintStyle: TextStyle(
+                        color: AppPalette.textSecondary,
+                        fontSize: 15,
+                      ),
+                      filled: true,
+                      fillColor: AppPalette.surfaceHigh,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(26),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(26),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(26),
+                        borderSide: BorderSide(
+                          color: AppPalette.accent.withValues(alpha: 0.5),
+                          width: 1.5,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppPalette.accent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    tooltip: 'Gửi',
+                    onPressed: _sending ? null : _send,
+                    icon: _sending
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppPalette.onAccent,
+                            ),
+                          )
+                        : Icon(
+                            Icons.send_rounded,
+                            color: AppPalette.onAccent,
+                            size: 22,
+                          ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

@@ -6,6 +6,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../../chat/presentation/screens/shared_video_screen.dart';
+import '../../../notification/notification_hub.dart';
+import '../../../notification/notification_sheet.dart';
 import '../../../follow/presentation/screens/follow_manage_screen.dart';
 import '../../../video/domain/models/user_video_model.dart';
 import '../../../video/presentation/screens/moderation_queue_screen.dart';
@@ -17,10 +19,15 @@ import '../../domain/repositories/profile_repository.dart';
 import '../../../subscription/models/subscription_model.dart';
 import '../../../subscription/services/subscription_service.dart';
 import 'profile_update_screen.dart';
+import '../../../streak/streak_chip.dart';
+import '../../../streak/streak_model.dart';
+import '../../../streak/streak_service.dart';
+import '../../../streak/streak_sheet.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/theme_manager.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ProfileRepository? repository;
@@ -38,6 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final ProfileRepository _repository;
   UserProfileModel _profile = const UserProfileModel();
   SubscriptionStatus? _membershipStatus;
+  Streak _streak = const Streak();
   List<UserVideoModel> _videos = [];
   List<UserVideoModel> _likedVideos = [];
   List<UserVideoModel> _savedVideos = [];
@@ -59,6 +67,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (AuthSession.instance.isAuthenticated || widget.repository != null) {
       _loadProfile();
     }
+  }
+
+  /// Chuỗi ngày học cho chip trên đầu trang; lỗi thì giữ số cũ.
+  Future<void> _loadStreak() async {
+    if (!AuthSession.instance.isAuthenticated) return;
+    try {
+      final streak = await StreakService().getMine();
+      if (mounted) setState(() => _streak = streak);
+    } catch (_) {}
+  }
+
+  void _openStreakSheet() {
+    showStreakSheet(
+      context,
+      streak: _streak,
+      onLoaded: (fresh) {
+        if (mounted) setState(() => _streak = fresh);
+      },
+    );
   }
 
   Future<void> _checkRole() async {
@@ -114,6 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// cũng không làm mất các phần còn lại.
   Future<void> _loadProfile() async {
     final videoLists = _loadVideoLists();
+    _loadStreak();
     try {
       final profile = await _repository.getProfile();
       if (!mounted) return;
@@ -166,6 +194,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .then((_) => _loadProfile());
   }
 
+
   void _openMyVideosStatus() {
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const MyVideosStatusScreen()))
@@ -189,33 +218,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .then((_) => _loadProfile());
   }
 
-  void _showFeatureComingSoon(String featureName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.info_outline_rounded,
-              color: AppColors.softSkyBlue,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '$featureName: Tính năng sẽ được hoàn thiện trong thời gian tới',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: AppPalette.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.surfaceContainerHigh,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+  void _openNotifications() {
+    if (!mounted) return;
+    showNotificationsSheet(context);
   }
 
   /// Đỏ cho nút đăng xuất.
@@ -260,11 +265,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       ),
       _SettingsRowData(
-        icon: Icons.notifications_none_rounded,
-        title: 'Thông báo',
+        icon: Icons.key_outlined,
+        title: 'Đổi mật khẩu',
         onTap: () {
           Navigator.of(sheetContext).pop();
-          _showFeatureComingSoon('Thông báo');
+          Navigator.of(context).pushNamed(AppRoutes.changePassword);
         },
       ),
       _SettingsRowData(
@@ -280,19 +285,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onTap: () => _showThemePicker(sheetContext),
       ),
       _SettingsRowData(
-        icon: Icons.lock_outline_rounded,
-        title: 'Quyền riêng tư',
+        icon: Icons.block_rounded,
+        title: 'Người đã chặn',
         onTap: () {
           Navigator.of(sheetContext).pop();
-          _showFeatureComingSoon('Quyền riêng tư');
-        },
-      ),
-      _SettingsRowData(
-        icon: Icons.help_outline_rounded,
-        title: 'Trợ giúp và phản hồi',
-        onTap: () {
-          Navigator.of(sheetContext).pop();
-          _showFeatureComingSoon('Trợ giúp và phản hồi');
+          Navigator.of(context).pushNamed(AppRoutes.blockedUsers);
         },
       ),
     ];
@@ -552,14 +549,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         localeManager.changeLanguage(language);
                         Navigator.of(pickerContext).pop();
                         Navigator.of(settingsSheetContext).pop();
-                        ScaffoldMessenger.of(context)
-                          ..hideCurrentSnackBar()
-                          ..showSnackBar(
-                            SnackBar(
-                              content: Text(appStrings.languageChanged),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                        AppToast.showSuccess(appStrings.languageChanged, context: context);
                       },
                     ),
                 ],
@@ -665,85 +655,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final username = _profile.username.isNotEmpty
         ? '@${_profile.username}'
         : '@learner';
-    final handle = _profile.currentLevel.isNotEmpty
-        ? '$username · ${_profile.currentLevel}'
-        : username;
+    final cleanLevel = _profile.currentLevel.replaceAll('JLPT', '').trim();
+    final levelText = cleanLevel.isNotEmpty ? ' · $cleanLevel' : '';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 20),
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top row: avatar + name/handle + menu icon
+          // Hàng trên cùng: các icon thao tác bên phải
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _buildAvatar(displayName),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              StreakChip(
+                key: const ValueKey('profile-streak-chip'),
+                days: _streak.currentStreak,
+                onTap: _openStreakSheet,
+              ),
+              const SizedBox(width: 4),
+              ValueListenableBuilder<int>(
+                valueListenable: NotificationHub.instance.unreadCount,
+                builder: (context, unread, _) => Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
+                    IconButton(
+                      onPressed: _openNotifications,
+                      icon: Icon(
+                        Icons.notifications_none_rounded,
+                        size: 24,
+                        color: AppPalette.textPrimary,
+                      ),
+                      tooltip: 'Thông báo',
+                    ),
+                    if (unread > 0)
+                      Positioned(
+                        top: 6,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          constraints: const BoxConstraints(minWidth: 16),
+                          decoration: BoxDecoration(
+                            color: AppPalette.error,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppPalette.background, width: 1.5),
+                          ),
                           child: Text(
-                            displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            unread > 99 ? '99+' : '$unread',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: AppPalette.textPrimary,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
+                              color: AppPalette.onAccent,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                        if (_profile.isModerator) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppPalette.accentSoft,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              _profile.isAdmin ? 'ADMIN' : 'MOD',
-                              style: TextStyle(
-                                color: AppPalette.accent,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(width: 8),
-                        _buildPlanTag(),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      handle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 13,
                       ),
-                    ),
                   ],
                 ),
-              ),
-              IconButton(
-                onPressed: _openFollowManage,
-                icon: Icon(
-                  Icons.people_alt_outlined,
-                  size: 26,
-                  color: AppPalette.textPrimary,
-                ),
-                tooltip: 'Quản lý theo dõi',
               ),
               // Menu icon at top right
               Stack(
@@ -753,7 +721,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: _showMoreMenu,
                     icon: Icon(
                       Icons.menu_rounded,
-                      size: 26,
+                      size: 24,
                       color: AppPalette.textPrimary,
                     ),
                     tooltip: 'Tùy chọn & Cài đặt',
@@ -779,10 +747,85 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          // Avatar + tên + trình độ JLPT và gói
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildAvatar(displayName),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppPalette.textPrimary,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          if (_profile.isModerator) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppPalette.accentSoft,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                _profile.isAdmin ? 'ADMIN' : 'MOD',
+                                style: TextStyle(
+                                  color: AppPalette.accent,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '$username$levelText',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppPalette.textSecondary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildPlanTag(),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 18),
           // Stats row
           Padding(
-            padding: const EdgeInsets.only(left: 8),
+            padding: const EdgeInsets.only(left: 4),
             child: Wrap(
               spacing: 20,
               runSpacing: 6,
@@ -806,7 +849,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (_profile.bio.isNotEmpty) ...[
             const SizedBox(height: 14),
             Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: 4),
               child: Text(
                 _profile.bio,
                 style: TextStyle(

@@ -1,12 +1,14 @@
 package com.jlsp.backend.chat.service.impl;
 
 import com.jlsp.backend.chat.dto.request.SendMessageRequest;
+import com.jlsp.backend.chat.dto.request.ShareDeckRequest;
 import com.jlsp.backend.chat.dto.request.ShareVideoRequest;
 import com.jlsp.backend.chat.dto.response.ChatUserResponse;
 import com.jlsp.backend.chat.dto.response.ConversationResponse;
 import com.jlsp.backend.chat.dto.response.MessagePageResponse;
 import com.jlsp.backend.chat.dto.response.MessageResponse;
 import com.jlsp.backend.chat.dto.response.ReadReceiptResponse;
+import com.jlsp.backend.chat.dto.response.SharedDeckResponse;
 import com.jlsp.backend.chat.entity.Conversation;
 import com.jlsp.backend.chat.entity.ConversationParticipant;
 import com.jlsp.backend.chat.entity.ConversationParticipantId;
@@ -24,6 +26,9 @@ import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
 import com.jlsp.backend.common.repository.IdCount;
 import com.jlsp.backend.common.response.PageResponse;
+import com.jlsp.backend.flashcard.entity.FlashcardSet;
+import com.jlsp.backend.flashcard.repository.FlashcardRepository;
+import com.jlsp.backend.flashcard.repository.FlashcardSetRepository;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.repository.UserRepository;
 import com.jlsp.backend.user.service.FollowService;
@@ -66,6 +71,8 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMapper chatMapper;
     private final ChatRateLimiter rateLimiter;
     private final ApplicationEventPublisher eventPublisher;
+    private final FlashcardSetRepository flashcardSetRepository;
+    private final FlashcardRepository flashcardRepository;
 
     @Override
     public List<ChatUserResponse> getContacts(Long userId) {
@@ -77,13 +84,12 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public PageResponse<ConversationResponse> getConversations(Long userId, Pageable pageable) {
         Page<Conversation> page = conversationRepository.findActiveByUserId(userId, pageable);
-        Map<Long, Video> videos = loadVideos(page.getContent().stream()
+        Attachments attachments = loadAttachments(page.getContent().stream()
                 .map(c -> c.getLastMessage())
                 .filter(Objects::nonNull)
-                .map(m -> m.getVideoId())
                 .toList());
         InboxState state = loadInboxState(userId, page.getContent());
-        return PageResponse.from(page.map(c -> toConversationResponse(c, userId, videos, state)));
+        return PageResponse.from(page.map(c -> toConversationResponse(c, userId, attachments, state)));
     }
 
     @Override
@@ -91,13 +97,13 @@ public class ChatServiceImpl implements ChatService {
     public ConversationResponse getOrCreateConversation(Long userId, Long recipientId) {
         User recipient = ensureCanMessage(userId, recipientId);
         Conversation conversation = findOrCreateConversation(userId, recipient);
-        return toConversationResponse(conversation, userId, loadVideosOf(conversation));
+        return toConversationResponse(conversation, userId, loadAttachmentsOf(conversation));
     }
 
     @Override
     public ConversationResponse getConversation(Long userId, Long conversationId) {
         Conversation conversation = requireConversation(userId, conversationId);
-        return toConversationResponse(conversation, userId, loadVideosOf(conversation));
+        return toConversationResponse(conversation, userId, loadAttachmentsOf(conversation));
     }
 
     @Override
@@ -106,9 +112,12 @@ public class ChatServiceImpl implements ChatService {
         int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         // Lấy dư 1 bản ghi để biết còn tin cũ hơn hay không
         Pageable limit = PageRequest.of(0, pageSize + 1);
+        long clearedBefore = clearedBefore(userId, conversationId);
         List<Message> messages = beforeId == null
-                ? messageRepository.findByConversationIdOrderByIdDesc(conversationId, limit)
-                : messageRepository.findByConversationIdAndIdLessThanOrderByIdDesc(conversationId, beforeId, limit);
+                ? messageRepository.findByConversationIdAndIdGreaterThanOrderByIdDesc(
+                        conversationId, clearedBefore, limit)
+                : messageRepository.findByConversationIdAndIdLessThanAndIdGreaterThanOrderByIdDesc(
+                        conversationId, beforeId, clearedBefore, limit);
 
         boolean hasMore = messages.size() > pageSize;
         if (hasMore) {
@@ -126,8 +135,10 @@ public class ChatServiceImpl implements ChatService {
         requireConversation(userId, conversationId);
         int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         // Lấy dư 1 bản ghi để biết còn tin mới hơn nữa hay không
+        // Không bao giờ trả tin đã xoá phía người xem, kể cả khi client hỏi từ mốc cũ hơn.
+        long from = Math.max(afterId == null ? 0L : afterId, clearedBefore(userId, conversationId));
         List<Message> messages = messageRepository.findByConversationIdAndIdGreaterThanOrderByIdAsc(
-                conversationId, afterId == null ? 0L : afterId, PageRequest.of(0, pageSize + 1));
+                conversationId, from, PageRequest.of(0, pageSize + 1));
 
         boolean hasMore = messages.size() > pageSize;
         if (hasMore) {
@@ -149,8 +160,8 @@ public class ChatServiceImpl implements ChatService {
             var existing = messageRepository.findBySenderIdAndClientMsgId(userId, request.getClientMsgId());
             if (existing.isPresent()) {
                 Message message = existing.get();
-                return chatMapper.toMessageResponse(message,
-                        loadVideos(Collections.singletonList(message.getVideoId())));
+                Attachments attachments = loadAttachments(List.of(message));
+                return chatMapper.toMessageResponse(message, attachments.videos(), attachments.decks());
             }
         }
         rateLimiter.check(userId);
@@ -204,6 +215,38 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional
+    public List<MessageResponse> shareDeck(Long userId, Long deckId, ShareDeckRequest request) {
+        rateLimiter.check(userId);
+        FlashcardSet deck = flashcardSetRepository.findById(deckId)
+                .orElseThrow(() -> new ResourceNotFoundException("FlashcardSet", "id", deckId));
+        if (!chatMapper.isShareable(deck)) {
+            throw new AppException(400, "Bộ thẻ riêng tư chưa thể chia sẻ. Hãy chuyển sang công khai trước.");
+        }
+
+        // Kiểm tra toàn bộ người nhận trước để không gửi dở dang
+        List<User> recipients = request.getRecipientIds().stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(recipientId -> ensureCanMessage(userId, recipientId))
+                .toList();
+
+        SendMessageRequest message = SendMessageRequest.builder()
+                .type(MessageType.DECK_SHARE)
+                .content(request.getNote())
+                .deckId(deckId)
+                .build();
+
+        List<MessageResponse> sent = new ArrayList<>();
+        for (User recipient : recipients) {
+            Conversation conversation = findOrCreateConversation(userId, recipient);
+            sent.add(createMessage(userId, conversation, recipient, message));
+        }
+        log.info("User {} shared deck {} to {} người", userId, deckId, sent.size());
+        return sent;
+    }
+
+    @Override
+    @Transactional
     public ReadReceiptResponse markAsRead(Long userId, Long conversationId, Long lastMessageId) {
         Conversation conversation = requireConversation(userId, conversationId);
         ConversationParticipant participant = getOrCreateParticipant(conversation, userId);
@@ -226,6 +269,25 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
+    @Transactional
+    public void clearConversation(Long userId, Long conversationId) {
+        Conversation conversation = requireConversation(userId, conversationId);
+        Long latestId = messageRepository.findLatestId(conversationId);
+        if (latestId == null) {
+            return; // chưa có tin nào để xoá
+        }
+        ConversationParticipant participant = getOrCreateParticipant(conversation, userId);
+        participant.setClearedBeforeMessageId(latestId);
+        // Tin đã xoá không còn được tính là chưa đọc.
+        Long lastRead = participant.getLastReadMessageId();
+        if (lastRead == null || lastRead < latestId) {
+            participant.setLastReadMessageId(latestId);
+        }
+        participantRepository.save(participant);
+        log.info("User {} đã xoá cuộc trò chuyện {} (tới tin {})", userId, conversationId, latestId);
+    }
+
+    @Override
     public long getUnreadCount(Long userId) {
         return participantRepository.countUnreadMessages(userId);
     }
@@ -243,6 +305,7 @@ public class ChatServiceImpl implements ChatService {
                                           SendMessageRequest request) {
         String content = request.getContent() == null ? null : request.getContent().strip();
         Video video = null;
+        FlashcardSet deck = null;
 
         if (request.getType() == MessageType.TEXT) {
             if (content == null || content.isEmpty()) {
@@ -260,6 +323,18 @@ public class ChatServiceImpl implements ChatService {
             if (content != null && content.isEmpty()) {
                 content = null;
             }
+        } else if (request.getType() == MessageType.DECK_SHARE) {
+            if (request.getDeckId() == null) {
+                throw new AppException(400, "Thiếu bộ thẻ cần chia sẻ");
+            }
+            deck = flashcardSetRepository.findById(request.getDeckId())
+                    .orElseThrow(() -> new ResourceNotFoundException("FlashcardSet", "id", request.getDeckId()));
+            if (!chatMapper.isShareable(deck)) {
+                throw new AppException(400, "Bộ thẻ riêng tư chưa thể chia sẻ. Hãy chuyển sang công khai trước.");
+            }
+            if (content != null && content.isEmpty()) {
+                content = null;
+            }
         } else {
             throw new AppException(400, "Loại tin nhắn không hợp lệ");
         }
@@ -271,6 +346,7 @@ public class ChatServiceImpl implements ChatService {
                 .content(content)
                 .videoId(video != null ? video.getId() : null)
                 .videoStartMs(video != null ? request.getVideoStartMs() : null)
+                .deckId(deck != null ? deck.getSetId() : null)
                 .clientMsgId(request.getClientMsgId() == null || request.getClientMsgId().isBlank()
                         ? null : request.getClientMsgId())
                 .build());
@@ -288,7 +364,11 @@ public class ChatServiceImpl implements ChatService {
         }
 
         Map<Long, Video> videos = video != null ? Map.of(video.getId(), video) : Map.of();
-        MessageResponse response = chatMapper.toMessageResponse(message, videos);
+        Map<Long, SharedDeckResponse> decks = deck != null
+                ? Map.of(deck.getSetId(), chatMapper.toSharedDeckResponse(deck.getSetId(), deck,
+                        deckCardCounts(List.of(deck.getSetId())).getOrDefault(deck.getSetId(), 0L)))
+                : Map.of();
+        MessageResponse response = chatMapper.toMessageResponse(message, videos, decks);
         eventPublisher.publishEvent(new MessageCreatedEvent(response, senderId, recipient.getId()));
         return response;
     }
@@ -338,6 +418,13 @@ public class ChatServiceImpl implements ChatService {
                         .build()));
     }
 
+    /** Mốc xoá của người dùng trong hội thoại; 0 nếu chưa từng xoá (mọi tin đều id > 0). */
+    private long clearedBefore(Long userId, Long conversationId) {
+        return participantRepository.findById(new ConversationParticipantId(conversationId, userId))
+                .map(ConversationParticipant::getClearedBeforeMessageId)
+                .orElse(0L);
+    }
+
     private Conversation requireConversation(Long userId, Long conversationId) {
         Conversation conversation = conversationRepository.findDetailById(conversationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conversation", "id", conversationId));
@@ -348,21 +435,26 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private ConversationResponse toConversationResponse(Conversation conversation, Long userId,
-                                                        Map<Long, Video> videos) {
-        return toConversationResponse(conversation, userId, videos,
+                                                        Attachments attachments) {
+        return toConversationResponse(conversation, userId, attachments,
                 loadInboxState(userId, List.of(conversation)));
     }
 
     private ConversationResponse toConversationResponse(Conversation conversation, Long userId,
-                                                        Map<Long, Video> videos, InboxState state) {
+                                                        Attachments attachments, InboxState state) {
         User other = conversation.getOtherUser(userId);
         Long otherLastRead = state.lastReadIds()
                 .get(new ConversationParticipantId(conversation.getId(), other.getId()));
+        // Tin cuối đã bị người này xoá thì coi như hội thoại chưa có tin (mở lại để nhắn tiếp).
+        Message last = conversation.getLastMessage();
+        Long cleared = state.clearedBefore().get(conversation.getId());
+        boolean lastCleared = last != null && cleared != null && cleared >= last.getId();
 
         return ConversationResponse.builder()
                 .id(conversation.getId())
                 .otherUser(chatMapper.toUserResponse(other))
-                .lastMessage(chatMapper.toMessageResponse(conversation.getLastMessage(), videos))
+                .lastMessage(lastCleared ? null
+                        : chatMapper.toMessageResponse(last, attachments.videos(), attachments.decks()))
                 .unreadCount(state.unreadCounts().getOrDefault(conversation.getId(), 0L))
                 .otherLastReadMessageId(otherLastRead)
                 .canMessage(Boolean.TRUE.equals(other.getIsActive()) && state.mutualIds().contains(other.getId()))
@@ -376,13 +468,18 @@ public class ChatServiceImpl implements ChatService {
      */
     private InboxState loadInboxState(Long userId, List<Conversation> conversations) {
         if (conversations.isEmpty()) {
-            return new InboxState(Map.of(), Map.of(), Set.of());
+            return new InboxState(Map.of(), Map.of(), Set.of(), Map.of());
         }
         List<Long> conversationIds = conversations.stream().map(Conversation::getId).toList();
         Map<ConversationParticipantId, Long> lastReadIds = new HashMap<>();
+        Map<Long, Long> clearedBefore = new HashMap<>();
         for (ConversationParticipant participant : participantRepository.findByIdConversationIdIn(conversationIds)) {
             if (participant.getLastReadMessageId() != null) {
                 lastReadIds.put(participant.getId(), participant.getLastReadMessageId());
+            }
+            if (participant.getClearedBeforeMessageId() != null
+                    && participant.getId().getUserId().equals(userId)) {
+                clearedBefore.put(participant.getId().getConversationId(), participant.getClearedBeforeMessageId());
             }
         }
         Map<Long, Long> unreadCounts = IdCount.toMap(
@@ -391,24 +488,55 @@ public class ChatServiceImpl implements ChatService {
                 .map(c -> c.getOtherUser(userId).getId())
                 .distinct()
                 .toList();
-        return new InboxState(lastReadIds, unreadCounts, followService.findMutualIdsAmong(userId, otherIds));
+        return new InboxState(lastReadIds, unreadCounts, followService.findMutualIdsAmong(userId, otherIds),
+                clearedBefore);
     }
 
     private record InboxState(Map<ConversationParticipantId, Long> lastReadIds,
                               Map<Long, Long> unreadCounts,
-                              Set<Long> mutualIds) {
+                              Set<Long> mutualIds,
+                              /** conversationId -> mốc xoá của chính người xem. */
+                              Map<Long, Long> clearedBefore) {
     }
 
     private List<MessageResponse> toMessageResponses(List<Message> messages) {
-        Map<Long, Video> videos = loadVideos(messages.stream().map(m -> m.getVideoId()).toList());
+        Attachments attachments = loadAttachments(messages);
         return messages.stream()
-                .map(m -> chatMapper.toMessageResponse(m, videos))
+                .map(m -> chatMapper.toMessageResponse(m, attachments.videos(), attachments.decks()))
                 .toList();
     }
 
-    private Map<Long, Video> loadVideosOf(Conversation conversation) {
+    private Attachments loadAttachmentsOf(Conversation conversation) {
         Message last = conversation.getLastMessage();
-        return last == null ? Map.of() : loadVideos(Collections.singletonList(last.getVideoId()));
+        return last == null ? new Attachments(Map.of(), Map.of()) : loadAttachments(List.of(last));
+    }
+
+    /** Video và bộ thẻ được đính kèm trong một danh sách tin nhắn, tải gộp (mỗi loại một truy vấn). */
+    private Attachments loadAttachments(Collection<Message> messages) {
+        Map<Long, Video> videos = loadVideos(messages.stream().map(Message::getVideoId).toList());
+        return new Attachments(videos, loadDecks(messages.stream().map(Message::getDeckId).toList()));
+    }
+
+    private record Attachments(Map<Long, Video> videos, Map<Long, SharedDeckResponse> decks) {
+    }
+
+    private Map<Long, SharedDeckResponse> loadDecks(Collection<Long> deckIds) {
+        List<Long> ids = deckIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, FlashcardSet> sets = flashcardSetRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(FlashcardSet::getSetId, Function.identity()));
+        Map<Long, Long> counts = deckCardCounts(ids);
+        Map<Long, SharedDeckResponse> result = new HashMap<>();
+        for (Long id : ids) {
+            result.put(id, chatMapper.toSharedDeckResponse(id, sets.get(id), counts.getOrDefault(id, 0L)));
+        }
+        return result;
+    }
+
+    private Map<Long, Long> deckCardCounts(Collection<Long> deckIds) {
+        return IdCount.toMap(flashcardRepository.countBySetIds(deckIds));
     }
 
     private Map<Long, Video> loadVideos(Collection<Long> videoIds) {

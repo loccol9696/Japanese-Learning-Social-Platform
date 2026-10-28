@@ -16,6 +16,8 @@ import com.jlsp.backend.video.dto.response.ShadowingPracticeResponse;
 import com.jlsp.backend.video.dto.response.VideoDetailResponse;
 import com.jlsp.backend.video.dto.response.VideoResponse;
 import com.jlsp.backend.video.service.VideoService;
+import com.jlsp.backend.common.security.ratelimit.ClientIpResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -33,6 +35,7 @@ import java.util.List;
 public class VideoController {
 
     private final VideoService videoService;
+    private final ClientIpResolver clientIpResolver;
     private final ShadowingLineService shadowingLineService;
 
     /**
@@ -46,11 +49,12 @@ public class VideoController {
             @RequestParam(value = "jlptLevel", required = false) JLPTLevel jlptLevel,
             @RequestParam(value = "userId", required = false) Long targetUserId,
             @RequestParam(value = "search", required = false) String search,
+            @RequestParam(value = "topicId", required = false) Long topicId,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Long currentUserId = CurrentUser.idOrNull();
         PageResponse<VideoResponse> response = videoService.getAllVideos(currentUserId, feed, jlptLevel, targetUserId,
-                search, pageable);
+                search, topicId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -214,8 +218,10 @@ public class VideoController {
      * POST /api/v1/videos/{id}/views
      */
     @PostMapping("/{id}/views")
-    public ResponseEntity<ApiResponse<Void>> incrementViewCount(@PathVariable Long id) {
-        videoService.incrementViewCount(id);
+    public ResponseEntity<ApiResponse<Void>> incrementViewCount(@PathVariable Long id, HttpServletRequest request) {
+        // Người đã đăng nhập tính theo tài khoản, khách tính theo IP.
+        Long userId = CurrentUser.idOrNull();
+        videoService.incrementViewCount(id, userId != null ? "u" + userId : "ip" + clientIpResolver.resolve(request));
         return ResponseEntity.ok(ApiResponse.success(200, "Đã ghi nhận lượt xem", null));
     }
 

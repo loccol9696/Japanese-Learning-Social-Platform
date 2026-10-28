@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../data/models/auth_response_model.dart';
+import '../password_policy.dart';
+import '../widgets/google_sign_in_button.dart';
 import '../../../app/routes.dart';
 
 import 'package:flutter/services.dart';
@@ -36,7 +38,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   static const int _usernameMin = 3;
   static const int _usernameMax = 50;
   static const int _displayNameMax = 100;
-  static const int _passwordMin = 6;
   static const int _passwordMax = 72; // BCrypt chỉ dùng 72 byte đầu
   static const int _emailMax = 254;
 
@@ -98,16 +99,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _validatePassword(String? value) {
     final password = value ?? '';
     if (password.isEmpty) return 'Vui lòng nhập Mật khẩu';
-    if (password.length < _passwordMin) {
-      return 'Mật khẩu phải có ít nhất $_passwordMin ký tự';
-    }
-    if (password.length > _passwordMax) {
-      return 'Mật khẩu tối đa $_passwordMax ký tự';
-    }
     if (password.trim() != password) {
       return 'Mật khẩu không được bắt đầu hoặc kết thúc bằng khoảng trắng';
     }
-    return null;
+    return validateNewPassword(password);
   }
 
   String? _validateConfirmPassword(String? value) {

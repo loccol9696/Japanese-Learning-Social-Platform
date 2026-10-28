@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -6,7 +8,15 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../data/services/shadowing_service.dart';
 import '../../domain/models/ruby_segment.dart';
-import 'shadowing_screen.dart';
+import 'shadowing_sheet.dart';
+
+/// Chiều cao khung video ở màn Kịch bản: vừa khít video theo tỉ lệ thật ([aspectRatio] = rộng / cao), nên video
+/// ngang không bị chừa khoảng trống trên dưới. Chưa biết tỉ lệ (video chưa tải) thì tạm dùng 16:9. Video dọc hoặc
+/// vuông cao hơn 42% chiều cao màn sẽ bị chặn ở mức đó để danh sách câu thoại bên dưới vẫn còn chỗ xem.
+double scriptVideoHeight(Size screen, {double? aspectRatio}) {
+  final ratio = (aspectRatio != null && aspectRatio > 0) ? aspectRatio : 16 / 9;
+  return math.min(screen.width / ratio, screen.height * 0.42);
+}
 
 /// Màn "Kịch bản": xem lại video kèm danh sách toàn bộ câu thoại theo thời gian.
 /// Dùng chung [VideoPlayerController] với video đang xem, bấm một câu để tua tới.
@@ -78,18 +88,18 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
     );
     if (!ok || !mounted) return;
     widget.controller?.pause();
-    final result = await Navigator.of(context).push<Map<int, int>>(
-      MaterialPageRoute(
-        builder: (_) => ShadowingScreen(
-          videoId: widget.videoId!,
-          cues: widget.cues,
-          startIndex: index,
-          videoController: widget.controller,
-          bestScores: _bestScores,
-        ),
-      ),
+    // Mở ngay trên màn Kịch bản dưới dạng bảng; điểm mới được báo về từng lần chấm xong.
+    await showShadowingSheet(
+      context,
+      videoId: widget.videoId!,
+      cues: widget.cues,
+      startIndex: index,
+      videoController: widget.controller,
+      bestScores: _bestScores,
+      onScoresChanged: (scores) {
+        if (mounted) setState(() => _bestScores = Map<int, int>.of(scores));
+      },
     );
-    if (result != null && mounted) setState(() => _bestScores = result);
   }
 
   Color _scoreColor(int score) {
@@ -210,10 +220,11 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
             child: IconButton(
               onPressed: () => Navigator.of(context).pop(),
               icon: Icon(
-                Icons.arrow_back_ios_new_rounded,
-                size: 18,
+                Icons.chevron_left_rounded,
+                size: 30,
                 color: AppPalette.textPrimary,
               ),
+              tooltip: 'Quay lại',
             ),
           ),
           Text(
@@ -245,7 +256,11 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
           onTap: _togglePlay,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            height: 160,
+            key: const ValueKey('script-video-area'),
+            height: scriptVideoHeight(
+              MediaQuery.sizeOf(context),
+              aspectRatio: (video != null && initialized) ? video.value.aspectRatio : null,
+            ),
             width: double.infinity,
             color: AppPalette.surface,
             child: Stack(
@@ -262,15 +277,15 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                   opacity: playing ? 0 : 1,
                   duration: const Duration(milliseconds: 150),
                   child: Container(
-                    width: 64,
-                    height: 64,
+                    width: 72,
+                    height: 72,
                     decoration: const BoxDecoration(
                       color: Color(0xFF2C3068),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.play_arrow_rounded,
-                      size: 38,
+                      size: 42,
                       color: AppPalette.textPrimary,
                     ),
                   ),

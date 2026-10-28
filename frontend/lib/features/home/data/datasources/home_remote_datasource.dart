@@ -8,8 +8,9 @@ import '../../domain/models/video_post.dart';
 abstract class HomeRemoteDataSource {
   Future<List<VideoPost>> fetchForYouFeed();
   Future<List<VideoPost>> fetchFollowingFeed();
-  Future<bool> toggleLike(String postId);
-  Future<bool> toggleSave(String postId);
+  /// Đặt trạng thái thích / lưu mong muốn (idempotent): gọi lại hay bấm đúp không làm đảo trạng thái.
+  Future<bool> setLiked(String postId, {required bool liked});
+  Future<bool> setSaved(String postId, {required bool saved});
   Future<bool> setFollow(int creatorId, {required bool follow});
 }
 
@@ -50,19 +51,25 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
   }
 
   @override
-  Future<bool> toggleLike(String postId) async {
-    final response = await _apiClient.post(
-      '${ApiConstants.baseUrl}/videos/$postId/like',
-    );
-    return response is bool ? response : true;
+  Future<bool> setLiked(String postId, {required bool liked}) async {
+    final url = '${ApiConstants.baseUrl}/videos/$postId/likes';
+    if (liked) {
+      await _apiClient.post(url);
+    } else {
+      await _apiClient.delete(url);
+    }
+    return liked;
   }
 
   @override
-  Future<bool> toggleSave(String postId) async {
-    final response = await _apiClient.post(
-      '${ApiConstants.baseUrl}/videos/$postId/save',
-    );
-    return response is bool ? response : true;
+  Future<bool> setSaved(String postId, {required bool saved}) async {
+    final url = '${ApiConstants.baseUrl}/videos/$postId/saves';
+    if (saved) {
+      await _apiClient.post(url);
+    } else {
+      await _apiClient.delete(url);
+    }
+    return saved;
   }
 
   /// Theo dõi / bỏ theo dõi người đăng. Trả về trạng thái follow sau khi server xử lý.

@@ -41,7 +41,7 @@ public interface FlashcardService {
 
     List<QuizQuestionResponse> generateQuiz(Long userId, Long setId, Integer limit);
 
-    MatchingGameResponse generateMatchingGame(Long setId, Integer pairCount);
+    MatchingGameResponse generateMatchingGame(Long userId, Long setId, Integer pairCount);
 
     void resetSetProgress(Long userId, Long setId);
 

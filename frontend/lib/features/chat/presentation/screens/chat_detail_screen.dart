@@ -6,6 +6,9 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../follow/data/follow_service.dart';
+import '../../../report/report_service.dart';
+import '../../../report/report_sheet.dart';
 import '../../../follow/presentation/screens/user_profile_screen.dart';
 import '../../data/models/chat_models.dart';
 import '../../data/services/chat_hub.dart';
@@ -13,6 +16,9 @@ import '../../data/services/chat_service.dart';
 import '../../data/services/chat_socket_service.dart';
 import '../chat_format.dart';
 import '../widgets/chat_avatar.dart';
+import '../widgets/chat_options_sheet.dart';
+import '../../../flashcard/data/services/flashcard_service.dart';
+import '../../../flashcard/presentation/screens/deck_overview_screen.dart';
 import '../widgets/message_bubble.dart';
 import 'shared_video_screen.dart';
 
@@ -32,6 +38,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   static const Duration _typingExpire = Duration(seconds: 5);
 
   final _service = ChatService();
+  final _followService = FollowService();
   final _socket = ChatSocketService.instance;
   final _input = TextEditingController();
   final _scroll = ScrollController();
@@ -368,6 +375,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
+  /// Mở bộ thẻ được chia sẻ: tải thông tin bộ rồi vào màn tổng quan như khi mở từ Thư viện thẻ.
+  Future<void> _openDeck(ChatMessage message) async {
+    final deck = message.deck;
+    if (deck == null || !deck.available) return;
+    try {
+      final set = await FlashcardService.instance.getSetById(deck.id);
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => DeckOverviewScreen(deck: set)),
+      );
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+    } catch (_) {
+      if (mounted) AppToast.showError('Không mở được bộ thẻ này', context: context);
+    }
+  }
+
   void _openVideo(ChatMessage message) {
     final video = message.video;
     if (video == null || !video.available) return;
@@ -422,12 +446,120 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Tuỳ chọn (⋮): báo cáo, chặn, xoá cuộc trò chuyện
+  // ---------------------------------------------------------------------------
+
+  Future<void> _openOptions() async {
+    final option = await showChatOptionsSheet(context);
+    if (option == null || !mounted) return;
+    switch (option) {
+      case ChatOption.report:
+        await showReportSheet(
+          context,
+          target: ReportTarget.user,
+          targetId: _conversation.otherUser.id,
+          subject: 'người dùng này',
+        );
+      case ChatOption.block:
+        await _confirmBlock();
+      case ChatOption.deleteConversation:
+        await _confirmDelete();
+    }
+  }
+
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+    required String actionLabel,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppPalette.surface,
+        title: Text(title, style: TextStyle(color: AppPalette.textPrimary)),
+        content: Text(message, style: TextStyle(color: AppPalette.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Huỷ'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(actionLabel, style: TextStyle(color: AppPalette.error)),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  Future<void> _confirmBlock() async {
+    final user = _conversation.otherUser;
+    final ok = await _confirm(
+      title: 'Chặn ${user.name}?',
+      message: 'Hai bên sẽ không còn theo dõi, nhắn tin hay thấy video, bình luận của nhau. '
+          'Bạn có thể bỏ chặn bất cứ lúc nào trong Cài đặt.',
+      actionLabel: 'Chặn',
+    );
+    if (!ok || !mounted) return;
+    try {
+      await _followService.block(user.id);
+      if (!mounted) return;
+      AppToast.showSuccess('Đã chặn ${user.name}', context: context);
+      Navigator.of(context).maybePop(); // về hộp thư
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    final ok = await _confirm(
+      title: 'Xóa cuộc trò chuyện?',
+      message: 'Toàn bộ tin nhắn sẽ bị xoá ở phía bạn. ${_conversation.otherUser.name} vẫn giữ lịch sử trò chuyện.',
+      actionLabel: 'Xóa',
+    );
+    if (!ok || !mounted) return;
+    try {
+      await _service.deleteConversation(_conversationId);
+      unawaited(ChatHub.instance.refreshUnread());
+      if (!mounted) return;
+      AppToast.showSuccess('Đã xóa cuộc trò chuyện', context: context);
+      Navigator.of(context).maybePop(); // hộp thư tự tải lại và không còn hội thoại này
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+    }
+  }
+
   PreferredSizeWidget _buildAppBar() {
     final user = _conversation.otherUser;
     return AppBar(
       backgroundColor: AppPalette.background,
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
       titleSpacing: 0,
+      leading: IconButton(
+        icon: Icon(Icons.chevron_left_rounded, color: AppPalette.textPrimary, size: 30),
+        tooltip: 'Quay lại',
+        onPressed: () => Navigator.of(context).maybePop(),
+      ),
+      actions: [
+        IconButton(
+          key: const ValueKey('chat-options-button'),
+          onPressed: _openOptions,
+          icon: Icon(Icons.more_vert_rounded, color: AppPalette.textPrimary),
+          tooltip: 'Tùy chọn',
+        ),
+      ],
+      // Đường kẻ mảnh ngăn tiêu đề với nội dung chat.
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Divider(
+          height: 1,
+          thickness: 1,
+          color: AppPalette.textPrimary.withValues(alpha: 0.08),
+        ),
+      ),
       title: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _openProfile,
@@ -543,6 +675,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   seenId >= message.id!,
               onRetry: () => _retry(message),
               onOpenVideo: () => _openVideo(message),
+              onOpenDeck: () => _openDeck(message),
             ),
           ],
         );
@@ -555,10 +688,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
           color: AppPalette.background,
-          border: Border(top: BorderSide(color: AppPalette.border, width: 0.5)),
+          border: Border(
+            top: BorderSide(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -578,14 +713,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   hintStyle: TextStyle(color: AppPalette.textSecondary),
                   counterText: '',
                   filled: true,
-                  fillColor: AppPalette.surfaceHigh,
+                  fillColor: AppPalette.surface,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 11,
+                    horizontal: 18,
+                    vertical: 13,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -593,12 +728,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ),
             const SizedBox(width: 8),
             IconButton.filled(
+              key: const ValueKey('send-button'),
               onPressed: hasText ? _send : null,
               style: IconButton.styleFrom(
+                fixedSize: const Size(46, 46),
                 backgroundColor: AppPalette.accent,
-                disabledBackgroundColor: AppPalette.surfaceHigh,
+                foregroundColor: AppPalette.onAccent,
+                disabledBackgroundColor: AppPalette.surface,
+                disabledForegroundColor: AppPalette.textSecondary,
               ),
-              icon: const Icon(Icons.send_rounded, size: 20),
+              tooltip: 'Gửi',
+              icon: const Icon(Icons.arrow_upward_rounded, size: 22),
             ),
           ],
         ),
@@ -636,7 +776,7 @@ class _DayLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 14),
       child: Text(
         label,
         style: TextStyle(color: AppPalette.textSecondary, fontSize: 12),

@@ -33,11 +33,14 @@ public class RefreshTokenService {
 
     private final StringRedisTemplate redis;
     private final Duration refreshTokenTtl;
+    private final AccessTokenDenylist accessTokenDenylist;
 
     public RefreshTokenService(StringRedisTemplate redis,
-                               @Value("${jwt.refresh-token-ttl:P14D}") Duration refreshTokenTtl) {
+                               @Value("${jwt.refresh-token-ttl:P14D}") Duration refreshTokenTtl,
+                               AccessTokenDenylist accessTokenDenylist) {
         this.redis = redis;
         this.refreshTokenTtl = refreshTokenTtl;
+        this.accessTokenDenylist = accessTokenDenylist;
     }
 
     public Duration getRefreshTokenTtl() {
@@ -89,8 +92,13 @@ public class RefreshTokenService {
         }
     }
 
-    /** Thu hồi mọi phiên của người dùng (đổi / đặt lại mật khẩu, khoá tài khoản). */
+    /**
+     * Thu hồi mọi phiên của người dùng (đổi / đặt lại mật khẩu, khoá tài khoản): xoá toàn bộ refresh
+     * token và vô hiệu hoá luôn các access token đã cấp, nên thiết bị khác bị đăng xuất ngay thay vì
+     * còn dùng được tới khi access token hết hạn.
+     */
     public void revokeAll(Long userId) {
+        accessTokenDenylist.revokeUserTokens(userId);
         String userKey = USER_PREFIX + userId;
         Set<String> hashes = redis.opsForSet().members(userKey);
         if (hashes != null) {
