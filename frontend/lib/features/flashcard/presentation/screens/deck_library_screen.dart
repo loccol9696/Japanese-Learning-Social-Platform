@@ -508,6 +508,7 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                                 final deck = _decks[index];
                                 final card = DeckCardItem(
                                   deck: deck,
+                                  dragIndex: _canReorder && !deck.isVideoSaved ? index : null,
                                   onTap: () {
                                     Navigator.push(
                                       context,

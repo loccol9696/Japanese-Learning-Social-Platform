@@ -127,4 +127,30 @@ void main() {
 
     expect(requests.where((r) => r.method == 'PUT'), isEmpty);
   });
+
+  testWidgets('kéo biểu tượng ⠿ của bộ thẻ (không cần nhấn giữ) cũng đổi chỗ', (tester) async {
+    await pumpLibrary(tester);
+
+    final gesture = await tester.startGesture(tester.getCenter(find.byKey(const ValueKey('deck-drag-handle-1'))));
+    await tester.pump(const Duration(milliseconds: 100));
+    for (var i = 0; i < 5; i++) {
+      await gesture.moveBy(const Offset(0, 30));
+      await tester.pump(const Duration(milliseconds: 30));
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(titles(tester), ['Bộ B', 'Bộ A', 'Bộ C']);
+    expect(requests.where((r) => r.method == 'PUT' && r.url.path.endsWith('/sets/order')), hasLength(1));
+  });
+
+  testWidgets('đang tìm kiếm thì ẩn biểu tượng kéo', (tester) async {
+    await pumpLibrary(tester);
+    expect(find.byIcon(Icons.drag_indicator_rounded), findsNWidgets(3));
+
+    await tester.enterText(find.byType(TextField), 'Bộ');
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.drag_indicator_rounded), findsNothing);
+  });
 }

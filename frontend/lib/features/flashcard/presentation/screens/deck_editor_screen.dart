@@ -519,14 +519,14 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                                           color: Colors.transparent,
                                           padding: const EdgeInsets.fromLTRB(
                                             4,
-                                            11,
+                                            13,
                                             14,
-                                            11,
+                                            13,
                                           ),
                                           child: Icon(
                                             Icons.drag_indicator_rounded,
                                             color: AppPalette.textSecondary,
-                                            size: 22,
+                                            size: 17,
                                           ),
                                         ),
                                       ),
@@ -534,7 +534,7 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                                         '${index + 1}',
                                         style: TextStyle(
                                           color: AppPalette.textSecondary,
-                                          fontSize: 13,
+                                          fontSize: 14,
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
