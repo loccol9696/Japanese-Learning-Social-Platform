@@ -511,12 +511,17 @@ class _DeckEditorScreenState extends State<DeckEditorScreen> {
                                     children: [
                                       ReorderableDragStartListener(
                                         index: index,
-                                        child: Padding(
+                                        // Vùng chạm rộng (~48x44) để dễ bắt khi kéo bằng ngón tay hay chuột.
+                                        child: Container(
                                           key: ValueKey(
                                             'card-drag-handle-$index',
                                           ),
-                                          padding: const EdgeInsets.only(
-                                            right: 8,
+                                          color: Colors.transparent,
+                                          padding: const EdgeInsets.fromLTRB(
+                                            4,
+                                            11,
+                                            14,
+                                            11,
                                           ),
                                           child: Icon(
                                             Icons.drag_indicator_rounded,
