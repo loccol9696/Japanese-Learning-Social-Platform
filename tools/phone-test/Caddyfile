@@ -1,0 +1,19 @@
+# Gộp API (cổng 8080) và Socket.IO của chat (cổng 9092) về MỘT cổng 8000 để ngrok chỉ cần một đường hầm.
+# Chạy: caddy run --config Caddyfile (hoặc dùng start-tunnel.ps1).
+{
+	# Không cần HTTPS ở đây: ngrok đã lo HTTPS ở ngoài.
+	auto_https off
+	admin off
+}
+
+:8000 {
+	# Chat realtime (netty-socketio, đường dẫn mặc định /socket.io/). Caddy tự chuyển tiếp WebSocket.
+	handle /socket.io/* {
+		reverse_proxy localhost:9092
+	}
+
+	# Mọi đường khác là API Spring Boot.
+	handle {
+		reverse_proxy localhost:8080
+	}
+}
