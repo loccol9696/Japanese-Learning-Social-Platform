@@ -77,14 +77,18 @@ export interface SubscriptionPlanItem {
 export interface SubscriptionOrderItem {
   id: number;
   orderCode: string;
-  verificationCode: string;
+  /** Nội dung chuyển khoản người dùng đã ghi (cũng là mã đơn). */
+  transferMemo?: string;
   username: string;
   userDisplayName?: string;
   planName: string;
   planCode: string;
   amount: number;
+  /** Tổng tiền đã nhận cho đơn (có thể nhiều lần chuyển). */
+  paidAmount?: number;
   paymentMethod: string;
-  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'EXPIRED' | 'CANCELLED' | 'NEEDS_REVIEW';
+  expiresAt?: string;
   createdAt: string;
   completedAt?: string;
 }
@@ -341,14 +345,14 @@ export async function updateTokenRate(secondsPerToken: number): Promise<TokenRat
   return resData.data;
 }
 
-// ==================== SUBSCRIPTION ORDER & QR LOCAL SIMULATOR ====================
+// ==================== ĐƠN THANH TOÁN (ADMIN) ====================
 
 export async function getSubscriptionOrders(
   page = 0,
   size = 15,
   sort = 'createdAt,desc'
 ): Promise<PageResponse<SubscriptionOrderItem>> {
-  const response = await authFetch(`/api/v1/payments/history?page=${page}&size=${size}&sort=${sort}`, {
+  const response = await authFetch(`/api/v1/admin/payments?page=${page}&size=${size}&sort=${sort}`, {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<PageResponse<SubscriptionOrderItem>> = await readJson(response);
@@ -358,35 +362,19 @@ export async function getSubscriptionOrders(
   return resData.data;
 }
 
-export async function createQrOrder(planCode: string): Promise<{
-  orderCode: string;
-  verificationCode: string;
-  planName: string;
-  amount: number;
-  qrCodeUrl: string;
-  status: string;
-}> {
-  const response = await authFetch('/api/v1/payments/create-order', {
+/**
+ * Admin duyệt tay một đơn chưa thành công (vd. khách chuyển thiếu rồi bù tiền mặt). Bắt buộc ghi lý do; server lưu lại
+ * người duyệt để truy vết. Đơn thanh toán bình thường được kích hoạt tự động bởi webhook ngân hàng, không qua đây.
+ */
+export async function adminConfirmOrder(orderCode: string, note: string): Promise<SubscriptionOrderItem> {
+  const response = await authFetch(`/api/v1/admin/payments/${encodeURIComponent(orderCode)}/confirm`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ planCode }),
+    body: JSON.stringify({ note }),
   });
-  const resData: ApiResponse<any> = await readJson(response);
+  const resData: ApiResponse<SubscriptionOrderItem> = await readJson(response);
   if (!response.ok) {
-    throw new Error(resData.message || 'Không thể khởi tạo đơn hàng thanh toán QR');
-  }
-  return resData.data;
-}
-
-export async function confirmPayment(orderCode: string, verificationCode: string): Promise<any> {
-  const response = await authFetch('/api/v1/payments/confirm', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ orderCode, verificationCode }),
-  });
-  const resData: ApiResponse<any> = await readJson(response);
-  if (!response.ok) {
-    throw new Error(resData.message || 'Mã xác thực không đúng hoặc đơn hàng đã xử lý');
+    throw new Error(resData.message || 'Không thể duyệt đơn hàng');
   }
   return resData.data;
 }
