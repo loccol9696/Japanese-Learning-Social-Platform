@@ -122,9 +122,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadMembershipStatus() async {
     try {
-      final status = await SubscriptionService.instance.getMySubscriptionStatus(
-        _profile.id,
-      );
+      final status = await SubscriptionService.instance.getMyStatus();
       if (mounted) {
         setState(() {
           _membershipStatus = status;

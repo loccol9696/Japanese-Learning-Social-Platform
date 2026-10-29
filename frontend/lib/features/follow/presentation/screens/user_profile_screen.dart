@@ -15,7 +15,6 @@ import '../../data/follow_service.dart';
 import '../../../report/report_service.dart';
 import '../../../report/report_sheet.dart';
 import '../../../subscription/models/subscription_model.dart';
-import '../../../subscription/services/subscription_service.dart';
 
 /// Trang cá nhân công khai của một người dùng khác: thông tin, nút theo dõi và video đã đăng.
 class UserProfileScreen extends StatefulWidget {
@@ -78,10 +77,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final results = await Future.wait([
         _service.fetchPublicProfile(widget.userId),
         _videoSource.fetchUserVideos(userId: widget.userId),
-        SubscriptionService.instance
-            .getMySubscriptionStatus(widget.userId)
-            .then<SubscriptionStatus?>((s) => s)
-            .catchError((_) => null),
+        // Chưa có API xem gói của người khác: không suy đoán trạng thái VIP của họ từ dữ liệu của mình.
+        Future<SubscriptionStatus?>.value(null),
       ]);
       if (!mounted) return;
       setState(() {

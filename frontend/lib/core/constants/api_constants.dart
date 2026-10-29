@@ -5,8 +5,21 @@ import 'dart:io' show Platform;
 class ApiConstants {
   ApiConstants._();
 
+  /// Địa chỉ API do người build chỉ định, ví dụ khi chạy trên điện thoại thật qua ngrok:
+  /// `flutter build apk --dart-define=API_BASE_URL=https://ten-mien.ngrok-free.app/api/v1`.
+  /// Để trống thì tự chọn theo nền tảng (máy ảo Android dùng 10.0.2.2).
+  static const String _apiBaseUrlOverride = String.fromEnvironment('API_BASE_URL');
+
+  /// Địa chỉ server Socket.IO của chat khi build chỉ định riêng (`--dart-define=SOCKET_URL=https://...`).
+  static const String _socketUrlOverride = String.fromEnvironment('SOCKET_URL');
+
   /// Automatically pick host based on runtime platform
   static String get baseUrl {
+    if (_apiBaseUrlOverride.isNotEmpty) {
+      return _apiBaseUrlOverride.endsWith('/')
+          ? _apiBaseUrlOverride.substring(0, _apiBaseUrlOverride.length - 1)
+          : _apiBaseUrlOverride;
+    }
     if (kIsWeb) {
       return 'http://localhost:8080/api/v1';
     }
@@ -79,9 +92,14 @@ class ApiConstants {
   // Subscription endpoints
   static String get subscriptionPlansBaseUrl => '$baseUrl/subscription-plans';
   static String get subscriptionPlansUrl => subscriptionPlansBaseUrl;
-  static String get subscriptionBaseUrl => '$baseUrl/subscriptions';
-  static String get subscriptionCheckoutUrl =>
-      '$baseUrl/subscriptions/checkout';
+
+  /// Thanh toán chuyển khoản VietQR: tạo đơn (POST) và danh sách đơn của tôi (GET).
+  static String get paymentOrdersUrl => '$baseUrl/payments/orders';
+  static String paymentOrderUrl(String orderCode) =>
+      '$baseUrl/payments/orders/${Uri.encodeComponent(orderCode)}';
+
+  /// Gói thành viên hiện tại của người đang đăng nhập.
+  static String get mySubscriptionUrl => '$baseUrl/payments/my-subscription';
 
   /// Quota của người đang đăng nhập (server xác định qua access token).
   static String get myQuotaUrl => '$baseUrl/payments/my-quota';
@@ -127,6 +145,7 @@ class ApiConstants {
 
   /// Server Socket.IO của chat: cùng host với API nhưng port riêng (9092).
   static String get socketUrl {
+    if (_socketUrlOverride.isNotEmpty) return _socketUrlOverride;
     final uri = Uri.parse(baseUrl);
     return Uri(scheme: uri.scheme, host: uri.host, port: 9092).toString();
   }

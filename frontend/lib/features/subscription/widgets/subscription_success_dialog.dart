@@ -4,13 +4,13 @@ import '../models/subscription_model.dart';
 import '../../../core/theme/app_palette.dart';
 
 class SubscriptionSuccessDialog extends StatelessWidget {
-  final PaymentResponse payment;
+  final PaymentOrder order;
   final SubscriptionPlan plan;
   final VoidCallback onDismiss;
 
   const SubscriptionSuccessDialog({
     super.key,
-    required this.payment,
+    required this.order,
     required this.plan,
     required this.onDismiss,
   });
@@ -86,7 +86,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
                   const SizedBox(height: 8),
                   _buildDetailRow('Số tiền:', plan.formattedPrice),
                   const SizedBox(height: 8),
-                  _buildDetailRow('Mã giao dịch:', payment.transactionRef),
+                  _buildDetailRow('Mã giao dịch:', order.orderCode),
                 ],
               ),
             ),
