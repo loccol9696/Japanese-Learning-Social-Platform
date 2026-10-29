@@ -39,7 +39,10 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             "/api/v1/auth/forgot-password", new Rule("forgot-password", 10, Duration.ofHours(1)),
             "/api/v1/auth/verify-otp", new Rule("verify-otp", 20, Duration.ofMinutes(15)),
             "/api/v1/auth/reset-password", new Rule("reset-password", 20, Duration.ofMinutes(15)),
-            "/api/v1/auth/refresh", new Rule("refresh", 60, Duration.ofMinutes(1)));
+            "/api/v1/auth/refresh", new Rule("refresh", 60, Duration.ofMinutes(1)),
+            // Thanh toán: webhook ngân hàng (công khai, có khoá) và tạo đơn (đã đăng nhập, mỗi người còn bị giới hạn riêng).
+            "/api/v1/payments/webhook/sepay", new Rule("sepay-webhook", 300, Duration.ofMinutes(1)),
+            "/api/v1/payments/orders", new Rule("payment-order", 30, Duration.ofHours(1)));
 
     private final RateLimiter rateLimiter;
     private final boolean enabled;
