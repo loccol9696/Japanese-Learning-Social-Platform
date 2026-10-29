@@ -129,6 +129,9 @@ class SecurityMatrixTest {
     private static final String[] LOGIN_REQUIRED = {
             "GET /api/v1/profile",
             "PUT /api/v1/profile",
+            "GET /api/v1/onboarding",
+            "PUT /api/v1/onboarding",
+            "POST /api/v1/onboarding/skip",
             "GET /api/v1/notifications",
             "GET /api/v1/notifications/unread-count",
             "POST /api/v1/notifications/read-all",

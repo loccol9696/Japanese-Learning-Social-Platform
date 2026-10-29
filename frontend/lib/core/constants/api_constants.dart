@@ -104,6 +104,10 @@ class ApiConstants {
   /// Quota của người đang đăng nhập (server xác định qua access token).
   static String get myQuotaUrl => '$baseUrl/payments/my-quota';
 
+  /// Câu hỏi chào mừng (trình độ + sở thích): đọc / lưu (GET, PUT) và bỏ qua (POST).
+  static String get onboardingUrl => '$baseUrl/onboarding';
+  static String get onboardingSkipUrl => '$baseUrl/onboarding/skip';
+
   // Profile endpoints
   static String get profileUrl => '$baseUrl/profile';
   static String get topicsUrl => '$baseUrl/topics';

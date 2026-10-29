@@ -27,6 +27,7 @@ public class UserMapper {
                 .updatedAt(entity.getUpdatedAt())
                 .vipExpiresAt(entity.getVipExpiresAt())
                 .subscriptionPlanName(entity.getSubscriptionPlan() != null ? entity.getSubscriptionPlan().getName() : null)
+                .needsOnboarding(com.jlsp.backend.onboarding.OnboardingRules.needsOnboarding(entity))
                 .build();
     }
 

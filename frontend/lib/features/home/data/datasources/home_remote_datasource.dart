@@ -22,7 +22,8 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
 
   @override
   Future<List<VideoPost>> fetchForYouFeed() {
-    return _fetchFeed('for-you');
+    // "recommended" = for-you xếp theo trình độ/sở thích; server tự quay về feed thường nếu chưa có.
+    return _fetchFeed('recommended');
   }
 
   @override
