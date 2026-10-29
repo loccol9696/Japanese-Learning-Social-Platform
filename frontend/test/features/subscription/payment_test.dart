@@ -203,7 +203,7 @@ void main() {
       expect(find.text('ACB'), findsOneWidget);
       expect(find.text('28442991'), findsOneWidget);
       expect(find.text('PHAM CONG NGUYEN'), findsOneWidget);
-      expect(find.textContaining('Đang chờ thanh toán'), findsOneWidget);
+      expect(find.byKey(const ValueKey('payment-status')), findsOneWidget);
       expect(find.byKey(const ValueKey('qr-image')), findsOneWidget);
       // Không có nút nào tự xác nhận đã thanh toán.
       expect(find.textContaining('Tôi đã'), findsNothing);
@@ -292,7 +292,7 @@ void main() {
       await pumpSheet(tester);
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.textContaining('Đang chờ thanh toán'), findsOneWidget);
+      expect(find.byKey(const ValueKey('payment-status')), findsOneWidget);
     });
   });
 }

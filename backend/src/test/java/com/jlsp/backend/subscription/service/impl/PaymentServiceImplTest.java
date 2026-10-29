@@ -218,7 +218,7 @@ class PaymentServiceImplTest {
 
         String qr = service.getMyOrder(USER_ID, MEMO).getQrUrl();
 
-        assertThat(qr).isEqualTo("https://img.vietqr.io/image/970416-28442991-compact2.svg"
+        assertThat(qr).isEqualTo("https://img.vietqr.io/image/970416-28442991-qr_only.svg"
                 + "?amount=99000&addInfo=" + MEMO + "&accountName=PHAM%20CONG%20NGUYEN");
     }
 

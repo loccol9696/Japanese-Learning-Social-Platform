@@ -130,11 +130,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     }
     if (!mounted) return;
 
-    final paid = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => VietQrPaymentSheet(order: order, plan: plan),
+    final paid = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => VietQrPaymentSheet(order: order, plan: plan),
+      ),
     );
     if (!mounted) return;
     if (paid == true) {

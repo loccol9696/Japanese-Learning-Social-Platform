@@ -56,7 +56,7 @@ class PaymentMemoTest {
 
         String url = VietQrUrlBuilder.build(props, new BigDecimal("99000.00"), "JLSP7K3Q9M2X");
 
-        assertThat(url).isEqualTo("https://img.vietqr.io/image/970416-28442991-compact2.svg"
+        assertThat(url).isEqualTo("https://img.vietqr.io/image/970416-28442991-qr_only.svg"
                 + "?amount=99000&addInfo=JLSP7K3Q9M2X&accountName=PHAM%20CONG%20NGUYEN");
     }
 

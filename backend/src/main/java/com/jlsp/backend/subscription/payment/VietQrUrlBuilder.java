@@ -16,7 +16,7 @@ public final class VietQrUrlBuilder {
     }
 
     public static String build(PaymentProperties props, BigDecimal amount, String memo) {
-        return BASE + props.bankBin() + "-" + props.accountNo() + "-compact2.svg"
+        return BASE + props.bankBin() + "-" + props.accountNo() + "-qr_only.svg"
                 + "?amount=" + amount.setScale(0, java.math.RoundingMode.HALF_UP).toPlainString()
                 + "&addInfo=" + encode(memo)
                 + "&accountName=" + encode(props.accountName());

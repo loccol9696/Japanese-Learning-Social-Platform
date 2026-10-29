@@ -136,7 +136,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       _buildTopBar(),
                       Expanded(
                         child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
                           child: _step == 0
                               ? _buildLevelStep()
                               : _buildTopicStep(),
@@ -207,6 +207,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
           Row(
             children: [
               for (var i = 0; i < 2; i++) ...[

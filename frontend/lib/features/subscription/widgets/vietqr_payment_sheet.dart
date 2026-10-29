@@ -152,77 +152,142 @@ class _VietQrPaymentSheetState extends State<VietQrPaymentSheet> {
     return '$minutes:$seconds';
   }
 
+  double _countdownProgress(PaymentOrder order) {
+    final createdAt = order.createdAt;
+    final expiresAt = order.expiresAt;
+    if (createdAt == null || expiresAt == null) return 0;
+    final totalSeconds = expiresAt.difference(createdAt).inSeconds;
+    if (totalSeconds <= 0) return 0;
+    return (_remaining.inSeconds / totalSeconds).clamp(0.0, 1.0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = _order;
-    return Container(
-      decoration: BoxDecoration(
-        color: AppPalette.background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppPalette.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Thanh toán chuyển khoản',
-                      style: TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
+    return Material(
+      color: AppPalette.background,
+      child: Container(
+        constraints: const BoxConstraints.expand(),
+        decoration: BoxDecoration(
+          color: AppPalette.background,
+          border: Border.all(color: AppPalette.border),
+        ),
+        child: SafeArea(
+          top: true,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 14),
+                _buildPaymentProgress(order),
+                const SizedBox(height: 20),
+                if (!order.isExpired && !order.isCancelled) ...[
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(12, 18, 12, 10),
+                    decoration: BoxDecoration(
+                      color: AppPalette.surface,
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                  ),
-                  IconButton(
-                    key: const ValueKey('payment-close'),
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: AppPalette.textSecondary,
+                    child: Column(
+                      children: [
+                        _buildQr(order),
+                        const SizedBox(height: 14),
+                        _buildDetails(order),
+                      ],
                     ),
-                    onPressed: () => Navigator.of(context).pop(false),
                   ),
                 ],
-              ),
-              if ((order.planName ?? widget.plan?.name) != null)
-                Text(
-                  order.planName ?? widget.plan!.name,
-                  style: TextStyle(
-                    color: AppPalette.textSecondary,
-                    fontSize: 14,
-                  ),
+                const SizedBox(height: 22),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(top: 10),
+                  child: _buildActions(order),
                 ),
-              const SizedBox(height: 14),
-              _buildStatusBanner(order),
-              const SizedBox(height: 14),
-              if (!order.isExpired && !order.isCancelled) ...[
-                _buildQr(order),
-                const SizedBox(height: 14),
-                _buildDetails(order),
               ],
-              const SizedBox(height: 14),
-              _buildActions(order),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return SizedBox(
+      height: 36,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              key: const ValueKey('payment-close'),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 18,
+                color: AppPalette.textPrimary,
+              ),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+          ),
+          Text(
+            'Thanh toán',
+            style: TextStyle(
+              color: AppPalette.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentProgress(PaymentOrder order) {
+    if (order.isExpired || order.isCancelled || order.needsReview) {
+      return _buildStatusBanner(order);
+    }
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.access_time_rounded, color: AppPalette.info, size: 17),
+            const SizedBox(width: 5),
+            Text(
+              _countdown,
+              key: const ValueKey('payment-status'),
+              semanticsLabel: 'Đang chờ thanh toán. Còn $_countdown',
+              style: TextStyle(
+                color: AppPalette.info,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 3,
+          decoration: BoxDecoration(
+            color: AppPalette.border,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: _countdownProgress(order),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppPalette.info,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -284,9 +349,9 @@ class _VietQrPaymentSheetState extends State<VietQrPaymentSheet> {
     final url = order.qrUrl;
     return Center(
       child: Container(
-        width: 232,
-        height: 232,
-        padding: const EdgeInsets.all(8),
+        width: 224,
+        height: 224,
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -320,32 +385,39 @@ class _VietQrPaymentSheetState extends State<VietQrPaymentSheet> {
   );
 
   Widget _buildDetails(PaymentOrder order) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppPalette.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 2),
       child: Column(
         children: [
           _row('Ngân hàng', order.bankName),
+          _detailDivider(),
           _row('Số tài khoản', order.accountNo, copyLabel: 'số tài khoản'),
+          _detailDivider(),
           _row('Chủ tài khoản', order.accountName),
+          _detailDivider(),
           _row(
             'Số tiền',
             _money(order.amount),
             copyValue: order.amount.round().toString(),
             copyLabel: 'số tiền',
           ),
+          _detailDivider(),
           _row(
             'Nội dung',
             order.transferMemo,
             copyLabel: 'nội dung chuyển khoản',
             emphasize: true,
-            hint: 'Ghi đúng nội dung này để hệ thống tự kích hoạt',
           ),
         ],
       ),
+    );
+  }
+
+  Widget _detailDivider() {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: AppPalette.border.withValues(alpha: 0.18),
     );
   }
 
@@ -359,15 +431,19 @@ class _VietQrPaymentSheetState extends State<VietQrPaymentSheet> {
   }) {
     if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 96,
+            width: 104,
             child: Text(
               label,
-              style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
+              style: TextStyle(
+                color: AppPalette.textSecondary,
+                fontSize: 14.5,
+                height: 1.35,
+              ),
             ),
           ),
           Expanded(
@@ -380,9 +456,9 @@ class _VietQrPaymentSheetState extends State<VietQrPaymentSheet> {
                     color: emphasize
                         ? AppPalette.accent
                         : AppPalette.textPrimary,
-                    fontSize: emphasize ? 17 : 14.5,
-                    fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
-                    letterSpacing: emphasize ? 0.5 : 0,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    height: 1.3,
                   ),
                 ),
                 if (hint != null)
@@ -408,7 +484,7 @@ class _VietQrPaymentSheetState extends State<VietQrPaymentSheet> {
                 padding: const EdgeInsets.all(4),
                 child: Icon(
                   Icons.copy_rounded,
-                  size: 18,
+                  size: 20,
                   color: AppPalette.textSecondary,
                 ),
               ),
@@ -433,11 +509,19 @@ class _VietQrPaymentSheetState extends State<VietQrPaymentSheet> {
     return SizedBox(
       width: double.infinity,
       height: 50,
-      child: OutlinedButton.icon(
+      child: FilledButton.icon(
         key: const ValueKey('payment-check'),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppPalette.accent,
+          foregroundColor: AppPalette.onAccent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
         onPressed: () => _refresh(manual: true),
-        icon: const Icon(Icons.refresh_rounded),
-        label: const Text('Kiểm tra lại'),
+        icon: const Icon(Icons.refresh_rounded, size: 18),
+        label: const Text(
+          'Kiểm tra thanh toán',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
     );
   }

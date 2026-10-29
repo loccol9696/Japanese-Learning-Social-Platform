@@ -275,40 +275,23 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   Widget _buildEmpty() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Chưa có cuộc trò chuyện nào',
-              style: TextStyle(
-                color: AppPalette.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
+    return LayoutBuilder(
+      builder: (context, constraints) => RefreshIndicator(
+        onRefresh: () => _load(silent: true),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Text(
+                'Chưa có cuộc trò chuyện nào',
+                style: TextStyle(
+                  color: AppPalette.textPrimary.withValues(alpha: 0.5),
+                  fontSize: 14,
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Nhắn tin cho những người đã follow lẫn nhau.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppPalette.textSecondary, fontSize: 13, height: 1.4),
-            ),
-            const SizedBox(height: 18),
-            FilledButton(
-              key: const ValueKey('start-chat-button'),
-              onPressed: _newChat,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppPalette.accent,
-                foregroundColor: AppPalette.onAccent,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-              ),
-              child: const Text('Bắt đầu trò chuyện'),
-            ),
-          ],
+          ),
         ),
       ),
     );
