@@ -4,6 +4,7 @@ import com.jlsp.backend.user.entity.JLPTLevel;
 import com.jlsp.backend.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 
@@ -12,13 +13,16 @@ import java.time.LocalDateTime;
         // Feed / Khám phá: lọc PUBLIC + APPROVED rồi sắp theo created_at.
         @Index(name = "idx_videos_feed", columnList = "status, mod_status, created_at"),
         // Video của một người (hồ sơ, quản lý đăng tải, feed Following).
-        @Index(name = "idx_videos_user_created", columnList = "user_id, created_at")
+        @Index(name = "idx_videos_user_created", columnList = "user_id, created_at"),
+        // Dọn thùng rác: tìm video đã quá hạn lưu.
+        @Index(name = "idx_videos_deleted_at", columnList = "deleted_at")
 })
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@SQLRestriction("deleted_at IS NULL")
 public class Video {
 
     /**
@@ -156,6 +160,13 @@ public class Video {
      */
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /**
+     * Thời điểm chuyển vào thùng rác; NULL = đang hoạt động.
+     * Hết hạn lưu, VideoTrashPurgeJob xóa hẳn video cùng dữ liệu phụ thuộc.
+     */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {

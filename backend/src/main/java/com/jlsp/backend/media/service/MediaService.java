@@ -34,4 +34,12 @@ public interface MediaService {
      * @return nội dung file
      */
     byte[] downloadFromCloudinary(String secureUrl);
+
+    /**
+     * Gỡ file khỏi Cloudinary theo URL. Bỏ qua URL rỗng hoặc không thuộc Cloudinary;
+     * lỗi chỉ được ghi log vì file sót lại không ảnh hưởng người dùng.
+     *
+     * @param url URL của file
+     */
+    void deleteByUrl(String url);
 }

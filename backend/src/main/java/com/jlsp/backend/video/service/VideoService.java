@@ -48,14 +48,6 @@ public interface VideoService {
     VideoDetailResponse updateVideo(Long id, Long currentUserId, UpdateVideoRequest request);
 
     /**
-     * Xóa video (chỉ chủ sở hữu hoặc admin mới có quyền).
-     *
-     * @param id            ID video cần xóa
-     * @param currentUserId ID người dùng thực hiện xóa
-     */
-    void deleteVideo(Long id, Long currentUserId);
-
-    /**
      * Lấy danh sách video đề xuất "Dành cho bạn" (For-You Feed) theo dạng cuộn vô
      * tận TikTok.
      * Có thể lọc theo cấp độ JLPT phù hợp với người học.

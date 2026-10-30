@@ -19,4 +19,9 @@ public interface VideoCommentRepository extends JpaRepository<VideoComment, Long
     @Query("SELECT c.video.id AS id, COUNT(c) AS total FROM VideoComment c " +
             "WHERE c.video.id IN :videoIds GROUP BY c.video.id")
     List<IdCount> countByVideoIds(@Param("videoIds") Collection<Long> videoIds);
+
+    /** Như {@link #countByVideoIds} nhưng tính cả bình luận đã xóa mềm, dùng cho thùng rác. */
+    @Query(value = "SELECT video_id AS id, COUNT(*) AS total FROM video_comments " +
+            "WHERE video_id IN (:videoIds) GROUP BY video_id", nativeQuery = true)
+    List<IdCount> countIncludingDeleted(@Param("videoIds") Collection<Long> videoIds);
 }

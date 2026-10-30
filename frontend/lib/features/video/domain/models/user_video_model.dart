@@ -19,6 +19,8 @@ class UserVideoModel {
   final String? userDisplayName;
   final String? username;
   final String? userAvatarUrl;
+  final String? deletedAt;
+  final String? purgeAt;
 
   const UserVideoModel({
     required this.id,
@@ -41,7 +43,19 @@ class UserVideoModel {
     this.userDisplayName,
     this.username,
     this.userAvatarUrl,
+    this.deletedAt,
+    this.purgeAt,
   });
+
+  /// Số ngày còn lại trước khi video trong thùng rác bị xóa hẳn (làm tròn lên,
+  /// 0 nếu đã tới hạn); null nếu video không ở thùng rác.
+  int? daysUntilPurge(DateTime now) {
+    final purgeTime = DateTime.tryParse(purgeAt ?? '');
+    if (purgeTime == null) return null;
+    final remaining = purgeTime.difference(now);
+    if (remaining.isNegative) return 0;
+    return (remaining.inMinutes / Duration.minutesPerDay).ceil();
+  }
 
   bool get isPending => modStatus.toUpperCase() == 'PENDING';
   bool get isApproved => modStatus.toUpperCase() == 'APPROVED';
@@ -77,6 +91,8 @@ class UserVideoModel {
       userDisplayName: json['userDisplayName'] as String?,
       username: json['username'] as String?,
       userAvatarUrl: json['userAvatarUrl'] as String?,
+      deletedAt: json['deletedAt'] as String?,
+      purgeAt: json['purgeAt'] as String?,
     );
   }
 
@@ -102,6 +118,8 @@ class UserVideoModel {
       'userDisplayName': userDisplayName,
       'username': username,
       'userAvatarUrl': userAvatarUrl,
+      'deletedAt': deletedAt,
+      'purgeAt': purgeAt,
     };
   }
 }

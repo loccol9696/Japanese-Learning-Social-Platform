@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../profile/data/datasources/profile_remote_datasource.dart';
 import '../../../profile/data/repositories/profile_repository_impl.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
+import '../../data/services/video_trash_service.dart';
 import '../../domain/models/user_video_model.dart';
 import '../../../../core/theme/app_palette.dart';
+import 'deleted_videos_screen.dart';
 
 class MyVideosStatusScreen extends StatefulWidget {
   final ProfileRepository? repository;
+  final VideoTrashService? trashService;
 
-  const MyVideosStatusScreen({super.key, this.repository});
+  const MyVideosStatusScreen({super.key, this.repository, this.trashService});
 
   @override
   State<MyVideosStatusScreen> createState() => _MyVideosStatusScreenState();
@@ -17,6 +21,7 @@ class MyVideosStatusScreen extends StatefulWidget {
 
 class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
   late final ProfileRepository _repository;
+  late final VideoTrashService _trashService;
   bool _isLoading = true;
   List<UserVideoModel> _allVideos = [];
   String _selectedFilter = 'ALL'; // ALL, PENDING, APPROVED, REJECTED
@@ -26,7 +31,53 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
     super.initState();
     _repository = widget.repository ??
         ProfileRepositoryImpl(remoteDataSource: ProfileRemoteDataSourceImpl());
+    _trashService = widget.trashService ?? VideoTrashService();
     _loadVideos();
+  }
+
+  Future<void> _moveToTrash(UserVideoModel video) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Xóa video?'),
+        content: const Text(
+          'Video cùng bình luận và lượt tương tác sẽ được giữ trong thùng rác '
+          '30 ngày, sau đó bị xóa hẳn. Bạn có thể khôi phục trong thời gian này.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await _trashService.moveToTrash(video.id);
+      if (!mounted) return;
+      setState(() {
+        _allVideos = _allVideos.where((v) => v.id != video.id).toList();
+      });
+      AppToast.showSuccess('Đã chuyển video vào thùng rác', context: context);
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.showError('Không thể xóa video: $error', context: context);
+    }
+  }
+
+  Future<void> _openTrash() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DeletedVideosScreen(service: _trashService),
+      ),
+    );
+    // Video vừa khôi phục phải hiện lại trong danh sách.
+    if (mounted) await _loadVideos();
   }
 
   Future<void> _loadVideos() async {
@@ -77,6 +128,11 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
         ),
         centerTitle: true,
         actions: [
+          IconButton(
+            tooltip: 'Video đã xóa',
+            icon: const Icon(Icons.delete_outline_rounded, color: AppColors.softSkyBlue),
+            onPressed: _openTrash,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: AppColors.softSkyBlue),
             onPressed: _loadVideos,
@@ -376,6 +432,20 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                           Text(
                             '${video.likeCount}',
                             style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                          ),
+                          const Spacer(),
+                          InkWell(
+                            onTap: () => _moveToTrash(video),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                                color: AppPalette.error,
+                                semanticLabel: 'Xóa video',
+                              ),
+                            ),
                           ),
                         ],
                       ),
