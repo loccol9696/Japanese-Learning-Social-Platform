@@ -125,6 +125,9 @@ class ApiConstants {
   static String shareVideoUrl(int videoId) => '$baseUrl/videos/$videoId/share';
   static String videoDetailUrl(String videoId) => '$baseUrl/videos/$videoId';
 
+  // Report endpoints
+  static String get reportsUrl => '$baseUrl/reports';
+
   /// Server Socket.IO của chat: cùng host với API nhưng port riêng (9092).
   static String get socketUrl {
     final uri = Uri.parse(baseUrl);
