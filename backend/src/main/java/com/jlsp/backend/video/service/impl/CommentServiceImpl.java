@@ -2,6 +2,8 @@ package com.jlsp.backend.video.service.impl;
 
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
 import com.jlsp.backend.common.exception.AppException;
+import com.jlsp.backend.notification.event.NotificationRequestedEvent;
+import com.jlsp.backend.notification.service.NotificationService;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.repository.UserRepository;
 import com.jlsp.backend.video.dto.request.CreateCommentRequest;
@@ -12,9 +14,11 @@ import com.jlsp.backend.video.repository.VideoCommentRepository;
 import com.jlsp.backend.video.repository.VideoRepository;
 import com.jlsp.backend.video.service.CommentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -24,6 +28,8 @@ public class CommentServiceImpl implements CommentService {
     private final VideoCommentRepository commentRepository;
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public List<VideoCommentResponse> list(Long videoId) {
@@ -51,6 +57,8 @@ public class CommentServiceImpl implements CommentService {
         }
         VideoComment comment = commentRepository.save(VideoComment.builder()
                 .video(video).user(user).parent(parent).content(request.getContent().trim()).build());
+        eventPublisher.publishEvent(NotificationRequestedEvent.commented(
+                video.getUser().getId(), userId, videoId, comment.getId(), comment.getContent()));
         return toResponse(comment);
     }
 
@@ -65,8 +73,12 @@ public class CommentServiceImpl implements CommentService {
         if (!isAdmin && !comment.getUser().getId().equals(userId)) {
             throw new AppException(403, "Bạn chỉ có thể xóa bình luận của chính mình");
         }
+        List<Long> removedIds = new ArrayList<>();
+        removedIds.add(commentId);
+        commentRepository.findByParentIdOrderByCreatedAtAsc(commentId).forEach(reply -> removedIds.add(reply.getId()));
         commentRepository.deleteByParentId(commentId);
         commentRepository.delete(comment);
+        notificationService.deleteByComments(removedIds);
     }
 
     private VideoCommentResponse toResponse(VideoComment comment) {

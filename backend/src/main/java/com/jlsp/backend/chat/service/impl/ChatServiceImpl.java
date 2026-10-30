@@ -31,6 +31,7 @@ import com.jlsp.backend.chat.service.ChatService;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
 import com.jlsp.backend.common.repository.IdCount;
+import com.jlsp.backend.notification.event.NotificationRequestedEvent;
 import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.repository.UserRepository;
@@ -219,7 +220,21 @@ public class ChatServiceImpl implements ChatService {
             sent.add(createMessage(userId, conversation, recipient, message));
         }
         log.info("User {} shared video {} to {} người", userId, videoId, sent.size());
+        notifyOwnerOfShare(video, userId, recipients);
         return sent;
+    }
+
+    /**
+     * Báo cho chủ video biết video được chia sẻ. Một lần chia sẻ cho nhiều người chỉ tạo một
+     * thông báo và không nêu người nhận. Bỏ qua khi người nhận duy nhất chính là chủ video,
+     * vì họ đã nhận được tin nhắn chứa video đó.
+     */
+    private void notifyOwnerOfShare(Video video, Long sharerId, List<User> recipients) {
+        Long ownerId = video.getUser().getId();
+        boolean onlyOwnerReceived = recipients.size() == 1 && recipients.get(0).getId().equals(ownerId);
+        if (!onlyOwnerReceived) {
+            eventPublisher.publishEvent(NotificationRequestedEvent.shared(ownerId, sharerId, video.getId()));
+        }
     }
 
     @Override
@@ -482,7 +497,7 @@ public class ChatServiceImpl implements ChatService {
 
     private long clearedMessageId(Long conversationId, Long userId) {
         return participantRepository.findById(new ConversationParticipantId(conversationId, userId))
-                .map(ConversationParticipant::getClearedMessageId)
+                .map(participant -> participant.getClearedMessageId())
                 .orElse(0L);
     }
 
@@ -551,7 +566,7 @@ public class ChatServiceImpl implements ChatService {
         if (conversations.isEmpty()) {
             return new InboxState(Map.of(), Map.of(), Map.of(), Set.of(), Set.of(), Set.of());
         }
-        List<Long> conversationIds = conversations.stream().map(Conversation::getId).toList();
+        List<Long> conversationIds = conversations.stream().map(conversation -> conversation.getId()).toList();
         Map<ConversationParticipantId, Long> lastReadIds = new HashMap<>();
         Map<Long, Long> clearedIds = new HashMap<>();
         for (ConversationParticipant participant : participantRepository.findByIdConversationIdIn(conversationIds)) {

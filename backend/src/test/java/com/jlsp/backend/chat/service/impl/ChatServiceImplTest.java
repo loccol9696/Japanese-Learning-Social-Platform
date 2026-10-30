@@ -1,6 +1,7 @@
 package com.jlsp.backend.chat.service.impl;
 
 import com.jlsp.backend.chat.dto.request.SendMessageRequest;
+import com.jlsp.backend.chat.dto.request.ShareVideoRequest;
 import com.jlsp.backend.chat.dto.response.ChatUserResponse;
 import com.jlsp.backend.chat.dto.response.ConversationResponse;
 import com.jlsp.backend.chat.dto.response.MessagePageResponse;
@@ -24,9 +25,14 @@ import com.jlsp.backend.chat.repository.UserBlockRepository;
 import com.jlsp.backend.chat.service.ChatImageValidator;
 import com.jlsp.backend.chat.service.ChatRateLimiter;
 import com.jlsp.backend.common.exception.AppException;
+import com.jlsp.backend.notification.entity.NotificationType;
+import com.jlsp.backend.notification.event.NotificationRequestedEvent;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.repository.UserRepository;
 import com.jlsp.backend.user.service.FollowService;
+import com.jlsp.backend.video.entity.Video;
+import com.jlsp.backend.video.entity.VideoModStatus;
+import com.jlsp.backend.video.entity.VideoStatus;
 import com.jlsp.backend.video.repository.VideoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,6 +66,7 @@ class ChatServiceImplTest {
     private DeviceTokenRepository deviceTokenRepository;
     private ConversationParticipantRepository participantRepository;
     private UserRepository userRepository;
+    private VideoRepository videoRepository;
     private FollowService followService;
     private ApplicationEventPublisher eventPublisher;
     private ChatServiceImpl service;
@@ -75,6 +82,7 @@ class ChatServiceImplTest {
         deviceTokenRepository = mock(DeviceTokenRepository.class);
         participantRepository = mock(ConversationParticipantRepository.class);
         userRepository = mock(UserRepository.class);
+        videoRepository = mock(VideoRepository.class);
         followService = mock(FollowService.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         service = new ChatServiceImpl(
@@ -84,7 +92,7 @@ class ChatServiceImplTest {
                 userBlockRepository,
                 deviceTokenRepository,
                 userRepository,
-                mock(VideoRepository.class),
+                videoRepository,
                 followService,
                 new ChatMapper(),
                 new ChatRateLimiter(),
@@ -476,6 +484,52 @@ class ChatServiceImplTest {
 
     private static ConversationParticipant participant(Long clearedMessageId) {
         return ConversationParticipant.builder().id(mineId()).clearedMessageId(clearedMessageId).build();
+    }
+
+    @Test
+    void sharingToSeveralPeopleNotifiesVideoOwnerOnce() {
+        User third = User.builder().id(3L).isActive(true).build();
+        User owner = User.builder().id(4L).isActive(true).build();
+        when(userRepository.findById(3L)).thenReturn(Optional.of(third));
+        when(followService.isMutual(ME, 3L)).thenReturn(true);
+        when(conversationRepository.findByUserLowIdAndUserHighId(any(), any())).thenReturn(Optional.of(conversation));
+        when(participantRepository.updateLastReadMessageId(any(), any(), any())).thenReturn(1);
+        when(userRepository.getReferenceById(ME)).thenReturn(me);
+        when(videoRepository.findById(7L)).thenReturn(Optional.of(approvedVideoOf(owner)));
+
+        service.shareVideo(ME, 7L, new ShareVideoRequest(List.of(OTHER, 3L), null, null));
+
+        assertThat(notificationEvents()).singleElement().satisfies(event -> {
+            assertThat(event.recipientId()).isEqualTo(4L);
+            assertThat(event.actorId()).isEqualTo(ME);
+            assertThat(event.type()).isEqualTo(NotificationType.VIDEO_SHARED);
+            assertThat(event.videoId()).isEqualTo(7L);
+        });
+    }
+
+    @Test
+    void sharingOnlyToTheVideoOwnerDoesNotNotifyThem() {
+        when(conversationRepository.findByUserLowIdAndUserHighId(any(), any())).thenReturn(Optional.of(conversation));
+        when(participantRepository.updateLastReadMessageId(any(), any(), any())).thenReturn(1);
+        when(userRepository.getReferenceById(ME)).thenReturn(me);
+        when(videoRepository.findById(7L)).thenReturn(Optional.of(approvedVideoOf(other)));
+
+        service.shareVideo(ME, 7L, new ShareVideoRequest(List.of(OTHER), null, null));
+
+        assertThat(notificationEvents()).isEmpty();
+    }
+
+    private List<NotificationRequestedEvent> notificationEvents() {
+        ArgumentCaptor<Object> published = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher, org.mockito.Mockito.atLeast(0)).publishEvent(published.capture());
+        return published.getAllValues().stream()
+                .filter(NotificationRequestedEvent.class::isInstance)
+                .map(NotificationRequestedEvent.class::cast)
+                .toList();
+    }
+
+    private static Video approvedVideoOf(User owner) {
+        return Video.builder().id(7L).user(owner).status(VideoStatus.PUBLIC).modStatus(VideoModStatus.APPROVED).build();
     }
 
     private SendMessageRequest textRequest() {

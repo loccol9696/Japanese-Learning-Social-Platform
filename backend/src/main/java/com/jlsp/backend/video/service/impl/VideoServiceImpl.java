@@ -4,6 +4,7 @@ import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.repository.IdCount;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
 import com.jlsp.backend.common.response.PageResponse;
+import com.jlsp.backend.notification.event.NotificationRequestedEvent;
 import com.jlsp.backend.user.entity.JLPTLevel;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.entity.UserRole;
@@ -216,7 +217,7 @@ public class VideoServiceImpl implements VideoService {
      */
     private PageResponse<VideoResponse> toVideoPageResponse(Page<Video> page, Long viewerId) {
         List<Video> videos = page.getContent();
-        List<Long> videoIds = videos.stream().map(Video::getId).toList();
+        List<Long> videoIds = videos.stream().map(v -> v.getId()).toList();
 
         Map<Long, Long> commentCounts = videoIds.isEmpty()
                 ? Map.of()
@@ -335,6 +336,7 @@ public class VideoServiceImpl implements VideoService {
             videoLikeRepository.save(like);
             videoRepository.updateLikeCount(videoId, 1);
             log.info("User ID: {} đã LIKE video ID: {}", currentUserId, videoId);
+            notifyLiked(video, currentUserId);
             return true;
         }
     }
@@ -500,6 +502,7 @@ public class VideoServiceImpl implements VideoService {
             videoLikeRepository.save(like);
             videoRepository.updateLikeCount(videoId, 1);
             log.info("User ID: {} đã LIKE video ID: {}", currentUserId, videoId);
+            notifyLiked(video, currentUserId);
         }
     }
 
@@ -577,6 +580,11 @@ public class VideoServiceImpl implements VideoService {
         return video.getSubtitles();
     }
 
+    /** Báo cho chủ video có lượt thích mới (bỏ qua khi tự thích video của mình). */
+    private void notifyLiked(Video video, Long likerId) {
+        eventPublisher.publishEvent(NotificationRequestedEvent.liked(video.getUser().getId(), likerId, video.getId()));
+    }
+
     /**
      * Phương thức kiểm tra quyền sở hữu video:
      * Người thực hiện phải là chủ nhân của video hoặc có vai trò ADMIN.
@@ -603,6 +611,7 @@ public class VideoServiceImpl implements VideoService {
             throw new AppException(400, "Chỉ có thể phê duyệt video ở chế độ công khai (PUBLIC)");
         }
 
+        boolean changed = video.getModStatus() != VideoModStatus.APPROVED;
         video.setModStatus(com.jlsp.backend.video.entity.VideoModStatus.APPROVED);
         video.setModeratedBy(moderatorId);
         video.setModeratedAt(LocalDateTime.now());
@@ -610,6 +619,9 @@ public class VideoServiceImpl implements VideoService {
 
         Video saved = videoRepository.save(video);
         log.info("Moderator ID {} đã DUYỆT video ID {}", moderatorId, videoId);
+        if (changed) {
+            eventPublisher.publishEvent(NotificationRequestedEvent.approved(saved.getUser().getId(), videoId));
+        }
         return videoMapper.toVideoDetailResponse(saved, false, false);
     }
 
@@ -623,6 +635,7 @@ public class VideoServiceImpl implements VideoService {
             throw new AppException(400, "Chỉ có thể xử lý video ở chế độ công khai (PUBLIC)");
         }
 
+        boolean changed = video.getModStatus() != VideoModStatus.REJECTED;
         video.setModStatus(com.jlsp.backend.video.entity.VideoModStatus.REJECTED);
         video.setModeratedBy(moderatorId);
         video.setModeratedAt(LocalDateTime.now());
@@ -632,6 +645,10 @@ public class VideoServiceImpl implements VideoService {
 
         Video saved = videoRepository.save(video);
         log.info("Moderator ID {} đã TỪ CHỐI video ID {} với lý do: {}", moderatorId, videoId, video.getRejectionReason());
+        if (changed) {
+            eventPublisher.publishEvent(NotificationRequestedEvent.rejected(
+                    saved.getUser().getId(), videoId, saved.getRejectionReason()));
+        }
         return videoMapper.toVideoDetailResponse(saved, false, false);
     }
 
