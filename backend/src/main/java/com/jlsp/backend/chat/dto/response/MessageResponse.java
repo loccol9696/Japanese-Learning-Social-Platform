@@ -21,6 +21,8 @@ public class MessageResponse {
     private String content;
     private SharedVideoResponse video;
     private Integer videoStartMs;
+    private String imageUrl;
+    private Boolean recalled;
     private String clientMsgId;
     private LocalDateTime createdAt;
 }

@@ -128,4 +128,92 @@ void main() {
     await tester.tap(find.text('Video không còn khả dụng'));
     expect(opened, 0);
   });
+
+  testWidgets('tin đã thu hồi không hiện nội dung cũ', (tester) async {
+    await _pump(
+      tester,
+      MessageBubble(
+        message: ChatMessage(
+          id: 1,
+          conversationId: 1,
+          senderId: 3,
+          type: MessageType.text,
+          content: 'nội dung cũ',
+          recalled: true,
+          clientMsgId: 'c',
+          createdAt: DateTime(2026, 10, 24, 9, 5),
+        ),
+        isMine: false,
+      ),
+    );
+
+    expect(find.text('Tin nhắn đã được thu hồi'), findsOneWidget);
+    expect(find.text('nội dung cũ'), findsNothing);
+  });
+
+  testWidgets('tin có chữ Nhật mới có nút tra từ và dịch', (tester) async {
+    var studied = 0;
+    var translated = 0;
+    await _pump(
+      tester,
+      MessageBubble(
+        message: _text('こんにちは'),
+        isMine: false,
+        onStudy: () => studied++,
+        onTranslate: () => translated++,
+      ),
+    );
+
+    await tester.tap(find.text('Tra từ'));
+    await tester.tap(find.text('Dịch'));
+    expect(studied, 1);
+    expect(translated, 1);
+
+    await _pump(
+      tester,
+      MessageBubble(message: _text('Xin chào'), isMine: false),
+    );
+    expect(find.text('Tra từ'), findsNothing);
+  });
+
+  testWidgets('tin đang gửi chưa có id thì chưa dịch được', (tester) async {
+    await _pump(
+      tester,
+      MessageBubble(
+        message: _text('こんにちは', status: MessageStatus.sending),
+        isMine: true,
+      ),
+    );
+
+    expect(find.text('Dịch'), findsNothing);
+  });
+
+  testWidgets('hiện bản dịch và đổi nút thành ẩn', (tester) async {
+    await _pump(
+      tester,
+      MessageBubble(
+        message: _text('こんにちは'),
+        isMine: false,
+        translation: 'Xin chào',
+      ),
+    );
+
+    expect(find.text('Xin chào'), findsOneWidget);
+    expect(find.text('Ẩn bản dịch'), findsOneWidget);
+  });
+
+  testWidgets('giữ lâu để mở thao tác trên tin', (tester) async {
+    var pressed = 0;
+    await _pump(
+      tester,
+      MessageBubble(
+        message: _text('Xin chào'),
+        isMine: true,
+        onLongPress: () => pressed++,
+      ),
+    );
+
+    await tester.longPress(find.text('Xin chào'));
+    expect(pressed, 1);
+  });
 }

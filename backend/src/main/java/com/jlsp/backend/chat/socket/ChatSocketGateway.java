@@ -21,9 +21,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.BiFunction;
 
 /**
@@ -40,8 +42,12 @@ import java.util.function.BiFunction;
  *   <li>{@code conversation:read} — {@link MarkReadRequest}</li>
  *   <li>{@code typing} — {@link TypingRequest} (không lưu DB)</li>
  * </ul>
- * Event server → client: {@code message:new}, {@code message:read}, {@code typing}
+ * Event server → client: {@code message:new}, {@code message:recalled}, {@code message:read}, {@code typing}
  * (xem {@link ChatSocketPublisher}).
+ *
+ * <p>Xử lý event chạy trên {@link ChatSocketExecutor}, không chạy trên luồng Netty. Token được
+ * kiểm tra lại ở mỗi event; hết hạn hoặc đã đăng xuất thì trả 401 và ngắt kết nối, client gửi
+ * lại qua REST rồi kết nối lại bằng token mới.
  */
 @Component
 @ConditionalOnProperty(name = "socketio.enabled", havingValue = "true", matchIfMissing = true)
@@ -50,6 +56,8 @@ import java.util.function.BiFunction;
 public class ChatSocketGateway implements SmartLifecycle {
 
     private static final String USER_ID_KEY = "userId";
+    private static final String TOKEN_ID_KEY = "tokenId";
+    private static final String TOKEN_EXPIRES_AT_KEY = "tokenExpiresAt";
     private static final String EVENT_AUTH_ERROR = "auth:error";
     private static final long SLOW_EVENT_MS = 300;
 
@@ -58,6 +66,7 @@ public class ChatSocketGateway implements SmartLifecycle {
     private final AccessTokenDenylist denylist;
     private final ChatService chatService;
     private final ChatSocketPublisher publisher;
+    private final ChatSocketExecutor executor;
     private final Validator validator;
 
     private volatile boolean running;
@@ -85,13 +94,15 @@ public class ChatSocketGateway implements SmartLifecycle {
                     if (request.getConversationId() == null) {
                         throw new AppException(400, "Thiếu hội thoại");
                     }
-                    Long otherUserId = chatService.getOtherParticipantId(userId, request.getConversationId());
-                    publisher.emit(otherUserId, ChatSocketPublisher.EVENT_TYPING, publisher.toPayload(
-                            TypingResponse.builder()
-                                    .conversationId(request.getConversationId())
-                                    .userId(userId)
-                                    .isTyping(Boolean.TRUE.equals(request.getIsTyping()))
-                                    .build()));
+                    Long recipientId = chatService.findTypingRecipientId(userId, request.getConversationId());
+                    if (recipientId != null) {
+                        publisher.emit(recipientId, ChatSocketPublisher.EVENT_TYPING, publisher.toPayload(
+                                TypingResponse.builder()
+                                        .conversationId(request.getConversationId())
+                                        .userId(userId)
+                                        .isTyping(Boolean.TRUE.equals(request.getIsTyping()))
+                                        .build()));
+                    }
                     return null;
                 }));
 
@@ -125,6 +136,8 @@ public class ChatSocketGateway implements SmartLifecycle {
         }
         Long userId = claims.get().userId();
         client.set(USER_ID_KEY, userId);
+        client.set(TOKEN_ID_KEY, claims.get().tokenId());
+        client.set(TOKEN_EXPIRES_AT_KEY, claims.get().expiresAt());
         client.joinRoom(ChatSocketPublisher.userRoom(userId));
         log.debug("Socket {} đã xác thực cho user {}", client.getSessionId(), userId);
     }
@@ -145,8 +158,8 @@ public class ChatSocketGateway implements SmartLifecycle {
     }
 
     /**
-     * Bọc handler: bắt buộc socket đã xác thực, trả kết quả/lỗi qua ack thay vì để
-     * exception làm rớt kết nối.
+     * Bọc handler: bắt buộc socket đã xác thực, chuyển xử lý sang {@link ChatSocketExecutor}
+     * và trả kết quả/lỗi qua ack thay vì để exception làm rớt kết nối.
      */
     private <T> DataListener<T> authenticated(BiFunction<Long, T, Object> handler) {
         return (client, data, ack) -> {
@@ -160,21 +173,41 @@ public class ChatSocketGateway implements SmartLifecycle {
                 reply(ack, error(400, "Dữ liệu không hợp lệ"));
                 return;
             }
-            long startedAt = System.nanoTime();
             try {
-                Object result = handler.apply(userId, data);
-                logIfSlow(userId, startedAt);
-                Map<String, Object> body = new LinkedHashMap<>();
-                body.put("ok", true);
-                body.put("data", publisher.toPayload(result));
-                reply(ack, body);
-            } catch (AppException e) {
-                reply(ack, error(e.getStatus(), e.getMessage()));
-            } catch (Exception e) {
-                log.error("Lỗi xử lý event socket của user {}", userId, e);
-                reply(ack, error(500, "Máy chủ đang gặp sự cố, vui lòng thử lại sau"));
+                executor.execute(userId, () -> process(client, userId, data, ack, handler));
+            } catch (RejectedExecutionException e) {
+                reply(ack, error(503, "Máy chủ chat đang bận, vui lòng thử lại"));
             }
         };
+    }
+
+    private <T> void process(SocketIOClient client, Long userId, T data, AckRequest ack,
+                             BiFunction<Long, T, Object> handler) {
+        if (isSessionInvalid(client)) {
+            reply(ack, error(401, "Phiên đăng nhập đã hết hạn"));
+            client.disconnect();
+            return;
+        }
+        long startedAt = System.nanoTime();
+        try {
+            Object result = handler.apply(userId, data);
+            logIfSlow(userId, startedAt);
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("ok", true);
+            body.put("data", publisher.toPayload(result));
+            reply(ack, body);
+        } catch (AppException e) {
+            reply(ack, error(e.getStatus(), e.getMessage()));
+        } catch (Exception e) {
+            log.error("Lỗi xử lý event socket của user {}", userId, e);
+            reply(ack, error(500, "Máy chủ đang gặp sự cố, vui lòng thử lại sau"));
+        }
+    }
+
+    private boolean isSessionInvalid(SocketIOClient client) {
+        Instant expiresAt = client.get(TOKEN_EXPIRES_AT_KEY);
+        return expiresAt == null || !expiresAt.isAfter(Instant.now())
+                || denylist.isDenied(client.get(TOKEN_ID_KEY));
     }
 
     /**

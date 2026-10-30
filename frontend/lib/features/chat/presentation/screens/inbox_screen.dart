@@ -39,6 +39,7 @@ class _InboxScreenState extends State<InboxScreen> {
     super.initState();
     _subscriptions
       ..add(_socket.onMessage.listen(_onMessage))
+      ..add(_socket.onRecalled.listen(_onRecalled))
       ..add(
         _socket.onConnectionChanged.listen((connected) {
           if (!mounted) return;
@@ -99,6 +100,18 @@ class _InboxScreenState extends State<InboxScreen> {
       _conversations = [
         updated,
         ..._conversations.where((c) => c.id != updated.id),
+      ];
+    });
+  }
+
+  void _onRecalled(ChatMessage message) {
+    if (!mounted) return;
+    setState(() {
+      _conversations = [
+        for (final c in _conversations)
+          c.lastMessage?.id == message.id
+              ? c.copyWith(lastMessage: message)
+              : c,
       ];
     });
   }
@@ -169,10 +182,7 @@ class _InboxScreenState extends State<InboxScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              _error!,
-              style: TextStyle(color: AppPalette.textSecondary),
-            ),
+            Text(_error!, style: TextStyle(color: AppPalette.textSecondary)),
             TextButton(onPressed: _load, child: const Text('Thử lại')),
           ],
         ),

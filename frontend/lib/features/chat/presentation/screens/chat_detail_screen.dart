@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_palette.dart';
@@ -12,16 +14,20 @@ import '../../data/services/chat_hub.dart';
 import '../../data/services/chat_service.dart';
 import '../../data/services/chat_socket_service.dart';
 import '../chat_format.dart';
+import '../route_visibility.dart';
 import '../widgets/chat_avatar.dart';
 import '../widgets/message_bubble.dart';
+import '../widgets/message_study_sheet.dart';
+import 'messages_tab.dart';
 import 'shared_video_screen.dart';
 
 /// Khung chat 1-1. Danh sách tin được giữ theo thứ tự mới nhất trước và hiển thị
 /// bằng ListView đảo ngược, nên tin mới luôn nằm sát ô nhập.
 class ChatDetailScreen extends StatefulWidget {
   final Conversation conversation;
+  final ChatService? service;
 
-  const ChatDetailScreen({super.key, required this.conversation});
+  const ChatDetailScreen({super.key, required this.conversation, this.service});
 
   @override
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
@@ -31,8 +37,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   static const Duration _typingIdle = Duration(seconds: 3);
   static const Duration _typingExpire = Duration(seconds: 5);
 
-  final _service = ChatService();
+  /// Báo lại "đang nhập" đều đặn khi gõ liên tục, nhanh hơn [_typingExpire] của bên nhận.
+  static const Duration _typingHeartbeat = Duration(seconds: 3);
+  static const Duration _recallWindow = Duration(hours: 24);
+
+  late final ChatService _service = widget.service ?? ChatService();
   final _socket = ChatSocketService.instance;
+  final _hub = ChatHub.instance;
   final _input = TextEditingController();
   final _scroll = ScrollController();
 
@@ -50,7 +61,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Timer? _otherTypingTimer;
   Timer? _myTypingTimer;
   bool _iAmTyping = false;
+  DateTime? _typingSentAt;
   int _sendCounter = 0;
+
+  /// Người dùng đang thật sự nhìn thấy khung chat này.
+  bool _viewing = false;
+  bool _insideMessagesTab = false;
+
+  final Map<int, String> _translations = {};
+  final Set<int> _shownTranslations = {};
+  final Set<int> _translating = {};
 
   int get _myId => AuthSession.instance.user?.id ?? 0;
   int get _conversationId => _conversation.id;
@@ -59,10 +79,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   void initState() {
     super.initState();
-    ChatHub.instance.activeConversationId = _conversationId;
+    _hub.appInForeground.addListener(_updateViewing);
+    _hub.messagesTabVisible.addListener(_updateViewing);
     _scroll.addListener(_onScroll);
     _subscriptions
       ..add(_socket.onMessage.listen(_onIncomingMessage))
+      ..add(_socket.onRecalled.listen(_onRecalled))
       ..add(_socket.onRead.listen(_onReadReceipt))
       ..add(_socket.onTyping.listen(_onTyping))
       ..add(
@@ -75,9 +97,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _insideMessagesTab = MessagesTabScope.isInside(context);
+    _updateViewing();
+  }
+
+  @override
   void dispose() {
-    if (ChatHub.instance.activeConversationId == _conversationId) {
-      ChatHub.instance.activeConversationId = null;
+    _hub.appInForeground.removeListener(_updateViewing);
+    _hub.messagesTabVisible.removeListener(_updateViewing);
+    if (_hub.activeConversationId == _conversationId) {
+      _hub.activeConversationId = null;
     }
     if (_iAmTyping) _socket.sendTyping(_conversationId, false);
     for (final subscription in _subscriptions) {
@@ -88,6 +119,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _input.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// Chỉ tính là đang xem khi app ở trước mặt, tab Tin nhắn đang chọn (nếu chat nằm
+  /// trong tab) và không có màn nào đè lên. Quay lại xem thì đánh dấu đã đọc phần vừa lỡ.
+  void _updateViewing() {
+    if (!mounted) return;
+    final viewing =
+        _hub.appInForeground.value &&
+        (!_insideMessagesTab || _hub.messagesTabVisible.value) &&
+        isRouteChainCurrent(context);
+    if (viewing == _viewing) return;
+    _viewing = viewing;
+    if (viewing) {
+      _hub.activeConversationId = _conversationId;
+      _markReadLatest();
+    } else if (_hub.activeConversationId == _conversationId) {
+      _hub.activeConversationId = null;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -205,6 +254,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (message.senderId != _myId) _markReadLatest();
   }
 
+  void _onRecalled(ChatMessage message) {
+    if (message.conversationId != _conversationId || !mounted) return;
+    setState(() {
+      _upsert(message);
+      _translations.remove(message.id);
+      _shownTranslations.remove(message.id);
+    });
+  }
+
   void _onReadReceipt(ReadReceipt receipt) {
     if (receipt.conversationId != _conversationId ||
         receipt.userId == _myId ||
@@ -265,11 +323,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _messages.insert(position, message);
   }
 
-  /// Đánh dấu đã đọc tới tin mới nhất của đối phương (nếu có).
+  /// Đánh dấu đã đọc tới tin mới nhất của đối phương (nếu có), chỉ khi đang xem.
   void _markReadLatest() {
+    if (!_viewing) return;
     for (final message in _messages) {
       if (message.id != null && message.senderId != _myId) {
-        unawaited(ChatHub.instance.markRead(_conversationId, message.id!));
+        unawaited(_hub.markRead(_conversationId, message.id!));
         return;
       }
     }
@@ -286,8 +345,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _stopTyping();
       return;
     }
-    if (!_iAmTyping) {
+    final sentAt = _typingSentAt;
+    if (!_iAmTyping ||
+        sentAt == null ||
+        DateTime.now().difference(sentAt) >= _typingHeartbeat) {
       _iAmTyping = true;
+      _typingSentAt = DateTime.now();
       _socket.sendTyping(_conversationId, true);
     }
     _myTypingTimer?.cancel();
@@ -312,40 +375,110 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       conversationId: _conversationId,
       senderId: _myId,
       content: text,
-      clientMsgId:
-          '$_myId-${DateTime.now().microsecondsSinceEpoch}-${_sendCounter++}',
+      clientMsgId: _newClientMsgId(),
     );
     setState(() => _upsert(pending));
     _scrollToBottom();
     unawaited(_deliver(pending));
   }
 
+  String _newClientMsgId() =>
+      '$_myId-${DateTime.now().microsecondsSinceEpoch}-${_sendCounter++}';
+
+  Future<void> _pickImage() async {
+    final XFile? photo;
+    try {
+      photo = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+    } catch (_) {
+      if (mounted) {
+        AppToast.showError('Không mở được thư viện ảnh.', context: context);
+      }
+      return;
+    }
+    if (photo == null) return;
+    final bytes = await photo.readAsBytes();
+    if (!mounted) return;
+
+    final pending = ChatMessage.pendingImage(
+      conversationId: _conversationId,
+      senderId: _myId,
+      bytes: bytes,
+      clientMsgId: _newClientMsgId(),
+    );
+    setState(() => _upsert(pending));
+    _scrollToBottom();
+    unawaited(_deliverImage(pending));
+  }
+
+  /// Tải ảnh lên rồi gửi tin. Tải xong thì giữ lại URL để gửi lại không phải tải lần nữa.
+  Future<void> _deliverImage(ChatMessage pending) async {
+    try {
+      var imageUrl = pending.imageUrl;
+      if (imageUrl.isEmpty) {
+        imageUrl = await _service.uploadImage(pending.localImage!, 'chat.jpg');
+        if (mounted) {
+          setState(
+            () => _replacePending(
+              pending.clientMsgId,
+              (m) => m.copyWith(imageUrl: imageUrl),
+            ),
+          );
+        }
+      }
+      final sent = await _hub.sendImage(
+        conversationId: _conversationId,
+        imageUrl: imageUrl,
+        clientMsgId: pending.clientMsgId,
+      );
+      if (mounted) setState(() => _upsert(sent));
+    } on ApiException catch (error) {
+      _markFailed(pending, error);
+    } on FormatException catch (_) {
+      _markFailed(
+        pending,
+        ApiException(statusCode: 500, message: 'Không tải được ảnh lên.'),
+      );
+    }
+  }
+
+  void _replacePending(
+    String clientMsgId,
+    ChatMessage Function(ChatMessage) update,
+  ) {
+    final index = _messages.indexWhere((m) => m.clientMsgId == clientMsgId);
+    if (index >= 0) _messages[index] = update(_messages[index]);
+  }
+
   Future<void> _deliver(ChatMessage pending) async {
     try {
-      final sent = await ChatHub.instance.sendText(
+      final sent = await _hub.sendText(
         conversationId: _conversationId,
         content: pending.content,
         clientMsgId: pending.clientMsgId,
       );
       if (mounted) setState(() => _upsert(sent));
     } on ApiException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        final index = _messages.indexWhere(
-          (m) => m.clientMsgId == pending.clientMsgId,
-        );
-        if (index >= 0) {
-          _messages[index] = _messages[index].copyWith(
-            status: MessageStatus.failed,
-          );
-        }
-        // Server từ chối vì không còn follow lẫn nhau → khoá ô nhập.
-        if (error.statusCode == 403) {
-          _conversation = _conversation.copyWith(canMessage: false);
-        }
-      });
-      AppToast.showError(error.message, context: context);
+      _markFailed(pending, error);
     }
+  }
+
+  void _markFailed(ChatMessage pending, ApiException error) {
+    if (!mounted) return;
+    setState(() {
+      _replacePending(
+        pending.clientMsgId,
+        (m) => m.copyWith(status: MessageStatus.failed),
+      );
+      // Server từ chối vì không còn follow lẫn nhau hoặc đã bị chặn → khoá ô nhập.
+      if (error.statusCode == 403) {
+        _conversation = _conversation.copyWith(canMessage: false);
+      }
+    });
+    AppToast.showError(error.message, context: context);
   }
 
   void _retry(ChatMessage failed) {
@@ -356,7 +489,170 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     setState(
       () => _messages[index] = failed.copyWith(status: MessageStatus.sending),
     );
-    unawaited(_deliver(failed));
+    unawaited(
+      failed.type == MessageType.image
+          ? _deliverImage(failed)
+          : _deliver(failed),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Thao tác trên tin nhắn
+  // ---------------------------------------------------------------------------
+
+  Future<void> _showMessageActions(ChatMessage message) async {
+    if (message.id == null || message.recalled) return;
+    final canCopy = message.content.isNotEmpty;
+    final canRecall =
+        message.senderId == _myId &&
+        DateTime.now().difference(message.createdAt) < _recallWindow;
+    if (!canCopy && !canRecall) return;
+
+    final action = await showModalBottomSheet<_MessageAction>(
+      context: context,
+      backgroundColor: AppPalette.surface,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (canCopy)
+              ListTile(
+                leading: Icon(
+                  Icons.copy_rounded,
+                  color: AppPalette.textPrimary,
+                ),
+                title: Text(
+                  'Sao chép',
+                  style: TextStyle(color: AppPalette.textPrimary),
+                ),
+                onTap: () => Navigator.of(sheet).pop(_MessageAction.copy),
+              ),
+            if (canRecall)
+              ListTile(
+                leading: Icon(Icons.undo_rounded, color: AppPalette.like),
+                title: Text(
+                  'Thu hồi',
+                  style: TextStyle(color: AppPalette.like),
+                ),
+                onTap: () => Navigator.of(sheet).pop(_MessageAction.recall),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    switch (action) {
+      case _MessageAction.copy:
+        await Clipboard.setData(ClipboardData(text: message.content));
+        if (mounted) AppToast.showSuccess('Đã sao chép', context: context);
+      case _MessageAction.recall:
+        await _recall(message);
+      case null:
+        break;
+    }
+  }
+
+  Future<void> _recall(ChatMessage message) async {
+    try {
+      final recalled = await _service.recallMessage(message.id!);
+      if (mounted) _onRecalled(recalled);
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+    }
+  }
+
+  Future<void> _toggleTranslation(ChatMessage message) async {
+    final id = message.id;
+    if (id == null) return;
+    if (_shownTranslations.contains(id)) {
+      setState(() => _shownTranslations.remove(id));
+      return;
+    }
+    if (_translations.containsKey(id)) {
+      setState(() => _shownTranslations.add(id));
+      return;
+    }
+    setState(() => _translating.add(id));
+    try {
+      final translation = await _service.translateMessage(id);
+      if (!mounted) return;
+      setState(() {
+        _translations[id] = translation;
+        _shownTranslations.add(id);
+      });
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+    } finally {
+      if (mounted) setState(() => _translating.remove(id));
+    }
+  }
+
+  void _openImage(String url) {
+    showDialog<void>(
+      context: context,
+      builder: (dialog) => Dialog.fullscreen(
+        backgroundColor: AppPalette.background,
+        child: Stack(
+          children: [
+            Center(child: InteractiveViewer(child: Image.network(url))),
+            SafeArea(
+              child: IconButton(
+                tooltip: 'Đóng',
+                onPressed: () => Navigator.of(dialog).pop(),
+                icon: Icon(Icons.close_rounded, color: AppPalette.textPrimary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleBlock() async {
+    final user = _conversation.otherUser;
+    final blocked = _conversation.blockedByMe;
+    if (!blocked && !await _confirmBlock(user)) return;
+    try {
+      if (blocked) {
+        await _service.unblockUser(user.id);
+      } else {
+        await _service.blockUser(user.id);
+        _stopTyping();
+      }
+      await _refreshConversation();
+      if (mounted) {
+        AppToast.showSuccess(
+          blocked ? 'Đã bỏ chặn ${user.name}' : 'Đã chặn ${user.name}',
+          context: context,
+        );
+      }
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+    }
+  }
+
+  Future<bool> _confirmBlock(ChatUser user) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text('Chặn ${user.name}?'),
+        content: const Text(
+          'Hai bạn sẽ không nhắn tin cho nhau được nữa. '
+          'Lịch sử trò chuyện vẫn được giữ lại.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialog).pop(false),
+            child: const Text('Huỷ'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialog).pop(true),
+            child: const Text('Chặn'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 
   void _scrollToBottom() {
@@ -428,6 +724,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       backgroundColor: AppPalette.background,
       elevation: 0,
       titleSpacing: 0,
+      actions: [
+        PopupMenuButton<void>(
+          tooltip: 'Tuỳ chọn',
+          itemBuilder: (_) => [
+            PopupMenuItem<void>(
+              onTap: _toggleBlock,
+              child: Text(_conversation.blockedByMe ? 'Bỏ chặn' : 'Chặn'),
+            ),
+          ],
+        ),
+      ],
       title: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _openProfile,
@@ -474,10 +781,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              _error!,
-              style: TextStyle(color: AppPalette.textSecondary),
-            ),
+            Text(_error!, style: TextStyle(color: AppPalette.textSecondary)),
             TextButton(onPressed: _loadInitial, child: const Text('Thử lại')),
           ],
         ),
@@ -541,8 +845,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   message.id == lastMineId &&
                   seenId != null &&
                   seenId >= message.id!,
+              translation:
+                  message.id != null && _shownTranslations.contains(message.id)
+                  ? _translations[message.id]
+                  : null,
+              translating: _translating.contains(message.id),
               onRetry: () => _retry(message),
               onOpenVideo: () => _openVideo(message),
+              onOpenImage: () => _openImage(message.imageUrl),
+              onLongPress: () => _showMessageActions(message),
+              onStudy: () => showMessageStudySheet(context, message.content),
+              onTranslate: () => _toggleTranslation(message),
             ),
           ],
         );
@@ -563,6 +876,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            IconButton(
+              tooltip: 'Gửi ảnh',
+              onPressed: _pickImage,
+              icon: Icon(Icons.image_outlined, color: AppPalette.textSecondary),
+            ),
             Expanded(
               child: TextField(
                 controller: _input,
@@ -613,20 +931,37 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         color: AppPalette.surface,
-        child: Text(
-          'Hai bạn không còn theo dõi lẫn nhau nên không thể nhắn tin. '
-          'Bạn vẫn xem lại được lịch sử trò chuyện.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppPalette.textSecondary,
-            fontSize: 13,
-            height: 1.35,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _conversation.blockedByMe
+                  ? 'Bạn đã chặn người này. Bạn vẫn xem lại được lịch sử trò chuyện.'
+                  : 'Bạn không thể nhắn tin cho người này. '
+                        'Bạn vẫn xem lại được lịch sử trò chuyện.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppPalette.textSecondary,
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+            if (_conversation.blockedByMe)
+              TextButton(
+                onPressed: _toggleBlock,
+                child: Text(
+                  'Bỏ chặn',
+                  style: TextStyle(color: AppPalette.accent),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 }
+
+enum _MessageAction { copy, recall }
 
 class _DayLabel extends StatelessWidget {
   final String label;

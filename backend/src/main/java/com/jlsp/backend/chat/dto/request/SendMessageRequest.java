@@ -35,6 +35,10 @@ public class SendMessageRequest {
     @Min(value = 0, message = "Mốc thời gian không hợp lệ")
     private Integer videoStartMs;
 
+    /** Bắt buộc khi type = IMAGE: URL ảnh đã tải lên Cloudinary */
+    @Size(max = 500, message = "Đường dẫn ảnh quá dài")
+    private String imageUrl;
+
     @Size(max = 64, message = "clientMsgId tối đa 64 ký tự")
     private String clientMsgId;
 }

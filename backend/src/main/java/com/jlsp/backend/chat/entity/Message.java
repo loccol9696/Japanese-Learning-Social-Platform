@@ -54,6 +54,18 @@ public class Message {
     private Integer videoStartMs;
 
     /**
+     * Ảnh của tin IMAGE (URL Cloudinary)
+     */
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    /**
+     * Thời điểm người gửi thu hồi tin. Nội dung, video và ảnh được xoá khỏi tin khi thu hồi.
+     */
+    @Column(name = "recalled_at")
+    private LocalDateTime recalledAt;
+
+    /**
      * ID do client sinh ra để chống gửi trùng khi mạng chập chờn / gửi lại
      */
     @Column(name = "client_msg_id", length = 64)

@@ -24,6 +24,7 @@ class ChatSocketService {
   static const Duration _maxBackoff = Duration(seconds: 15);
 
   final _messageController = StreamController<ChatMessage>.broadcast();
+  final _recalledController = StreamController<ChatMessage>.broadcast();
   final _readController = StreamController<ReadReceipt>.broadcast();
   final _typingController = StreamController<TypingEvent>.broadcast();
   final _connectionController = StreamController<bool>.broadcast();
@@ -35,6 +36,7 @@ class ChatSocketService {
   bool _connecting = false;
 
   Stream<ChatMessage> get onMessage => _messageController.stream;
+  Stream<ChatMessage> get onRecalled => _recalledController.stream;
   Stream<ReadReceipt> get onRead => _readController.stream;
   Stream<TypingEvent> get onTyping => _typingController.stream;
 
@@ -113,6 +115,10 @@ class ChatSocketService {
       final json = _asMap(data);
       if (json != null) _messageController.add(ChatMessage.fromJson(json));
     });
+    socket.on('message:recalled', (data) {
+      final json = _asMap(data);
+      if (json != null) _recalledController.add(ChatMessage.fromJson(json));
+    });
     socket.on('message:read', (data) {
       final json = _asMap(data);
       if (json != null) _readController.add(ReadReceipt.fromJson(json));
@@ -156,13 +162,31 @@ class ChatSocketService {
     required int conversationId,
     required String content,
     required String clientMsgId,
-  }) async {
-    final data = await _emitWithAck('message:send', {
+  }) {
+    return _send({
       'conversationId': conversationId,
       'type': 'TEXT',
       'content': content,
       'clientMsgId': clientMsgId,
     });
+  }
+
+  /// Gửi tin ảnh đã tải lên; lỗi xử lý giống [sendText].
+  Future<ChatMessage> sendImage({
+    required int conversationId,
+    required String imageUrl,
+    required String clientMsgId,
+  }) {
+    return _send({
+      'conversationId': conversationId,
+      'type': 'IMAGE',
+      'imageUrl': imageUrl,
+      'clientMsgId': clientMsgId,
+    });
+  }
+
+  Future<ChatMessage> _send(Map<String, dynamic> payload) async {
+    final data = await _emitWithAck('message:send', payload);
     final json = _asMap(data);
     if (json == null) {
       throw ApiException(

@@ -3,6 +3,7 @@ package com.jlsp.backend.chat.socket;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.jlsp.backend.chat.event.ConversationReadEvent;
 import com.jlsp.backend.chat.event.MessageCreatedEvent;
+import com.jlsp.backend.chat.event.MessageRecalledEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ import java.util.Map;
 public class ChatSocketPublisher {
 
     public static final String EVENT_MESSAGE_NEW = "message:new";
+    public static final String EVENT_MESSAGE_RECALLED = "message:recalled";
     public static final String EVENT_MESSAGE_READ = "message:read";
     public static final String EVENT_TYPING = "typing";
 
@@ -37,6 +39,13 @@ public class ChatSocketPublisher {
         Object payload = toPayload(event.message());
         emit(event.senderId(), EVENT_MESSAGE_NEW, payload);
         emit(event.recipientId(), EVENT_MESSAGE_NEW, payload);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void onMessageRecalled(MessageRecalledEvent event) {
+        Object payload = toPayload(event.message());
+        emit(event.senderId(), EVENT_MESSAGE_RECALLED, payload);
+        emit(event.recipientId(), EVENT_MESSAGE_RECALLED, payload);
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)

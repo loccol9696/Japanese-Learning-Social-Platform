@@ -46,6 +46,8 @@ public class ChatMapper {
                 .content(message.getContent())
                 .video(video)
                 .videoStartMs(message.getVideoStartMs())
+                .imageUrl(message.getImageUrl())
+                .recalled(message.getRecalledAt() != null)
                 .clientMsgId(message.getClientMsgId())
                 .createdAt(message.getCreatedAt())
                 .build();

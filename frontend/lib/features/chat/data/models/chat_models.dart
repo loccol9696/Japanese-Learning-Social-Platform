@@ -1,6 +1,8 @@
 /// Các model của tính năng chat, khớp với DTO của backend (module `chat`).
 library;
 
+import 'dart:typed_data';
+
 int _toInt(dynamic value, [int fallback = 0]) =>
     value is num ? value.toInt() : int.tryParse('$value') ?? fallback;
 
@@ -35,7 +37,7 @@ class ChatUser {
   );
 }
 
-enum MessageType { text, videoShare }
+enum MessageType { text, videoShare, image }
 
 enum MessageStatus { sending, sent, failed }
 
@@ -88,6 +90,15 @@ class ChatMessage {
   final String content;
   final SharedVideo? video;
   final int? videoStartMs;
+
+  /// URL ảnh (tin ảnh đã tải lên xong).
+  final String imageUrl;
+
+  /// Ảnh trên máy, chỉ có ở tin đang gửi để hiển thị trước khi tải lên xong.
+  final Uint8List? localImage;
+
+  /// Người gửi đã thu hồi: nội dung, video và ảnh không còn.
+  final bool recalled;
   final String clientMsgId;
   final DateTime createdAt;
   final MessageStatus status;
@@ -102,21 +113,28 @@ class ChatMessage {
     required this.createdAt,
     this.video,
     this.videoStartMs,
+    this.imageUrl = '',
+    this.localImage,
+    this.recalled = false,
     this.status = MessageStatus.sent,
   });
 
-  ChatMessage copyWith({int? id, MessageStatus? status}) => ChatMessage(
-    id: id ?? this.id,
-    conversationId: conversationId,
-    senderId: senderId,
-    type: type,
-    content: content,
-    video: video,
-    videoStartMs: videoStartMs,
-    clientMsgId: clientMsgId,
-    createdAt: createdAt,
-    status: status ?? this.status,
-  );
+  ChatMessage copyWith({int? id, String? imageUrl, MessageStatus? status}) =>
+      ChatMessage(
+        id: id ?? this.id,
+        conversationId: conversationId,
+        senderId: senderId,
+        type: type,
+        content: content,
+        video: video,
+        videoStartMs: videoStartMs,
+        imageUrl: imageUrl ?? this.imageUrl,
+        localImage: localImage,
+        recalled: recalled,
+        clientMsgId: clientMsgId,
+        createdAt: createdAt,
+        status: status ?? this.status,
+      );
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     final video = json['video'];
@@ -124,12 +142,16 @@ class ChatMessage {
       id: _toIntOrNull(json['id']),
       conversationId: _toInt(json['conversationId']),
       senderId: _toInt(json['senderId']),
-      type: json['type'] == 'VIDEO_SHARE'
-          ? MessageType.videoShare
-          : MessageType.text,
+      type: switch (json['type']) {
+        'VIDEO_SHARE' => MessageType.videoShare,
+        'IMAGE' => MessageType.image,
+        _ => MessageType.text,
+      },
       content: json['content']?.toString() ?? '',
       video: video is Map<String, dynamic> ? SharedVideo.fromJson(video) : null,
       videoStartMs: _toIntOrNull(json['videoStartMs']),
+      imageUrl: json['imageUrl']?.toString() ?? '',
+      recalled: json['recalled'] == true,
       clientMsgId: json['clientMsgId']?.toString() ?? '',
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
@@ -154,9 +176,29 @@ class ChatMessage {
     status: MessageStatus.sending,
   );
 
+  /// Tin ảnh tạm hiển thị ngay khi chọn ảnh, trong lúc đang tải lên.
+  factory ChatMessage.pendingImage({
+    required int conversationId,
+    required int senderId,
+    required Uint8List bytes,
+    required String clientMsgId,
+  }) => ChatMessage(
+    id: null,
+    conversationId: conversationId,
+    senderId: senderId,
+    type: MessageType.image,
+    content: '',
+    localImage: bytes,
+    clientMsgId: clientMsgId,
+    createdAt: DateTime.now(),
+    status: MessageStatus.sending,
+  );
+
   /// Gợi ý ngắn gọn cho danh sách hội thoại.
   String previewFor(int myId) {
     final prefix = senderId == myId ? 'Bạn: ' : '';
+    if (recalled) return '${prefix}Tin nhắn đã thu hồi';
+    if (type == MessageType.image) return '$prefix📷 Ảnh';
     if (type == MessageType.videoShare) {
       final title = (video?.available ?? false) ? video!.title : 'Video';
       return '$prefix🎬 $title';
@@ -172,8 +214,12 @@ class Conversation {
   final int unreadCount;
   final int? otherLastReadMessageId;
 
-  /// false khi hai bên không còn follow lẫn nhau: chỉ xem lại được lịch sử.
+  /// false khi hai bên không còn follow lẫn nhau hoặc một bên đã chặn: chỉ xem lại
+  /// được lịch sử.
   final bool canMessage;
+
+  /// Người đang xem đã chặn người kia.
+  final bool blockedByMe;
   final DateTime? lastMessageAt;
 
   const Conversation({
@@ -184,6 +230,7 @@ class Conversation {
     required this.otherLastReadMessageId,
     required this.canMessage,
     required this.lastMessageAt,
+    this.blockedByMe = false,
   });
 
   Conversation copyWith({
@@ -201,6 +248,7 @@ class Conversation {
         otherLastReadMessageId ?? this.otherLastReadMessageId,
     canMessage: canMessage ?? this.canMessage,
     lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+    blockedByMe: blockedByMe,
   );
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
@@ -214,6 +262,7 @@ class Conversation {
       unreadCount: _toInt(json['unreadCount']),
       otherLastReadMessageId: _toIntOrNull(json['otherLastReadMessageId']),
       canMessage: json['canMessage'] != false,
+      blockedByMe: json['blockedByMe'] == true,
       lastMessageAt: DateTime.tryParse(json['lastMessageAt']?.toString() ?? ''),
     );
   }
