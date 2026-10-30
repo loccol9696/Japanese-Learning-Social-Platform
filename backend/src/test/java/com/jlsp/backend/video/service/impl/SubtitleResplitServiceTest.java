@@ -2,7 +2,7 @@ package com.jlsp.backend.video.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jlsp.backend.googlestt.service.JaViTranslator;
+import com.jlsp.backend.ai.service.JaViTranslator;
 import com.jlsp.backend.video.entity.Video;
 import com.jlsp.backend.video.repository.VideoRepository;
 import org.junit.jupiter.api.BeforeEach;
