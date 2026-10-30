@@ -123,6 +123,11 @@ class ChatService {
     return _map(data)['translation']?.toString() ?? '';
   }
 
+  /// Xoá đoạn chat ở phía người dùng hiện tại.
+  Future<void> deleteConversation(int conversationId) async {
+    await _api.delete(ApiConstants.chatConversationUrl(conversationId));
+  }
+
   Future<void> blockUser(int userId) async {
     await _api.post(ApiConstants.chatBlockUrl(userId));
   }

@@ -34,6 +34,7 @@ public interface ConversationParticipantRepository
      */
     @Query("SELECT COUNT(m) FROM ConversationParticipant p, Message m " +
             "WHERE p.id.userId = :userId AND m.conversation.id = p.id.conversationId " +
-            "AND m.sender.id <> :userId AND m.id > COALESCE(p.lastReadMessageId, 0)")
+            "AND m.sender.id <> :userId AND m.id > COALESCE(p.lastReadMessageId, 0) " +
+            "AND m.id > COALESCE(p.clearedMessageId, 0)")
     long countUnreadMessages(@Param("userId") Long userId);
 }

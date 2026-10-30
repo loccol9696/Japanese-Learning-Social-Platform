@@ -16,8 +16,8 @@ import '../../data/services/chat_socket_service.dart';
 import '../chat_format.dart';
 import '../route_visibility.dart';
 import '../widgets/chat_avatar.dart';
+import '../widgets/chat_dialogs.dart';
 import '../widgets/chat_image_viewer.dart';
-import '../widgets/confirm_block_dialog.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_study_sheet.dart';
 import '../widgets/message_swipe.dart';
@@ -122,6 +122,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     _subscriptions
       ..add(_socket.onMessage.listen(_onIncomingMessage))
       ..add(_socket.onRecalled.listen(_onRecalled))
+      ..add(_socket.onCleared.listen(_onCleared))
       ..add(_socket.onRead.listen(_onReadReceipt))
       ..add(_socket.onTyping.listen(_onTyping))
       ..add(
@@ -319,6 +320,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           );
         }
       }
+    });
+  }
+
+  /// Đoạn chat vừa được xoá (có thể từ thiết bị khác): bỏ hết tin đang hiển thị.
+  void _onCleared(int conversationId) {
+    if (conversationId != _conversationId || !mounted) return;
+    setState(() {
+      _messages.clear();
+      _hasMore = false;
+      _cursor = null;
+      _replyingTo = null;
+      _detailsMessageId = null;
+      _showJumpButton = false;
+      _unseenBelow = 0;
     });
   }
 
@@ -798,6 +813,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     }
   }
 
+  Future<void> _deleteConversation() async {
+    if (!await confirmDeleteConversation(context, _conversation.otherUser)) {
+      return;
+    }
+    try {
+      await _service.deleteConversation(_conversationId);
+      if (!mounted) return;
+      _onCleared(_conversationId);
+      unawaited(Navigator.of(context).maybePop());
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+    }
+  }
+
   void _scrollToBottom() {
     if (!_scroll.hasClients) return;
     _scroll.animateTo(
@@ -933,6 +962,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
             PopupMenuItem<void>(
               onTap: _toggleBlock,
               child: Text(_conversation.blockedByMe ? 'Bỏ chặn' : 'Chặn'),
+            ),
+            PopupMenuItem<void>(
+              onTap: _deleteConversation,
+              child: const Text('Xóa đoạn chat'),
             ),
           ],
         ),

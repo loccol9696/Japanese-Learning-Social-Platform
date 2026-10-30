@@ -39,12 +39,20 @@ class _FakeChatService extends ChatService {
   List<Conversation> conversations;
   final List<int> blocked = [];
   final List<int> unblocked = [];
+  final List<int> deleted = [];
 
   @override
   Future<List<Conversation>> fetchConversations() async => conversations;
 
   @override
+  Future<void> deleteConversation(int conversationId) async {
+    deleted.add(conversationId);
+    conversations = conversations.where((c) => c.id != conversationId).toList();
+  }
+
+  @override
   Future<void> blockUser(int userId) async => blocked.add(userId);
+
   @override
   Future<void> unblockUser(int userId) async => unblocked.add(userId);
 }
@@ -109,34 +117,68 @@ void main() {
     expect(find.text('Đã đọc'), findsNothing);
   });
 
-  testWidgets('vuốt trái rồi xác nhận thì chặn, huỷ thì không', (tester) async {
-    final service = await pump(tester, [_conversation(1, 'Hana')]);
+  testWidgets('vuốt trái hỏi lại, huỷ thì giữ nguyên, xác nhận thì xoá', (
+    tester,
+  ) async {
+    final service = await pump(tester, [
+      _conversation(1, 'Hana'),
+      _conversation(2, 'Kenji'),
+    ]);
 
     await tester.drag(find.text('Hana'), const Offset(-500, 0));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Huỷ'));
     await tester.pumpAndSettle();
-    expect(service.blocked, isEmpty);
+    expect(service.deleted, isEmpty);
     expect(find.text('Hana'), findsOneWidget);
 
     await tester.drag(find.text('Hana'), const Offset(-500, 0));
     await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Xóa'));
+    await tester.pumpAndSettle();
+    expect(service.deleted, [1]);
+    expect(find.text('Hana'), findsNothing);
+    expect(find.text('Kenji'), findsOneWidget);
+  });
+
+  testWidgets('giữ lâu chọn chặn, có hỏi lại', (tester) async {
+    final service = await pump(tester, [_conversation(1, 'Hana')]);
+
+    await tester.longPress(find.text('Hana'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chặn'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Chặn'));
     await tester.pumpAndSettle();
+
     expect(service.blocked, [101]);
   });
 
-  testWidgets('người đã chặn thì vuốt trái là bỏ chặn, không hỏi lại', (
-    tester,
-  ) async {
+  testWidgets('giữ lâu bỏ chặn không cần hỏi lại', (tester) async {
     final service = await pump(tester, [
       _conversation(1, 'Hana', blockedByMe: true),
     ]);
 
-    await tester.drag(find.text('Hana'), const Offset(-500, 0));
+    await tester.longPress(find.text('Hana'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bỏ chặn'));
     await tester.pumpAndSettle();
 
     expect(service.unblocked, [101]);
+  });
+
+  testWidgets('giữ lâu chọn xoá đoạn chat', (tester) async {
+    final service = await pump(tester, [_conversation(1, 'Hana')]);
+
+    await tester.longPress(find.text('Hana'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Xóa đoạn chat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Xóa'));
+    await tester.pumpAndSettle();
+
+    expect(service.deleted, [1]);
+    expect(find.text('Hana'), findsNothing);
   });
 
   testWidgets('giữ lâu mở menu thao tác', (tester) async {
@@ -148,5 +190,6 @@ void main() {
     expect(find.text('Đánh dấu đã đọc'), findsOneWidget);
     expect(find.text('Xem trang cá nhân'), findsOneWidget);
     expect(find.text('Chặn'), findsOneWidget);
+    expect(find.text('Xóa đoạn chat'), findsOneWidget);
   });
 }

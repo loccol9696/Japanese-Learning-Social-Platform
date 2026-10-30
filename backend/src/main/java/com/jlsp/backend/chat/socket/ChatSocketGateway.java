@@ -42,7 +42,8 @@ import java.util.function.BiFunction;
  *   <li>{@code conversation:read} — {@link MarkReadRequest}</li>
  *   <li>{@code typing} — {@link TypingRequest} (không lưu DB)</li>
  * </ul>
- * Event server → client: {@code message:new}, {@code message:recalled}, {@code message:read}, {@code typing}
+ * Event server → client: {@code message:new}, {@code message:recalled}, {@code message:read},
+ * {@code conversation:cleared}, {@code typing}
  * (xem {@link ChatSocketPublisher}).
  *
  * <p>Xử lý event chạy trên {@link ChatSocketExecutor}, không chạy trên luồng Netty. Token được

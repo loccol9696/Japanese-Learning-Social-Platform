@@ -66,6 +66,13 @@ public class ChatController {
         return ResponseEntity.ok(ApiResponse.success(chatService.getConversation(CurrentUser.requireId(), id)));
     }
 
+    /** DELETE /api/v1/chat/conversations/{id} — xoá đoạn chat ở phía người gọi. */
+    @DeleteMapping("/chat/conversations/{id}")
+    public ResponseEntity<ApiResponse<Void>> clearConversation(@PathVariable Long id) {
+        chatService.clearConversation(CurrentUser.requireId(), id);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã xoá đoạn chat", null));
+    }
+
     /**
      * GET /api/v1/chat/conversations/{id}/messages?before={messageId}&size=30 — lịch sử, mới nhất trước.
      * <br>GET .../messages?after={messageId}&size=30 — tin mới hơn mốc đó, cũ nhất trước

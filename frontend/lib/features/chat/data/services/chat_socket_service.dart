@@ -25,6 +25,7 @@ class ChatSocketService {
 
   final _messageController = StreamController<ChatMessage>.broadcast();
   final _recalledController = StreamController<ChatMessage>.broadcast();
+  final _clearedController = StreamController<int>.broadcast();
   final _readController = StreamController<ReadReceipt>.broadcast();
   final _typingController = StreamController<TypingEvent>.broadcast();
   final _connectionController = StreamController<bool>.broadcast();
@@ -38,6 +39,8 @@ class ChatSocketService {
   Stream<ChatMessage> get onMessage => _messageController.stream;
   Stream<ChatMessage> get onRecalled => _recalledController.stream;
 
+  /// Id hội thoại vừa được xoá (kể cả xoá từ thiết bị khác của cùng tài khoản).
+  Stream<int> get onCleared => _clearedController.stream;
   Stream<ReadReceipt> get onRead => _readController.stream;
   Stream<TypingEvent> get onTyping => _typingController.stream;
 
@@ -119,6 +122,10 @@ class ChatSocketService {
     socket.on('message:recalled', (data) {
       final json = _asMap(data);
       if (json != null) _recalledController.add(ChatMessage.fromJson(json));
+    });
+    socket.on('conversation:cleared', (data) {
+      final id = _asMap(data)?['conversationId'];
+      if (id is num) _clearedController.add(id.toInt());
     });
     socket.on('message:read', (data) {
       final json = _asMap(data);

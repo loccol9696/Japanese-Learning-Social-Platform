@@ -6,11 +6,14 @@ import com.jlsp.backend.chat.dto.response.ConversationResponse;
 import com.jlsp.backend.chat.dto.response.MessagePageResponse;
 import com.jlsp.backend.chat.dto.response.MessageResponse;
 import com.jlsp.backend.chat.entity.Conversation;
+import com.jlsp.backend.chat.entity.ConversationParticipant;
+import com.jlsp.backend.chat.entity.ConversationParticipantId;
 import com.jlsp.backend.chat.entity.DeviceToken;
 import com.jlsp.backend.chat.entity.Message;
 import com.jlsp.backend.chat.entity.MessageType;
 import com.jlsp.backend.chat.entity.UserBlock;
 import com.jlsp.backend.chat.entity.UserBlockId;
+import com.jlsp.backend.chat.event.ConversationClearedEvent;
 import com.jlsp.backend.chat.event.MessageRecalledEvent;
 import com.jlsp.backend.chat.mapper.ChatMapper;
 import com.jlsp.backend.chat.repository.ConversationParticipantRepository;
@@ -371,6 +374,90 @@ class ChatServiceImplTest {
     }
 
     @Test
+    void clearingHidesCurrentMessagesWithoutMarkingThemRead() {
+        ConversationParticipant mine = participant(null);
+        mine.setLastReadMessageId(3L);
+        when(participantRepository.findById(mineId())).thenReturn(Optional.of(mine));
+        when(messageRepository.findLatestId(CONVERSATION_ID)).thenReturn(9L);
+
+        service.clearConversation(ME, CONVERSATION_ID);
+
+        assertThat(mine.getClearedMessageId()).isEqualTo(9L);
+        assertThat(mine.getLastReadMessageId()).isEqualTo(3L);
+        verify(eventPublisher).publishEvent(new ConversationClearedEvent(CONVERSATION_ID, ME));
+    }
+
+    @Test
+    void clearingAnEmptyConversationDoesNothing() {
+        when(messageRepository.findLatestId(CONVERSATION_ID)).thenReturn(null);
+
+        service.clearConversation(ME, CONVERSATION_ID);
+
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void outsiderCannotClearConversation() {
+        assertThatThrownBy(() -> service.clearConversation(99L, CONVERSATION_ID))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(403));
+    }
+
+    @Test
+    void historyStartsAfterTheClearedMark() {
+        when(participantRepository.findById(mineId())).thenReturn(Optional.of(participant(9L)));
+        when(messageRepository.findByConversationIdAndIdGreaterThanOrderByIdDesc(
+                eq(CONVERSATION_ID), eq(9L), any(Pageable.class))).thenReturn(List.of(message(10L)));
+
+        MessagePageResponse page = service.getMessages(ME, CONVERSATION_ID, null, 30);
+
+        assertThat(page.getContent()).extracting(m -> m.getId()).containsExactly(10L);
+    }
+
+    @Test
+    void olderPagesStopAtTheClearedMark() {
+        when(participantRepository.findById(mineId())).thenReturn(Optional.of(participant(9L)));
+        when(messageRepository.findByConversationIdAndIdGreaterThanAndIdLessThanOrderByIdDesc(
+                eq(CONVERSATION_ID), eq(9L), eq(12L), any(Pageable.class))).thenReturn(List.of());
+
+        assertThat(service.getMessages(ME, CONVERSATION_ID, 12L, 30).getContent()).isEmpty();
+    }
+
+    @Test
+    void missedMessagesNeverGoBelowTheClearedMark() {
+        when(participantRepository.findById(mineId())).thenReturn(Optional.of(participant(9L)));
+        when(messageRepository.findByConversationIdAndIdGreaterThanOrderByIdAsc(
+                eq(CONVERSATION_ID), eq(9L), any(Pageable.class))).thenReturn(List.of());
+
+        assertThat(service.getMessagesAfter(ME, CONVERSATION_ID, 2L, 30).getContent()).isEmpty();
+    }
+
+    @Test
+    void clearedConversationHidesItsLastMessage() {
+        conversation.setLastMessage(message(9L));
+        when(participantRepository.findByIdConversationIdIn(any())).thenReturn(List.of(participant(9L)));
+
+        assertThat(service.getConversation(ME, CONVERSATION_ID).getLastMessage()).isNull();
+    }
+
+    @Test
+    void newMessageAfterClearingIsShown() {
+        conversation.setLastMessage(message(10L));
+        when(participantRepository.findByIdConversationIdIn(any())).thenReturn(List.of(participant(9L)));
+
+        assertThat(service.getConversation(ME, CONVERSATION_ID).getLastMessage().getId()).isEqualTo(10L);
+    }
+
+    @Test
+    void otherPersonsClearedMarkDoesNotAffectMe() {
+        conversation.setLastMessage(message(9L));
+        ConversationParticipant theirs = ConversationParticipant.builder()
+                .id(new ConversationParticipantId(CONVERSATION_ID, OTHER)).clearedMessageId(9L).build();
+        when(participantRepository.findByIdConversationIdIn(any())).thenReturn(List.of(theirs));
+
+        assertThat(service.getConversation(ME, CONVERSATION_ID).getLastMessage().getId()).isEqualTo(9L);
+    }
+
+    @Test
     void registeringAKnownTokenMovesItToTheCurrentUser() {
         DeviceToken device = DeviceToken.builder().token("abc").user(other).platform("android").build();
         when(deviceTokenRepository.findByToken("abc")).thenReturn(Optional.of(device));
@@ -381,6 +468,14 @@ class ChatServiceImplTest {
         assertThat(device.getUser()).isSameAs(me);
         assertThat(device.getPlatform()).isEqualTo("ios");
         verify(deviceTokenRepository).save(device);
+    }
+
+    private static ConversationParticipantId mineId() {
+        return new ConversationParticipantId(CONVERSATION_ID, ME);
+    }
+
+    private static ConversationParticipant participant(Long clearedMessageId) {
+        return ConversationParticipant.builder().id(mineId()).clearedMessageId(clearedMessageId).build();
     }
 
     private SendMessageRequest textRequest() {

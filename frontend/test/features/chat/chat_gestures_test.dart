@@ -34,6 +34,11 @@ class _FakeChatService extends ChatService {
   _FakeChatService(this.messages);
 
   final List<ChatMessage> messages;
+  final List<int> deleted = [];
+
+  @override
+  Future<void> deleteConversation(int conversationId) async =>
+      deleted.add(conversationId);
 
   @override
   Future<Conversation> fetchConversation(int id) async => _conversation;
@@ -122,6 +127,39 @@ void main() {
     await tester.tap(find.byTooltip('Về tin mới nhất'));
     await tester.pumpAndSettle();
     expect(find.byTooltip('Về tin mới nhất'), findsNothing);
+  });
+
+  testWidgets('menu xoá đoạn chat hỏi lại rồi xoá và thoát', (tester) async {
+    final service = _FakeChatService([_message(5, 'Xin chào')]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => ChatDetailScreen(
+                  conversation: _conversation,
+                  service: service,
+                ),
+              ),
+            ),
+            child: const Text('mở chat'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('mở chat'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Tuỳ chọn'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Xóa đoạn chat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Xóa'));
+    await tester.pumpAndSettle();
+
+    expect(service.deleted, [7]);
+    expect(find.byType(ChatDetailScreen), findsNothing);
   });
 
   group('trả lời', () {

@@ -1,6 +1,7 @@
 package com.jlsp.backend.chat.socket;
 
 import com.corundumstudio.socketio.SocketIOServer;
+import com.jlsp.backend.chat.event.ConversationClearedEvent;
 import com.jlsp.backend.chat.event.ConversationReadEvent;
 import com.jlsp.backend.chat.event.MessageCreatedEvent;
 import com.jlsp.backend.chat.event.MessageRecalledEvent;
@@ -25,6 +26,7 @@ public class ChatSocketPublisher {
     public static final String EVENT_MESSAGE_NEW = "message:new";
     public static final String EVENT_MESSAGE_RECALLED = "message:recalled";
     public static final String EVENT_MESSAGE_READ = "message:read";
+    public static final String EVENT_CONVERSATION_CLEARED = "conversation:cleared";
     public static final String EVENT_TYPING = "typing";
 
     private final SocketIOServer server;
@@ -53,6 +55,11 @@ public class ChatSocketPublisher {
         Object payload = toPayload(event.receipt());
         emit(event.otherUserId(), EVENT_MESSAGE_READ, payload);
         emit(event.receipt().getUserId(), EVENT_MESSAGE_READ, payload);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void onConversationCleared(ConversationClearedEvent event) {
+        emit(event.userId(), EVENT_CONVERSATION_CLEARED, Map.of("conversationId", event.conversationId()));
     }
 
     public void emit(Long userId, String event, Object payload) {

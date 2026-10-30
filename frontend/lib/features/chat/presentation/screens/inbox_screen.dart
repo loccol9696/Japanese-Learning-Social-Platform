@@ -14,14 +14,14 @@ import '../../data/services/chat_service.dart';
 import '../../data/services/chat_socket_service.dart';
 import '../chat_format.dart';
 import '../widgets/chat_avatar.dart';
-import '../widgets/confirm_block_dialog.dart';
+import '../widgets/chat_dialogs.dart';
 import 'chat_detail_screen.dart';
 import 'new_chat_screen.dart';
 
 /// Hộp thư: danh sách hội thoại, mới nhất trước, cập nhật realtime qua Socket.IO.
 ///
-/// Thao tác: kéo xuống để làm mới, vuốt phải để đánh dấu đã đọc, vuốt trái để chặn hoặc
-/// bỏ chặn, giữ lâu để mở menu.
+/// Thao tác: kéo xuống để làm mới, vuốt phải để đánh dấu đã đọc, vuốt trái để xoá đoạn
+/// chat, giữ lâu để mở menu.
 class InboxScreen extends StatefulWidget {
   final ChatService? service;
 
@@ -61,6 +61,7 @@ class _InboxScreenState extends State<InboxScreen> {
     _subscriptions
       ..add(_socket.onMessage.listen(_onMessage))
       ..add(_socket.onRecalled.listen(_onRecalled))
+      ..add(_socket.onCleared.listen(_removeConversation))
       ..add(
         _socket.onConnectionChanged.listen((connected) {
           if (!mounted) return;
@@ -138,6 +139,16 @@ class _InboxScreenState extends State<InboxScreen> {
     });
   }
 
+  void _removeConversation(int conversationId) {
+    if (!mounted) return;
+    setState(() {
+      _conversations = _conversations
+          .where((c) => c.id != conversationId)
+          .toList();
+    });
+    unawaited(ChatHub.instance.refreshUnread());
+  }
+
   void _setUnreadCleared(Conversation conversation) {
     setState(() {
       _conversations = [
@@ -194,6 +205,20 @@ class _InboxScreenState extends State<InboxScreen> {
     }
   }
 
+  /// Hỏi lại rồi xoá trên server; trả về true nếu đã xoá.
+  Future<bool> _deleteConversation(Conversation conversation) async {
+    if (!await confirmDeleteConversation(context, conversation.otherUser)) {
+      return false;
+    }
+    try {
+      await _service.deleteConversation(conversation.id);
+      return true;
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+      return false;
+    }
+  }
+
   Future<void> _openProfile(Conversation conversation) async {
     final user = conversation.otherUser;
     await Navigator.of(context).push(
@@ -245,6 +270,11 @@ class _InboxScreenState extends State<InboxScreen> {
                 Icons.block_rounded,
                 conversation.blockedByMe ? 'Bỏ chặn' : 'Chặn',
                 _ConversationAction.block,
+              ),
+              item(
+                Icons.delete_outline_rounded,
+                'Xóa đoạn chat',
+                _ConversationAction.delete,
                 color: AppPalette.like,
               ),
             ],
@@ -260,6 +290,10 @@ class _InboxScreenState extends State<InboxScreen> {
         await _openProfile(conversation);
       case _ConversationAction.block:
         await _toggleBlock(conversation);
+      case _ConversationAction.delete:
+        if (await _deleteConversation(conversation)) {
+          _removeConversation(conversation.id);
+        }
       case null:
         break;
     }
@@ -406,8 +440,8 @@ class _InboxScreenState extends State<InboxScreen> {
     );
   }
 
-  /// Hội thoại luôn còn trong danh sách sau khi vuốt: [Dismissible] chỉ dùng để nhận
-  /// cử chỉ, thao tác xong hàng tự trượt về chỗ cũ.
+  /// Vuốt phải chỉ đánh dấu đã đọc nên hàng trượt về chỗ cũ; vuốt trái xoá đoạn chat,
+  /// huỷ hoặc lỗi thì hàng cũng trở về.
   Widget _buildRow(Conversation conversation) {
     return Dismissible(
       key: ValueKey(conversation.id),
@@ -425,17 +459,17 @@ class _InboxScreenState extends State<InboxScreen> {
         alignment: Alignment.centerRight,
         color: AppPalette.like,
         foreground: AppPalette.onAccent,
-        icon: Icons.block_rounded,
-        label: conversation.blockedByMe ? 'Bỏ chặn' : 'Chặn',
+        icon: Icons.delete_outline_rounded,
+        label: 'Xóa',
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
           _markRead(conversation);
-        } else {
-          await _toggleBlock(conversation);
+          return false;
         }
-        return false;
+        return _deleteConversation(conversation);
       },
+      onDismissed: (_) => _removeConversation(conversation.id),
       child: _ConversationTile(
         conversation: conversation,
         myId: _myId,
@@ -486,7 +520,7 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 }
 
-enum _ConversationAction { markRead, profile, block }
+enum _ConversationAction { markRead, profile, block, delete }
 
 /// Nền hiện ra phía sau hàng hội thoại khi vuốt.
 class _SwipeAction extends StatelessWidget {

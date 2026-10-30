@@ -15,6 +15,7 @@ import com.jlsp.backend.chat.entity.Message;
 import com.jlsp.backend.chat.entity.MessageType;
 import com.jlsp.backend.chat.entity.UserBlock;
 import com.jlsp.backend.chat.entity.UserBlockId;
+import com.jlsp.backend.chat.event.ConversationClearedEvent;
 import com.jlsp.backend.chat.event.ConversationReadEvent;
 import com.jlsp.backend.chat.event.MessageCreatedEvent;
 import com.jlsp.backend.chat.event.MessageRecalledEvent;
@@ -119,12 +120,14 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public MessagePageResponse getMessages(Long userId, Long conversationId, Long beforeId, int size) {
         requireConversation(userId, conversationId);
+        long floorId = clearedMessageId(conversationId, userId);
         int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         // Lấy dư 1 bản ghi để biết còn tin cũ hơn hay không
         Pageable limit = PageRequest.of(0, pageSize + 1);
         List<Message> messages = beforeId == null
-                ? messageRepository.findByConversationIdOrderByIdDesc(conversationId, limit)
-                : messageRepository.findByConversationIdAndIdLessThanOrderByIdDesc(conversationId, beforeId, limit);
+                ? messageRepository.findByConversationIdAndIdGreaterThanOrderByIdDesc(conversationId, floorId, limit)
+                : messageRepository.findByConversationIdAndIdGreaterThanAndIdLessThanOrderByIdDesc(
+                        conversationId, floorId, beforeId, limit);
 
         boolean hasMore = messages.size() > pageSize;
         if (hasMore) {
@@ -141,9 +144,10 @@ public class ChatServiceImpl implements ChatService {
     public MessagePageResponse getMessagesAfter(Long userId, Long conversationId, Long afterId, int size) {
         requireConversation(userId, conversationId);
         int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
+        long floorId = Math.max(afterId == null ? 0L : afterId, clearedMessageId(conversationId, userId));
         // Lấy dư 1 bản ghi để biết còn tin mới hơn nữa hay không
         List<Message> messages = messageRepository.findByConversationIdAndIdGreaterThanOrderByIdAsc(
-                conversationId, afterId == null ? 0L : afterId, PageRequest.of(0, pageSize + 1));
+                conversationId, floorId, PageRequest.of(0, pageSize + 1));
 
         boolean hasMore = messages.size() > pageSize;
         if (hasMore) {
@@ -244,6 +248,21 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public long getUnreadCount(Long userId) {
         return participantRepository.countUnreadMessages(userId);
+    }
+
+    @Override
+    @Transactional
+    public void clearConversation(Long userId, Long conversationId) {
+        Conversation conversation = requireConversation(userId, conversationId);
+        Long latestId = messageRepository.findLatestId(conversationId);
+        if (latestId == null) {
+            return;
+        }
+        // Không đổi mốc đã đọc: xoá mà chưa đọc thì người kia không thấy "Đã xem".
+        ConversationParticipant participant = getOrCreateParticipant(conversation, userId);
+        participant.setClearedMessageId(latestId);
+        participantRepository.save(participant);
+        eventPublisher.publishEvent(new ConversationClearedEvent(conversationId, userId));
     }
 
     @Override
@@ -461,6 +480,12 @@ public class ChatServiceImpl implements ChatService {
                         .build()));
     }
 
+    private long clearedMessageId(Long conversationId, Long userId) {
+        return participantRepository.findById(new ConversationParticipantId(conversationId, userId))
+                .map(ConversationParticipant::getClearedMessageId)
+                .orElse(0L);
+    }
+
     private Conversation requireConversation(Long userId, Long conversationId) {
         Conversation conversation = conversationRepository.findDetailById(conversationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conversation", "id", conversationId));
@@ -500,11 +525,14 @@ public class ChatServiceImpl implements ChatService {
         User other = conversation.getOtherUser(userId);
         Long otherLastRead = state.lastReadIds()
                 .get(new ConversationParticipantId(conversation.getId(), other.getId()));
+        Message last = conversation.getLastMessage();
+        boolean lastCleared = last != null
+                && last.getId() <= state.clearedIds().getOrDefault(conversation.getId(), 0L);
 
         return ConversationResponse.builder()
                 .id(conversation.getId())
                 .otherUser(chatMapper.toUserResponse(other))
-                .lastMessage(chatMapper.toMessageResponse(conversation.getLastMessage(), videos))
+                .lastMessage(lastCleared ? null : chatMapper.toMessageResponse(last, videos))
                 .unreadCount(state.unreadCounts().getOrDefault(conversation.getId(), 0L))
                 .otherLastReadMessageId(otherLastRead)
                 .canMessage(Boolean.TRUE.equals(other.getIsActive())
@@ -521,13 +549,17 @@ public class ChatServiceImpl implements ChatService {
      */
     private InboxState loadInboxState(Long userId, List<Conversation> conversations) {
         if (conversations.isEmpty()) {
-            return new InboxState(Map.of(), Map.of(), Set.of(), Set.of(), Set.of());
+            return new InboxState(Map.of(), Map.of(), Map.of(), Set.of(), Set.of(), Set.of());
         }
         List<Long> conversationIds = conversations.stream().map(Conversation::getId).toList();
         Map<ConversationParticipantId, Long> lastReadIds = new HashMap<>();
+        Map<Long, Long> clearedIds = new HashMap<>();
         for (ConversationParticipant participant : participantRepository.findByIdConversationIdIn(conversationIds)) {
             if (participant.getLastReadMessageId() != null) {
                 lastReadIds.put(participant.getId(), participant.getLastReadMessageId());
+            }
+            if (participant.getClearedMessageId() != null && participant.getId().getUserId().equals(userId)) {
+                clearedIds.put(participant.getId().getConversationId(), participant.getClearedMessageId());
             }
         }
         Map<Long, Long> unreadCounts = IdCount.toMap(
@@ -545,11 +577,13 @@ public class ChatServiceImpl implements ChatService {
                 blockedByMeIds.add(block.getId().getBlockedId());
             }
         }
-        return new InboxState(lastReadIds, unreadCounts, followService.findMutualIdsAmong(userId, otherIds),
+        return new InboxState(lastReadIds, clearedIds, unreadCounts,
+                followService.findMutualIdsAmong(userId, otherIds),
                 blockedIds, blockedByMeIds);
     }
 
     private record InboxState(Map<ConversationParticipantId, Long> lastReadIds,
+                              Map<Long, Long> clearedIds,
                               Map<Long, Long> unreadCounts,
                               Set<Long> mutualIds,
                               Set<Long> blockedIds,

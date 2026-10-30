@@ -43,6 +43,12 @@ public interface ChatService {
 
     long getUnreadCount(Long userId);
 
+    /**
+     * Xoá đoạn chat ở phía người này: toàn bộ tin hiện có bị ẩn với riêng họ, người kia vẫn
+     * thấy đủ. Có tin mới thì hội thoại hiện lại, chỉ gồm các tin mới.
+     */
+    void clearConversation(Long userId, Long conversationId);
+
     /** Thu hồi tin của chính mình trong 24 giờ sau khi gửi; gọi lại trên tin đã thu hồi không có tác dụng. */
     MessageResponse recallMessage(Long userId, Long messageId);
 
