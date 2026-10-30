@@ -53,6 +53,29 @@ abstract class AppStrings {
   String get levelIntermediate;
   String get levelUpperIntermediate;
   String get levelAdvanced;
+
+  // Notifications
+  String get notificationsTitle;
+  String get notificationsInteractions;
+  String get notificationsSystem;
+  String get notificationsMarkAllRead;
+  String get notificationsEmptyInteractions;
+  String get notificationsEmptySystem;
+  String get notificationsLoadError;
+  String get notificationsRetry;
+  String get notificationsLoadMoreError;
+  String get notificationVideoUnavailable;
+  String get notificationSomeone;
+  String notificationCommented(String name);
+  String notificationLiked(String name);
+  String notificationShared(String name);
+  String notificationApproved(String title);
+  String notificationRejected(String title);
+  String notificationReason(String reason);
+  String get timeJustNow;
+  String timeMinutesAgo(int minutes);
+  String timeHoursAgo(int hours);
+  String timeDaysAgo(int days);
 }
 
 class ViStrings implements AppStrings {
@@ -150,6 +173,49 @@ class ViStrings implements AppStrings {
   String get levelUpperIntermediate => 'Trung cao cấp';
   @override
   String get levelAdvanced => 'Thành thạo';
+
+  @override
+  String get notificationsTitle => 'Thông báo';
+  @override
+  String get notificationsInteractions => 'Tương tác';
+  @override
+  String get notificationsSystem => 'Hệ thống';
+  @override
+  String get notificationsMarkAllRead => 'Đọc tất cả';
+  @override
+  String get notificationsEmptyInteractions => 'Chưa có tương tác nào. Khi có người thích, bình luận hoặc chia sẻ video của bạn, bạn sẽ thấy ở đây.';
+  @override
+  String get notificationsEmptySystem => 'Chưa có thông báo hệ thống nào. Kết quả duyệt video của bạn sẽ hiện ở đây.';
+  @override
+  String get notificationsLoadError => 'Không tải được thông báo';
+  @override
+  String get notificationsRetry => 'Thử lại';
+  @override
+  String get notificationsLoadMoreError => 'Không tải thêm được thông báo';
+  @override
+  String get notificationVideoUnavailable => 'Video không còn khả dụng';
+  @override
+  String get notificationSomeone => 'Một người dùng';
+  @override
+  String notificationCommented(String name) => '$name đã bình luận về video của bạn';
+  @override
+  String notificationLiked(String name) => '$name đã thích video của bạn';
+  @override
+  String notificationShared(String name) => '$name đã chia sẻ video của bạn';
+  @override
+  String notificationApproved(String title) => 'Video “$title” đã được duyệt và đăng công khai';
+  @override
+  String notificationRejected(String title) => 'Video “$title” đã bị từ chối';
+  @override
+  String notificationReason(String reason) => 'Lý do: $reason';
+  @override
+  String get timeJustNow => 'Vừa xong';
+  @override
+  String timeMinutesAgo(int minutes) => '$minutes phút trước';
+  @override
+  String timeHoursAgo(int hours) => '$hours giờ trước';
+  @override
+  String timeDaysAgo(int days) => '$days ngày trước';
 }
 
 class EnStrings implements AppStrings {
@@ -247,6 +313,49 @@ class EnStrings implements AppStrings {
   String get levelUpperIntermediate => 'Upper-Intermediate';
   @override
   String get levelAdvanced => 'Advanced';
+
+  @override
+  String get notificationsTitle => 'Notifications';
+  @override
+  String get notificationsInteractions => 'Activity';
+  @override
+  String get notificationsSystem => 'System';
+  @override
+  String get notificationsMarkAllRead => 'Mark all as read';
+  @override
+  String get notificationsEmptyInteractions => 'No activity yet. When someone likes, comments on or shares your video, you will see it here.';
+  @override
+  String get notificationsEmptySystem => 'No system notifications yet. The review results of your videos will show up here.';
+  @override
+  String get notificationsLoadError => 'Unable to load notifications';
+  @override
+  String get notificationsRetry => 'Retry';
+  @override
+  String get notificationsLoadMoreError => 'Unable to load more notifications';
+  @override
+  String get notificationVideoUnavailable => 'This video is no longer available';
+  @override
+  String get notificationSomeone => 'Someone';
+  @override
+  String notificationCommented(String name) => '$name commented on your video';
+  @override
+  String notificationLiked(String name) => '$name liked your video';
+  @override
+  String notificationShared(String name) => '$name shared your video';
+  @override
+  String notificationApproved(String title) => 'Your video “$title” was approved and is now public';
+  @override
+  String notificationRejected(String title) => 'Your video “$title” was rejected';
+  @override
+  String notificationReason(String reason) => 'Reason: $reason';
+  @override
+  String get timeJustNow => 'Just now';
+  @override
+  String timeMinutesAgo(int minutes) => '${minutes}m ago';
+  @override
+  String timeHoursAgo(int hours) => '${hours}h ago';
+  @override
+  String timeDaysAgo(int days) => '${days}d ago';
 }
 
 class JaStrings implements AppStrings {
@@ -344,4 +453,47 @@ class JaStrings implements AppStrings {
   String get levelUpperIntermediate => '中上級';
   @override
   String get levelAdvanced => '上級';
+
+  @override
+  String get notificationsTitle => '通知';
+  @override
+  String get notificationsInteractions => 'アクティビティ';
+  @override
+  String get notificationsSystem => 'システム';
+  @override
+  String get notificationsMarkAllRead => 'すべて既読にする';
+  @override
+  String get notificationsEmptyInteractions => 'まだアクティビティはありません。あなたの動画にいいね、コメント、シェアがあるとここに表示されます。';
+  @override
+  String get notificationsEmptySystem => 'システム通知はまだありません。動画の審査結果がここに表示されます。';
+  @override
+  String get notificationsLoadError => '通知を読み込めませんでした';
+  @override
+  String get notificationsRetry => '再試行';
+  @override
+  String get notificationsLoadMoreError => '通知をさらに読み込めませんでした';
+  @override
+  String get notificationVideoUnavailable => 'この動画は利用できなくなりました';
+  @override
+  String get notificationSomeone => 'ユーザー';
+  @override
+  String notificationCommented(String name) => '$nameさんがあなたの動画にコメントしました';
+  @override
+  String notificationLiked(String name) => '$nameさんがあなたの動画にいいねしました';
+  @override
+  String notificationShared(String name) => '$nameさんがあなたの動画をシェアしました';
+  @override
+  String notificationApproved(String title) => '動画「$title」が承認され、公開されました';
+  @override
+  String notificationRejected(String title) => '動画「$title」は承認されませんでした';
+  @override
+  String notificationReason(String reason) => '理由：$reason';
+  @override
+  String get timeJustNow => 'たった今';
+  @override
+  String timeMinutesAgo(int minutes) => '$minutes分前';
+  @override
+  String timeHoursAgo(int hours) => '$hours時間前';
+  @override
+  String timeDaysAgo(int days) => '$days日前';
 }

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/app/routes.dart';
 import 'package:frontend/core/localization/app_language.dart';
 import 'package:frontend/core/localization/locale_manager.dart';
 import 'package:frontend/features/profile/domain/models/topic_model.dart';
@@ -187,12 +188,31 @@ void main() {
     expect(find.text('Quản lý duyệt nội dung'), findsNothing);
 
     // Hàng chưa có tính năng báo "sẽ hoàn thiện"
-    await tester.tap(find.text('Thông báo'));
+    await tester.tap(find.text('Quyền riêng tư'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Thông báo: Tính năng sẽ được hoàn thiện trong thời gian tới'),
+      find.text('Quyền riêng tư: Tính năng sẽ được hoàn thiện trong thời gian tới'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('ProfileScreen settings "Thông báo" opens the notifications screen', (tester) async {
+    final mockRepo = _MockProfileRepository();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        routes: {AppRoutes.notifications: (_) => const Text('màn thông báo')},
+        home: Scaffold(body: ProfileScreen(repository: mockRepo)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Tùy chọn & Cài đặt'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Thông báo'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('màn thông báo'), findsOneWidget);
   });
 
   testWidgets('ProfileScreen settings "Tài khoản" opens the edit profile screen', (tester) async {

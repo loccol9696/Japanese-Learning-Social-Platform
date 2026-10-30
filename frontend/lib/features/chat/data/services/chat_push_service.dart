@@ -4,9 +4,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../notifications/data/models/notification_models.dart';
 import 'chat_service.dart';
 
-/// Thông báo đẩy của chat qua Firebase Cloud Messaging.
+/// Thông báo đẩy (tin nhắn chat và thông báo tương tác / hệ thống) qua Firebase Cloud Messaging.
 ///
 /// Cấu hình Firebase truyền lúc build bằng `--dart-define` (xem [_options]), không dùng
 /// google-services.json. Thiếu cấu hình, hoặc chạy trên web/desktop, thì mọi hàm ở đây
@@ -25,12 +26,18 @@ class ChatPushService {
 
   final ChatService _service = ChatService();
   final _openConversationController = StreamController<int>.broadcast();
+  final _openNotificationController =
+      StreamController<NotificationTarget>.broadcast();
 
   bool _initialized = false;
   StreamSubscription<String>? _tokenRefresh;
 
   /// Người dùng bấm vào thông báo: id hội thoại cần mở.
   Stream<int> get onOpenConversation => _openConversationController.stream;
+
+  /// Người dùng bấm vào thông báo tương tác / hệ thống: đích cần mở.
+  Stream<NotificationTarget> get onOpenNotification =>
+      _openNotificationController.stream;
 
   static bool get _supported =>
       !kIsWeb &&
@@ -98,6 +105,11 @@ class ChatPushService {
   }
 
   void _openFrom(RemoteMessage message) {
+    final notification = NotificationTarget.fromPushData(message.data);
+    if (notification != null) {
+      _openNotificationController.add(notification);
+      return;
+    }
     final id = int.tryParse('${message.data['conversationId']}');
     if (id != null) _openConversationController.add(id);
   }

@@ -7,6 +7,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../notifications/data/models/notification_models.dart';
 import '../models/chat_models.dart';
 
 /// Kết nối Socket.IO tới server chat.
@@ -15,6 +16,7 @@ import '../models/chat_models.dart';
 /// - Access token sống ngắn nên tự dựng lại socket với token mới mỗi lần kết nối lại
 ///   (backoff tăng dần, tối đa [_maxBackoff]).
 /// - Dữ liệu đến được phát ra qua các [Stream] broadcast để màn hình lắng nghe.
+/// - Cùng kết nối này còn đưa thông báo mới của tính năng Thông báo ([onNotification]).
 class ChatSocketService {
   ChatSocketService._();
 
@@ -29,6 +31,8 @@ class ChatSocketService {
   final _readController = StreamController<ReadReceipt>.broadcast();
   final _typingController = StreamController<TypingEvent>.broadcast();
   final _connectionController = StreamController<bool>.broadcast();
+  final _notificationController =
+      StreamController<AppNotification>.broadcast();
 
   io.Socket? _socket;
   Timer? _retryTimer;
@@ -43,6 +47,9 @@ class ChatSocketService {
   Stream<int> get onCleared => _clearedController.stream;
   Stream<ReadReceipt> get onRead => _readController.stream;
   Stream<TypingEvent> get onTyping => _typingController.stream;
+
+  /// Thông báo mới (bình luận, thích, chia sẻ, kết quả duyệt video) gửi tới người dùng.
+  Stream<AppNotification> get onNotification => _notificationController.stream;
 
   /// true khi vừa kết nối được, false khi mất kết nối.
   Stream<bool> get onConnectionChanged => _connectionController.stream;
@@ -134,6 +141,14 @@ class ChatSocketService {
     socket.on('typing', (data) {
       final json = _asMap(data);
       if (json != null) _typingController.add(TypingEvent.fromJson(json));
+    });
+    socket.on('notification:new', (data) {
+      final json = _asMap(data);
+      if (json == null) return;
+      final notification = AppNotification.fromJson(json);
+      if (notification.type != NotificationType.unknown) {
+        _notificationController.add(notification);
+      }
     });
   }
 

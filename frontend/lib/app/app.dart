@@ -16,6 +16,7 @@ import '../features/chat/data/services/chat_push_service.dart';
 import '../features/chat/data/services/chat_service.dart';
 import '../features/chat/presentation/screens/chat_detail_screen.dart';
 import '../features/home/presentation/screens/home_screen.dart';
+import '../features/notifications/data/services/notification_hub.dart';
 import 'routes.dart';
 
 class AppScrollBehavior extends MaterialScrollBehavior {
@@ -55,6 +56,7 @@ class _AppState extends State<App> {
     super.initState();
     // Chat: bật/tắt socket theo đăng nhập và theo dõi số tin chưa đọc.
     ChatHub.instance.init();
+    NotificationHub.instance.init();
     _pushSubscription = ChatPushService.instance.onOpenConversation.listen(
       _openConversation,
     );

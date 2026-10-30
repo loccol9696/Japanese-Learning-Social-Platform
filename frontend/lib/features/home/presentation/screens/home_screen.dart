@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../widgets/ruby_subtitle_widget.dart';
@@ -24,6 +26,8 @@ import '../../../../core/auth/auth_guard.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../../chat/data/services/chat_hub.dart';
 import '../../../chat/presentation/screens/messages_tab.dart';
+import '../../../notifications/data/services/notification_hub.dart';
+import '../../../notifications/presentation/notification_navigation.dart';
 
 class HomeScreen extends StatefulWidget {
   final HomeRepository? repository;
@@ -65,6 +69,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     AuthSession.instance.addListener(_onAuthChanged);
+    // Bấm thông báo đẩy khi app đang tắt: đích đã chờ sẵn, mở ngay khi Home dựng xong.
+    NotificationHub.instance.pendingTarget.addListener(_onPendingNotification);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _onPendingNotification(),
+    );
     _repository =
         widget.repository ??
         HomeRepositoryImpl(remoteDataSource: HomeRemoteDataSourceImpl());
@@ -105,6 +114,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     AuthSession.instance.removeListener(_onAuthChanged);
+    NotificationHub.instance.pendingTarget.removeListener(
+      _onPendingNotification,
+    );
     _tabPageController.dispose();
     _homeTabController.dispose();
     _followingFeedPageController.dispose();
@@ -115,6 +127,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onAuthChanged() {
     if (mounted) setState(() {});
+  }
+
+  /// Mở màn hình ứng với thông báo đẩy vừa được bấm (video, hoặc trạng thái video bị từ chối).
+  void _onPendingNotification() {
+    if (!mounted) return;
+    final target = NotificationHub.instance.takePendingTarget();
+    if (target == null) return;
+    RubySubtitleWidget.dismissLookups();
+    unawaited(NotificationHub.instance.markReadFromPush(target.notificationId));
+    unawaited(
+      _pushOverFeed<void>(() => openNotificationTarget(context, target)),
+    );
+  }
+
+  Future<void> _openNotifications() async {
+    RubySubtitleWidget.dismissLookups();
+    await _pushOverFeed(
+      () => Navigator.of(context).pushNamed(AppRoutes.notifications),
+    );
   }
 
   Future<void> _loadFeed(FeedTab tab) async {
@@ -447,6 +478,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   theme: activeVideoTheme,
                   onTabChanged: _onFeedTabChanged,
                   onExploreTap: _openExplore,
+                  onNotificationsTap: AuthSession.instance.isAuthenticated
+                      ? _openNotifications
+                      : null,
                 ),
               ),
             ),

@@ -17,7 +17,15 @@ class SharedVideoScreen extends StatefulWidget {
   final int videoId;
   final int? startMs;
 
-  const SharedVideoScreen({super.key, required this.videoId, this.startMs});
+  /// Mở sẵn bảng bình luận khi video tải xong (vd. từ thông báo có người bình luận).
+  final bool openComments;
+
+  const SharedVideoScreen({
+    super.key,
+    required this.videoId,
+    this.startMs,
+    this.openComments = false,
+  });
 
   @override
   State<SharedVideoScreen> createState() => _SharedVideoScreenState();
@@ -48,7 +56,11 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
       if (json is! Map<String, dynamic>) {
         throw const FormatException('Dữ liệu video không hợp lệ.');
       }
-      if (mounted) setState(() => _post = _dataSource.toVideoPost(json));
+      if (mounted) {
+        final post = _dataSource.toVideoPost(json);
+        setState(() => _post = post);
+        if (widget.openComments) _openCommentsAfterBuild(post);
+      }
     } on ApiException catch (error) {
       if (mounted) {
         setState(
@@ -62,6 +74,17 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _openCommentsAfterBuild(VideoPost post) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showCommentsSheet(
+        context,
+        videoId: post.id,
+        initialCount: post.commentCount,
+      );
+    });
   }
 
   void _update(VideoPost Function(VideoPost) change) {

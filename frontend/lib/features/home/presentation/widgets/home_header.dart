@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
+import '../../../notifications/presentation/widgets/notification_bell.dart';
 
 enum FeedTab { following, forYou }
 
@@ -13,12 +14,16 @@ class HomeHeader extends StatelessWidget {
   /// Mở màn Khám phá. Null thì ẩn icon.
   final VoidCallback? onExploreTap;
 
+  /// Mở màn Thông báo. Null thì ẩn icon (vd. khách chưa đăng nhập).
+  final VoidCallback? onNotificationsTap;
+
   const HomeHeader({
     super.key,
     required this.currentTab,
     required this.onTabChanged,
     this.theme,
     this.onExploreTap,
+    this.onNotificationsTap,
   });
 
   @override
@@ -55,6 +60,14 @@ class HomeHeader extends StatelessWidget {
               ),
             ),
           ),
+          if (onNotificationsTap != null)
+            Positioned(
+              left: 4,
+              child: NotificationBell(
+                theme: activeTheme,
+                onTap: onNotificationsTap!,
+              ),
+            ),
           if (onExploreTap != null)
             Positioned(
               right: 4,

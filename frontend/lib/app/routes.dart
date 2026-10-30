@@ -10,6 +10,7 @@ import '../features/subscription/screens/subscription_screen.dart';
 import '../features/video/presentation/screens/my_videos_status_screen.dart';
 import '../features/video/presentation/screens/moderation_queue_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
+import '../features/notifications/presentation/screens/notifications_screen.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -25,6 +26,7 @@ class AppRoutes {
   static const String subscription = '/subscription';
   static const String myVideosStatus = '/my-videos-status';
   static const String moderationQueue = '/moderation-queue';
+  static const String notifications = '/notifications';
 
   static Map<String, WidgetBuilder> get routes => {
     login: (context) => const LoginScreen(),
@@ -36,5 +38,6 @@ class AppRoutes {
     profile: (context) => const ProfileScreen(),
     myVideosStatus: (context) => const MyVideosStatusScreen(),
     moderationQueue: (context) => const ModerationQueueScreen(),
+    notifications: (context) => const NotificationsScreen(),
   };
 }

@@ -264,7 +264,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: 'Thông báo',
         onTap: () {
           Navigator.of(sheetContext).pop();
-          _showFeatureComingSoon('Thông báo');
+          Navigator.of(context).pushNamed(AppRoutes.notifications);
         },
       ),
       _SettingsRowData(
