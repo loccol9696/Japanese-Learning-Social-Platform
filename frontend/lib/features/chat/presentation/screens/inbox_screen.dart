@@ -1,30 +1,40 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../follow/presentation/screens/user_profile_screen.dart';
 import '../../data/models/chat_models.dart';
 import '../../data/services/chat_hub.dart';
 import '../../data/services/chat_service.dart';
 import '../../data/services/chat_socket_service.dart';
 import '../chat_format.dart';
 import '../widgets/chat_avatar.dart';
+import '../widgets/confirm_block_dialog.dart';
 import 'chat_detail_screen.dart';
 import 'new_chat_screen.dart';
 
 /// Hộp thư: danh sách hội thoại, mới nhất trước, cập nhật realtime qua Socket.IO.
+///
+/// Thao tác: kéo xuống để làm mới, vuốt phải để đánh dấu đã đọc, vuốt trái để chặn hoặc
+/// bỏ chặn, giữ lâu để mở menu.
 class InboxScreen extends StatefulWidget {
-  const InboxScreen({super.key});
+  final ChatService? service;
+
+  const InboxScreen({super.key, this.service});
 
   @override
   State<InboxScreen> createState() => _InboxScreenState();
 }
 
 class _InboxScreenState extends State<InboxScreen> {
-  final _service = ChatService();
+  late final ChatService _service = widget.service ?? ChatService();
   final _socket = ChatSocketService.instance;
+  final _search = TextEditingController();
   final List<StreamSubscription<dynamic>> _subscriptions = [];
 
   List<Conversation> _conversations = const [];
@@ -33,6 +43,17 @@ class _InboxScreenState extends State<InboxScreen> {
   bool _online = ChatSocketService.instance.isConnected;
 
   int get _myId => AuthSession.instance.user?.id ?? 0;
+
+  /// Hội thoại khớp ô tìm kiếm theo tên hoặc username.
+  List<Conversation> get _visibleConversations {
+    final query = _search.text.trim().toLowerCase();
+    if (query.isEmpty) return _conversations;
+    return _conversations.where((conversation) {
+      final user = conversation.otherUser;
+      return user.name.toLowerCase().contains(query) ||
+          user.username.toLowerCase().contains(query);
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -55,6 +76,7 @@ class _InboxScreenState extends State<InboxScreen> {
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
+    _search.dispose();
     super.dispose();
   }
 
@@ -116,14 +138,19 @@ class _InboxScreenState extends State<InboxScreen> {
     });
   }
 
-  Future<void> _openConversation(Conversation conversation) async {
-    // Vào xem là đã đọc → bỏ số chưa đọc ngay trên giao diện.
+  void _setUnreadCleared(Conversation conversation) {
     setState(() {
       _conversations = [
         for (final c in _conversations)
           c.id == conversation.id ? c.copyWith(unreadCount: 0) : c,
       ];
     });
+  }
+
+  Future<void> _openConversation(Conversation conversation) async {
+    FocusScope.of(context).unfocus();
+    // Vào xem là đã đọc → bỏ số chưa đọc ngay trên giao diện.
+    _setUnreadCleared(conversation);
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ChatDetailScreen(conversation: conversation),
@@ -138,26 +165,188 @@ class _InboxScreenState extends State<InboxScreen> {
     if (mounted) unawaited(_load(silent: true));
   }
 
+  void _markRead(Conversation conversation) {
+    final lastId = conversation.lastMessage?.id;
+    if (lastId == null) return;
+    _setUnreadCleared(conversation);
+    unawaited(ChatHub.instance.markRead(conversation.id, lastId));
+  }
+
+  Future<void> _toggleBlock(Conversation conversation) async {
+    final user = conversation.otherUser;
+    final blocked = conversation.blockedByMe;
+    if (!blocked && !await confirmBlockUser(context, user)) return;
+    try {
+      if (blocked) {
+        await _service.unblockUser(user.id);
+      } else {
+        await _service.blockUser(user.id);
+      }
+      await _load(silent: true);
+      if (mounted) {
+        AppToast.showSuccess(
+          blocked ? 'Đã bỏ chặn ${user.name}' : 'Đã chặn ${user.name}',
+          context: context,
+        );
+      }
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+    }
+  }
+
+  Future<void> _openProfile(Conversation conversation) async {
+    final user = conversation.otherUser;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            UserProfileScreen(userId: user.id, initialName: user.name),
+      ),
+    );
+    if (mounted) unawaited(_load(silent: true));
+  }
+
+  Future<void> _showActions(Conversation conversation) async {
+    unawaited(HapticFeedback.mediumImpact());
+    final action = await showModalBottomSheet<_ConversationAction>(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: AppPalette.surface,
+      builder: (sheet) {
+        Widget item(
+          IconData icon,
+          String label,
+          _ConversationAction action, {
+          Color? color,
+        }) {
+          final tint = color ?? AppPalette.textPrimary;
+          return ListTile(
+            leading: Icon(icon, color: tint),
+            title: Text(label, style: TextStyle(color: tint)),
+            onTap: () => Navigator.of(sheet).pop(action),
+          );
+        }
+
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (conversation.unreadCount > 0)
+                item(
+                  Icons.done_all_rounded,
+                  'Đánh dấu đã đọc',
+                  _ConversationAction.markRead,
+                ),
+              item(
+                Icons.person_outline_rounded,
+                'Xem trang cá nhân',
+                _ConversationAction.profile,
+              ),
+              item(
+                Icons.block_rounded,
+                conversation.blockedByMe ? 'Bỏ chặn' : 'Chặn',
+                _ConversationAction.block,
+                color: AppPalette.like,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!mounted) return;
+    switch (action) {
+      case _ConversationAction.markRead:
+        _markRead(conversation);
+      case _ConversationAction.profile:
+        await _openProfile(conversation);
+      case _ConversationAction.block:
+        await _toggleBlock(conversation);
+      case null:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        backgroundColor: AppPalette.background,
-        title: const Text('Tin nhắn'),
-        actions: [
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildSearchField(),
+            if (!_online) _buildOfflineBanner(),
+            Expanded(child: _buildBody()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Tin nhắn',
+              style: TextStyle(
+                color: AppPalette.textPrimary,
+                fontSize: 30,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Tin nhắn mới',
             onPressed: _newChat,
-            icon: const Icon(Icons.edit_square),
+            icon: Icon(
+              Icons.edit_square,
+              color: AppPalette.textPrimary,
+              size: 26,
+            ),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (!_online) _buildOfflineBanner(),
-          Expanded(child: _buildBody()),
-        ],
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: TextField(
+        controller: _search,
+        onChanged: (_) => setState(() {}),
+        textInputAction: TextInputAction.search,
+        style: TextStyle(color: AppPalette.textPrimary),
+        cursorColor: AppPalette.accent,
+        decoration: InputDecoration(
+          hintText: 'Tìm kiếm',
+          hintStyle: TextStyle(color: AppPalette.textSecondary),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: AppPalette.textSecondary,
+          ),
+          suffixIcon: _search.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Xoá tìm kiếm',
+                  onPressed: () => setState(_search.clear),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: AppPalette.textSecondary,
+                  ),
+                ),
+          filled: true,
+          fillColor: AppPalette.surfaceHigh,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 11),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide.none,
+          ),
+        ),
       ),
     );
   }
@@ -190,17 +379,68 @@ class _InboxScreenState extends State<InboxScreen> {
     }
     if (_conversations.isEmpty) return _buildEmpty();
 
+    final conversations = _visibleConversations;
     return RefreshIndicator(
       onRefresh: () => _load(silent: true),
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _conversations.length,
-        separatorBuilder: (_, _) => const SizedBox.shrink(),
-        itemBuilder: (_, index) => _ConversationTile(
-          conversation: _conversations[index],
-          myId: _myId,
-          onTap: () => _openConversation(_conversations[index]),
-        ),
+      child: conversations.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Text(
+                    'Không tìm thấy cuộc trò chuyện nào',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppPalette.textSecondary),
+                  ),
+                ),
+              ],
+            )
+          : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              itemCount: conversations.length,
+              itemBuilder: (_, index) => _buildRow(conversations[index]),
+            ),
+    );
+  }
+
+  /// Hội thoại luôn còn trong danh sách sau khi vuốt: [Dismissible] chỉ dùng để nhận
+  /// cử chỉ, thao tác xong hàng tự trượt về chỗ cũ.
+  Widget _buildRow(Conversation conversation) {
+    return Dismissible(
+      key: ValueKey(conversation.id),
+      direction: conversation.unreadCount > 0
+          ? DismissDirection.horizontal
+          : DismissDirection.endToStart,
+      background: _SwipeAction(
+        alignment: Alignment.centerLeft,
+        color: AppPalette.accent,
+        foreground: AppPalette.onAccent,
+        icon: Icons.done_all_rounded,
+        label: 'Đã đọc',
+      ),
+      secondaryBackground: _SwipeAction(
+        alignment: Alignment.centerRight,
+        color: AppPalette.like,
+        foreground: AppPalette.onAccent,
+        icon: Icons.block_rounded,
+        label: conversation.blockedByMe ? 'Bỏ chặn' : 'Chặn',
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          _markRead(conversation);
+        } else {
+          await _toggleBlock(conversation);
+        }
+        return false;
+      },
+      child: _ConversationTile(
+        conversation: conversation,
+        myId: _myId,
+        onTap: () => _openConversation(conversation),
+        onLongPress: () => _showActions(conversation),
       ),
     );
   }
@@ -246,15 +486,53 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 }
 
+enum _ConversationAction { markRead, profile, block }
+
+/// Nền hiện ra phía sau hàng hội thoại khi vuốt.
+class _SwipeAction extends StatelessWidget {
+  final Alignment alignment;
+  final Color color;
+  final Color foreground;
+  final IconData icon;
+  final String label;
+
+  const _SwipeAction({
+    required this.alignment,
+    required this.color,
+    required this.foreground,
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: color,
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: foreground),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(color: foreground, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
 class _ConversationTile extends StatelessWidget {
   final Conversation conversation;
   final int myId;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   const _ConversationTile({
     required this.conversation,
     required this.myId,
     required this.onTap,
+    required this.onLongPress,
   });
 
   @override
@@ -264,82 +542,97 @@ class _ConversationTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         child: Row(
           children: [
-            ChatAvatar(user: conversation.otherUser, radius: 26),
-            const SizedBox(width: 12),
+            ChatAvatar(user: conversation.otherUser, radius: 28),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    conversation.otherUser.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppPalette.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          conversation.otherUser.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppPalette.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        formatConversationTime(conversation.lastMessageAt),
+                        style: TextStyle(
+                          color: AppPalette.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    last?.previewFor(myId) ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: unread > 0
-                          ? AppPalette.textPrimary
-                          : AppPalette.textSecondary,
-                      fontWeight: unread > 0
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                      fontSize: 14,
-                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          last?.previewFor(myId) ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: unread > 0
+                                ? AppPalette.textPrimary
+                                : AppPalette.textSecondary,
+                            fontWeight: unread > 0
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      if (unread > 0) ...[
+                        const SizedBox(width: 8),
+                        _UnreadBadge(count: unread),
+                      ],
+                    ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  formatConversationTime(conversation.lastMessageAt),
-                  style: TextStyle(
-                    color: AppPalette.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                if (unread > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 2,
-                    ),
-                    constraints: const BoxConstraints(minWidth: 20),
-                    decoration: BoxDecoration(
-                      color: AppPalette.accent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      unread > 99 ? '99+' : '$unread',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppPalette.onAccent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  )
-                else
-                  const SizedBox(height: 20),
-              ],
-            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UnreadBadge extends StatelessWidget {
+  final int count;
+
+  const _UnreadBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      constraints: const BoxConstraints(minWidth: 20),
+      decoration: BoxDecoration(
+        color: AppPalette.accent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: AppPalette.onAccent,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

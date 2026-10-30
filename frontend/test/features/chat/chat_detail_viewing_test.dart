@@ -8,7 +8,12 @@ import 'package:frontend/features/chat/presentation/screens/messages_tab.dart';
 
 const _conversation = Conversation(
   id: 7,
-  otherUser: ChatUser(id: 2, username: 'hana', displayName: 'Hana', avatarUrl: ''),
+  otherUser: ChatUser(
+    id: 2,
+    username: 'hana',
+    displayName: 'Hana',
+    avatarUrl: '',
+  ),
   lastMessage: null,
   unreadCount: 0,
   otherLastReadMessageId: null,
@@ -38,8 +43,10 @@ void main() {
     hub.messagesTabVisible.value = true;
   });
 
-  Widget chat() =>
-      ChatDetailScreen(conversation: _conversation, service: _FakeChatService());
+  Widget chat() => ChatDetailScreen(
+    conversation: _conversation,
+    service: _FakeChatService(),
+  );
 
   Future<void> pumpInTab(WidgetTester tester) async {
     await tester.pumpWidget(

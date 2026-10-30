@@ -1,0 +1,190 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/features/chat/data/models/chat_models.dart';
+import 'package:frontend/features/chat/data/services/chat_service.dart';
+import 'package:frontend/features/chat/presentation/screens/chat_detail_screen.dart';
+import 'package:frontend/features/chat/presentation/widgets/chat_image_viewer.dart';
+
+const _conversation = Conversation(
+  id: 7,
+  otherUser: ChatUser(
+    id: 2,
+    username: 'hana',
+    displayName: 'Hana',
+    avatarUrl: '',
+  ),
+  lastMessage: null,
+  unreadCount: 0,
+  otherLastReadMessageId: null,
+  canMessage: true,
+  lastMessageAt: null,
+);
+
+ChatMessage _message(int id, String content) => ChatMessage(
+  id: id,
+  conversationId: 7,
+  senderId: 2,
+  type: MessageType.text,
+  content: content,
+  clientMsgId: 'c$id',
+  createdAt: DateTime(2026, 10, 31, 9, id),
+);
+
+class _FakeChatService extends ChatService {
+  _FakeChatService(this.messages);
+
+  final List<ChatMessage> messages;
+
+  @override
+  Future<Conversation> fetchConversation(int id) async => _conversation;
+
+  @override
+  Future<MessagePage> fetchMessages(
+    int conversationId, {
+    int? before,
+    int? after,
+    int size = 30,
+  }) async => MessagePage(messages: messages, hasMore: false, nextCursor: null);
+}
+
+void main() {
+  Future<void> pumpChat(WidgetTester tester, List<ChatMessage> messages) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChatDetailScreen(
+          conversation: _conversation,
+          service: _FakeChatService(messages),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('tin chỉ hiện nội dung, chạm để xem giờ và nút tra từ', (
+    tester,
+  ) async {
+    await pumpChat(tester, [_message(5, 'こんにちは')]);
+
+    expect(find.text('09:05'), findsNothing);
+    expect(find.text('Tra từ'), findsNothing);
+
+    await tester.tap(find.text('こんにちは'));
+    await tester.pump();
+    expect(find.text('09:05'), findsOneWidget);
+    expect(find.text('Tra từ'), findsOneWidget);
+
+    await tester.tap(find.text('こんにちは'));
+    await tester.pump();
+    expect(find.text('09:05'), findsNothing);
+  });
+
+  testWidgets('kéo sang trái hiện giờ mọi tin, thả ra thì ẩn', (tester) async {
+    await pumpChat(tester, [_message(5, 'Xin chào'), _message(1, 'Chào bạn')]);
+
+    final gesture = await tester.startGesture(const Offset(300, 200));
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-30, 0));
+    await tester.pump();
+    expect(find.text('09:05'), findsOneWidget);
+    expect(find.text('09:01'), findsOneWidget);
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.text('09:05'), findsNothing);
+  });
+
+  testWidgets('giữ lâu tin chữ Nhật mở menu tra từ, dịch, sao chép', (
+    tester,
+  ) async {
+    await pumpChat(tester, [_message(5, 'こんにちは')]);
+
+    await tester.longPress(find.text('こんにちは'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tra từ'), findsOneWidget);
+    expect(find.text('Dịch'), findsOneWidget);
+    expect(find.text('Sao chép'), findsOneWidget);
+    expect(find.text('Thu hồi'), findsNothing);
+  });
+
+  testWidgets('cuộn lên xem tin cũ thì hiện nút về tin mới nhất', (
+    tester,
+  ) async {
+    await pumpChat(tester, [
+      for (var i = 60; i > 0; i--) _message(i, 'Tin số $i'),
+    ]);
+    expect(find.byTooltip('Về tin mới nhất'), findsNothing);
+
+    await tester.drag(find.byType(ListView), const Offset(0, 600));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Về tin mới nhất'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Về tin mới nhất'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Về tin mới nhất'), findsNothing);
+  });
+
+  group('xem ảnh', () {
+    Future<void> pumpViewer(WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => const ChatImageViewer(url: ''),
+              ),
+              child: const Text('mở'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('mở'));
+      await tester.pumpAndSettle();
+      tester.takeException();
+    }
+
+    testWidgets('vuốt xuống thì đóng', (tester) async {
+      await pumpViewer(tester);
+
+      await tester.dragFrom(const Offset(400, 200), const Offset(0, 200));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(ChatImageViewer), findsNothing);
+    });
+
+    testWidgets('vuốt ngắn thì không đóng', (tester) async {
+      await pumpViewer(tester);
+
+      await tester.dragFrom(const Offset(400, 200), const Offset(0, 40));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      expect(find.byType(ChatImageViewer), findsOneWidget);
+    });
+
+    testWidgets('chạm đúp phóng to rồi không vuốt đóng được', (tester) async {
+      await pumpViewer(tester);
+
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      tester.takeException();
+
+      final viewer = tester.widget<InteractiveViewer>(
+        find.byType(InteractiveViewer),
+      );
+      expect(
+        viewer.transformationController!.value.getMaxScaleOnAxis(),
+        greaterThan(1),
+      );
+
+      await tester.dragFrom(const Offset(400, 200), const Offset(0, 200));
+      await tester.pumpAndSettle();
+      tester.takeException();
+      expect(find.byType(ChatImageViewer), findsOneWidget);
+    });
+  });
+}

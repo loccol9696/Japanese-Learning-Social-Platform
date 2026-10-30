@@ -8,6 +8,7 @@ import '../../../home/presentation/widgets/word_lookup_card.dart';
 Future<void> showMessageStudySheet(BuildContext context, String text) {
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: AppPalette.surface,

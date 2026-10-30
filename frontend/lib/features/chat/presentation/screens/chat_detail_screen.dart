@@ -16,13 +16,19 @@ import '../../data/services/chat_socket_service.dart';
 import '../chat_format.dart';
 import '../route_visibility.dart';
 import '../widgets/chat_avatar.dart';
+import '../widgets/chat_image_viewer.dart';
+import '../widgets/confirm_block_dialog.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_study_sheet.dart';
+import '../widgets/time_reveal.dart';
 import 'messages_tab.dart';
 import 'shared_video_screen.dart';
 
 /// Khung chat 1-1. Danh sách tin được giữ theo thứ tự mới nhất trước và hiển thị
 /// bằng ListView đảo ngược, nên tin mới luôn nằm sát ô nhập.
+///
+/// Thao tác: chạm tin để xem giờ và nút tra từ/dịch, giữ lâu để mở menu, kéo khung
+/// chat sang trái để xem giờ mọi tin, vuốt danh sách để ẩn bàn phím.
 class ChatDetailScreen extends StatefulWidget {
   final Conversation conversation;
   final ChatService? service;
@@ -33,7 +39,8 @@ class ChatDetailScreen extends StatefulWidget {
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
 }
 
-class _ChatDetailScreenState extends State<ChatDetailScreen> {
+class _ChatDetailScreenState extends State<ChatDetailScreen>
+    with SingleTickerProviderStateMixin {
   static const Duration _typingIdle = Duration(seconds: 3);
   static const Duration _typingExpire = Duration(seconds: 5);
 
@@ -41,11 +48,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   static const Duration _typingHeartbeat = Duration(seconds: 3);
   static const Duration _recallWindow = Duration(hours: 24);
 
+  /// Tin cùng một người gửi cách nhau trong khoảng này được gộp thành một nhóm.
+  static const Duration _groupWindow = Duration(minutes: 2);
+
+  /// Cuộn lên quá khoảng này thì hiện nút về tin mới nhất.
+  static const double _jumpButtonOffset = 240;
+
   late final ChatService _service = widget.service ?? ChatService();
   final _socket = ChatSocketService.instance;
   final _hub = ChatHub.instance;
   final _input = TextEditingController();
   final _scroll = ScrollController();
+  late final AnimationController _timeReveal = AnimationController(vsync: this);
 
   late Conversation _conversation = widget.conversation;
   final List<ChatMessage> _messages = [];
@@ -71,6 +85,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final Map<int, String> _translations = {};
   final Set<int> _shownTranslations = {};
   final Set<int> _translating = {};
+
+  /// Tin đang mở giờ gửi và nút thao tác (chạm vào tin).
+  int? _detailsMessageId;
+
+  bool _showJumpButton = false;
+
+  /// Số tin mới đến trong lúc đang cuộn xem tin cũ.
+  int _unseenBelow = 0;
 
   int get _myId => AuthSession.instance.user?.id ?? 0;
   int get _conversationId => _conversation.id;
@@ -118,6 +140,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _myTypingTimer?.cancel();
     _input.dispose();
     _scroll.dispose();
+    _timeReveal.dispose();
     super.dispose();
   }
 
@@ -235,9 +258,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   void _onScroll() {
-    if (_scroll.hasClients &&
-        _scroll.position.pixels >= _scroll.position.maxScrollExtent - 200) {
-      _loadMore();
+    if (!_scroll.hasClients) return;
+    final position = _scroll.position;
+    if (position.pixels >= position.maxScrollExtent - 200) _loadMore();
+
+    final showJump = position.pixels > _jumpButtonOffset;
+    if (showJump != _showJumpButton) {
+      setState(() {
+        _showJumpButton = showJump;
+        if (!showJump) _unseenBelow = 0;
+      });
     }
   }
 
@@ -249,7 +279,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (message.conversationId != _conversationId || !mounted) return;
     setState(() {
       _upsert(message);
-      if (message.senderId != _myId) _setOtherTyping(false);
+      if (message.senderId != _myId) {
+        _setOtherTyping(false);
+        if (_showJumpButton) _unseenBelow++;
+      }
     });
     if (message.senderId != _myId) _markReadLatest();
   }
@@ -500,21 +533,55 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   // Thao tác trên tin nhắn
   // ---------------------------------------------------------------------------
 
+  void _toggleDetails(ChatMessage message) {
+    final id = message.id;
+    if (id == null) return;
+    setState(() => _detailsMessageId = _detailsMessageId == id ? null : id);
+  }
+
   Future<void> _showMessageActions(ChatMessage message) async {
     if (message.id == null || message.recalled) return;
     final canCopy = message.content.isNotEmpty;
+    final canStudy = containsJapanese(message.content);
+    final translated = _shownTranslations.contains(message.id);
     final canRecall =
         message.senderId == _myId &&
         DateTime.now().difference(message.createdAt) < _recallWindow;
     if (!canCopy && !canRecall) return;
 
+    unawaited(HapticFeedback.mediumImpact());
     final action = await showModalBottomSheet<_MessageAction>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: AppPalette.surface,
       builder: (sheet) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (canStudy)
+              ListTile(
+                leading: Icon(
+                  Icons.menu_book_rounded,
+                  color: AppPalette.textPrimary,
+                ),
+                title: Text(
+                  'Tra từ',
+                  style: TextStyle(color: AppPalette.textPrimary),
+                ),
+                onTap: () => Navigator.of(sheet).pop(_MessageAction.study),
+              ),
+            if (canStudy)
+              ListTile(
+                leading: Icon(
+                  Icons.translate_rounded,
+                  color: AppPalette.textPrimary,
+                ),
+                title: Text(
+                  translated ? 'Ẩn bản dịch' : 'Dịch',
+                  style: TextStyle(color: AppPalette.textPrimary),
+                ),
+                onTap: () => Navigator.of(sheet).pop(_MessageAction.translate),
+              ),
             if (canCopy)
               ListTile(
                 leading: Icon(
@@ -542,6 +609,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
     if (!mounted) return;
     switch (action) {
+      case _MessageAction.study:
+        await showMessageStudySheet(context, message.content);
+      case _MessageAction.translate:
+        await _toggleTranslation(message);
       case _MessageAction.copy:
         await Clipboard.setData(ClipboardData(text: message.content));
         if (mounted) AppToast.showSuccess('Đã sao chép', context: context);
@@ -590,28 +661,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void _openImage(String url) {
     showDialog<void>(
       context: context,
-      builder: (dialog) => Dialog.fullscreen(
-        backgroundColor: AppPalette.background,
-        child: Stack(
-          children: [
-            Center(child: InteractiveViewer(child: Image.network(url))),
-            SafeArea(
-              child: IconButton(
-                tooltip: 'Đóng',
-                onPressed: () => Navigator.of(dialog).pop(),
-                icon: Icon(Icons.close_rounded, color: AppPalette.textPrimary),
-              ),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => ChatImageViewer(url: url),
     );
   }
 
   Future<void> _toggleBlock() async {
     final user = _conversation.otherUser;
     final blocked = _conversation.blockedByMe;
-    if (!blocked && !await _confirmBlock(user)) return;
+    if (!blocked && !await confirmBlockUser(context, user)) return;
     try {
       if (blocked) {
         await _service.unblockUser(user.id);
@@ -629,30 +686,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     } on ApiException catch (error) {
       if (mounted) AppToast.showError(error.message, context: context);
     }
-  }
-
-  Future<bool> _confirmBlock(ChatUser user) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: Text('Chặn ${user.name}?'),
-        content: const Text(
-          'Hai bạn sẽ không nhắn tin cho nhau được nữa. '
-          'Lịch sử trò chuyện vẫn được giữ lại.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialog).pop(false),
-            child: const Text('Huỷ'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialog).pop(true),
-            child: const Text('Chặn'),
-          ),
-        ],
-      ),
-    );
-    return confirmed == true;
   }
 
   void _scrollToBottom() {
@@ -686,8 +719,60 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       appBar: _buildAppBar(),
       body: Column(
         children: [
-          Expanded(child: _buildBody()),
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(child: _buildBody()),
+                if (_showJumpButton) _buildJumpButton(),
+              ],
+            ),
+          ),
           _canMessage ? _buildComposer() : _buildLockedBanner(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJumpButton() {
+    return Positioned(
+      right: 12,
+      bottom: 8,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          IconButton.filled(
+            tooltip: 'Về tin mới nhất',
+            onPressed: _scrollToBottom,
+            style: IconButton.styleFrom(
+              backgroundColor: AppPalette.surfaceHigh,
+            ),
+            icon: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: AppPalette.textPrimary,
+            ),
+          ),
+          if (_unseenBelow > 0)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                constraints: const BoxConstraints(minWidth: 18),
+                decoration: BoxDecoration(
+                  color: AppPalette.accent,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  _unseenBelow > 99 ? '99+' : '$_unseenBelow',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppPalette.onAccent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -724,6 +809,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       backgroundColor: AppPalette.background,
       elevation: 0,
       titleSpacing: 0,
+      leading: ModalRoute.of(context)?.canPop == true
+          ? IconButton(
+              tooltip: 'Quay lại',
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            )
+          : null,
       actions: [
         PopupMenuButton<void>(
           tooltip: 'Tuỳ chọn',
@@ -753,18 +845,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     style: TextStyle(
                       color: AppPalette.textPrimary,
                       fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  Text(
-                    _otherTyping ? 'đang nhập...' : '@${user.username}',
-                    style: TextStyle(
-                      color: _otherTyping
-                          ? AppPalette.accent
-                          : AppPalette.textSecondary,
-                      fontSize: 12,
+                  if (_otherTyping)
+                    Text(
+                      'đang nhập...',
+                      style: TextStyle(color: AppPalette.accent, fontSize: 12),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -807,61 +895,92 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         .map((m) => m.id!)
         .fold<int?>(null, (best, id) => best == null || id > best ? id : best);
 
-    return ListView.builder(
-      controller: _scroll,
-      reverse: true,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      itemCount: _messages.length + (_loadingMore ? 1 : 0),
-      itemBuilder: (_, index) {
-        if (index >= _messages.length) {
-          return const Padding(
-            padding: EdgeInsets.all(12),
-            child: Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          );
-        }
-        final message = _messages[index];
-        final older = index + 1 < _messages.length
-            ? _messages[index + 1]
-            : null;
-        final showDay =
-            older == null || !isSameDay(older.createdAt, message.createdAt);
-        final isMine = message.senderId == _myId;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: TimeRevealGesture(
+        controller: _timeReveal,
+        child: ListView.builder(
+          controller: _scroll,
+          reverse: true,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          itemCount: _messages.length + (_loadingMore ? 1 : 0),
+          itemBuilder: (_, index) {
+            if (index >= _messages.length) {
+              return const Padding(
+                padding: EdgeInsets.all(12),
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            }
+            final message = _messages[index];
+            final newer = index > 0 ? _messages[index - 1] : null;
+            final older = index + 1 < _messages.length
+                ? _messages[index + 1]
+                : null;
+            final showDay =
+                older == null || !isSameDay(older.createdAt, message.createdAt);
+            final isMine = message.senderId == _myId;
+            final joinsOlder = older != null && _sameGroup(older, message);
 
-        return Column(
-          children: [
-            if (showDay) _DayLabel(label: formatDayLabel(message.createdAt)),
-            MessageBubble(
-              message: message,
-              isMine: isMine,
-              showSeen:
-                  isMine &&
-                  message.id != null &&
-                  message.id == lastMineId &&
-                  seenId != null &&
-                  seenId >= message.id!,
-              translation:
-                  message.id != null && _shownTranslations.contains(message.id)
-                  ? _translations[message.id]
-                  : null,
-              translating: _translating.contains(message.id),
-              onRetry: () => _retry(message),
-              onOpenVideo: () => _openVideo(message),
-              onOpenImage: () => _openImage(message.imageUrl),
-              onLongPress: () => _showMessageActions(message),
-              onStudy: () => showMessageStudySheet(context, message.content),
-              onTranslate: () => _toggleTranslation(message),
-            ),
-          ],
-        );
-      },
+            return Padding(
+              padding: EdgeInsets.only(top: joinsOlder ? 2 : 12),
+              child: Column(
+                children: [
+                  if (showDay)
+                    _DayLabel(label: formatDayLabel(message.createdAt)),
+                  TimeRevealRow(
+                    animation: _timeReveal,
+                    time: message.createdAt,
+                    isMine: isMine,
+                    child: MessageBubble(
+                      message: message,
+                      isMine: isMine,
+                      isLastInGroup:
+                          newer == null || !_sameGroup(message, newer),
+                      showDetails:
+                          message.id != null && message.id == _detailsMessageId,
+                      showSeen:
+                          isMine &&
+                          message.id != null &&
+                          message.id == lastMineId &&
+                          seenId != null &&
+                          seenId >= message.id!,
+                      translation:
+                          message.id != null &&
+                              _shownTranslations.contains(message.id)
+                          ? _translations[message.id]
+                          : null,
+                      translating: _translating.contains(message.id),
+                      onTap: () => _toggleDetails(message),
+                      onRetry: () => _retry(message),
+                      onOpenVideo: () => _openVideo(message),
+                      onOpenImage: () => _openImage(message.imageUrl),
+                      onLongPress: () => _showMessageActions(message),
+                      onStudy: () =>
+                          showMessageStudySheet(context, message.content),
+                      onTranslate: () => _toggleTranslation(message),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
+
+  /// Hai tin liền nhau cùng người gửi, gửi cách nhau không lâu.
+  bool _sameGroup(ChatMessage older, ChatMessage newer) =>
+      older.senderId == newer.senderId &&
+      newer.createdAt.difference(older.createdAt).abs() < _groupWindow;
 
   Widget _buildComposer() {
     final hasText = _input.text.trim().isNotEmpty;
@@ -961,7 +1080,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 }
 
-enum _MessageAction { copy, recall }
+enum _MessageAction { study, translate, copy, recall }
 
 class _DayLabel extends StatelessWidget {
   final String label;

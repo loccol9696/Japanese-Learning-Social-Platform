@@ -6,14 +6,22 @@ import '../chat_format.dart';
 import 'video_share_card.dart';
 
 /// Một tin nhắn trong khung chat. Tin của mình nằm bên phải (màu nhấn), của đối
-/// phương bên trái. Tin gửi lỗi có thể bấm để gửi lại; tin có chữ Nhật có thêm nút
-/// tra từ và dịch.
+/// phương bên trái. Các tin liên tiếp của một người gộp thành nhóm, chỉ tin cuối nhóm
+/// có góc nhọn. Bong bóng chỉ hiện nội dung; chạm vào tin để xem giờ gửi và nút tra
+/// từ, dịch (với tin có chữ Nhật). Tin gửi lỗi chạm để gửi lại.
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isMine;
 
+  /// Tin cuối của một nhóm tin liên tiếp.
+  final bool isLastInGroup;
+
+  /// Đang hiện giờ gửi và các nút thao tác dưới tin.
+  final bool showDetails;
+
   /// Hiển thị "Đã xem" dưới tin này.
   final bool showSeen;
+  final VoidCallback? onTap;
   final VoidCallback? onRetry;
   final VoidCallback? onOpenVideo;
   final VoidCallback? onOpenImage;
@@ -29,7 +37,10 @@ class MessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     required this.isMine,
+    this.isLastInGroup = true,
+    this.showDetails = false,
     this.showSeen = false,
+    this.onTap,
     this.onRetry,
     this.onOpenVideo,
     this.onOpenImage,
@@ -40,143 +51,132 @@ class MessageBubble extends StatelessWidget {
     this.translating = false,
   });
 
-  bool get _showsStudyActions =>
+  bool get _failed => message.status == MessageStatus.failed;
+  bool get _sending => message.status == MessageStatus.sending;
+  bool get _isImage => !message.recalled && message.type == MessageType.image;
+  bool get _isShare =>
+      !message.recalled &&
+      message.type == MessageType.videoShare &&
+      message.video != null;
+
+  bool get _canStudy =>
       !message.recalled &&
       message.id != null &&
       containsJapanese(message.content);
 
+  Color get _textColor => isMine ? AppPalette.onAccent : AppPalette.textPrimary;
+
   @override
   Widget build(BuildContext context) {
-    final isShare =
-        !message.recalled &&
-        message.type == MessageType.videoShare &&
-        message.video != null;
-    final isImage = !message.recalled && message.type == MessageType.image;
-    final failed = message.status == MessageStatus.failed;
+    return Column(
+      crossAxisAlignment: isMine
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: isMine
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (_failed && isMine)
+              IconButton(
+                onPressed: onRetry,
+                tooltip: 'Gửi lại',
+                icon: Icon(Icons.error_outline_rounded, color: AppPalette.like),
+              ),
+            Flexible(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _failed ? onRetry : onTap,
+                onLongPress: onLongPress,
+                child: _buildBubble(context),
+              ),
+            ),
+          ],
+        ),
+        if (showDetails || _sending) _buildMeta(),
+        if (_canStudy && (showDetails || translation != null))
+          _buildStudyActions(),
+        if (translation != null) _buildTranslation(context),
+        if (_failed && isMine)
+          _caption('Chưa gửi được • bấm để gửi lại', AppPalette.like),
+        if (showSeen) _caption('Đã xem', AppPalette.textSecondary),
+      ],
+    );
+  }
 
+  Widget _caption(String text, Color color) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Column(
-        crossAxisAlignment: isMine
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: isMine
-                ? MainAxisAlignment.end
-                : MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (failed && isMine)
-                IconButton(
-                  onPressed: onRetry,
-                  tooltip: 'Gửi lại',
-                  icon: Icon(
-                    Icons.error_outline_rounded,
-                    color: AppPalette.like,
-                  ),
-                ),
-              Flexible(
-                child: GestureDetector(
-                  onLongPress: onLongPress,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.sizeOf(context).width * 0.78,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-                      decoration: BoxDecoration(
-                        color: message.recalled
-                            ? Colors.transparent
-                            : isMine
-                            ? AppPalette.accent
-                            : AppPalette.surfaceHigh,
-                        border: message.recalled
-                            ? Border.all(color: AppPalette.border)
-                            : null,
-                        borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(18),
-                          topRight: const Radius.circular(18),
-                          bottomLeft: Radius.circular(isMine ? 18 : 4),
-                          bottomRight: Radius.circular(isMine ? 4 : 18),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (message.recalled) _buildRecalled(),
-                          if (isShare)
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: VideoShareCard(
-                                video: message.video!,
-                                startMs: message.videoStartMs,
-                                onTap: message.video!.available
-                                    ? onOpenVideo
-                                    : null,
-                              ),
-                            ),
-                          if (isImage) _buildImage(),
-                          if (!message.recalled && message.content.isNotEmpty)
-                            Padding(
-                              padding: EdgeInsets.only(top: isShare ? 8 : 0),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  message.content,
-                                  style: TextStyle(
-                                    color: AppPalette.textPrimary,
-                                    fontSize: 15,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 3),
-                          _buildMeta(),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+      padding: const EdgeInsets.only(top: 3, left: 6, right: 6),
+      child: Text(text, style: TextStyle(color: color, fontSize: 11)),
+    );
+  }
+
+  Widget _buildBubble(BuildContext context) {
+    const round = Radius.circular(20);
+    final tail = isLastInGroup ? const Radius.circular(4) : round;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width * 0.75,
+      ),
+      child: Container(
+        padding: _isImage
+            ? const EdgeInsets.all(4)
+            : const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: message.recalled
+              ? Colors.transparent
+              : isMine
+              ? AppPalette.accent
+              : AppPalette.surfaceHigh,
+          border: message.recalled
+              ? Border.all(color: AppPalette.border)
+              : null,
+          borderRadius: BorderRadius.only(
+            topLeft: round,
+            topRight: round,
+            bottomLeft: isMine ? round : tail,
+            bottomRight: isMine ? tail : round,
           ),
-          if (_showsStudyActions) _buildStudyActions(),
-          if (translation != null) _buildTranslation(context),
-          if (failed && isMine)
-            Padding(
-              padding: EdgeInsets.only(top: 2, right: 4),
-              child: Text(
-                'Chưa gửi được • bấm để gửi lại',
-                style: TextStyle(color: AppPalette.like, fontSize: 11),
-              ),
-            ),
-          if (showSeen)
-            Padding(
-              padding: EdgeInsets.only(top: 2, right: 4),
-              child: Text(
-                'Đã xem',
-                style: TextStyle(color: AppPalette.textSecondary, fontSize: 11),
-              ),
-            ),
-        ],
+        ),
+        child: _buildContent(),
       ),
     );
   }
 
-  Widget _buildRecalled() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
+  Widget _buildContent() {
+    if (message.recalled) {
+      return Text(
         'Tin nhắn đã được thu hồi',
         style: TextStyle(
           color: AppPalette.textSecondary,
           fontSize: 14,
           fontStyle: FontStyle.italic,
         ),
-      ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_isShare)
+          VideoShareCard(
+            video: message.video!,
+            startMs: message.videoStartMs,
+            onTap: message.video!.available ? onOpenVideo : null,
+          ),
+        if (_isImage) _buildImage(),
+        if (message.content.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.only(top: _isShare ? 8 : 0),
+            child: Text(
+              message.content,
+              style: TextStyle(color: _textColor, fontSize: 15, height: 1.3),
+            ),
+          ),
+      ],
     );
   }
 
@@ -199,7 +199,7 @@ class MessageBubble extends StatelessWidget {
     return GestureDetector(
       onTap: message.imageUrl.isNotEmpty ? onOpenImage : null,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 280),
           child: image,
@@ -208,9 +208,33 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
+  Widget _buildMeta() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 3, left: 6, right: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            formatClock(message.createdAt),
+            style: TextStyle(color: AppPalette.textSecondary, fontSize: 11),
+          ),
+          if (isMine && _sending)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Icon(
+                Icons.schedule_rounded,
+                size: 11,
+                color: AppPalette.textSecondary,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStudyActions() {
-    Widget action(String label, VoidCallback? onTap) => InkWell(
-      onTap: onTap,
+    Widget action(String label, VoidCallback? onPressed) => InkWell(
+      onTap: onPressed,
       borderRadius: BorderRadius.circular(6),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -244,7 +268,7 @@ class MessageBubble extends StatelessWidget {
   Widget _buildTranslation(BuildContext context) {
     return ConstrainedBox(
       constraints: BoxConstraints(
-        maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+        maxWidth: MediaQuery.sizeOf(context).width * 0.75,
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -257,27 +281,6 @@ class MessageBubble extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildMeta() {
-    final sending = message.status == MessageStatus.sending;
-    final metaColor = message.recalled
-        ? AppPalette.textSecondary
-        : AppPalette.textPrimary.withValues(alpha: 0.65);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          formatClock(message.createdAt),
-          style: TextStyle(color: metaColor, fontSize: 10),
-        ),
-        if (isMine && sending)
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: Icon(Icons.schedule_rounded, size: 11, color: metaColor),
-          ),
-      ],
     );
   }
 }

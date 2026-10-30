@@ -37,6 +37,7 @@ class ChatSocketService {
 
   Stream<ChatMessage> get onMessage => _messageController.stream;
   Stream<ChatMessage> get onRecalled => _recalledController.stream;
+
   Stream<ReadReceipt> get onRead => _readController.stream;
   Stream<TypingEvent> get onTyping => _typingController.stream;
 
