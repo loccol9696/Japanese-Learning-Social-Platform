@@ -201,4 +201,46 @@ void main() {
       expect(containsJapanese(''), isFalse);
     });
   });
+
+  group('trả lời', () {
+    test('đọc trích dẫn của tin trả lời', () {
+      final message = ChatMessage.fromJson({
+        'id': 2,
+        'conversationId': 1,
+        'senderId': 3,
+        'type': 'TEXT',
+        'content': 'ok',
+        'createdAt': '2026-10-31T09:00:00',
+        'replyTo': {
+          'id': 1,
+          'senderId': 4,
+          'type': 'TEXT',
+          'content': 'Xin chào',
+          'recalled': false,
+        },
+      });
+
+      expect(message.replyTo!.id, 1);
+      expect(message.replyTo!.senderId, 4);
+      expect(message.replyTo!.preview, 'Xin chào');
+    });
+
+    test('tóm tắt trích dẫn theo loại tin', () {
+      MessageReply reply(MessageType type, {bool recalled = false}) =>
+          MessageReply(
+            id: 1,
+            senderId: 2,
+            type: type,
+            content: '',
+            recalled: recalled,
+          );
+
+      expect(reply(MessageType.image).preview, '📷 Ảnh');
+      expect(reply(MessageType.videoShare).preview, '🎬 Video');
+      expect(
+        reply(MessageType.text, recalled: true).preview,
+        'Tin nhắn đã được thu hồi',
+      );
+    });
+  });
 }

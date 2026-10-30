@@ -60,6 +60,13 @@ public class Message {
     private String imageUrl;
 
     /**
+     * Tin được trả lời, cùng hội thoại với tin này
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reply_to_id")
+    private Message replyTo;
+
+    /**
      * Thời điểm người gửi thu hồi tin. Nội dung, video và ảnh được xoá khỏi tin khi thu hồi.
      */
     @Column(name = "recalled_at")

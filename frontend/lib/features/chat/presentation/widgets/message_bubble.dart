@@ -29,6 +29,12 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onStudy;
   final VoidCallback? onTranslate;
 
+  /// Tên người gửi tin được trích dẫn.
+  final String replyAuthor;
+
+  /// Chạm vào trích dẫn để tới tin gốc.
+  final VoidCallback? onOpenReply;
+
   /// Bản dịch đang hiển thị dưới tin (null nếu chưa dịch hoặc đã ẩn).
   final String? translation;
   final bool translating;
@@ -47,6 +53,8 @@ class MessageBubble extends StatelessWidget {
     this.onLongPress,
     this.onStudy,
     this.onTranslate,
+    this.replyAuthor = '',
+    this.onOpenReply,
     this.translation,
     this.translating = false,
   });
@@ -161,6 +169,7 @@ class MessageBubble extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (message.replyTo != null) _buildQuote(message.replyTo!),
         if (_isShare)
           VideoShareCard(
             video: message.video!,
@@ -177,6 +186,46 @@ class MessageBubble extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildQuote(MessageReply reply) {
+    final bar = isMine ? AppPalette.onAccent : AppPalette.accent;
+    final muted = isMine
+        ? AppPalette.onAccent.withValues(alpha: 0.8)
+        : AppPalette.textSecondary;
+
+    return GestureDetector(
+      onTap: onOpenReply,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.only(left: 8),
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: bar, width: 3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              replyAuthor,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: bar,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              reply.preview,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: muted, fontSize: 13, height: 1.25),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

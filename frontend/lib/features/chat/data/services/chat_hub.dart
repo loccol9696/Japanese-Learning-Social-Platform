@@ -120,16 +120,23 @@ class ChatHub with WidgetsBindingObserver {
     required int conversationId,
     required String content,
     required String clientMsgId,
+    int? replyToId,
   }) async {
     try {
       return await _socket.sendText(
         conversationId: conversationId,
         content: content,
         clientMsgId: clientMsgId,
+        replyToId: replyToId,
       );
     } on ApiException catch (error) {
       if (!_shouldFallBackToRest(error)) rethrow;
-      return _service.sendText(conversationId, content, clientMsgId);
+      return _service.sendText(
+        conversationId,
+        content,
+        clientMsgId,
+        replyToId: replyToId,
+      );
     }
   }
 
@@ -138,16 +145,23 @@ class ChatHub with WidgetsBindingObserver {
     required int conversationId,
     required String imageUrl,
     required String clientMsgId,
+    int? replyToId,
   }) async {
     try {
       return await _socket.sendImage(
         conversationId: conversationId,
         imageUrl: imageUrl,
         clientMsgId: clientMsgId,
+        replyToId: replyToId,
       );
     } on ApiException catch (error) {
       if (!_shouldFallBackToRest(error)) rethrow;
-      return _service.sendImage(conversationId, imageUrl, clientMsgId);
+      return _service.sendImage(
+        conversationId,
+        imageUrl,
+        clientMsgId,
+        replyToId: replyToId,
+      );
     }
   }
 

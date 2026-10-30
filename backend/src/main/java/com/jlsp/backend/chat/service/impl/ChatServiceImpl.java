@@ -266,6 +266,7 @@ public class ChatServiceImpl implements ChatService {
         message.setVideoId(null);
         message.setVideoStartMs(null);
         message.setImageUrl(null);
+        message.setReplyTo(null);
         messageRepository.save(message);
 
         MessageResponse response = chatMapper.toMessageResponse(message, Map.of());
@@ -372,6 +373,8 @@ public class ChatServiceImpl implements ChatService {
             throw new AppException(400, "Loại tin nhắn không hợp lệ");
         }
 
+        Message replyTo = resolveReplyTarget(conversation, request.getReplyToId());
+
         Message message = messageRepository.save(Message.builder()
                 .conversation(conversation)
                 .sender(userRepository.getReferenceById(senderId))
@@ -380,6 +383,7 @@ public class ChatServiceImpl implements ChatService {
                 .videoId(video != null ? video.getId() : null)
                 .videoStartMs(video != null ? request.getVideoStartMs() : null)
                 .imageUrl(imageUrl)
+                .replyTo(replyTo)
                 .clientMsgId(request.getClientMsgId() == null || request.getClientMsgId().isBlank()
                         ? null : request.getClientMsgId())
                 .build());
@@ -464,6 +468,20 @@ public class ChatServiceImpl implements ChatService {
             throw new AppException(403, "Bạn không thuộc hội thoại này");
         }
         return conversation;
+    }
+
+    private Message resolveReplyTarget(Conversation conversation, Long replyToId) {
+        if (replyToId == null) {
+            return null;
+        }
+        Message target = requireMessage(replyToId);
+        if (!target.getConversation().getId().equals(conversation.getId())) {
+            throw new AppException(400, "Tin nhắn được trả lời không thuộc hội thoại này");
+        }
+        if (target.getRecalledAt() != null) {
+            throw new AppException(400, "Tin nhắn này đã được thu hồi");
+        }
+        return target;
     }
 
     private Message requireMessage(Long messageId) {

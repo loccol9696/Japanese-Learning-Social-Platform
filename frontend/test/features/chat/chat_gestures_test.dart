@@ -124,6 +124,106 @@ void main() {
     expect(find.byTooltip('Về tin mới nhất'), findsNothing);
   });
 
+  group('trả lời', () {
+    const replyBar = 'Đang trả lời Hana';
+
+    testWidgets('vuốt tin sang phải thì mở thanh trả lời, bấm huỷ thì tắt', (
+      tester,
+    ) async {
+      await pumpChat(tester, [_message(5, 'Xin chào')]);
+
+      await tester.drag(find.text('Xin chào'), const Offset(140, 0));
+      await tester.pumpAndSettle();
+      expect(find.text(replyBar), findsOneWidget);
+      expect(find.text('Xin chào'), findsNWidgets(2));
+
+      await tester.tap(find.byTooltip('Huỷ trả lời'));
+      await tester.pump();
+      expect(find.text(replyBar), findsNothing);
+    });
+
+    testWidgets('vuốt ngắn thì không trả lời', (tester) async {
+      await pumpChat(tester, [_message(5, 'Xin chào')]);
+
+      await tester.drag(find.text('Xin chào'), const Offset(40, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.text(replyBar), findsNothing);
+    });
+
+    testWidgets('kéo sang trái vẫn là xem giờ, không trả lời', (tester) async {
+      await pumpChat(tester, [_message(5, 'Xin chào')]);
+
+      await tester.drag(find.text('Xin chào'), const Offset(-140, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.text(replyBar), findsNothing);
+    });
+
+    testWidgets('tin đã thu hồi không vuốt trả lời được', (tester) async {
+      final recalled = ChatMessage(
+        id: 5,
+        conversationId: 7,
+        senderId: 2,
+        type: MessageType.text,
+        content: '',
+        recalled: true,
+        clientMsgId: 'c5',
+        createdAt: DateTime(2026, 10, 31, 9, 5),
+      );
+      await pumpChat(tester, [recalled]);
+
+      await tester.drag(
+        find.text('Tin nhắn đã được thu hồi'),
+        const Offset(140, 0),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(replyBar), findsNothing);
+    });
+
+    testWidgets('giữ lâu có mục trả lời', (tester) async {
+      await pumpChat(tester, [_message(5, 'Xin chào')]);
+
+      await tester.longPress(find.text('Xin chào'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Trả lời'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(replyBar), findsOneWidget);
+    });
+
+    testWidgets('bấm trích dẫn thì cuộn tới tin gốc ở xa', (tester) async {
+      const original = MessageReply(
+        id: 1,
+        senderId: 2,
+        type: MessageType.text,
+        content: 'Tin đầu tiên',
+      );
+      final newest = ChatMessage(
+        id: 61,
+        conversationId: 7,
+        senderId: 2,
+        type: MessageType.text,
+        content: 'Trả lời tin đầu',
+        replyTo: original,
+        clientMsgId: 'c61',
+        createdAt: DateTime(2026, 10, 31, 10, 1),
+      );
+      await pumpChat(tester, [
+        newest,
+        for (var i = 60; i > 1; i--) _message(i, 'Tin số $i'),
+        _message(1, 'Tin gốc ở đầu'),
+      ]);
+      expect(find.text('Tin gốc ở đầu'), findsNothing);
+
+      await tester.tap(find.text('Tin đầu tiên'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tin gốc ở đầu'), findsOneWidget);
+    });
+  });
+
   group('xem ảnh', () {
     Future<void> pumpViewer(WidgetTester tester) async {
       await tester.pumpWidget(

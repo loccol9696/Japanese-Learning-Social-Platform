@@ -305,6 +305,72 @@ class ChatServiceImplTest {
     }
 
     @Test
+    void replyKeepsAShortPreviewOfTheOriginal() {
+        Message original = message(6L);
+        original.setContent("あ".repeat(500));
+        when(messageRepository.findById(6L)).thenReturn(Optional.of(original));
+        when(participantRepository.updateLastReadMessageId(CONVERSATION_ID, ME, 100L)).thenReturn(1);
+        when(userRepository.getReferenceById(ME)).thenReturn(me);
+        SendMessageRequest request = textRequest();
+        request.setReplyToId(6L);
+
+        MessageResponse response = service.sendMessage(ME, request);
+
+        assertThat(response.getReplyTo().getId()).isEqualTo(6L);
+        assertThat(response.getReplyTo().getSenderId()).isEqualTo(ME);
+        assertThat(response.getReplyTo().getContent()).hasSize(120);
+    }
+
+    @Test
+    void cannotReplyToAMessageFromAnotherConversation() {
+        Message elsewhere = message(6L);
+        elsewhere.setConversation(Conversation.builder().id(99L).build());
+        when(messageRepository.findById(6L)).thenReturn(Optional.of(elsewhere));
+        SendMessageRequest request = textRequest();
+        request.setReplyToId(6L);
+
+        assertThatThrownBy(() -> service.sendMessage(ME, request))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(400));
+        verify(messageRepository, never()).save(any());
+    }
+
+    @Test
+    void cannotReplyToARecalledMessage() {
+        Message recalled = message(6L);
+        recalled.setRecalledAt(LocalDateTime.now());
+        when(messageRepository.findById(6L)).thenReturn(Optional.of(recalled));
+        SendMessageRequest request = textRequest();
+        request.setReplyToId(6L);
+
+        assertThatThrownBy(() -> service.sendMessage(ME, request))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(400));
+    }
+
+    @Test
+    void replyPreviewShowsWhenTheOriginalWasRecalled() {
+        Message original = message(6L);
+        original.setContent(null);
+        original.setRecalledAt(LocalDateTime.now());
+        Message reply = message(7L);
+        reply.setReplyTo(original);
+
+        MessageResponse response = new ChatMapper().toMessageResponse(reply, java.util.Map.of());
+
+        assertThat(response.getReplyTo().getRecalled()).isTrue();
+        assertThat(response.getReplyTo().getContent()).isNull();
+    }
+
+    @Test
+    void recallingAReplyDropsItsQuote() {
+        Message reply = message(7L);
+        reply.setReplyTo(message(6L));
+        reply.setCreatedAt(LocalDateTime.now());
+        when(messageRepository.findById(7L)).thenReturn(Optional.of(reply));
+
+        assertThat(service.recallMessage(ME, 7L).getReplyTo()).isNull();
+    }
+
+    @Test
     void registeringAKnownTokenMovesItToTheCurrentUser() {
         DeviceToken device = DeviceToken.builder().token("abc").user(other).platform("android").build();
         when(deviceTokenRepository.findByToken("abc")).thenReturn(Optional.of(device));

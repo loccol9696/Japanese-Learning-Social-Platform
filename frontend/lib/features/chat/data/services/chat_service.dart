@@ -61,11 +61,17 @@ class ChatService {
   Future<ChatMessage> sendText(
     int conversationId,
     String content,
-    String clientMsgId,
-  ) async {
+    String clientMsgId, {
+    int? replyToId,
+  }) async {
     final data = await _api.post(
       ApiConstants.chatMessagesUrl(conversationId),
-      body: {'type': 'TEXT', 'content': content, 'clientMsgId': clientMsgId},
+      body: {
+        'type': 'TEXT',
+        'content': content,
+        'clientMsgId': clientMsgId,
+        'replyToId': ?replyToId,
+      },
     );
     return ChatMessage.fromJson(_map(data));
   }
@@ -74,11 +80,17 @@ class ChatService {
   Future<ChatMessage> sendImage(
     int conversationId,
     String imageUrl,
-    String clientMsgId,
-  ) async {
+    String clientMsgId, {
+    int? replyToId,
+  }) async {
     final data = await _api.post(
       ApiConstants.chatMessagesUrl(conversationId),
-      body: {'type': 'IMAGE', 'imageUrl': imageUrl, 'clientMsgId': clientMsgId},
+      body: {
+        'type': 'IMAGE',
+        'imageUrl': imageUrl,
+        'clientMsgId': clientMsgId,
+        'replyToId': ?replyToId,
+      },
     );
     return ChatMessage.fromJson(_map(data));
   }

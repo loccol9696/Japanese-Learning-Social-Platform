@@ -81,6 +81,52 @@ class SharedVideo {
   }
 }
 
+MessageType _parseType(dynamic value) => switch (value) {
+  'VIDEO_SHARE' => MessageType.videoShare,
+  'IMAGE' => MessageType.image,
+  _ => MessageType.text,
+};
+
+/// Trích dẫn của tin được trả lời.
+class MessageReply {
+  final int id;
+  final int senderId;
+  final MessageType type;
+  final String content;
+  final bool recalled;
+
+  const MessageReply({
+    required this.id,
+    required this.senderId,
+    required this.type,
+    required this.content,
+    this.recalled = false,
+  });
+
+  factory MessageReply.fromJson(Map<String, dynamic> json) => MessageReply(
+    id: _toInt(json['id']),
+    senderId: _toInt(json['senderId']),
+    type: _parseType(json['type']),
+    content: json['content']?.toString() ?? '',
+    recalled: json['recalled'] == true,
+  );
+
+  factory MessageReply.of(ChatMessage message) => MessageReply(
+    id: message.id!,
+    senderId: message.senderId,
+    type: message.type,
+    content: message.content,
+    recalled: message.recalled,
+  );
+
+  /// Dòng tóm tắt hiển thị trong trích dẫn.
+  String get preview {
+    if (recalled) return 'Tin nhắn đã được thu hồi';
+    if (content.isNotEmpty) return content;
+    return type == MessageType.image ? '📷 Ảnh' : '🎬 Video';
+  }
+}
+
 class ChatMessage {
   /// null khi tin còn ở trạng thái đang gửi (chưa có id từ server).
   final int? id;
@@ -96,6 +142,9 @@ class ChatMessage {
 
   /// Ảnh trên máy, chỉ có ở tin đang gửi để hiển thị trước khi tải lên xong.
   final Uint8List? localImage;
+
+  /// Tin được trả lời (nếu có).
+  final MessageReply? replyTo;
 
   /// Người gửi đã thu hồi: nội dung, video và ảnh không còn.
   final bool recalled;
@@ -115,42 +164,48 @@ class ChatMessage {
     this.videoStartMs,
     this.imageUrl = '',
     this.localImage,
+    this.replyTo,
     this.recalled = false,
     this.status = MessageStatus.sent,
   });
 
-  ChatMessage copyWith({int? id, String? imageUrl, MessageStatus? status}) =>
-      ChatMessage(
-        id: id ?? this.id,
-        conversationId: conversationId,
-        senderId: senderId,
-        type: type,
-        content: content,
-        video: video,
-        videoStartMs: videoStartMs,
-        imageUrl: imageUrl ?? this.imageUrl,
-        localImage: localImage,
-        recalled: recalled,
-        clientMsgId: clientMsgId,
-        createdAt: createdAt,
-        status: status ?? this.status,
-      );
+  ChatMessage copyWith({
+    int? id,
+    String? imageUrl,
+    MessageReply? replyTo,
+    MessageStatus? status,
+  }) => ChatMessage(
+    id: id ?? this.id,
+    conversationId: conversationId,
+    senderId: senderId,
+    type: type,
+    content: content,
+    video: video,
+    videoStartMs: videoStartMs,
+    imageUrl: imageUrl ?? this.imageUrl,
+    localImage: localImage,
+    replyTo: replyTo ?? this.replyTo,
+    recalled: recalled,
+    clientMsgId: clientMsgId,
+    createdAt: createdAt,
+    status: status ?? this.status,
+  );
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     final video = json['video'];
+    final replyTo = json['replyTo'];
     return ChatMessage(
       id: _toIntOrNull(json['id']),
       conversationId: _toInt(json['conversationId']),
       senderId: _toInt(json['senderId']),
-      type: switch (json['type']) {
-        'VIDEO_SHARE' => MessageType.videoShare,
-        'IMAGE' => MessageType.image,
-        _ => MessageType.text,
-      },
+      type: _parseType(json['type']),
       content: json['content']?.toString() ?? '',
       video: video is Map<String, dynamic> ? SharedVideo.fromJson(video) : null,
       videoStartMs: _toIntOrNull(json['videoStartMs']),
       imageUrl: json['imageUrl']?.toString() ?? '',
+      replyTo: replyTo is Map<String, dynamic>
+          ? MessageReply.fromJson(replyTo)
+          : null,
       recalled: json['recalled'] == true,
       clientMsgId: json['clientMsgId']?.toString() ?? '',
       createdAt:
@@ -165,12 +220,14 @@ class ChatMessage {
     required int senderId,
     required String content,
     required String clientMsgId,
+    MessageReply? replyTo,
   }) => ChatMessage(
     id: null,
     conversationId: conversationId,
     senderId: senderId,
     type: MessageType.text,
     content: content,
+    replyTo: replyTo,
     clientMsgId: clientMsgId,
     createdAt: DateTime.now(),
     status: MessageStatus.sending,
@@ -182,6 +239,7 @@ class ChatMessage {
     required int senderId,
     required Uint8List bytes,
     required String clientMsgId,
+    MessageReply? replyTo,
   }) => ChatMessage(
     id: null,
     conversationId: conversationId,
@@ -189,6 +247,7 @@ class ChatMessage {
     type: MessageType.image,
     content: '',
     localImage: bytes,
+    replyTo: replyTo,
     clientMsgId: clientMsgId,
     createdAt: DateTime.now(),
     status: MessageStatus.sending,

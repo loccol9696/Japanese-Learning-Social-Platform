@@ -261,4 +261,38 @@ void main() {
     await tester.longPress(find.text('Xin chào'));
     expect(pressed, 1);
   });
+
+  testWidgets('tin trả lời hiện trích dẫn, chạm để tới tin gốc', (
+    tester,
+  ) async {
+    var opened = 0;
+    await _pump(
+      tester,
+      MessageBubble(
+        message: ChatMessage(
+          id: 2,
+          conversationId: 1,
+          senderId: 3,
+          type: MessageType.text,
+          content: 'ok',
+          replyTo: const MessageReply(
+            id: 1,
+            senderId: 4,
+            type: MessageType.text,
+            content: 'Tin gốc',
+          ),
+          clientMsgId: 'c',
+          createdAt: DateTime(2026, 10, 24, 9, 5),
+        ),
+        isMine: true,
+        replyAuthor: 'Hana',
+        onOpenReply: () => opened++,
+      ),
+    );
+
+    expect(find.text('Hana'), findsOneWidget);
+    await tester.tap(find.text('Tin gốc'));
+    expect(opened, 1);
+    expect(tester.takeException(), isNull);
+  });
 }

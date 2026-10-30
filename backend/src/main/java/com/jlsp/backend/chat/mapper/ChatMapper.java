@@ -2,6 +2,7 @@ package com.jlsp.backend.chat.mapper;
 
 import com.jlsp.backend.chat.dto.response.ChatUserResponse;
 import com.jlsp.backend.chat.dto.response.MessageResponse;
+import com.jlsp.backend.chat.dto.response.ReplyPreviewResponse;
 import com.jlsp.backend.chat.dto.response.SharedVideoResponse;
 import com.jlsp.backend.chat.entity.Message;
 import com.jlsp.backend.user.entity.User;
@@ -14,6 +15,8 @@ import java.util.Map;
 
 @Component
 public class ChatMapper {
+
+    private static final int MAX_REPLY_PREVIEW_LENGTH = 120;
 
     public ChatUserResponse toUserResponse(User user) {
         if (user == null) {
@@ -47,9 +50,26 @@ public class ChatMapper {
                 .video(video)
                 .videoStartMs(message.getVideoStartMs())
                 .imageUrl(message.getImageUrl())
+                .replyTo(toReplyPreview(message.getReplyTo()))
                 .recalled(message.getRecalledAt() != null)
                 .clientMsgId(message.getClientMsgId())
                 .createdAt(message.getCreatedAt())
+                .build();
+    }
+
+    private ReplyPreviewResponse toReplyPreview(Message reply) {
+        if (reply == null) {
+            return null;
+        }
+        String content = reply.getContent();
+        return ReplyPreviewResponse.builder()
+                .id(reply.getId())
+                .senderId(reply.getSender().getId())
+                .type(reply.getType())
+                .content(content != null && content.length() > MAX_REPLY_PREVIEW_LENGTH
+                        ? content.substring(0, MAX_REPLY_PREVIEW_LENGTH)
+                        : content)
+                .recalled(reply.getRecalledAt() != null)
                 .build();
     }
 

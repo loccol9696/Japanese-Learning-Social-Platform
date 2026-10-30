@@ -39,6 +39,9 @@ public class SendMessageRequest {
     @Size(max = 500, message = "Đường dẫn ảnh quá dài")
     private String imageUrl;
 
+    /** Tin được trả lời (tuỳ chọn), phải cùng hội thoại */
+    private Long replyToId;
+
     @Size(max = 64, message = "clientMsgId tối đa 64 ký tự")
     private String clientMsgId;
 }

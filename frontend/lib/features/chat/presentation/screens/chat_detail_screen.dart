@@ -20,15 +20,16 @@ import '../widgets/chat_image_viewer.dart';
 import '../widgets/confirm_block_dialog.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_study_sheet.dart';
-import '../widgets/time_reveal.dart';
+import '../widgets/message_swipe.dart';
 import 'messages_tab.dart';
 import 'shared_video_screen.dart';
 
 /// Khung chat 1-1. Danh sách tin được giữ theo thứ tự mới nhất trước và hiển thị
 /// bằng ListView đảo ngược, nên tin mới luôn nằm sát ô nhập.
 ///
-/// Thao tác: chạm tin để xem giờ và nút tra từ/dịch, giữ lâu để mở menu, kéo khung
-/// chat sang trái để xem giờ mọi tin, vuốt danh sách để ẩn bàn phím.
+/// Thao tác: chạm tin để xem giờ và nút tra từ/dịch, giữ lâu để mở menu, vuốt tin sang
+/// phải để trả lời, kéo khung chat sang trái để xem giờ mọi tin, vuốt danh sách để ẩn
+/// bàn phím.
 class ChatDetailScreen extends StatefulWidget {
   final Conversation conversation;
   final ChatService? service;
@@ -40,7 +41,7 @@ class ChatDetailScreen extends StatefulWidget {
 }
 
 class _ChatDetailScreenState extends State<ChatDetailScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const Duration _typingIdle = Duration(seconds: 3);
   static const Duration _typingExpire = Duration(seconds: 5);
 
@@ -59,7 +60,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   final _hub = ChatHub.instance;
   final _input = TextEditingController();
   final _scroll = ScrollController();
+  final _inputFocus = FocusNode();
   late final AnimationController _timeReveal = AnimationController(vsync: this);
+  late final AnimationController _replySwipe = AnimationController(vsync: this);
 
   late Conversation _conversation = widget.conversation;
   final List<ChatMessage> _messages = [];
@@ -88,6 +91,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
   /// Tin đang mở giờ gửi và nút thao tác (chạm vào tin).
   int? _detailsMessageId;
+
+  /// Tin đang được trả lời, hiện trên ô nhập.
+  ChatMessage? _replyingTo;
+
+  /// Tin dưới ngón tay khi bắt đầu vuốt.
+  ChatMessage? _swipedMessage;
+
+  final Map<int, GlobalKey> _messageKeys = {};
+
+  /// Tin gốc vừa được cuộn tới, nháy sáng một lúc để dễ nhận ra.
+  int? _highlightedId;
+  Timer? _highlightTimer;
 
   bool _showJumpButton = false;
 
@@ -138,9 +153,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     }
     _otherTypingTimer?.cancel();
     _myTypingTimer?.cancel();
+    _highlightTimer?.cancel();
     _input.dispose();
+    _inputFocus.dispose();
     _scroll.dispose();
     _timeReveal.dispose();
+    _replySwipe.dispose();
     super.dispose();
   }
 
@@ -293,6 +311,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       _upsert(message);
       _translations.remove(message.id);
       _shownTranslations.remove(message.id);
+      if (_replyingTo?.id == message.id) _replyingTo = null;
+      for (var i = 0; i < _messages.length; i++) {
+        if (_messages[i].replyTo?.id == message.id) {
+          _messages[i] = _messages[i].copyWith(
+            replyTo: MessageReply.of(message),
+          );
+        }
+      }
     });
   }
 
@@ -409,10 +435,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       senderId: _myId,
       content: text,
       clientMsgId: _newClientMsgId(),
+      replyTo: _takeReplyTarget(),
     );
     setState(() => _upsert(pending));
     _scrollToBottom();
     unawaited(_deliver(pending));
+  }
+
+  /// Trích dẫn cho tin sắp gửi; gửi xong thì thôi trả lời.
+  MessageReply? _takeReplyTarget() {
+    final target = _replyingTo;
+    _replyingTo = null;
+    return target == null ? null : MessageReply.of(target);
   }
 
   String _newClientMsgId() =>
@@ -441,6 +475,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       senderId: _myId,
       bytes: bytes,
       clientMsgId: _newClientMsgId(),
+      replyTo: _takeReplyTarget(),
     );
     setState(() => _upsert(pending));
     _scrollToBottom();
@@ -466,6 +501,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         conversationId: _conversationId,
         imageUrl: imageUrl,
         clientMsgId: pending.clientMsgId,
+        replyToId: pending.replyTo?.id,
       );
       if (mounted) setState(() => _upsert(sent));
     } on ApiException catch (error) {
@@ -492,6 +528,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         conversationId: _conversationId,
         content: pending.content,
         clientMsgId: pending.clientMsgId,
+        replyToId: pending.replyTo?.id,
       );
       if (mounted) setState(() => _upsert(sent));
     } on ApiException catch (error) {
@@ -533,6 +570,64 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   // Thao tác trên tin nhắn
   // ---------------------------------------------------------------------------
 
+  bool _canReplyTo(ChatMessage? message) =>
+      message != null && message.id != null && !message.recalled && _canMessage;
+
+  void _startReply(ChatMessage message) {
+    setState(() => _replyingTo = message);
+    _inputFocus.requestFocus();
+  }
+
+  String _authorName(int senderId) =>
+      senderId == _myId ? 'Bạn' : _conversation.otherUser.name;
+
+  GlobalKey _keyFor(int messageId) =>
+      _messageKeys.putIfAbsent(messageId, GlobalKey.new);
+
+  /// Cuộn tới tin gốc. Danh sách chỉ dựng các tin gần màn hình nên cuộn dần lên, tải
+  /// thêm tin cũ nếu cần, đến khi tin đó xuất hiện.
+  Future<void> _jumpToMessage(int messageId) async {
+    for (var attempt = 0; attempt < 40; attempt++) {
+      if (!mounted || !_scroll.hasClients) return;
+      final target = _messageKeys[messageId]?.currentContext;
+      if (target != null && target.mounted) {
+        await Scrollable.ensureVisible(
+          target,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 250),
+        );
+        if (mounted) _highlight(messageId);
+        return;
+      }
+
+      final position = _scroll.position;
+      if (position.pixels >= position.maxScrollExtent) {
+        if (!_hasMore) break;
+        await _loadMore();
+        continue;
+      }
+      await _scroll.animateTo(
+        (position.pixels + position.viewportDimension * 0.8).clamp(
+          0.0,
+          position.maxScrollExtent,
+        ),
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.linear,
+      );
+    }
+    if (mounted) {
+      AppToast.showInfo('Không tìm thấy tin nhắn gốc', context: context);
+    }
+  }
+
+  void _highlight(int messageId) {
+    setState(() => _highlightedId = messageId);
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) setState(() => _highlightedId = null);
+    });
+  }
+
   void _toggleDetails(ChatMessage message) {
     final id = message.id;
     if (id == null) return;
@@ -547,7 +642,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     final canRecall =
         message.senderId == _myId &&
         DateTime.now().difference(message.createdAt) < _recallWindow;
-    if (!canCopy && !canRecall) return;
+    final canReply = _canReplyTo(message);
+    if (!canReply && !canCopy && !canRecall) return;
 
     unawaited(HapticFeedback.mediumImpact());
     final action = await showModalBottomSheet<_MessageAction>(
@@ -558,6 +654,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (canReply)
+              ListTile(
+                leading: Icon(
+                  Icons.reply_rounded,
+                  color: AppPalette.textPrimary,
+                ),
+                title: Text(
+                  'Trả lời',
+                  style: TextStyle(color: AppPalette.textPrimary),
+                ),
+                onTap: () => Navigator.of(sheet).pop(_MessageAction.reply),
+              ),
             if (canStudy)
               ListTile(
                 leading: Icon(
@@ -609,6 +717,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     );
     if (!mounted) return;
     switch (action) {
+      case _MessageAction.reply:
+        _startReply(message);
       case _MessageAction.study:
         await showMessageStudySheet(context, message.content);
       case _MessageAction.translate:
@@ -898,8 +1008,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: () => FocusScope.of(context).unfocus(),
-      child: TimeRevealGesture(
-        controller: _timeReveal,
+      child: MessageSwipeGesture(
+        timeReveal: _timeReveal,
+        replySwipe: _replySwipe,
+        canReply: () => _canReplyTo(_swipedMessage),
+        onReply: () => _startReply(_swipedMessage!),
+        onSettled: () => _swipedMessage = null,
         child: ListView.builder(
           controller: _scroll,
           reverse: true,
@@ -935,37 +1049,61 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                 children: [
                   if (showDay)
                     _DayLabel(label: formatDayLabel(message.createdAt)),
-                  TimeRevealRow(
-                    animation: _timeReveal,
-                    time: message.createdAt,
-                    isMine: isMine,
-                    child: MessageBubble(
-                      message: message,
-                      isMine: isMine,
-                      isLastInGroup:
-                          newer == null || !_sameGroup(message, newer),
-                      showDetails:
-                          message.id != null && message.id == _detailsMessageId,
-                      showSeen:
-                          isMine &&
-                          message.id != null &&
-                          message.id == lastMineId &&
-                          seenId != null &&
-                          seenId >= message.id!,
-                      translation:
-                          message.id != null &&
-                              _shownTranslations.contains(message.id)
-                          ? _translations[message.id]
-                          : null,
-                      translating: _translating.contains(message.id),
-                      onTap: () => _toggleDetails(message),
-                      onRetry: () => _retry(message),
-                      onOpenVideo: () => _openVideo(message),
-                      onOpenImage: () => _openImage(message.imageUrl),
-                      onLongPress: () => _showMessageActions(message),
-                      onStudy: () =>
-                          showMessageStudySheet(context, message.content),
-                      onTranslate: () => _toggleTranslation(message),
+                  Listener(
+                    onPointerDown: (_) => _swipedMessage = message,
+                    child: AnimatedContainer(
+                      key: message.id == null ? null : _keyFor(message.id!),
+                      duration: const Duration(milliseconds: 250),
+                      decoration: BoxDecoration(
+                        color:
+                            message.id != null && message.id == _highlightedId
+                            ? AppPalette.accent.withValues(alpha: 0.2)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ReplySwipeRow(
+                        animation: _replySwipe,
+                        isActive: () => _swipedMessage?.id == message.id,
+                        child: TimeRevealRow(
+                          animation: _timeReveal,
+                          time: message.createdAt,
+                          isMine: isMine,
+                          child: MessageBubble(
+                            message: message,
+                            isMine: isMine,
+                            isLastInGroup:
+                                newer == null || !_sameGroup(message, newer),
+                            showDetails:
+                                message.id != null &&
+                                message.id == _detailsMessageId,
+                            showSeen:
+                                isMine &&
+                                message.id != null &&
+                                message.id == lastMineId &&
+                                seenId != null &&
+                                seenId >= message.id!,
+                            translation:
+                                message.id != null &&
+                                    _shownTranslations.contains(message.id)
+                                ? _translations[message.id]
+                                : null,
+                            translating: _translating.contains(message.id),
+                            onTap: () => _toggleDetails(message),
+                            onRetry: () => _retry(message),
+                            onOpenVideo: () => _openVideo(message),
+                            onOpenImage: () => _openImage(message.imageUrl),
+                            onLongPress: () => _showMessageActions(message),
+                            onStudy: () =>
+                                showMessageStudySheet(context, message.content),
+                            onTranslate: () => _toggleTranslation(message),
+                            replyAuthor: message.replyTo == null
+                                ? ''
+                                : _authorName(message.replyTo!.senderId),
+                            onOpenReply: () =>
+                                _jumpToMessage(message.replyTo!.id),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -992,53 +1130,111 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           color: AppPalette.background,
           border: Border(top: BorderSide(color: AppPalette.border, width: 0.5)),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              tooltip: 'Gửi ảnh',
-              onPressed: _pickImage,
-              icon: Icon(Icons.image_outlined, color: AppPalette.textSecondary),
-            ),
-            Expanded(
-              child: TextField(
-                controller: _input,
-                onChanged: _onInputChanged,
-                minLines: 1,
-                maxLines: 5,
-                maxLength: 2000,
-                textInputAction: TextInputAction.newline,
-                style: TextStyle(color: AppPalette.textPrimary),
-                cursorColor: AppPalette.accent,
-                decoration: InputDecoration(
-                  hintText: 'Nhập tin nhắn...',
-                  hintStyle: TextStyle(color: AppPalette.textSecondary),
-                  counterText: '',
-                  filled: true,
-                  fillColor: AppPalette.surfaceHigh,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 11,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide.none,
+            if (_replyingTo != null) _buildReplyBar(_replyingTo!),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                IconButton(
+                  tooltip: 'Gửi ảnh',
+                  onPressed: _pickImage,
+                  icon: Icon(
+                    Icons.image_outlined,
+                    color: AppPalette.textSecondary,
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              onPressed: hasText ? _send : null,
-              style: IconButton.styleFrom(
-                backgroundColor: AppPalette.accent,
-                disabledBackgroundColor: AppPalette.surfaceHigh,
-              ),
-              icon: const Icon(Icons.send_rounded, size: 20),
+                Expanded(
+                  child: TextField(
+                    controller: _input,
+                    focusNode: _inputFocus,
+                    onChanged: _onInputChanged,
+                    minLines: 1,
+                    maxLines: 5,
+                    maxLength: 2000,
+                    textInputAction: TextInputAction.newline,
+                    style: TextStyle(color: AppPalette.textPrimary),
+                    cursorColor: AppPalette.accent,
+                    decoration: InputDecoration(
+                      hintText: 'Nhập tin nhắn...',
+                      hintStyle: TextStyle(color: AppPalette.textSecondary),
+                      counterText: '',
+                      filled: true,
+                      fillColor: AppPalette.surfaceHigh,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 11,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  onPressed: hasText ? _send : null,
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppPalette.accent,
+                    disabledBackgroundColor: AppPalette.surfaceHigh,
+                  ),
+                  icon: const Icon(Icons.send_rounded, size: 20),
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildReplyBar(ChatMessage message) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 6),
+      child: Row(
+        children: [
+          Icon(Icons.reply_rounded, size: 20, color: AppPalette.accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Đang trả lời ${_authorName(message.senderId)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppPalette.accent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  MessageReply.of(message).preview,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppPalette.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Huỷ trả lời',
+            onPressed: () => setState(() => _replyingTo = null),
+            icon: Icon(
+              Icons.close_rounded,
+              size: 20,
+              color: AppPalette.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1080,7 +1276,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   }
 }
 
-enum _MessageAction { study, translate, copy, recall }
+enum _MessageAction { reply, study, translate, copy, recall }
 
 class _DayLabel extends StatelessWidget {
   final String label;

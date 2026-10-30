@@ -163,12 +163,14 @@ class ChatSocketService {
     required int conversationId,
     required String content,
     required String clientMsgId,
+    int? replyToId,
   }) {
     return _send({
       'conversationId': conversationId,
       'type': 'TEXT',
       'content': content,
       'clientMsgId': clientMsgId,
+      'replyToId': ?replyToId,
     });
   }
 
@@ -177,12 +179,14 @@ class ChatSocketService {
     required int conversationId,
     required String imageUrl,
     required String clientMsgId,
+    int? replyToId,
   }) {
     return _send({
       'conversationId': conversationId,
       'type': 'IMAGE',
       'imageUrl': imageUrl,
       'clientMsgId': clientMsgId,
+      'replyToId': ?replyToId,
     });
   }
 

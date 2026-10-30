@@ -1,8 +1,9 @@
--- Chặn, thu hồi, gửi ảnh và thông báo đẩy của chat.
+-- Chặn, thu hồi, trả lời, gửi ảnh và thông báo đẩy của chat.
 -- Chạy tay trên môi trường dùng ddl-auto=validate (prod). Môi trường dev (ddl-auto=update) tự
 -- tạo bảng và cột. CHECK messages_type_check do ChatSchemaUpdater gỡ lúc khởi động.
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_url varchar(500);
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS recalled_at timestamp(6);
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id bigint REFERENCES messages (id);
 
 CREATE TABLE IF NOT EXISTS user_blocks (
     blocker_id bigint NOT NULL REFERENCES users (id),
