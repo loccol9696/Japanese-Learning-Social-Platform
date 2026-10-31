@@ -7,6 +7,7 @@ import com.jlsp.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -26,6 +27,7 @@ public class DataInitializer implements CommandLineRunner {
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final AdminAccountSeeder adminAccountSeeder;
     private final org.springframework.core.env.Environment environment;
+    private final PasswordEncoder passwordEncoder;
 
     // BCrypt hash của mật khẩu "password123"
     private static final String DEFAULT_PASSWORD_HASH = "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi";
@@ -41,6 +43,8 @@ public class DataInitializer implements CommandLineRunner {
         if (!environment.acceptsProfiles(org.springframework.core.env.Profiles.of("dev"))) {
             return;
         }
+        ensureAdminAccount();
+        ensureModeratorAccount();
 
         if (userRepository.count() > 0) {
             log.info("Dữ liệu người dùng đã tồn tại trong database (tổng cộng {} users), bỏ qua bước khởi tạo.",
@@ -250,9 +254,101 @@ public class DataInitializer implements CommandLineRunner {
                     "VALUES ('SECONDS_PER_TOKEN', '60', 'Thời lượng video cho 1 Token AI tính bằng giây', NOW()) " +
                     "ON CONFLICT (setting_key) DO NOTHING");
 
+            // Bảng reports (Báo cáo vi phạm nội dung)
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS reports (" +
+                    "id BIGSERIAL PRIMARY KEY, " +
+                    "reporter_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE, " +
+                    "target_type VARCHAR(20) NOT NULL, " +
+                    "target_id BIGINT NOT NULL, " +
+                    "reason VARCHAR(30) NOT NULL, " +
+                    "detail VARCHAR(500), " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'PENDING', " +
+                    "action VARCHAR(20), " +
+                    "resolved_by BIGINT, " +
+                    "resolved_at TIMESTAMP, " +
+                    "resolution_note VARCHAR(500), " +
+                    "created_at TIMESTAMP NOT NULL)");
+
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_reports_status_created ON reports (status, created_at)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_reports_target ON reports (target_type, target_id)");
+
             log.info("Migration cột database thành công hoàn tất!");
         } catch (Exception e) {
             log.warn("Lưu ý trong quá trình migration cột database: {}", e.getMessage());
+        }
+    }
+
+    private void ensureAdminAccount() {
+        try {
+            User admin = userRepository.findByUsername("admin")
+                    .orElseGet(() -> userRepository.findByEmail("admin@jlsp.com").orElse(null));
+
+            String encodedPassword = passwordEncoder.encode("AdminPassword123@");
+
+            if (admin != null) {
+                admin.setUsername("admin");
+                admin.setEmail("admin@jlsp.com");
+                admin.setPasswordHash(encodedPassword);
+                admin.setRole(UserRole.ADMIN);
+                admin.setIsActive(true);
+                userRepository.save(admin);
+                log.info("==> [SUCCESS] Đã đồng bộ tài khoản admin: username='admin', role=ADMIN, password=AdminPassword123@");
+            } else {
+                admin = User.builder()
+                        .username("admin")
+                        .email("admin@jlsp.com")
+                        .passwordHash(encodedPassword)
+                        .displayName("Hệ thống Quản trị (Admin)")
+                        .avatarUrl("https://picsum.photos/seed/admin88/200/200")
+                        .role(UserRole.ADMIN)
+                        .jlptLevel(JLPTLevel.N1)
+                        .bio("Tài khoản quản trị viên hệ thống JLSP")
+                        .isActive(true)
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+                userRepository.save(admin);
+                log.info("==> [SUCCESS] Đã tạo mới tài khoản admin: username='admin', role=ADMIN, password=AdminPassword123@");
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi đồng bộ tài khoản admin: {}", e.getMessage(), e);
+        }
+    }
+
+    private void ensureModeratorAccount() {
+        try {
+            User mod = userRepository.findByUsername("moderator")
+                    .orElseGet(() -> userRepository.findByEmail("moderator@jlsp.com").orElse(null));
+
+            String encodedPassword = passwordEncoder.encode("ModeratorPassword123@");
+
+            if (mod != null) {
+                mod.setUsername("moderator");
+                mod.setEmail("moderator@jlsp.com");
+                mod.setPasswordHash(encodedPassword);
+                mod.setRole(UserRole.MODERATOR);
+                mod.setIsActive(true);
+                userRepository.save(mod);
+                log.info("==> [SUCCESS] Đã đồng bộ tài khoản moderator: username='moderator', role=MODERATOR, password=ModeratorPassword123@");
+            } else {
+                mod = User.builder()
+                        .username("moderator")
+                        .email("moderator@jlsp.com")
+                        .passwordHash(encodedPassword)
+                        .displayName("Kiểm Duyệt Viên (Moderator)")
+                        .avatarUrl("https://picsum.photos/seed/mod99/200/200")
+                        .role(UserRole.MODERATOR)
+                        .jlptLevel(JLPTLevel.N2)
+                        .bio("Tài khoản kiểm duyệt nội dung & xử lý khiếu nại báo cáo JLSP")
+                        .isActive(true)
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+                userRepository.save(mod);
+                log.info("==> [SUCCESS] Đã tạo mới tài khoản moderator: username='moderator', role=MODERATOR, password=ModeratorPassword123@");
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi đồng bộ tài khoản moderator: {}", e.getMessage(), e);
         }
     }
 }

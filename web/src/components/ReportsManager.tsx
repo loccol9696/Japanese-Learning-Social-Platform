@@ -204,8 +204,8 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
                   </td>
                   <td>
                     {status === 'PENDING' ? (
-                      <span className={`status-pill ${r.pendingCountForTarget > 1 ? 'warning' : 'info'}`}>
-                        {r.pendingCountForTarget}
+                      <span className={`status-pill ${(r.pendingCountForTarget ?? 0) > 1 ? 'warning' : 'info'}`}>
+                        {r.pendingCountForTarget ?? 1}
                       </span>
                     ) : (
                       <div style={{ fontSize: '0.8rem' }}>
@@ -274,7 +274,7 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
               Xử lý báo cáo {TARGET_LABEL[active.targetType].toLowerCase()} #{active.targetId}
             </h3>
             <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1rem' }}>
-              {active.pendingCountForTarget > 1
+              {(active.pendingCountForTarget ?? 0) > 1
                 ? `Kết quả áp dụng cho cả ${active.pendingCountForTarget} báo cáo đang chờ về đối tượng này.`
                 : 'Kết quả áp dụng cho báo cáo này.'}
             </p>
