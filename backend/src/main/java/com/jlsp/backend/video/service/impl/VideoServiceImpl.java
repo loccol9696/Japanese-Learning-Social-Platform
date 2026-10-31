@@ -88,12 +88,6 @@ public class VideoServiceImpl implements VideoService {
         Video video = videoMapper.toEntity(request, creator, topic);
         Video savedVideo = videoRepository.save(video);
 
-        // Có subtitles và chưa có kết quả phân tích ngữ pháp trước đó -> phân tích ngữ pháp bằng AI sau khi commit
-        if (savedVideo.getSubtitles() != null && !savedVideo.getSubtitles().isBlank()
-                && (savedVideo.getGrammarAnalysis() == null || savedVideo.getGrammarAnalysis().isBlank())) {
-            eventPublisher.publishEvent(new SubtitlesUpdatedEvent(savedVideo.getId()));
-        }
-
         log.info("Tạo video thành công với ID: {}", savedVideo.getId());
         return videoMapper.toVideoDetailResponse(savedVideo, false, false);
     }
@@ -108,7 +102,7 @@ public class VideoServiceImpl implements VideoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Video", "id", id));
 
         // Kiểm tra quyền riêng tư: nếu video là PRIVATE thì chỉ chủ sở hữu mới xem được
-        if (video.getStatus() == VideoStatus.PRIVATE) {
+        if (video.getStatus() == VideoStatus.PRIVATE || video.getStatus() == VideoStatus.DRAFT) {
             if (currentUserId == null || !video.getUser().getId().equals(currentUserId)) {
                 throw new AppException(403, "Video này đang ở chế độ riêng tư");
             }
@@ -161,10 +155,28 @@ public class VideoServiceImpl implements VideoService {
             // Số không/âm nghĩa là bỏ chủ đề; ngược lại phải là chủ đề đang hiển thị.
             video.setTopic(request.getTopicId() > 0 ? topicService.requireActive(request.getTopicId()) : null);
         }
+        boolean subtitlesChanged = false;
+        if (request.getSubtitles() != null) {
+            String trimmedSub = request.getSubtitles().trim();
+            String normalizedSub = trimmedSub.isEmpty() ? null : trimmedSub;
+            subtitlesChanged = !java.util.Objects.equals(normalizedSub, video.getSubtitles());
+            video.setSubtitles(normalizedSub);
+            if (subtitlesChanged && request.getGrammarAnalysis() == null) {
+                video.setGrammarAnalysis(null);
+            }
+        }
+        if (request.getGrammarAnalysis() != null) {
+            String trimmedGa = request.getGrammarAnalysis().trim();
+            video.setGrammarAnalysis(trimmedGa.isEmpty() ? null : trimmedGa);
+        }
         if (request.getStatus() != null) {
-            // Nếu người dùng chuyển video từ PRIVATE/UNLISTED sang PUBLIC thì cần Moderator duyệt (PENDING)
-            if (video.getStatus() != VideoStatus.PUBLIC && request.getStatus() == VideoStatus.PUBLIC) {
-                video.setModStatus(com.jlsp.backend.video.entity.VideoModStatus.PENDING);
+            if (request.getStatus() == VideoStatus.DRAFT) {
+                video.setModStatus(VideoModStatus.DRAFT);
+            } else if (request.getStatus() == VideoStatus.PRIVATE) {
+                video.setModStatus(VideoModStatus.APPROVED);
+            } else if (video.getStatus() != VideoStatus.PUBLIC && request.getStatus() == VideoStatus.PUBLIC) {
+                // Chuyển từ DRAFT/PRIVATE/UNLISTED sang PUBLIC -> cần Moderator duyệt (PENDING)
+                video.setModStatus(VideoModStatus.PENDING);
                 video.setModeratedBy(null);
                 video.setModeratedAt(null);
                 video.setRejectionReason(null);
@@ -509,7 +521,6 @@ public class VideoServiceImpl implements VideoService {
         boolean isSaved = videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, videoId);
 
         log.info("Cập nhật phụ đề thành công cho video ID: {}", videoId);
-        eventPublisher.publishEvent(new SubtitlesUpdatedEvent(videoId));
         return videoMapper.toVideoDetailResponse(updated, isLiked, isSaved);
     }
 

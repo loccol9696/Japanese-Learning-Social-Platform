@@ -97,7 +97,10 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     final videoUrl = json['videoUrl']?.toString() ?? '';
     final creatorAvatarUrl = json['creatorAvatarUrl']?.toString() ?? '';
     final jlpt = json['jlptLevel']?.toString() ?? 'N5';
-    final subtitleCues = _parseSubtitles(json['subtitles']);
+    final subtitleCues = _parseSubtitles(
+      json['subtitles'],
+      json['grammarAnalysis'],
+    );
     final likes = _toInt(json['likeCount']);
     final views = _toInt(json['viewCount']);
 
@@ -105,6 +108,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       id: id,
       backgroundImageUrl: _previewImageUrl(videoUrl, thumbnailUrl),
       videoUrl: videoUrl,
+      creatorId: (json['creatorId'] as num?)?.toInt(),
       creatorName: creatorName,
       creatorTag: creatorTag,
       creatorAvatarUrl: creatorAvatarUrl,
@@ -135,27 +139,78 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
 
   VideoPost toVideoPost(Map<String, dynamic> json) => _toVideoPost(json);
 
-  List<SubtitleCue> _parseSubtitles(dynamic rawSubtitles) {
+  List<SubtitleCue> _parseSubtitles(
+    dynamic rawSubtitles, [
+    dynamic rawGrammarAnalysis,
+  ]) {
     if (rawSubtitles is! String || rawSubtitles.trim().isEmpty) {
       return const [];
+    }
+
+    final grammarByIndex = <int, List<GrammarPointInfo>>{};
+    final grammarByText = <String, List<GrammarPointInfo>>{};
+    if (rawGrammarAnalysis is String && rawGrammarAnalysis.trim().isNotEmpty) {
+      try {
+        final decodedGa = jsonDecode(rawGrammarAnalysis);
+        if (decodedGa is List) {
+          for (var i = 0; i < decodedGa.length; i++) {
+            final item = decodedGa[i];
+            if (item is Map<String, dynamic> && item['grammarPoints'] is List) {
+              final points = (item['grammarPoints'] as List)
+                  .whereType<Map<String, dynamic>>()
+                  .map(GrammarPointInfo.fromJson)
+                  .where((p) => p.matchedText.isNotEmpty || p.pattern.isNotEmpty)
+                  .toList();
+              final idx = (item['index'] as num?)?.toInt() ?? i;
+              grammarByIndex[idx] = points;
+              final txt = item['text']?.toString().trim() ?? '';
+              if (txt.isNotEmpty) {
+                grammarByText[txt] = points;
+              }
+            }
+          }
+        }
+      } catch (_) {}
     }
 
     try {
       final decoded = jsonDecode(rawSubtitles);
       if (decoded is! List) return const [];
 
-      return decoded
-          .whereType<Map<String, dynamic>>()
-          .map((subtitle) {
-            return SubtitleCue(
-              start: _parseTimestamp(subtitle['start']),
-              end: _parseTimestamp(subtitle['end']),
-              text: subtitle['text']?.toString() ?? '',
-              translation: subtitle['translation']?.toString() ?? '',
-            );
-          })
-          .where((cue) => cue.text.isNotEmpty && cue.end > cue.start)
-          .toList();
+      final cues = <SubtitleCue>[];
+      final rawItems = decoded.whereType<Map<String, dynamic>>().toList();
+      for (var i = 0; i < rawItems.length; i++) {
+        final subtitle = rawItems[i];
+        final text = subtitle['text']?.toString() ?? '';
+        final translation =
+            (subtitle['translation'] ?? subtitle['translatedText'])?.toString() ??
+            '';
+        final start = _parseTimestamp(subtitle['start'] ?? subtitle['startTime']);
+        final end = _parseTimestamp(subtitle['end'] ?? subtitle['endTime']);
+        if (text.isEmpty || end <= start) continue;
+
+        List<GrammarPointInfo> points = const [];
+        if (subtitle['grammarPoints'] is List) {
+          points = (subtitle['grammarPoints'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map(GrammarPointInfo.fromJson)
+              .toList();
+        }
+        if (points.isEmpty) {
+          points = grammarByIndex[i] ?? grammarByText[text.trim()] ?? const [];
+        }
+
+        cues.add(
+          SubtitleCue(
+            start: start,
+            end: end,
+            text: text,
+            translation: translation,
+            grammarPoints: points,
+          ),
+        );
+      }
+      return cues;
     } on FormatException {
       return const [];
     }

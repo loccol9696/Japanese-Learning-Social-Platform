@@ -32,7 +32,12 @@ public class MediaServiceImpl implements MediaService {
 
     private final Cloudinary cloudinary;
 
+    /** Video YouTube tối đa 10 phút. */
+    private static final int MAX_YOUTUBE_SECONDS = 10 * 60;
+    private static final String YOUTUBE_FOLDER = "jlsp/videos";
+
     private final SpeechToTextServiceIntf speechToTextService;
+    private final YoutubeDownloadClient youtubeDownloadClient;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${cloudinary.cloud-name:}")
@@ -52,7 +57,6 @@ public class MediaServiceImpl implements MediaService {
         Map<String, Object> paramsToSign = new HashMap<>();
         paramsToSign.put("timestamp", timestamp);
 
-        // Chữ ký cho phép client tự upload vào đúng thư mục này, nên thư mục phải được kiểm tra.
         String safeFolder = MediaUploadPolicy.sanitizeFolder(folder);
         paramsToSign.put("folder", safeFolder);
 
@@ -76,16 +80,46 @@ public class MediaServiceImpl implements MediaService {
         if (file == null || file.isEmpty()) {
             throw new AppException(400, "File tải lên không được để trống");
         }
-        MediaUploadPolicy.validateFile(file.getContentType(), file.getSize());
         String safeFolder = MediaUploadPolicy.sanitizeFolder(folder);
+        MediaUploadPolicy.validateFile(file.getContentType(), file.getOriginalFilename(), file.getSize(), safeFolder);
 
+        byte[] fileBytes;
+        try {
+            // Đọc file một lần, dùng lại cho cả Cloudinary và nhận dạng giọng nói bên dưới.
+            fileBytes = file.getBytes();
+        } catch (IOException e) {
+            log.error("Lỗi khi đọc file để tải lên Cloudinary", e);
+            throw new AppException(500, "Lỗi đọc dữ liệu file: " + e.getMessage());
+        }
+        return uploadBytes(fileBytes, file.getOriginalFilename(), safeFolder);
+    }
+
+    @Override
+    public CloudinaryUploadResponse importFromYoutube(String youtubeUrl) {
+        validateCloudinaryConfig();
+
+        YoutubeDownloadClient.DownloadedVideo video =
+                youtubeDownloadClient.download(youtubeUrl, MAX_YOUTUBE_SECONDS);
+        log.info("Đã tải video YouTube {} ({} KB, {}s)",
+                video.videoId(), video.bytes().length / 1024, video.durationSeconds());
+
+        String filename = (video.videoId() != null && !video.videoId().isBlank()
+                ? "youtube-" + video.videoId() : "youtube") + ".mp4";
+        CloudinaryUploadResponse response = uploadBytes(video.bytes(), filename, YOUTUBE_FOLDER);
+        response.setTitle(video.title());
+        if (response.getDuration() == null && video.durationSeconds() != null) {
+            response.setDuration(video.durationSeconds().doubleValue());
+        }
+        return response;
+    }
+
+    /** Upload bytes lên Cloudinary; nếu là video thì chạy AI tạo phụ đề ở nền. */
+    private CloudinaryUploadResponse uploadBytes(byte[] fileBytes, String filename, String safeFolder) {
         try {
             Map<String, Object> uploadParams = new HashMap<>();
             uploadParams.put("resource_type", "auto");
             uploadParams.put("folder", safeFolder);
 
-            // Đọc file một lần, dùng lại cho cả Cloudinary và nhận dạng giọng nói bên dưới.
-            byte[] fileBytes = file.getBytes();
             @SuppressWarnings("unchecked")
             Map<String, Object> uploadResult = cloudinary.uploader().upload(fileBytes, uploadParams);
             String secureUrl = (String) uploadResult.get("secure_url");
@@ -95,13 +129,11 @@ public class MediaServiceImpl implements MediaService {
             if ("video".equals(uploadResult.get("resource_type"))
                     && secureUrl != null && !secureUrl.isBlank()) {
                 try {
-                    // Trước đây tải lại toàn bộ video vừa upload từ Cloudinary (tới 500MB) chỉ để lấy
-                    // đúng nội dung mình đã có trong tay.
                     aiTaskId = java.util.UUID.randomUUID().toString();
                     speechToTextService.processAudioAsync(
                             aiTaskId,
                             fileBytes,
-                            file.getOriginalFilename());
+                            filename);
                     aiStatus = "PROCESSING";
                 } catch (Exception aiException) {
                     log.error("Không thể khởi động AI cho file Cloudinary {}", secureUrl, aiException);
@@ -132,9 +164,6 @@ public class MediaServiceImpl implements MediaService {
                     .aiTaskId(aiTaskId)
                     .aiStatus(aiStatus)
                     .build();
-        } catch (IOException e) {
-            log.error("Lỗi khi đọc file để tải lên Cloudinary", e);
-            throw new AppException(500, "Lỗi đọc dữ liệu file: " + e.getMessage());
         } catch (Exception e) {
             log.error("Lỗi khi tải file lên Cloudinary", e);
             throw new AppException(500, "Không thể tải file lên Cloudinary: " + e.getMessage());

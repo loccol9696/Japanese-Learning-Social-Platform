@@ -1,12 +1,10 @@
 import 'package:flutter/foundation.dart';
 
-import 'dart:io' show Platform;
-
 class ApiConstants {
   ApiConstants._();
 
   /// Địa chỉ API do người build chỉ định, ví dụ khi chạy trên điện thoại thật qua ngrok:
-  /// `flutter build apk --dart-define=API_BASE_URL=https://ten-mien.ngrok-free.app/api/v1`.
+  /// `flutter build apk --dart-define=API_BASE_URL=https://untraitorous-huong-conversably.ngrok-free.dev/api/v1`.
   /// Để trống thì tự chọn theo nền tảng (máy ảo Android dùng 10.0.2.2).
   static const String _apiBaseUrlOverride = String.fromEnvironment('API_BASE_URL');
 
@@ -23,13 +21,8 @@ class ApiConstants {
     if (kIsWeb) {
       return 'http://localhost:8080/api/v1';
     }
-
-    try {
-      if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8080/api/v1';
-      }
-    } catch (_) {
-      // Fallback
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8080/api/v1';
     }
 
     return 'http://localhost:8080/api/v1';

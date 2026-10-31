@@ -20,8 +20,8 @@ public final class SubtitleSplitter {
     public record Piece(String text, double start, double end) {
     }
 
-    public static final int DEFAULT_MAX_CHARS = 22;
-    public static final int DEFAULT_MIN_CHARS = 4;
+    public static final int DEFAULT_MAX_CHARS = 13;
+    public static final int DEFAULT_MIN_CHARS = 3;
 
     private static final String SENTENCE_END = "。！？!?．";
     private static final String CLOSING = "」』）)”\"’'";

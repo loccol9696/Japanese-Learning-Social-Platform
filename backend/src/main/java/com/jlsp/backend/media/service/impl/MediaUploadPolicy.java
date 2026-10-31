@@ -21,12 +21,33 @@ final class MediaUploadPolicy {
     private MediaUploadPolicy() {
     }
 
-    /** Chỉ nhận ảnh, video, âm thanh và giới hạn dung lượng theo loại. */
+    /** Tương thích với các gọi cũ / unit test. */
     static void validateFile(String contentType, long sizeBytes) {
-        if (contentType == null || contentType.isBlank()) {
+        validateFile(contentType, null, sizeBytes, null);
+    }
+
+    /**
+     * Kiểm tra file tải lên:
+     * - Tự suy luận Content-Type từ tên file nếu client gửi "application/octet-stream" hoặc để trống.
+     * - Nếu thư mục là video ("jlsp/videos"), chỉ cho phép tải lên video.
+     */
+    static void validateFile(String contentType, String filename, long sizeBytes, String folder) {
+        String type = resolveContentType(contentType, filename);
+        if (type == null || type.isBlank()) {
             throw new AppException(400, "Không xác định được loại file tải lên");
         }
-        String type = contentType.trim().toLowerCase(Locale.ROOT);
+
+        boolean isVideoFolder = folder != null && folder.trim().toLowerCase(Locale.ROOT).contains("video");
+        if (isVideoFolder) {
+            if (!type.startsWith("video/")) {
+                throw new AppException(400, "Chỉ hỗ trợ tải lên tệp video");
+            }
+            if (sizeBytes > MAX_MEDIA_BYTES) {
+                throw new AppException(413, "Video tối đa 500MB");
+            }
+            return;
+        }
+
         if (type.startsWith("image/")) {
             if (sizeBytes > MAX_IMAGE_BYTES) {
                 throw new AppException(413, "Ảnh tối đa 10MB");
@@ -38,6 +59,43 @@ final class MediaUploadPolicy {
         } else {
             throw new AppException(415, "Chỉ hỗ trợ tải lên ảnh, video hoặc âm thanh");
         }
+    }
+
+    /**
+     * Suy luận mime-type chuẩn. Khi client upload dạng multipart từ bytes,
+     * header thường bị gửi là "application/octet-stream". Lúc này dựa vào đuôi file để nhận diện.
+     */
+    static String resolveContentType(String contentType, String filename) {
+        String type = contentType != null ? contentType.trim().toLowerCase(Locale.ROOT) : "";
+        if (!type.isBlank() && !"application/octet-stream".equals(type)) {
+            return type;
+        }
+        if (filename != null && !filename.isBlank()) {
+            String lower = filename.trim().toLowerCase(Locale.ROOT);
+            int dot = lower.lastIndexOf('.');
+            if (dot >= 0) {
+                String ext = lower.substring(dot + 1);
+                return switch (ext) {
+                    case "mp4" -> "video/mp4";
+                    case "mov" -> "video/quicktime";
+                    case "webm" -> "video/webm";
+                    case "avi" -> "video/x-msvideo";
+                    case "mkv" -> "video/x-matroska";
+                    case "flv" -> "video/x-flv";
+                    case "jpg", "jpeg" -> "image/jpeg";
+                    case "png" -> "image/png";
+                    case "gif" -> "image/gif";
+                    case "webp" -> "image/webp";
+                    case "mp3" -> "audio/mpeg";
+                    case "wav" -> "audio/wav";
+                    case "m4a" -> "audio/mp4";
+                    case "aac" -> "audio/aac";
+                    case "ogg" -> "audio/ogg";
+                    default -> type;
+                };
+            }
+        }
+        return type;
     }
 
     /** Thư mục trống thì dùng mặc định; ngoài ra phải hợp lệ, nếu không từ chối (không tự sửa lặng lẽ). */

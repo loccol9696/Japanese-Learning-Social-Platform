@@ -5,7 +5,7 @@ import com.jlsp.backend.video.entity.VideoStatus;
 import lombok.*;
 
 /**
- * DTO yêu cầu cập nhật thông tin bài đăng Video.
+ * DTO yêu cầu cập nhật thông tin bài đăng Video (bao gồm cả hoàn thiện bản nháp).
  */
 @Getter
 @Setter
@@ -40,7 +40,17 @@ public class UpdateVideoRequest {
     private Long topicId;
 
     /**
-     * Trạng thái hiển thị mới (PUBLIC, PRIVATE, UNLISTED)
+     * Phụ đề JSON mới (tuỳ chọn, khi chỉnh sửa bản nháp hoặc cập nhật toàn bộ).
+     */
+    private String subtitles;
+
+    /**
+     * Kết quả phân tích ngữ pháp JSON (tuỳ chọn, khi chỉnh sửa bản nháp).
+     */
+    private String grammarAnalysis;
+
+    /**
+     * Trạng thái hiển thị mới (PUBLIC, PRIVATE, UNLISTED, DRAFT)
      */
     private VideoStatus status;
 }

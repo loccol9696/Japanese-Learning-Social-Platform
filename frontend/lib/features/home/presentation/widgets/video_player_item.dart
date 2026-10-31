@@ -654,6 +654,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                                 : '',
                             theme: theme,
                             sentence: activeCue?.text,
+                            grammarPoints: activeCue?.grammarPoints ?? const [],
                             onLookupActiveChanged: _handleLookupActiveChanged,
                           ),
                         ),
@@ -814,6 +815,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                                         : '',
                                     theme: theme,
                                     sentence: activeCue?.text,
+                                    grammarPoints:
+                                        activeCue?.grammarPoints ?? const [],
                                     onLookupActiveChanged:
                                         _handleLookupActiveChanged,
                                   ),

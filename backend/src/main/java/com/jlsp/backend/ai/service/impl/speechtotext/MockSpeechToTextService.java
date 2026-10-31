@@ -37,8 +37,8 @@ public class MockSpeechToTextService implements SpeechToTextServiceIntf {
         log.info("[MOCK STT] Đang giả lập xử lý audio cho taskId: {}", taskId);
         taskStatusMap.put(taskId, "PROCESSING");
         try {
-            // Giả lập độ trễ nhận diện 2 giây
-            Thread.sleep(2000);
+            // Giả lập độ trễ nhận diện 15 giây để test thoát giữa chừng / interrupt
+            Thread.sleep(15_000);
 
             List<ScriptSegment> mockSegments = List.of(
                 ScriptSegment.builder()

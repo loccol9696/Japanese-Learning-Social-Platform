@@ -3,7 +3,9 @@ package com.jlsp.backend.media.controller;
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.media.dto.CloudinarySignatureResponse;
 import com.jlsp.backend.media.dto.CloudinaryUploadResponse;
+import com.jlsp.backend.media.dto.YoutubeImportRequest;
 import com.jlsp.backend.media.service.MediaService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -46,6 +48,19 @@ public class MediaController {
             @RequestPart("file") MultipartFile file,
             @RequestParam(value = "folder", required = false, defaultValue = "jlsp") String folder) {
         CloudinaryUploadResponse response = mediaService.uploadMedia(file, folder);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * Nhập video từ link YouTube: backend tải video (tối đa 10 phút), upload lên Cloudinary
+     * và khởi động AI tạo phụ đề. Response giống /upload, kèm "title" gốc của video.
+     *
+     * POST /api/v1/media/youtube  { "url": "https://www.youtube.com/watch?v=..." }
+     */
+    @PostMapping("/youtube")
+    public ResponseEntity<ApiResponse<CloudinaryUploadResponse>> importFromYoutube(
+            @Valid @RequestBody YoutubeImportRequest request) {
+        CloudinaryUploadResponse response = mediaService.importFromYoutube(request.getUrl());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

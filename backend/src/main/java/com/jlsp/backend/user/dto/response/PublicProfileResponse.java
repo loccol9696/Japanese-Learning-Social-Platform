@@ -7,7 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Trang cá nhân công khai của một người dùng. Không có email / vai trò / trạng thái tài khoản,
+ * Trang cá nhân công khai của một người dùng. Không có email / vai trò / trạng
+ * thái tài khoản,
  * và có quan hệ theo dõi với người đang xem.
  */
 @Data
