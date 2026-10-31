@@ -152,6 +152,36 @@ void main() {
     expect(find.text('Chưa có video đã thích'), findsOneWidget);
   });
 
+  testWidgets('ProfileScreen shows the interests under the bio', (tester) async {
+    final mockRepo = _MockProfileRepository()
+      ..profile = const UserProfileModel(
+        id: 1,
+        username: 'yamada_san',
+        displayName: 'Yamada Kenji',
+        interests: ['Anime & Manga', 'Luyện thi JLPT'],
+      );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: ProfileScreen(repository: mockRepo))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sở thích'), findsOneWidget);
+    expect(find.text('Anime & Manga'), findsOneWidget);
+    expect(find.text('Luyện thi JLPT'), findsOneWidget);
+  });
+
+  testWidgets('ProfileScreen hides the interests block when none are set', (tester) async {
+    final mockRepo = _MockProfileRepository();
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: ProfileScreen(repository: mockRepo))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sở thích'), findsNothing);
+  });
+
   testWidgets('ProfileScreen settings sheet lists the settings rows and logout', (tester) async {
     final mockRepo = _MockProfileRepository();
 

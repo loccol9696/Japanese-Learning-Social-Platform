@@ -98,9 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadMembershipStatus() async {
     try {
-      final status = await SubscriptionService.instance.getMySubscriptionStatus(
-        _profile.id,
-      );
+      final status = await SubscriptionService.instance.getMyStatus();
       if (mounted) {
         setState(() {
           _membershipStatus = status;
@@ -817,8 +815,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
+
+          // Sở thích
+          if (_profile.interests.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: _buildInterests(),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildInterests() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sở thích',
+          style: TextStyle(
+            color: AppPalette.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final interest in _profile.interests)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppPalette.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  interest,
+                  style: TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -975,33 +1024,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         return _buildPlanDetails(snapshot.data, isPremium);
                       },
                     ),
-                    if (!isPremium) ...[
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.of(sheetContext).pop();
-                            _openSubscription();
-                          },
-                          icon: const Icon(Icons.workspace_premium_rounded),
-                          label: const Text('Nâng cấp Premium'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppPalette.accent,
-                            foregroundColor: AppPalette.onAccent,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
+                    // Free: nâng cấp lần đầu; Premium: nâng cấp / đổi / gia hạn gói.
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(sheetContext).pop();
+                          _openSubscription();
+                        },
+                        icon: Icon(
+                          isPremium
+                              ? Icons.swap_vert_rounded
+                              : Icons.workspace_premium_rounded,
+                        ),
+                        label: Text(
+                          isPremium
+                              ? 'Nâng cấp hoặc đổi gói'
+                              : 'Nâng cấp Premium',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppPalette.accent,
+                          foregroundColor: AppPalette.onAccent,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),

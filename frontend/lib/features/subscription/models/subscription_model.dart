@@ -1,3 +1,18 @@
+/// Quan hệ giữa gói đang chọn và gói người dùng đang dùng.
+enum PlanChangeKind {
+  /// Chưa có gói trả phí.
+  subscribe,
+
+  /// Mua lại đúng gói đang dùng (cộng thêm thời hạn).
+  renew,
+
+  /// Gói có giá cao hơn gói đang dùng.
+  upgrade,
+
+  /// Gói có giá thấp hơn gói đang dùng (hoặc không xác định được gói hiện tại).
+  change,
+}
+
 class SubscriptionPlan {
   final int id;
   final String name;
@@ -35,8 +50,10 @@ class SubscriptionPlan {
     if (rawFeatures is List) {
       parsedFeatures = rawFeatures.map((e) => e.toString()).toList();
     } else if (rawFeatures is String) {
+      // BE trả một chuỗi: tách theo dòng hoặc dấu phẩy, nhưng giữ nguyên
+      // dấu phân cách hàng nghìn trong số ("2,000 token").
       parsedFeatures = rawFeatures
-          .split('\n')
+          .split(RegExp(r'\n|,(?!\d{3}\b)'))
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
           .toList();
@@ -57,6 +74,27 @@ class SubscriptionPlan {
       badgeLabel: json['badgeLabel'] as String?,
       discountPercent: json['discountPercent'] as int?,
     );
+  }
+
+  bool get isLifetime => durationDays >= 3650;
+
+  /// Số tháng của gói; null với gói trọn đời hoặc dưới một tháng.
+  int? get months {
+    if (isLifetime || durationDays < 30) return null;
+    return (durationDays / 30).round();
+  }
+
+  /// Phần trăm tiết kiệm so với việc mua [baseline] lặp lại theo tháng.
+  /// Null khi không so sánh được hoặc không rẻ hơn.
+  int? savingsPercentVs(SubscriptionPlan baseline) {
+    final planMonths = months;
+    final baselineMonths = baseline.months;
+    if (planMonths == null || baselineMonths == null) return null;
+    if (baseline.price <= 0 || price <= 0) return null;
+    final perMonth = price / planMonths;
+    final baselinePerMonth = baseline.price / baselineMonths;
+    final percent = ((1 - perMonth / baselinePerMonth) * 100).round();
+    return percent > 0 ? percent : null;
   }
 
   String get formattedPrice {
@@ -84,7 +122,12 @@ class SubscriptionPlan {
     return '$durationDays Ngày';
   }
 
-  static String _formatNumber(int number) {
+  /// Hạn mức token AI mỗi ngày, có dấu chấm ngăn cách hàng nghìn ("2.000").
+  String get formattedTokenLimit => _groupDigits(dailyTokenLimit);
+
+  static String _formatNumber(int number) => '${_groupDigits(number)} đ';
+
+  static String _groupDigits(int number) {
     final str = number.toString();
     final buffer = StringBuffer();
     int count = 0;
@@ -95,7 +138,7 @@ class SubscriptionPlan {
         buffer.write('.');
       }
     }
-    return '${buffer.toString().split('').reversed.join('')} đ';
+    return buffer.toString().split('').reversed.join('');
   }
 }
 
@@ -191,9 +234,19 @@ class SubscriptionStatus {
         remainingDays >= 3650;
   }
 
-  String get formattedExpiryDate {
-    if (endDate == null) return '';
-    return '${endDate!.day.toString().padLeft(2, '0')}/${endDate!.month.toString().padLeft(2, '0')}/${endDate!.year}';
+  String get formattedExpiryDate => endDate == null ? '' : formatDate(endDate!);
+
+  static String formatDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
+  /// Hạn dùng dự kiến sau khi mua [plan]. Khớp cách BE xác nhận đơn: thời hạn
+  /// gói mới được cộng dồn vào hạn hiện tại (nếu còn hiệu lực), không quy đổi
+  /// phần còn lại của gói cũ.
+  DateTime expiryAfterBuying(SubscriptionPlan plan, {DateTime? now}) {
+    final current = now ?? DateTime.now();
+    final end = endDate;
+    final base = isVip && end != null && end.isAfter(current) ? end : current;
+    return base.add(Duration(days: plan.durationDays));
   }
 
   int get daysRemaining => remainingDays;

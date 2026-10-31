@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
@@ -20,15 +19,6 @@ class SubscriptionService {
   SubscriptionService({String? baseUrl, http.Client? client})
     : baseUrl = baseUrl ?? defaultBaseUrl,
       _client = client ?? http.Client();
-
-  Future<SubscriptionStatus> getMySubscriptionStatus([int? userId]) async {
-    int? resolvedUserId = userId;
-    if (resolvedUserId == null || resolvedUserId <= 0) {
-      final currentUser = await AuthService.instance.getCurrentUser();
-      resolvedUserId = currentUser?.id;
-    }
-    return getMyStatus(userId: resolvedUserId ?? 4);
-  }
 
   Future<List<SubscriptionPlan>> getPlans() async {
     try {
@@ -131,14 +121,6 @@ class SubscriptionService {
       );
     }
 
-    if (result.status == 'SUCCESS') {
-      await _saveLocalSubscription(
-        userId: effectiveUserId,
-        planId: planId,
-        planName: result.planName,
-      );
-    }
-
     return result;
   }
 
@@ -194,7 +176,7 @@ class SubscriptionService {
     final confirmed =
         (jsonDecode(confirmResponse.body) as Map<String, dynamic>)['data']
             as Map<String, dynamic>;
-    final result = PaymentResponse(
+    return PaymentResponse(
       paymentId: (confirmed['id'] as num?)?.toInt() ?? 0,
       transactionRef: orderCode,
       amount: (confirmed['amount'] as num?)?.toDouble() ?? 0,
@@ -205,12 +187,6 @@ class SubscriptionService {
       paidAt: DateTime.now(),
       createdAt: DateTime.tryParse(confirmed['createdAt']?.toString() ?? ''),
     );
-    await _saveLocalSubscription(
-      userId: userId,
-      planId: planId,
-      planName: result.planName,
-    );
-    return result;
   }
 
   Future<void> confirmVnpayPayment({
@@ -224,110 +200,60 @@ class SubscriptionService {
     );
   }
 
-  Future<SubscriptionStatus> getMyStatus({required int userId}) async {
-    final currentUser = await AuthService.instance.getCurrentUser();
-    final effectiveUserId = currentUser?.id ?? userId;
-    final email = (currentUser?.email ?? '').trim().toLowerCase();
-    final username = (currentUser?.username ?? '').trim().toLowerCase();
+  /// Gói hiện tại của người dùng. BE chưa có endpoint trạng thái gói riêng nên
+  /// đọc từ hồ sơ (`subscriptionPlanName`, `vipExpiresAt`) rồi đối chiếu tên với
+  /// danh sách gói để biết mã gói. Lỗi mạng coi như chưa có gói.
+  Future<SubscriptionStatus> getMyStatus() async {
+    const notVip = SubscriptionStatus(isVip: false, remainingDays: 0);
+    try {
+      final results = await Future.wait<Object?>([
+        ApiClient.instance.get(ApiConstants.profileUrl),
+        _paidPlansOrEmpty(),
+      ]);
+      final profile = results[0];
+      final plans = results[1] as List<SubscriptionPlan>;
+      if (profile is! Map<String, dynamic>) return notVip;
 
-    // Tài khoản sakura@jlsp.com (ID 4) hoặc demo (ID 10) mặc định sở hữu Gói Trọn Đời
-    final isSakuraLifetime =
-        effectiveUserId == 4 ||
-        effectiveUserId == 10 ||
-        email == 'sakura@jlsp.com' ||
-        username == 'sakura_learner';
+      final planName = (profile['subscriptionPlanName'] as String?)?.trim();
+      if (planName == null || planName.isEmpty) return notVip;
 
-    if (isSakuraLifetime) {
+      // Giống BE: có gói và chưa hết hạn (hạn trống = còn hiệu lực).
+      final now = DateTime.now();
+      final expiresAt = DateTime.tryParse(
+        profile['vipExpiresAt']?.toString() ?? '',
+      );
+      if (expiresAt != null && !expiresAt.isAfter(now)) return notVip;
+
+      SubscriptionPlan? plan;
+      for (final candidate in plans) {
+        if (candidate.name.trim().toLowerCase() == planName.toLowerCase()) {
+          plan = candidate;
+          break;
+        }
+      }
+
+      final remainingDays = expiresAt == null
+          ? (plan?.durationDays ?? 0)
+          : (expiresAt.difference(now).inHours / 24).ceil();
+
       return SubscriptionStatus(
         isVip: true,
-        planId: 2,
-        planName: 'Gói Trọn Đời',
+        planId: plan?.id,
+        planName: planName,
         status: 'ACTIVE',
-        startDate: DateTime.now().subtract(const Duration(days: 30)),
-        endDate: DateTime.now().add(const Duration(days: 36500)),
-        remainingDays: 36500,
+        endDate: expiresAt,
+        remainingDays: remainingDays,
       );
+    } catch (_) {
+      return notVip;
     }
-
-    // Kiểm tra trạng thái đã lưu khi mua thành công của user hiện tại
-    final localStatus = await _getLocalSubscription(userId: effectiveUserId);
-    if (localStatus != null && localStatus.isVip) {
-      return localStatus;
-    }
-
-    try {
-      final data = await ApiClient.instance.get('$baseUrl/my-status');
-      if (data is Map<String, dynamic>) {
-        final status = SubscriptionStatus.fromJson(data);
-        if (status.isVip) {
-          return status;
-        }
-      }
-    } catch (_) {}
-
-    return const SubscriptionStatus(isVip: false, remainingDays: 0);
   }
 
-  Future<void> _saveLocalSubscription({
-    required int userId,
-    required int planId,
-    String? planName,
-  }) async {
+  Future<List<SubscriptionPlan>> _paidPlansOrEmpty() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final now = DateTime.now();
-      int durationDays = 365;
-      String resolvedName = planName ?? 'Gói 1 Năm';
-      final normalizedPlanName = resolvedName.toLowerCase();
-      if (planId == 1) {
-        durationDays = 90;
-        resolvedName = 'Gói 3 Tháng';
-      } else if (planId == 2 ||
-          normalizedPlanName.contains('trọn đời') ||
-          normalizedPlanName.contains('lifetime')) {
-        durationDays = 36500;
-        resolvedName = 'Gói Trọn Đời';
-      }
-      final endDate = now.add(Duration(days: durationDays));
-
-      final data = {
-        'isVip': true,
-        'planId': planId,
-        'planName': resolvedName,
-        'status': 'ACTIVE',
-        'startDate': now.toIso8601String(),
-        'endDate': endDate.toIso8601String(),
-        'remainingDays': durationDays,
-      };
-      await prefs.setString('user_subscription_$userId', jsonEncode(data));
-    } catch (_) {}
-  }
-
-  Future<SubscriptionStatus?> _getLocalSubscription({
-    required int userId,
-  }) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final str = prefs.getString('user_subscription_$userId');
-      if (str != null && str.isNotEmpty) {
-        final json = jsonDecode(str) as Map<String, dynamic>;
-        final end = DateTime.tryParse(json['endDate'] ?? '');
-        int remainingDays = (json['remainingDays'] as num?)?.toInt() ?? 0;
-        if (end != null) {
-          final diff = end.difference(DateTime.now()).inDays;
-          remainingDays = diff > 0 ? diff : 0;
-        }
-        return SubscriptionStatus(
-          isVip: true,
-          planId: json['planId'] as int?,
-          planName: json['planName'] as String?,
-          status: 'ACTIVE',
-          startDate: DateTime.tryParse(json['startDate'] ?? ''),
-          endDate: end,
-          remainingDays: remainingDays,
-        );
-      }
-    } catch (_) {}
-    return null;
+      return await getPlans();
+    } catch (_) {
+      return const [];
+    }
   }
 }

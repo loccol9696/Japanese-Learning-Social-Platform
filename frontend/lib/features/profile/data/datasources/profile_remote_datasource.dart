@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
@@ -94,7 +95,9 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       if (response.statusCode == 200) {
         final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
         final data = jsonMap['data'] as Map<String, dynamic>;
-        final profile = UserProfileModel.fromJson(data);
+        final profile = await _withLocalInterests(
+          UserProfileModel.fromJson(data),
+        );
         _saveToStorage(profile);
         return profile;
       }
@@ -105,7 +108,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     // 2. If Backend is offline, retrieve persistent saved changes from storage
     final stored = _getFromStorage();
     if (stored != null) {
-      return stored;
+      return _withLocalInterests(stored);
     }
 
     return const UserProfileModel();
@@ -118,6 +121,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   }) async {
     // 1. Save immediately to persistent storage so refresh never loses data
     _saveToStorage(profile);
+    await _saveLocalInterests(profile.interests);
 
     // 2. Synchronize to Backend Spring Boot REST API
     try {
@@ -132,7 +136,11 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
         final data = jsonMap['data'] as Map<String, dynamic>;
-        final updated = UserProfileModel.fromJson(data);
+        // BE chưa lưu sở thích nên không trả về: giữ lại bản vừa chọn.
+        var updated = UserProfileModel.fromJson(data);
+        if (updated.interests.isEmpty) {
+          updated = updated.copyWith(interests: profile.interests);
+        }
         _saveToStorage(updated);
 
         // Cập nhật lại TokenStorage để giao diện toàn app phản ánh ngay
@@ -286,6 +294,36 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
       throw Exception(body['message'] ?? 'Từ chối duyệt video thất bại');
     }
+  }
+
+  // BE bỏ qua `interests` khi cập nhật hồ sơ và không trả về khi lấy hồ sơ,
+  // nên sở thích được giữ trên máy theo từng tài khoản.
+  Future<String?> _interestsKey() async {
+    final userId = await TokenStorage.instance.getUserId();
+    return userId == null ? null : 'profile_interests_$userId';
+  }
+
+  Future<UserProfileModel> _withLocalInterests(UserProfileModel profile) async {
+    if (profile.interests.isNotEmpty) return profile;
+    try {
+      final key = await _interestsKey();
+      if (key == null) return profile;
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(key);
+      if (saved == null || saved.isEmpty) return profile;
+      return profile.copyWith(interests: saved);
+    } catch (_) {
+      return profile;
+    }
+  }
+
+  Future<void> _saveLocalInterests(List<String> interests) async {
+    try {
+      final key = await _interestsKey();
+      if (key == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(key, interests);
+    } catch (_) {}
   }
 
   void _saveToStorage(UserProfileModel profile) {

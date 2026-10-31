@@ -10,21 +10,30 @@ import '../../../core/theme/app_palette.dart';
 class SubscriptionScreen extends StatefulWidget {
   final int userId;
 
-  const SubscriptionScreen({super.key, this.userId = 1});
+  /// Cho phép thay dịch vụ khi kiểm thử; mặc định dùng dịch vụ thật.
+  final SubscriptionService? service;
+
+  const SubscriptionScreen({super.key, this.userId = 1, this.service});
 
   @override
   State<SubscriptionScreen> createState() => _SubscriptionScreenState();
 }
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
-  static Color get _linkBlue => AppPalette.info;
+  static const _defaultFeatures = [
+    'Tạo bộ thẻ không giới hạn',
+    'Học và ôn tập không quảng cáo',
+    'Luyện nghe và tự luận không giới hạn lượt',
+    'Đồng bộ trên mọi thiết bị',
+  ];
 
-  final SubscriptionService _service = SubscriptionService();
+  late final SubscriptionService _service =
+      widget.service ?? SubscriptionService();
   List<SubscriptionPlan> _plans = [];
   SubscriptionStatus? _userStatus;
   bool _isLoading = true;
   String? _loadError;
-  int _selectedPlanIndex = 0; // Default to "Trọn đời" (first / best plan)
+  int? _selectedPlanId;
   String? _appliedPromoCode;
   int? _resolvedUserId;
 
@@ -41,31 +50,24 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     });
     try {
       int activeUserId = widget.userId;
-      final currentUser = await AuthService.instance.getCurrentUser();
-      if (currentUser?.id != null) {
-        activeUserId = currentUser!.id!;
-      }
+      try {
+        final currentUser = await AuthService.instance.getCurrentUser();
+        if (currentUser?.id != null) activeUserId = currentUser!.id!;
+      } catch (_) {}
       _resolvedUserId = activeUserId;
 
-      final results = await Future.wait([
+      final results = await Future.wait<Object?>([
         _service.getPlans(),
-        _service.getMyStatus(userId: activeUserId),
+        _service.getMyStatus(),
       ]);
-      final plans = results[0] as List<SubscriptionPlan>;
-      final status = results[1] as SubscriptionStatus;
-
-      // Sắp xếp các gói: Trọn đời lên đầu, rồi 1 Năm, rồi 3 Tháng (chuẩn như Mazii)
-      final sortedPlans = List<SubscriptionPlan>.from(plans);
-      sortedPlans.sort((a, b) {
-        if (a.durationDays >= 3650) return -1;
-        if (b.durationDays >= 3650) return 1;
-        return b.durationDays.compareTo(a.durationDays);
-      });
+      final plans = List<SubscriptionPlan>.from(
+        results[0] as List<SubscriptionPlan>,
+      )..sort((a, b) => b.durationDays.compareTo(a.durationDays));
 
       if (mounted) {
         setState(() {
-          _plans = sortedPlans;
-          _userStatus = status;
+          _plans = plans;
+          _userStatus = results[1] as SubscriptionStatus;
           _isLoading = false;
         });
       }
@@ -79,94 +81,100 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     }
   }
 
-  bool get _isUserLifetimeVip {
-    if (_userStatus == null || !_userStatus!.isVip) return false;
-    final name = (_userStatus!.planName ?? '').toLowerCase();
-    return _userStatus!.remainingDays >= 3650 ||
-        _userStatus!.planId == 2 ||
-        name.contains('trọn đời') ||
-        name.contains('lifetime');
+  // ---------------------------------------------------------------------------
+  // Gói đang dùng / gói đang chọn
+  // ---------------------------------------------------------------------------
+
+  bool get _isVip => _userStatus?.isVip ?? false;
+
+  /// Gói đang dùng, tra theo mã gói do dịch vụ đối chiếu từ hồ sơ.
+  SubscriptionPlan? get _currentPlan {
+    final planId = _userStatus?.planId;
+    if (!_isVip || planId == null) return null;
+    for (final plan in _plans) {
+      if (plan.id == planId) return plan;
+    }
+    return null;
   }
 
-  int get _currentOwnedDurationDays {
-    if (_userStatus == null || !_userStatus!.isVip) return 0;
-    if (_isUserLifetimeVip) return 36500;
-    final name = (_userStatus!.planName ?? '').toLowerCase();
-    if (_userStatus!.planId == 3 ||
-        name.contains('1 năm') ||
-        name.contains('12 tháng') ||
-        _userStatus!.remainingDays > 95) {
-      return 365;
+  /// Gói rẻ nhất tính theo tháng, làm mốc tính phần trăm tiết kiệm.
+  SubscriptionPlan? get _baselinePlan {
+    SubscriptionPlan? baseline;
+    for (final plan in _plans) {
+      if (plan.months == null) continue;
+      if (baseline == null || plan.durationDays < baseline.durationDays) {
+        baseline = plan;
+      }
     }
-    if (_userStatus!.planId == 1 ||
-        name.contains('3 tháng') ||
-        _userStatus!.remainingDays > 0) {
-      return 90;
-    }
-    return 0;
+    return baseline;
   }
 
-  List<SubscriptionPlan> get _visiblePlans {
-    final ownedDuration = _currentOwnedDurationDays;
-    if (ownedDuration <= 0) return _plans;
-    // Ẩn hoàn toàn các gói thấp hơn gói người dùng đang sở hữu
-    return _plans.where((plan) => plan.durationDays >= ownedDuration).toList();
+  /// Mặc định: chưa có gói thì chọn gói đầu danh sách; đang có gói thì chọn gói
+  /// cao hơn gần nhất, không còn gói cao hơn thì chọn chính gói đang dùng.
+  SubscriptionPlan? get _defaultPlan {
+    if (_plans.isEmpty) return null;
+    final current = _currentPlan;
+    if (current == null) return _plans.first;
+    SubscriptionPlan? nextUp;
+    for (final plan in _plans) {
+      if (plan.price <= current.price) continue;
+      if (nextUp == null || plan.price < nextUp.price) nextUp = plan;
+    }
+    return nextUp ?? current;
   }
 
-  SubscriptionPlan? get _currentSelectedPlan {
-    final visible = _visiblePlans;
-    if (visible.isEmpty) return null;
-    final basePlan =
-        (_selectedPlanIndex >= 0 && _selectedPlanIndex < visible.length)
-        ? visible[_selectedPlanIndex]
-        : visible.first;
-    if (_appliedPromoCode != null && _appliedPromoCode!.isNotEmpty) {
-      final discountedPrice = (basePlan.price * 0.9).roundToDouble();
-      return SubscriptionPlan(
-        id: basePlan.id,
-        name: basePlan.name,
-        code: basePlan.code,
-        description: basePlan.description,
-        price: discountedPrice,
-        dailyTokenLimit: basePlan.dailyTokenLimit,
-        originalPrice: basePlan.originalPrice ?? basePlan.price,
-        durationDays: basePlan.durationDays,
-        features: basePlan.features,
-        isActive: basePlan.isActive,
-        displayOrder: basePlan.displayOrder,
-        badgeLabel: basePlan.badgeLabel,
-        discountPercent: basePlan.discountPercent,
-      );
+  SubscriptionPlan? get _selectedPlan {
+    for (final plan in _plans) {
+      if (plan.id == _selectedPlanId) return plan;
     }
-    return basePlan;
+    return _defaultPlan;
   }
+
+  /// Gói đang chọn, đã áp mã khuyến mãi (nếu có), để thanh toán.
+  SubscriptionPlan? get _checkoutPlan {
+    final base = _selectedPlan;
+    if (base == null) return null;
+    final code = _appliedPromoCode;
+    if (code == null || code.isEmpty) return base;
+    return SubscriptionPlan(
+      id: base.id,
+      name: base.name,
+      code: base.code,
+      description: base.description,
+      price: (base.price * 0.9).roundToDouble(),
+      dailyTokenLimit: base.dailyTokenLimit,
+      originalPrice: base.originalPrice ?? base.price,
+      durationDays: base.durationDays,
+      features: base.features,
+      isActive: base.isActive,
+      displayOrder: base.displayOrder,
+      badgeLabel: base.badgeLabel,
+      discountPercent: base.discountPercent,
+    );
+  }
+
+  PlanChangeKind _kindFor(SubscriptionPlan plan) {
+    if (!_isVip) return PlanChangeKind.subscribe;
+    final current = _currentPlan;
+    if (current == null) return PlanChangeKind.change;
+    if (plan.id == current.id) return PlanChangeKind.renew;
+    return plan.price > current.price
+        ? PlanChangeKind.upgrade
+        : PlanChangeKind.change;
+  }
+
+  /// Gói trọn đời đang sở hữu thì không còn gì để gia hạn.
+  bool _canPurchase(SubscriptionPlan plan) =>
+      !(_kindFor(plan) == PlanChangeKind.renew && plan.isLifetime);
+
+  // ---------------------------------------------------------------------------
+  // Thanh toán
+  // ---------------------------------------------------------------------------
 
   void _openCheckout() {
-    if (_isUserLifetimeVip) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Bạn đang sở hữu Gói Trọn Đời cao cấp nhất!'),
-          backgroundColor: AppPalette.success,
-        ),
-      );
-      return;
-    }
-
-    final plan = _currentSelectedPlan;
-    if (plan == null) return;
-    if (_currentOwnedDurationDays > 0 &&
-        plan.durationDays <= _currentOwnedDurationDays) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Bạn đang sở hữu gói này. Vui lòng chọn gói cao hơn để nâng cấp!',
-          ),
-          backgroundColor: AppPalette.success,
-        ),
-      );
-      return;
-    }
-    final checkoutUserId = _resolvedUserId ?? widget.userId;
+    final plan = _checkoutPlan;
+    if (plan == null || !_canPurchase(plan)) return;
+    final kind = _kindFor(plan);
 
     showModalBottomSheet(
       context: context,
@@ -174,7 +182,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       backgroundColor: Colors.transparent,
       builder: (bottomSheetCtx) => CheckoutBottomSheet(
         plan: plan,
-        userId: checkoutUserId,
+        userId: _resolvedUserId ?? widget.userId,
+        kind: kind,
+        currentStatus: _userStatus,
         onSuccess: (payment) {
           showDialog(
             context: context,
@@ -182,6 +192,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             builder: (dialogCtx) => SubscriptionSuccessDialog(
               payment: payment,
               plan: plan,
+              kind: kind,
               onDismiss: () {
                 // Đóng màn hình đăng ký gói và chuyển về trang Hồ sơ cá nhân (trả về true)
                 Navigator.of(context).pop(true);
@@ -199,14 +210,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppPalette.background,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: AppPalette.surface),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
             Icon(Icons.discount_rounded, color: AppPalette.info, size: 24),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(
               'Nhập mã khuyến mãi',
               style: TextStyle(
@@ -245,18 +253,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppPalette.surface),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppPalette.surface),
+                  borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: AppPalette.info,
-                    width: 1.5,
-                  ),
+                  borderSide: BorderSide(color: AppPalette.info, width: 1.5),
                 ),
               ),
             ),
@@ -293,7 +294,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             child: Text(
               'Áp dụng',
               style: TextStyle(
-                color: AppPalette.textPrimary,
+                color: AppPalette.onAccent,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -303,92 +304,36 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Giao diện
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
+    final showBottomBar =
+        !_isLoading && _loadError == null && _checkoutPlan != null;
+
     return Scaffold(
-      backgroundColor: AppPalette.background, // Deep backdrop on web
+      backgroundColor: AppPalette.background,
       body: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 440), // Mobile container
+          constraints: const BoxConstraints(maxWidth: 440),
           decoration: BoxDecoration(
-            color: AppPalette.background, // Rich Dark Navy Background
+            color: AppPalette.background,
             boxShadow: [
               BoxShadow(
                 color: AppPalette.videoScrim.withValues(alpha: 0.25),
                 blurRadius: 30,
-                offset: Offset(0, 6),
+                offset: const Offset(0, 6),
               ),
             ],
           ),
           child: SafeArea(
             child: Column(
               children: [
-                // 1. Top Bar (Close button on top right)
                 _buildTopBar(),
-
-                // 2. Main Scrollable Content
-                Expanded(
-                  child: _isLoading
-                      ? Center(
-                          child: CircularProgressIndicator(
-                            color: AppPalette.info,
-                          ),
-                        )
-                      : _loadError != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Text(
-                              _loadError!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: AppPalette.textSecondary),
-                            ),
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _loadData,
-                          color: AppPalette.info,
-                          backgroundColor: AppPalette.background,
-                          child: SingleChildScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Title & Brand Glow Badge
-                                _buildHeroHeader(),
-                                const SizedBox(height: 24),
-
-                                // Feature Checklist with Cute Green Icons
-                                _buildFeatureChecklist(),
-                                const SizedBox(height: 18),
-
-                                // Current active VIP info if applicable
-                                if (_userStatus != null &&
-                                    _userStatus!.isVip) ...[
-                                  _buildCurrentVipBadge(),
-                                  const SizedBox(height: 16),
-                                ],
-
-                                // Plan Selection Stack (Vertical List)
-                                _buildPlanSelectionCards(),
-                                if (!_isUserLifetimeVip) _buildPromoLink(),
-                                const SizedBox(height: 16),
-
-                                // Terms & Auto-renew disclaimer
-                                _buildDisclaimer(),
-                                const SizedBox(height: 24),
-                              ],
-                            ),
-                          ),
-                        ),
-                ),
-
-                // 3. Sticky Bottom Bar with Promo Code & CTA
-                _buildStickyBottomBar(),
+                Expanded(child: _buildBody()),
+                if (showBottomBar) _buildBottomBar(),
               ],
             ),
           ),
@@ -404,6 +349,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         alignment: Alignment.centerLeft,
         child: IconButton(
           onPressed: () => Navigator.of(context).pop(),
+          tooltip: 'Quay lại',
           icon: Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 18,
@@ -414,24 +360,104 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  Widget _buildHeroHeader() {
+  Widget _buildBody() {
+    if (_isLoading) {
+      return Center(child: CircularProgressIndicator(color: AppPalette.accent));
+    }
+    if (_loadError != null) return _buildError();
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      color: AppPalette.accent,
+      backgroundColor: AppPalette.surface,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+        children: [
+          _buildHero(),
+          if (_isVip) ...[const SizedBox(height: 20), _buildCurrentPlanCard()],
+          const SizedBox(height: 24),
+          if (_plans.isEmpty)
+            _buildEmptyPlans()
+          else ...[
+            _buildSectionTitle(_isVip ? 'Chọn gói muốn áp dụng' : 'Chọn gói'),
+            const SizedBox(height: 12),
+            for (final plan in _plans) _buildPlanCard(plan),
+            const SizedBox(height: 12),
+            _buildFeatureCard(),
+            const SizedBox(height: 8),
+            _buildPromoLink(),
+            const SizedBox(height: 8),
+            _buildDisclaimer(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 44,
+              color: AppPalette.textSecondary,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _loadError!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppPalette.textSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: _loadData,
+              child: Text(
+                'Thử lại',
+                style: TextStyle(color: AppPalette.accent),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyPlans() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Text(
+        'Hiện chưa có gói nào để đăng ký. Vui lòng quay lại sau.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: AppPalette.textSecondary, height: 1.4),
+      ),
+    );
+  }
+
+  Widget _buildHero() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'KOTOBA PREMIUM',
+          _isVip ? 'GÓI THÀNH VIÊN' : 'KOTOBA PREMIUM',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.2,
-            color: _linkBlue,
+            color: AppPalette.accent,
           ),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 10),
         Text(
-          'Học thoải mái hơn,\nkhông giới hạn',
+          _isVip
+              ? 'Nâng cấp hoặc\nđổi gói của bạn'
+              : 'Học thoải mái hơn,\nkhông giới hạn',
           style: TextStyle(
-            fontSize: 30,
+            fontSize: 28,
             height: 1.2,
             fontWeight: FontWeight.w800,
             color: AppPalette.textPrimary,
@@ -441,327 +467,364 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  Widget _buildFeatureChecklist() {
-    const features = [
-      'Tạo bộ thẻ không giới hạn',
-      'Học và ôn tập không quảng cáo',
-      'Luyện nghe và tự luận không giới hạn lượt',
-      'Đồng bộ trên mọi thiết bị',
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final feature in features)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(top: 1),
-                  child: Icon(Icons.check_rounded, size: 18, color: _linkBlue),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    feature,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: AppPalette.textPrimary,
-                      height: 1.3,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+        color: AppPalette.textPrimary,
+      ),
     );
   }
 
-  Widget _buildCurrentVipBadge() {
-    if (_userStatus == null || !_userStatus!.isVip) {
-      return const SizedBox.shrink();
-    }
+  Widget _buildCurrentPlanCard() {
+    final status = _userStatus!;
+    final plan = _currentPlan;
+    final isLifetime = plan?.isLifetime ?? status.isLifetime;
+    final name = status.planName ?? plan?.name ?? 'Premium';
+    final gold = AppPalette.gold;
 
-    final isLifetime = _isUserLifetimeVip;
+    final progress = !isLifetime && plan != null && plan.durationDays > 0
+        ? (status.remainingDays / plan.durationDays).clamp(0.0, 1.0).toDouble()
+        : null;
+    final detail = isLifetime
+        ? 'Sở hữu trọn đời'
+        : [
+            'Còn ${status.remainingDays} ngày',
+            if (status.endDate != null) 'hết hạn ${status.formattedExpiryDate}',
+          ].join(' · ');
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isLifetime ? AppPalette.warningContainer : AppPalette.warningContainer,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isLifetime ? AppPalette.success : AppPalette.warning,
-          width: 1.2,
-        ),
+        color: gold.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            isLifetime
-                ? Icons.workspace_premium_rounded
-                : Icons.verified_rounded,
-            color: isLifetime
-                ? AppPalette.success
-                : AppPalette.warning,
-            size: 26,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isLifetime
-                      ? 'BẠN ĐANG SỞ HỮU GÓI CAO CẤP NHẤT'
-                      : 'GÓI ĐANG HOẠT ĐỘNG',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
-                    color: isLifetime
-                        ? AppPalette.success
-                        : AppPalette.warning,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isLifetime
-                      ? 'Gói Trọn Đời (Lifetime) • Toàn bộ đặc quyền mở khóa vĩnh viễn'
-                      : 'Tài khoản VIP (${_userStatus!.planName ?? 'Premium'}) • Còn ${_userStatus!.remainingDays} ngày',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: isLifetime ? AppPalette.onAccent : AppPalette.warning,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlanSelectionCards() {
-    final visible = _visiblePlans;
-    if (visible.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      children: List.generate(visible.length, (index) {
-        final plan = visible[index];
-        final isSelected = _selectedPlanIndex == index;
-        return _buildPlanCardItem(plan, index: index, isSelected: isSelected);
-      }),
-    );
-  }
-
-  Widget _buildPlanCardItem(
-    SubscriptionPlan plan, {
-    required int index,
-    required bool isSelected,
-  }) {
-    final isLifetimePlan = plan.durationDays >= 3650;
-    final isYearlyPlan = plan.durationDays >= 360 && !isLifetimePlan;
-    final userHasLifetime = _isUserLifetimeVip;
-    final ownedDuration = _currentOwnedDurationDays;
-
-    final isPlanDisabled =
-        ownedDuration > 0 && plan.durationDays < ownedDuration;
-    final isAlreadyOwned =
-        (userHasLifetime && isLifetimePlan) ||
-        (ownedDuration > 0 && plan.durationDays == ownedDuration);
-
-    String subtitle = plan.durationLabel;
-    if (isAlreadyOwned) {
-      subtitle = isLifetimePlan
-          ? 'Đang sở hữu vĩnh viễn trên tài khoản này'
-          : 'Gói hiện tại của bạn đang hoạt động';
-    } else if (isPlanDisabled) {
-      subtitle = 'Đã bao gồm trong gói hiện tại của bạn';
-    } else if (isLifetimePlan) {
-      subtitle = 'Phù hợp nhất dành cho bạn';
-    } else if (isYearlyPlan) {
-      subtitle = plan.description.isNotEmpty
-          ? plan.description
-          : plan.durationLabel;
-    } else {
-      subtitle = plan.description.isNotEmpty
-          ? plan.description
-          : plan.durationLabel;
-    }
-
-    String? discountBadge = plan.badgeLabel;
-    if (discountBadge == null) {
-      if (isLifetimePlan) discountBadge = '-30%';
-      if (isYearlyPlan) discountBadge = '-16%';
-    }
-
-    return Opacity(
-      opacity: isPlanDisabled ? 0.45 : 1.0,
-      child: GestureDetector(
-        onTap: () {
-          if (isAlreadyOwned) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  isLifetimePlan
-                      ? 'Bạn đang sở hữu Gói Trọn Đời cao cấp nhất!'
-                      : 'Bạn đang sử dụng ${plan.name}. Hãy chọn gói cao hơn để nâng cấp!',
-                ),
-                backgroundColor: AppPalette.success,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-            return;
-          }
-          if (isPlanDisabled) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Bạn đang sở hữu gói cao hơn - Toàn bộ tính năng đã có sẵn!',
-                ),
-                backgroundColor: AppPalette.success,
-                duration: Duration(seconds: 2),
-              ),
-            );
-            return;
-          }
-          setState(() => _selectedPlanIndex = index);
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            color: isSelected ? AppPalette.accentSoft : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isAlreadyOwned
-                  ? AppPalette.success
-                  : (isSelected ? AppPalette.accent : AppPalette.surface),
-              width: 1.5,
-            ),
-          ),
-          child: Row(
+          Row(
             children: [
-              // Nút chọn dạng radio
               Container(
-                width: 22,
-                height: 22,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected
-                        ? AppPalette.accent
-                        : AppPalette.textSecondary,
-                    width: 1.5,
-                  ),
+                  color: gold.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                alignment: Alignment.center,
-                child: isSelected
-                    ? Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: AppPalette.accent,
-                          shape: BoxShape.circle,
-                        ),
-                      )
-                    : null,
+                child: Icon(
+                  Icons.workspace_premium_rounded,
+                  color: gold,
+                  size: 26,
+                ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      plan.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppPalette.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      isAlreadyOwned
-                          ? 'Đang sở hữu'
-                          : (discountBadge != null && !isPlanDisabled
-                                ? '$subtitle · $discountBadge'
-                                : subtitle),
+                      'Gói đang dùng',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isAlreadyOwned
-                            ? AppPalette.success
-                            : AppPalette.textSecondary,
+                        fontWeight: FontWeight.w700,
+                        color: gold,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (isAlreadyOwned)
+                    const SizedBox(height: 2),
                     Text(
-                      'Đã kích hoạt',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppPalette.success,
-                      ),
-                    )
-                  else ...[
-                    Text(
-                      '${plan.formattedPrice.replaceAll(' ', '')}đ',
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: AppPalette.textPrimary,
                       ),
                     ),
-                    if (plan.originalPrice != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        '${plan.formattedOriginalPrice?.replaceAll(' ', '')}đ',
-                        style: TextStyle(
-                          fontSize: 12,
-                          decoration: TextDecoration.lineThrough,
-                          color: AppPalette.textSecondary,
-                        ),
-                      ),
-                    ],
                   ],
-                ],
+                ),
               ),
             ],
+          ),
+          if (progress != null) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 6,
+                color: gold,
+                backgroundColor: gold.withValues(alpha: 0.2),
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            detail,
+            style: TextStyle(fontSize: 12.5, color: AppPalette.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanCard(SubscriptionPlan plan) {
+    final isSelected = _selectedPlan?.id == plan.id;
+    final isCurrent = _kindFor(plan) == PlanChangeKind.renew;
+    final baseline = _baselinePlan;
+    final savings = baseline == null ? null : plan.savingsPercentVs(baseline);
+    final customBadge = plan.badgeLabel?.trim() ?? '';
+
+    final String? badge;
+    if (isCurrent) {
+      badge = plan.isLifetime ? 'Đang sở hữu' : 'Đang dùng';
+    } else if (customBadge.isNotEmpty) {
+      badge = customBadge;
+    } else if (savings != null) {
+      badge = 'Tiết kiệm $savings%';
+    } else {
+      badge = null;
+    }
+    final badgeColor = isCurrent ? AppPalette.success : AppPalette.accent;
+
+    final subtitle = [
+      plan.durationLabel,
+      if (plan.dailyTokenLimit > 0) '${plan.formattedTokenLimit} token AI/ngày',
+    ].join(' · ');
+    final months = plan.months;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: isSelected ? AppPalette.accentSoft : AppPalette.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isSelected ? AppPalette.accent : Colors.transparent,
+            width: 1.6,
+          ),
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => setState(() => _selectedPlanId = plan.id),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  _buildRadio(isSelected),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          plan.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppPalette.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppPalette.textSecondary,
+                          ),
+                        ),
+                        if (badge != null) ...[
+                          const SizedBox(height: 8),
+                          _buildChip(badge, badgeColor),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        _compactPrice(plan.formattedPrice),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppPalette.textPrimary,
+                        ),
+                      ),
+                      if (plan.formattedOriginalPrice != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          _compactPrice(plan.formattedOriginalPrice!),
+                          style: TextStyle(
+                            fontSize: 12,
+                            decoration: TextDecoration.lineThrough,
+                            color: AppPalette.textSecondary,
+                          ),
+                        ),
+                      ],
+                      if (months != null && months > 1) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '≈ ${_compactPrice(plan.pricePerMonth)}/tháng',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: AppPalette.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
+  Widget _buildRadio(bool isSelected) {
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isSelected ? AppPalette.accent : AppPalette.textSecondary,
+          width: 1.6,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: isSelected
+          ? Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: AppPalette.accent,
+                shape: BoxShape.circle,
+              ),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  /// Quyền lợi của gói đang chọn; gói chưa khai báo thì dùng danh sách chung.
+  Widget _buildFeatureCard() {
+    final plan = _selectedPlan;
+    if (plan == null) return const SizedBox.shrink();
+    final features = plan.features.isNotEmpty
+        ? plan.features
+        : _defaultFeatures;
+    final description = plan.description.trim();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppPalette.surface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quyền lợi của gói',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: AppPalette.textPrimary,
+            ),
+          ),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.35,
+                color: AppPalette.textSecondary,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          for (final feature in features)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: AppPalette.success,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      feature,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.3,
+                        color: AppPalette.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPromoLink() {
+    final plan = _selectedPlan;
+    if (plan == null || !_canPurchase(plan)) return const SizedBox.shrink();
+    final applied = _appliedPromoCode != null;
+
     return Align(
       alignment: Alignment.centerLeft,
-      child: TextButton(
+      child: TextButton.icon(
         onPressed: _showPromoCodeDialog,
-        style: TextButton.styleFrom(padding: EdgeInsets.zero),
-        child: Text(
-          _appliedPromoCode != null
-              ? 'Đã áp dụng mã: $_appliedPromoCode'
-              : 'Nhập mã khuyến mãi',
+        icon: Icon(
+          applied ? Icons.check_circle_rounded : Icons.discount_outlined,
+          size: 18,
+          color: applied ? AppPalette.success : AppPalette.accent,
+        ),
+        label: Text(
+          applied ? 'Đã áp dụng mã: $_appliedPromoCode' : 'Nhập mã khuyến mãi',
           style: TextStyle(
             fontSize: 13,
-            color: _appliedPromoCode != null
-                ? AppPalette.success
-                : _linkBlue,
+            color: applied ? AppPalette.success : AppPalette.accent,
           ),
         ),
       ),
@@ -770,53 +833,124 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Widget _buildDisclaimer() {
     return Padding(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
-        'Đăng ký tự động gia hạn khi tới cuối kỳ, trừ khi bạn huỷ đăng ký trước 24 giờ. Bạn có thể huỷ bất cứ lúc nào trong phần cài đặt tài khoản.',
-        textAlign: TextAlign.left,
-        style: TextStyle(fontSize: 11.5, color: AppPalette.textSecondary, height: 1.4),
-      ),
-    );
-  }
-
-  Widget _buildStickyBottomBar() {
-    final isLifetimeOwned = _isUserLifetimeVip;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
-      decoration: BoxDecoration(
-        color: AppPalette.background,
-        border: Border(top: BorderSide(color: AppPalette.surface, width: 1)),
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isLifetimeOwned
-                ? AppPalette.surface
-                : AppPalette.accent,
-            foregroundColor: isLifetimeOwned
-                ? AppPalette.textPrimary
-                : AppPalette.onAccent,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-          onPressed: isLifetimeOwned
-              ? () => Navigator.of(context).pop()
-              : _openCheckout,
-          child: Text(
-            isLifetimeOwned
-                ? 'Bạn đã sở hữu Gói Trọn Đời'
-                : (_userStatus != null && _userStatus!.isVip
-                      ? 'Nâng cấp lên ${_currentSelectedPlan?.name ?? 'gói mới'}'
-                      : 'Nâng cấp Premium'),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
+        'Thanh toán một lần cho mỗi gói, không tự động gia hạn. Khi mua thêm '
+        'hoặc đổi gói, gói mới có hiệu lực ngay và thời hạn còn lại được cộng dồn.',
+        style: TextStyle(
+          fontSize: 11.5,
+          height: 1.4,
+          color: AppPalette.textSecondary,
         ),
       ),
     );
   }
+
+  Widget _buildBottomBar() {
+    final plan = _checkoutPlan!;
+    final kind = _kindFor(plan);
+    final canPurchase = _canPurchase(plan);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      color: AppPalette.background,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (canPurchase) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Thanh toán',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppPalette.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        _compactPrice(plan.formattedPrice),
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: AppPalette.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    _expiryHint(plan),
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.35,
+                      color: AppPalette.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppPalette.accent,
+                foregroundColor: AppPalette.onAccent,
+                disabledBackgroundColor: AppPalette.surfaceHigh,
+                disabledForegroundColor: AppPalette.textSecondary,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: canPurchase ? _openCheckout : null,
+              child: Text(
+                _ctaLabel(plan, kind, canPurchase),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _ctaLabel(SubscriptionPlan plan, PlanChangeKind kind, bool canBuy) {
+    final duration = plan.durationLabel.toLowerCase();
+    return switch (kind) {
+      PlanChangeKind.subscribe => 'Nâng cấp Premium',
+      PlanChangeKind.renew =>
+        canBuy ? 'Gia hạn gói $duration' : 'Bạn đang sở hữu gói này',
+      PlanChangeKind.upgrade => 'Nâng cấp lên gói $duration',
+      PlanChangeKind.change => 'Đổi sang gói $duration',
+    };
+  }
+
+  /// Hạn dùng dự kiến nếu mua gói [plan] ngay bây giờ.
+  String _expiryHint(SubscriptionPlan plan) {
+    if (plan.isLifetime) return 'Sở hữu trọn đời';
+    final status = _userStatus;
+    final expiry = status != null && status.isVip
+        ? status.expiryAfterBuying(plan)
+        : DateTime.now().add(Duration(days: plan.durationDays));
+    final label = _isVip ? 'Hạn dùng mới' : 'Hiệu lực đến';
+    return '$label\n${SubscriptionStatus.formatDate(expiry)}';
+  }
+
+  /// "890.000 đ" -> "890.000đ" cho gọn trên thẻ gói.
+  static String _compactPrice(String formatted) =>
+      formatted.replaceAll(' ', '');
 }

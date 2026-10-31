@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../models/subscription_model.dart';
 import '../../../core/theme/app_palette.dart';
@@ -7,13 +8,31 @@ class SubscriptionSuccessDialog extends StatelessWidget {
   final PaymentResponse payment;
   final SubscriptionPlan plan;
   final VoidCallback onDismiss;
+  final PlanChangeKind kind;
 
   const SubscriptionSuccessDialog({
     super.key,
     required this.payment,
     required this.plan,
     required this.onDismiss,
+    this.kind = PlanChangeKind.subscribe,
   });
+
+  String get _title => switch (kind) {
+    PlanChangeKind.subscribe => 'Nâng Cấp Kotoba Premium Thành Công!',
+    PlanChangeKind.renew => 'Gia Hạn Thành Công!',
+    PlanChangeKind.upgrade => 'Nâng Cấp Gói Thành Công!',
+    PlanChangeKind.change => 'Đổi Gói Thành Công!',
+  };
+
+  String get _message => switch (kind) {
+    PlanChangeKind.subscribe => 'Chúc mừng bạn đã trở thành Hội viên Kotoba Premium. Toàn bộ tính năng cao cấp đã được mở khóa!',
+    PlanChangeKind.renew => 'Thời hạn gói của bạn đã được cộng thêm. Cảm ơn bạn đã đồng hành cùng Kotoba!',
+    PlanChangeKind.upgrade =>
+      'Gói mới đã có hiệu lực. Quyền lợi nâng cao đã được mở khóa cho bạn!',
+    PlanChangeKind.change =>
+      'Gói mới đã có hiệu lực và thay thế gói trước đó trên tài khoản của bạn.',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +71,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Nâng Cấp Kotoba Premium Thành Công!',
+              _title,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 19,
@@ -62,7 +81,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Chúc mừng bạn đã trở thành Hội viên Kotoba Premium. Toàn bộ tính năng cao cấp đã được mở khóa!',
+              _message,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13.5,
@@ -74,9 +93,8 @@ class SubscriptionSuccessDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.05),
+                color: AppColors.primary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
               ),
               child: Column(
                 children: [
