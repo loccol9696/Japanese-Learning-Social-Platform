@@ -223,6 +223,16 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         return toOrderResponse(order);
     }
 
+    @Override
+    @Transactional
+    public SubscriptionOrderResponse mockCheckout(CreateQrOrderRequest request) {
+        SubscriptionOrderResponse order = createQrOrder(request);
+        ConfirmPaymentRequest confirmReq = new ConfirmPaymentRequest();
+        confirmReq.setOrderCode(order.getOrderCode());
+        confirmReq.setVerificationCode(order.getVerificationCode());
+        return confirmPayment(confirmReq);
+    }
+
     private String normalizeOrderCode(String raw) {
         if (raw == null) return "";
         String cleaned = raw.trim().toUpperCase();
@@ -275,11 +285,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             LocalDateTime currentExpire = user.getVipExpiresAt();
             LocalDateTime baseTime = (currentExpire != null && currentExpire.isAfter(LocalDateTime.now())) ? currentExpire : LocalDateTime.now();
             int durationDays = order.getPlan().getDurationDays() != null ? order.getPlan().getDurationDays() : 30;
-            if (durationDays >= 3650) {
-                user.setVipExpiresAt(baseTime.plusDays(36500));
-            } else {
-                user.setVipExpiresAt(baseTime.plusDays(durationDays));
-            }
+            user.setVipExpiresAt(baseTime.plusDays(durationDays));
             userRepository.save(user);
 
             log.info("Payment CONFIRMED for order {} via code {}. User {} (id={}) upgraded to plan {} ({} days) with limit {} tokens/day!",
@@ -569,7 +575,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                     remainingDays = (int) java.time.temporal.ChronoUnit.DAYS.between(LocalDateTime.now(), expire);
                     if (remainingDays < 0) remainingDays = 0;
                 } else {
-                    remainingDays = 36500;
+                    remainingDays = 0;
                 }
             }
         }
@@ -582,6 +588,74 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         result.put("endDate", endDate != null ? endDate.toString() : null);
         result.put("remainingDays", remainingDays);
         result.put("dailyTokenLimit", dailyTokenLimit);
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> verifyPromoCode(String rawCode, Long planId) {
+        if (rawCode == null || rawCode.trim().isEmpty()) {
+            throw new AppException(400, "Vui lòng nhập mã khuyến mãi");
+        }
+        String code = rawCode.trim().toUpperCase();
+        Map<String, Object> res = new HashMap<>();
+        res.put("code", code);
+
+        switch (code) {
+            case "JLSP10":
+                res.put("valid", true);
+                res.put("discountPercent", 10);
+                res.put("discountAmount", 0);
+                res.put("description", "Giảm 10% áp dụng cho toàn bộ các gói thành viên JLSP");
+                return res;
+            case "JLSP20":
+                res.put("valid", true);
+                res.put("discountPercent", 20);
+                res.put("discountAmount", 0);
+                res.put("description", "Ưu đãi chào mừng thành viên mới - Giảm 20%");
+                return res;
+            case "SENSEI":
+                res.put("valid", true);
+                res.put("discountPercent", 15);
+                res.put("discountAmount", 0);
+                res.put("description", "Ưu đãi đặc quyền Sensei & Giáo viên - Giảm 15%");
+                return res;
+            case "KOTOBA":
+                res.put("valid", true);
+                res.put("discountPercent", 0);
+                res.put("discountAmount", 50000);
+                res.put("description", "Giảm trực tiếp 50.000 VNĐ vào hóa đơn");
+                return res;
+            case "HARU2026":
+                res.put("valid", true);
+                res.put("discountPercent", 25);
+                res.put("discountAmount", 0);
+                res.put("description", "Chiến dịch luyện thi JLPT Mùa Xuân 2026 - Giảm 25%");
+                return res;
+            default:
+                throw new AppException(400, "Mã khuyến mãi '" + code + "' không tồn tại hoặc đã hết hạn sử dụng. Vui lòng kiểm tra lại!");
+        }
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> cancelSubscription(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(404, "User không tồn tại"));
+
+        SubscriptionPlan freePlan = planRepository.findByCode("FREE")
+                .orElseGet(() -> planRepository.findAll().stream()
+                        .filter(p -> p.getPrice() == null || p.getPrice().compareTo(BigDecimal.ZERO) == 0)
+                        .findFirst()
+                        .orElse(null));
+
+        user.setSubscriptionPlan(freePlan);
+        user.setVipExpiresAt(LocalDateTime.now());
+        userRepository.save(user);
+
+        log.info("User {} (id={}) cancelled subscription. Status reverted to FREE.", user.getUsername(), user.getId());
+
+        Map<String, Object> result = getUserSubscriptionStatus(userId);
+        result.put("message", "Đã hủy gói thành viên thành công. Tài khoản đã quay về Gói Cơ Bản (Free).");
         return result;
     }
 

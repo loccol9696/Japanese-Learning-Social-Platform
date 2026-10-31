@@ -29,7 +29,13 @@ public interface SubscriptionService {
 
     SubscriptionOrderResponse createQrOrder(CreateQrOrderRequest request);
 
+    SubscriptionOrderResponse mockCheckout(CreateQrOrderRequest request);
+
     SubscriptionOrderResponse confirmPayment(ConfirmPaymentRequest request);
+
+    Map<String, Object> verifyPromoCode(String code, Long planId);
+
+    Map<String, Object> cancelSubscription(Long userId);
 
     SubscriptionOrderResponse getOrderStatus(String orderCode);
 

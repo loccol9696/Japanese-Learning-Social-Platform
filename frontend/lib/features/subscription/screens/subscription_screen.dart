@@ -23,8 +23,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   List<SubscriptionPlan> _plans = [];
   SubscriptionStatus? _userStatus;
   bool _isLoading = true;
-  int _selectedPlanIndex = 0; // Default to "Trọn đời" (first / best plan)
+  int _selectedPlanIndex = 0;
   String? _appliedPromoCode;
+  int _discountPercent = 0;
+  double _discountAmount = 0.0;
   int? _resolvedUserId;
 
   @override
@@ -50,13 +52,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final plans = results[0] as List<SubscriptionPlan>;
       final status = results[1] as SubscriptionStatus;
 
-      // Sắp xếp các gói: Trọn đời lên đầu, rồi 1 Năm, rồi 3 Tháng (chuẩn như Mazii)
+      // Sắp xếp các gói theo thời hạn: 2 Năm -> 1 Năm -> 1 Tháng
       final sortedPlans = List<SubscriptionPlan>.from(plans);
-      sortedPlans.sort((a, b) {
-        if (a.isLifetime) return -1;
-        if (b.isLifetime) return 1;
-        return b.durationDays.compareTo(a.durationDays);
-      });
+      sortedPlans.sort((a, b) => b.durationDays.compareTo(a.durationDays));
 
       if (mounted) {
         setState(() {
@@ -72,15 +70,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     }
   }
 
-  bool get _isUserLifetimeVip {
-    if (_userStatus == null || !_userStatus!.isVip) return false;
-    return _userStatus!.isLifetime;
-  }
+  bool get _isUserLifetimeVip => false;
 
   int get _currentOwnedDurationDays {
     if (_userStatus == null || !_userStatus!.isVip) return 0;
-    if (_isUserLifetimeVip) return 3650;
     final name = (_userStatus!.planName ?? '').toLowerCase();
+    if (name.contains('2 năm') || _userStatus!.remainingDays > 380) {
+      return 730;
+    }
     if (name.contains('1 năm') ||
         name.contains('12 tháng') ||
         name.contains('mastery') ||
@@ -96,12 +93,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return 0;
   }
 
-  List<SubscriptionPlan> get _visiblePlans {
-    final ownedDuration = _currentOwnedDurationDays;
-    if (ownedDuration <= 0) return _plans;
-    // Ẩn hoàn toàn các gói thấp hơn gói người dùng đang sở hữu
-    return _plans.where((plan) => plan.durationDays >= ownedDuration).toList();
-  }
+  List<SubscriptionPlan> get _visiblePlans => _plans;
 
   SubscriptionPlan? get _currentSelectedPlan {
     final visible = _visiblePlans;
@@ -110,19 +102,27 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ? visible[_selectedPlanIndex]
         : visible.first;
     if (_appliedPromoCode != null && _appliedPromoCode!.isNotEmpty) {
-      final discountedPrice = (basePlan.price * 0.9).roundToDouble();
+      double discountedPrice = basePlan.price;
+      if (_discountPercent > 0) {
+        discountedPrice = (basePlan.price * (1.0 - _discountPercent / 100.0)).roundToDouble();
+      } else if (_discountAmount > 0) {
+        discountedPrice = (basePlan.price - _discountAmount);
+        if (discountedPrice < 10000) discountedPrice = 10000;
+      }
       return SubscriptionPlan(
         id: basePlan.id,
         name: basePlan.name,
+        code: basePlan.code,
         description: basePlan.description,
         price: discountedPrice,
+        dailyTokenLimit: basePlan.dailyTokenLimit,
         originalPrice: basePlan.originalPrice ?? basePlan.price,
         durationDays: basePlan.durationDays,
         features: basePlan.features,
         isActive: basePlan.isActive,
         displayOrder: basePlan.displayOrder,
         badgeLabel: basePlan.badgeLabel,
-        discountPercent: basePlan.discountPercent,
+        discountPercent: _discountPercent > 0 ? _discountPercent : basePlan.discountPercent,
       );
     }
     return basePlan;
@@ -130,27 +130,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   /// Mở trực tiếp màn hình quét mã VietQR Napas 24/7 (1 chạm)
   Future<void> _openVietQrDirect() async {
-    if (_isUserLifetimeVip) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bạn đang sở hữu Gói Trọn Đời cao cấp nhất!'),
-          backgroundColor: Color(0xFF10B981),
-        ),
-      );
-      return;
-    }
-
     final plan = _currentSelectedPlan;
     if (plan == null) return;
-    if (_currentOwnedDurationDays > 0 && plan.durationDays <= _currentOwnedDurationDays) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bạn đang sở hữu gói này. Vui lòng chọn gói cao hơn để nâng cấp!'),
-          backgroundColor: Color(0xFF10B981),
-        ),
-      );
-      return;
-    }
     final checkoutUserId = _resolvedUserId ?? widget.userId;
 
     showDialog(
@@ -187,11 +168,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               builder: (dialogCtx) => SubscriptionSuccessDialog(
                 payment: p,
                 plan: plan,
-                onDismiss: () {
+                onViewProfile: () {
                   _loadData();
                   if (mounted && Navigator.of(context).canPop()) {
                     Navigator.of(context).pop(true);
                   }
+                },
+                onDismiss: () {
+                  _loadData();
                 },
               ),
             );
@@ -206,27 +190,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   void _openCheckout() {
-    if (_isUserLifetimeVip) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bạn đang sở hữu Gói Trọn Đời cao cấp nhất!'),
-          backgroundColor: Color(0xFF10B981),
-        ),
-      );
-      return;
-    }
-
     final plan = _currentSelectedPlan;
     if (plan == null) return;
-    if (_currentOwnedDurationDays > 0 && plan.durationDays <= _currentOwnedDurationDays) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bạn đang sở hữu gói này. Vui lòng chọn gói cao hơn để nâng cấp!'),
-          backgroundColor: Color(0xFF10B981),
-        ),
-      );
-      return;
-    }
     final checkoutUserId = _resolvedUserId ?? widget.userId;
 
     showModalBottomSheet(
@@ -243,11 +208,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             builder: (dialogCtx) => SubscriptionSuccessDialog(
               payment: payment,
               plan: plan,
-              onDismiss: () {
+              onViewProfile: () {
                 _loadData();
                 if (mounted && Navigator.of(context).canPop()) {
                   Navigator.of(context).pop(true);
                 }
+              },
+              onDismiss: () {
+                _loadData();
               },
             ),
           );
@@ -258,83 +226,182 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   void _showPromoCodeDialog() {
     final controller = TextEditingController(text: _appliedPromoCode ?? '');
+    bool isChecking = false;
+
     showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF0E1E3A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Color(0xFF1E3A5F)),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.discount_rounded, color: Color(0xFF38BDF8), size: 24),
+              SizedBox(width: 8),
+              Text(
+                'Nhập mã khuyến mãi',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Nhập mã ưu đãi của bạn (ví dụ: JLSP10, JLSP20, SENSEI, KOTOBA):',
+                style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                textCapitalization: TextCapitalization.characters,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  hintText: 'Nhập mã tại đây...',
+                  hintStyle: const TextStyle(color: Color(0xFF64748B)),
+                  filled: true,
+                  fillColor: const Color(0xFF13284F),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Hủy', style: TextStyle(color: Color(0xFF94A3B8))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: isChecking
+                  ? null
+                  : () async {
+                      final code = controller.text.trim().toUpperCase();
+                      if (code.isEmpty) return;
+
+                      setDialogState(() => isChecking = true);
+                      try {
+                        final promoData = await _service.verifyPromoCode(
+                          code,
+                          planId: _currentSelectedPlan?.id,
+                        );
+                        if (!mounted) return;
+                        Navigator.of(ctx).pop();
+
+                        final percent = (promoData['discountPercent'] as num?)?.toInt() ?? 0;
+                        final amount = (promoData['discountAmount'] as num?)?.toDouble() ?? 0.0;
+                        final desc = promoData['description'] as String? ?? 'Áp dụng mã thành công!';
+
+                        setState(() {
+                          _appliedPromoCode = code;
+                          _discountPercent = percent;
+                          _discountAmount = amount;
+                        });
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('✓ Đã áp dụng mã $code: $desc'),
+                            backgroundColor: const Color(0xFF10B981),
+                          ),
+                        );
+                      } catch (e) {
+                        setDialogState(() => isChecking = false);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(e.toString().replaceAll('Exception: ', '')),
+                            backgroundColor: const Color(0xFFEF4444),
+                          ),
+                        );
+                      }
+                    },
+              child: isChecking
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Áp dụng', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCancelSubscriptionDialog() async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF0E1E3A),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: Color(0xFF1E3A5F)),
         ),
-        title: const Row(
-          children: [
-            Icon(Icons.discount_rounded, color: Color(0xFF38BDF8), size: 24),
-            SizedBox(width: 8),
-            Text(
-              'Nhập mã khuyến mãi',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-          ],
+        title: const Text(
+          'Hủy gói thành viên?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Nhập mã giảm giá (ví dụ: KOTOBA2026 hoặc JLSPVIP) để nhận ưu đãi 10%:',
-              style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              textCapitalization: TextCapitalization.characters,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                hintText: 'Nhập mã tại đây...',
-                hintStyle: const TextStyle(color: Color(0xFF64748B)),
-                filled: true,
-                fillColor: const Color(0xFF13284F),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
-                ),
-              ),
-            ),
-          ],
+        content: const Text(
+          'Bạn có chắc chắn muốn hủy gói thành viên hiện tại? Sau khi hủy, tài khoản sẽ quay về Gói Miễn Phí (50 Token AI/ngày) và dừng các đặc quyền VIP.',
+          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5, height: 1.4),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Hủy', style: TextStyle(color: Color(0xFF94A3B8))),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Giữ lại gói', style: TextStyle(color: Color(0xFF38BDF8))),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
+              backgroundColor: const Color(0xFFDC2626),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: () {
-              final code = controller.text.trim().toUpperCase();
-              Navigator.of(ctx).pop();
-              if (code.isNotEmpty) {
-                setState(() => _appliedPromoCode = code);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Đã áp dụng mã $code thành công (-10%)!'),
-                    backgroundColor: const Color(0xFF10B981),
-                  ),
-                );
-              }
-            },
-            child: const Text('Áp dụng', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Xác nhận hủy', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
+
+    if (confirmed == true) {
+      try {
+        final userId = _resolvedUserId ?? widget.userId;
+        await _service.cancelSubscription(userId: userId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã hủy gói thành viên thành công. Tài khoản đã quay về Gói Miễn Phí.'),
+              backgroundColor: Color(0xFF10B981),
+            ),
+          );
+          _loadData();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi khi hủy gói: $e'),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -374,7 +441,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Title & Brand Glow Badge
+                                // Title & Brand Glow Badge (Dynamic with selected plan)
                                 _buildHeroHeader(),
                                 const SizedBox(height: 18),
 
@@ -388,7 +455,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                 _buildPlanSelectionCards(),
                                 const SizedBox(height: 20),
 
-                                // Feature Checklist
+                                // Feature Checklist (Dynamic with selected plan)
                                 _buildFeatureChecklist(),
                                 const SizedBox(height: 18),
 
@@ -474,6 +541,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildHeroHeader() {
+    final selected = _currentSelectedPlan;
+    final planTitle = selected != null ? selected.name : 'Gói Hội Viên Kotoba';
+    final tokenLimit = selected != null && selected.dailyTokenLimit > 0
+        ? '${selected.dailyTokenLimit} Token AI/ngày'
+        : 'Mở khóa toàn bộ đặc quyền';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -488,7 +561,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ),
         const SizedBox(height: 6),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFF1E3A8A), Color(0xFF0284C7)],
@@ -504,19 +577,33 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ),
             ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.stars_rounded, color: Color(0xFFFBBF24), size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Kotoba Premium Pass',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontStyle: FontStyle.italic,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: 0.2,
+              const Icon(Icons.stars_rounded, color: Color(0xFFFBBF24), size: 22),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      planTitle,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    Text(
+                      'Hạn mức: $tokenLimit • Thời hạn: ${selected?.durationLabel ?? ''}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFBAE6FD),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -527,15 +614,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildFeatureChecklist() {
-    final features = [
-      'Học không giới hạn toàn bộ Bộ từ vựng Flashcard',
-      'Luyện Shadowing AI chuẩn ngữ điệu bản xứ Tokyo',
-      'Trò chuyện & sửa lỗi ngữ pháp cùng Trợ lý AI',
-      'Tra từ điển thông minh trực tiếp trên video phụ đề',
-      'Kho đề thi thử JLPT chuẩn format N5 - N1',
-      'Huy hiệu Vương miện Vàng danh dự bên cạnh tên',
-      'Học offline & không bao giờ bị quảng cáo làm phiền',
-    ];
+    final selected = _currentSelectedPlan;
+    List<String> features = [];
+
+    if (selected != null && selected.features.isNotEmpty) {
+      features = List<String>.from(selected.features);
+    } else {
+      features = [
+        'Hạn mức ${selected?.dailyTokenLimit ?? 500} Token AI luyện Shadowing mỗi ngày',
+        'Trích xuất lời video không giới hạn phụ đề',
+        'Bộ từ vựng Flashcard đầy đủ trình độ N5 - N1',
+        'Kho đề luyện thi JLPT chuẩn format mới nhất',
+        'Tra từ điển thông minh trực tiếp trên video bài học',
+        'Trải nghiệm học tập mượt mà, không quảng cáo',
+      ];
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -547,16 +640,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.verified_user_rounded, color: Color(0xFF34D399), size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Đặc quyền khi sở hữu Kotoba VIP',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              const Icon(Icons.verified_user_rounded, color: Color(0xFF34D399), size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Đặc quyền gói ${selected?.name ?? 'Kotoba VIP'}',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -680,7 +775,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             style: TextStyle(
               fontSize: isHeader ? 12.5 : 12,
               fontWeight: FontWeight.bold,
-              color: isHeader ? const Color(0xFF38BDF8) : const Color(0xFF38BDF8),
+              color: const Color(0xFF38BDF8),
             ),
           ),
         ),
@@ -691,23 +786,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Widget _buildCurrentVipBadge() {
     if (_userStatus == null || !_userStatus!.isVip) return const SizedBox.shrink();
 
-    final isLifetime = _isUserLifetimeVip;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: isLifetime ? const Color(0xFF1E2818) : const Color(0xFF261E08),
+        color: const Color(0xFF1E2818),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isLifetime ? const Color(0xFF10B981) : const Color(0xFF785E08),
+          color: const Color(0xFF10B981),
           width: 1.2,
         ),
       ),
       child: Row(
         children: [
-          Icon(
-            isLifetime ? Icons.workspace_premium_rounded : Icons.verified_rounded,
-            color: isLifetime ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
+          const Icon(
+            Icons.workspace_premium_rounded,
+            color: Color(0xFF34D399),
             size: 26,
           ),
           const SizedBox(width: 12),
@@ -715,29 +808,46 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  isLifetime
-                      ? 'BẠN ĐANG SỞ HỮU GÓI CAO CẤP NHẤT'
-                      : 'GÓI ĐANG HOẠT ĐỘNG',
+                const Text(
+                  'GÓI ĐANG HOẠT ĐỘNG',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.5,
-                    color: isLifetime ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
+                    color: Color(0xFF34D399),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  isLifetime
-                      ? 'Gói Trọn Đời (Lifetime) • Toàn bộ đặc quyền mở khóa vĩnh viễn'
-                      : 'Tài khoản VIP (${_userStatus!.planName ?? 'Premium'}) • Còn ${_userStatus!.remainingDays} ngày',
-                  style: TextStyle(
+                  '${_userStatus!.planName ?? 'Kotoba VIP'} • Còn ${_userStatus!.remainingDays} ngày (${_userStatus!.effectiveTokenLimit} Token AI/ngày)',
+                  style: const TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: isLifetime ? Colors.white : const Color(0xFFFDE68A),
+                    color: Colors.white,
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: _showCancelSubscriptionDialog,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.35)),
+              ),
+              child: const Text(
+                'Hủy gói',
+                style: TextStyle(
+                  color: Color(0xFFF87171),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         ],
@@ -750,6 +860,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     if (visible.isEmpty) return const SizedBox.shrink();
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: List.generate(visible.length, (index) {
         final plan = visible[index];
         final isSelected = _selectedPlanIndex == index;
@@ -759,213 +870,176 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildPlanCardItem(SubscriptionPlan plan, {required int index, required bool isSelected}) {
-    final isLifetimePlan = plan.isLifetime;
-    final isYearlyPlan = plan.durationDays >= 360 && !isLifetimePlan;
-    final userHasLifetime = _isUserLifetimeVip;
-    final ownedDuration = _currentOwnedDurationDays;
-
-    final isPlanDisabled = ownedDuration > 0 && plan.durationDays < ownedDuration;
-    final isAlreadyOwned = (userHasLifetime && isLifetimePlan) ||
-        (ownedDuration > 0 && plan.durationDays == ownedDuration);
+    final ownedPlanId = _userStatus?.planId;
+    final isAlreadyOwned = _userStatus != null && _userStatus!.isVip && (ownedPlanId == plan.id);
 
     String subtitle = 'Gói học tiết kiệm';
     if (isAlreadyOwned) {
-      subtitle = isLifetimePlan
-          ? 'Đang sở hữu vĩnh viễn trên tài khoản này'
-          : 'Gói hiện tại của bạn đang hoạt động';
-    } else if (isPlanDisabled) {
-      subtitle = 'Đã bao gồm trong gói hiện tại của bạn';
-    } else if (isLifetimePlan) {
-      subtitle = 'Lựa chọn số 1 • Thanh toán 1 lần dùng mãi mãi';
-    } else if (isYearlyPlan) {
-      subtitle = 'Chỉ ~34.900 đ / tháng';
+      subtitle = 'Gói hiện tại (Còn ${_userStatus!.remainingDays} ngày) • Chạm để gia hạn';
+    } else if (plan.durationDays >= 700) {
+      subtitle = 'Tiết kiệm tối đa • 5.000 Token AI/ngày';
+    } else if (plan.durationDays >= 360) {
+      subtitle = 'Chỉ ~34.900 đ / tháng • 2.000 Token AI/ngày';
     } else {
-      subtitle = 'Linh hoạt theo kỳ học';
+      subtitle = 'Linh hoạt 30 ngày • 500 Token AI/ngày';
     }
 
     String? discountBadge = plan.badgeLabel;
     if (discountBadge == null) {
-      if (isLifetimePlan) discountBadge = '-30%';
-      if (isYearlyPlan) discountBadge = '-16%';
+      if (plan.durationDays >= 700) discountBadge = '-30%';
+      if (plan.durationDays >= 360) discountBadge = '-16%';
     }
 
-    return Opacity(
-      opacity: isPlanDisabled ? 0.45 : 1.0,
-      child: GestureDetector(
-        onTap: () {
-          if (isAlreadyOwned) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  isLifetimePlan
-                      ? 'Bạn đang sở hữu Gói Trọn Đời cao cấp nhất!'
-                      : 'Bạn đang sử dụng ${plan.name}. Hãy chọn gói cao hơn để nâng cấp!',
-                ),
-                backgroundColor: const Color(0xFF10B981),
-                duration: const Duration(seconds: 2),
-              ),
-            );
-            return;
-          }
-          if (isPlanDisabled) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Bạn đang sở hữu gói cao hơn - Toàn bộ tính năng đã có sẵn!'),
-                backgroundColor: Color(0xFF10B981),
-                duration: Duration(seconds: 2),
-              ),
-            );
-            return;
-          }
-          setState(() => _selectedPlanIndex = index);
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selectedPlanIndex = index);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isAlreadyOwned
+              ? const Color(0xFF0F2B20)
+              : (isSelected ? const Color(0xFF13284F) : const Color(0xFF0E1E3A)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
             color: isAlreadyOwned
-                ? const Color(0xFF0F2B20)
-                : (isSelected ? const Color(0xFF13284F) : const Color(0xFF0E1E3A)),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isAlreadyOwned
-                  ? const Color(0xFF10B981)
-                  : (isSelected ? const Color(0xFF38BDF8) : const Color(0xFF1E3356)),
-              width: (isAlreadyOwned || isSelected) ? 2.0 : 1.2,
-            ),
-            boxShadow: (isAlreadyOwned || isSelected)
-                ? [
-                    BoxShadow(
-                      color: (isAlreadyOwned ? const Color(0xFF10B981) : const Color(0xFF0284C7))
-                          .withValues(alpha: 0.35),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                ? const Color(0xFF10B981)
+                : (isSelected ? const Color(0xFF38BDF8) : const Color(0xFF1E3356)),
+            width: (isAlreadyOwned || isSelected) ? 2.0 : 1.2,
           ),
-          child: Row(
-            children: [
-              // Radio indicator
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected ? const Color(0xFF38BDF8) : const Color(0xFF64748B),
-                    width: isSelected ? 6 : 1.5,
+          boxShadow: (isAlreadyOwned || isSelected)
+              ? [
+                  BoxShadow(
+                    color: (isAlreadyOwned ? const Color(0xFF10B981) : const Color(0xFF0284C7))
+                        .withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
                   ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: Row(
+          children: [
+            // Radio indicator
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? const Color(0xFF38BDF8) : const Color(0xFF64748B),
+                  width: isSelected ? 6 : 1.5,
                 ),
               ),
-              const SizedBox(width: 12),
+            ),
+            const SizedBox(width: 12),
 
-              // Name + Discount Pill + Subtitle
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            plan.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 15.0,
-                              fontWeight: FontWeight.bold,
+            // Name + Discount Pill + Subtitle
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          plan.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15.0,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      if (isAlreadyOwned) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            '✓ ĐANG SỞ HỮU',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
                               color: Colors.white,
                             ),
                           ),
                         ),
-                        if (isAlreadyOwned) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              '✓ ĐANG SỞ HỮU',
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
+                      ] else if (discountBadge != null) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFF1E3A5F),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            discountBadge,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              color: isSelected ? Colors.white : const Color(0xFF93C5FD),
                             ),
                           ),
-                        ] else if (discountBadge != null && !isPlanDisabled) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color(0xFFDC2626)
-                                  : const Color(0xFF1E3A5F),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              discountBadge,
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                                color: isSelected ? Colors.white : const Color(0xFF93C5FD),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isAlreadyOwned
-                            ? const Color(0xFF6EE7B7)
-                            : (isSelected ? const Color(0xFF93C5FD) : const Color(0xFF94A3B8)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Right: Price
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
+                    ],
+                  ),
+                  const SizedBox(height: 3),
                   Text(
-                    plan.formattedPrice,
+                    subtitle,
                     style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
                       color: isAlreadyOwned
-                          ? const Color(0xFF34D399)
-                          : (isSelected ? const Color(0xFF38BDF8) : Colors.white),
+                          ? const Color(0xFF6EE7B7)
+                          : (isSelected ? const Color(0xFF93C5FD) : const Color(0xFF94A3B8)),
                     ),
                   ),
-                  if (plan.formattedOriginalPrice != null && !isAlreadyOwned)
-                    Text(
-                      plan.formattedOriginalPrice!,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: Color(0xFF64748B),
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
                 ],
               ),
-            ],
-          ),
+            ),
+
+            // Right: Price
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  plan.formattedPrice,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: isAlreadyOwned
+                        ? const Color(0xFF34D399)
+                        : (isSelected ? const Color(0xFF38BDF8) : Colors.white),
+                  ),
+                ),
+                if (plan.formattedOriginalPrice != null && !isAlreadyOwned)
+                  Text(
+                    plan.formattedOriginalPrice!,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF64748B),
+                      decoration: TextDecoration.lineThrough,
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -975,7 +1049,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return const Padding(
       padding: EdgeInsets.symmetric(horizontal: 12.0),
       child: Text(
-        'Thanh toán bảo mật chuẩn Napas 24/7. Hỗ trợ quét qua ứng dụng ngân hàng cá nhân hoặc ví điện tử. Gói học được kích hoạt tự động ngay sau khi xác nhận chuyển khoản.',
+        'Thanh toán một lần qua chuyển khoản VietQR Napas 24/7. Không tự động trừ tiền khi hết hạn. Bạn có thể chủ động gia hạn hoặc đổi gói bất kỳ lúc nào.',
         textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 11.5,
@@ -987,7 +1061,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildStickyBottomBar() {
-    final isLifetimeOwned = _isUserLifetimeVip;
+    final ownedPlanId = _userStatus?.planId;
+    final isSelectedOwned = _userStatus != null && _userStatus!.isVip && (ownedPlanId == _currentSelectedPlan?.id);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
@@ -1005,115 +1080,95 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!isLifetimeOwned) ...[
-            // Voucher bar
-            GestureDetector(
-              onTap: _showPromoCodeDialog,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 10.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.discount_rounded, size: 16, color: Color(0xFF38BDF8)),
-                        SizedBox(width: 6),
-                        Text(
-                          'Mã giảm giá',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFFE2E8F0),
-                          ),
+          // Voucher bar
+          GestureDetector(
+            onTap: _showPromoCodeDialog,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 10.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.discount_rounded, size: 16, color: Color(0xFF38BDF8)),
+                      SizedBox(width: 6),
+                      Text(
+                        'Mã giảm giá',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFE2E8F0),
                         ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          _appliedPromoCode != null ? 'Đã áp dụng: $_appliedPromoCode' : 'Nhập mã ưu đãi',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: _appliedPromoCode != null ? const Color(0xFF34D399) : const Color(0xFF93C5FD),
-                          ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        _appliedPromoCode != null ? 'Đã áp dụng: $_appliedPromoCode' : 'Nhập mã ưu đãi',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: _appliedPromoCode != null ? const Color(0xFF34D399) : const Color(0xFF93C5FD),
                         ),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF94A3B8)),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF94A3B8)),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
 
           // Big Action Button: VietQR Direct (1 chạm)
           SizedBox(
             width: double.infinity,
             height: 52,
-            child: isLifetimeOwned
-                ? ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F3227),
-                      foregroundColor: const Color(0xFF34D399),
-                      side: const BorderSide(color: Color(0xFF10B981), width: 1.2),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.verified_rounded, color: Color(0xFF34D399), size: 22),
-                    label: const Text(
-                      'Bạn đã sở hữu Gói Trọn Đời',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF34D399)),
-                    ),
-                  )
-                : ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0284C7),
-                      foregroundColor: Colors.white,
-                      elevation: 4,
-                      shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.45),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onPressed: _openVietQrDirect,
-                    icon: const Icon(Icons.qr_code_2_rounded, size: 22),
-                    label: Text(
-                      _userStatus != null && _userStatus!.isVip
-                          ? 'Nâng cấp VietQR — ${_currentSelectedPlan?.formattedPrice ?? ''}'
-                          : 'Thanh toán VietQR — ${_currentSelectedPlan?.formattedPrice ?? ''}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-          ),
-          if (!isLifetimeOwned) ...[
-            const SizedBox(height: 6),
-            GestureDetector(
-              onTap: _openCheckout,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: Text(
-                  'Chọn phương thức khác (VNPAY / Mô phỏng)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF94A3B8),
-                    decoration: TextDecoration.underline,
-                  ),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isSelectedOwned ? const Color(0xFF059669) : const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                elevation: 4,
+                shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.45),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: _openVietQrDirect,
+              icon: Icon(isSelectedOwned ? Icons.add_circle_outline_rounded : Icons.qr_code_2_rounded, size: 22),
+              label: Text(
+                _userStatus != null && _userStatus!.isVip
+                    ? (isSelectedOwned
+                        ? 'Gia hạn thêm (${_currentSelectedPlan?.durationLabel ?? ''}) — ${_currentSelectedPlan?.formattedPrice ?? ''}'
+                        : 'Nâng cấp / Đổi gói — ${_currentSelectedPlan?.formattedPrice ?? ''}')
+                    : 'Thanh toán VietQR — ${_currentSelectedPlan?.formattedPrice ?? ''}',
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: 0.3,
                 ),
               ),
             ),
-          ],
+          ),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: _openCheckout,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                'Chọn phương thức khác (VNPAY / Mô phỏng)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF94A3B8),
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

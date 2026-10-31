@@ -41,6 +41,53 @@ public class PaymentController {
                 .body(ApiResponse.success(HttpStatus.CREATED.value(), "Tạo đơn hàng thanh toán QR thành công", response));
     }
 
+    @PostMapping({"/mock-checkout", "/test-checkout"})
+    public ResponseEntity<ApiResponse<SubscriptionOrderResponse>> mockCheckout(
+            @RequestBody CreateQrOrderRequest request) {
+        Long authUserId = CurrentUser.idOrNull();
+        if (request.getUserId() == null && authUserId != null) {
+            request.setUserId(authUserId);
+        }
+        SubscriptionOrderResponse response = subscriptionService.mockCheckout(request);
+        return ResponseEntity.ok(ApiResponse.success(200, "Mô phỏng thanh toán thành công! Gói VIP đã được lưu vào database.", response));
+    }
+
+    @PostMapping({"/verify-promo", "/check-promo"})
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyPromoCode(
+            @RequestBody(required = false) Map<String, Object> body,
+            @RequestParam(value = "code", required = false) String paramCode,
+            @RequestParam(value = "planId", required = false) Long planId) {
+        String code = paramCode;
+        if ((code == null || code.isBlank()) && body != null) {
+            code = String.valueOf(body.getOrDefault("code", ""));
+            if (planId == null && body.containsKey("planId")) {
+                try {
+                    planId = Long.valueOf(body.get("planId").toString());
+                } catch (Exception ignored) {}
+            }
+        }
+        Map<String, Object> result = subscriptionService.verifyPromoCode(code, planId);
+        return ResponseEntity.ok(ApiResponse.success(200, "Áp dụng mã khuyến mãi thành công!", result));
+    }
+
+    @GetMapping({"/verify-promo", "/check-promo"})
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyPromoCodeGet(
+            @RequestParam("code") String code,
+            @RequestParam(value = "planId", required = false) Long planId) {
+        Map<String, Object> result = subscriptionService.verifyPromoCode(code, planId);
+        return ResponseEntity.ok(ApiResponse.success(200, "Áp dụng mã khuyến mãi thành công!", result));
+    }
+
+    @PostMapping({"/cancel", "/cancel-subscription"})
+    public ResponseEntity<ApiResponse<Map<String, Object>>> cancelSubscription(
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "userId", required = false) Long paramUserId) {
+        Long authUserId = CurrentUser.idOrNull();
+        Long userId = headerUserId != null ? headerUserId : (paramUserId != null ? paramUserId : (authUserId != null ? authUserId : 1L));
+        Map<String, Object> status = subscriptionService.cancelSubscription(userId);
+        return ResponseEntity.ok(ApiResponse.success(200, "Hủy gói thành viên thành công! Tài khoản đã quay về Gói Cơ Bản (Free).", status));
+    }
+
     @PostMapping("/confirm")
     public ResponseEntity<ApiResponse<SubscriptionOrderResponse>> confirmPayment(
             @RequestBody ConfirmPaymentRequest request) {

@@ -164,13 +164,13 @@ public class DataInitializer implements CommandLineRunner {
                 .build();
 
         com.jlsp.backend.subscription.entity.SubscriptionPlan specialVip = com.jlsp.backend.subscription.entity.SubscriptionPlan.builder()
-                .name("JLSP VIP Đặc Biệt (Lifetime Sensei)")
-                .code("VIP_SPECIAL")
+                .name("JLSP Premium 2 Năm (Mastery Plus)")
+                .code("PRO_2YEARS")
                 .price(java.math.BigDecimal.valueOf(1990000))
-                .durationDays(3650)
+                .durationDays(730)
                 .dailyTokenLimit(5000)
-                .description("Gói đặc quyền cao cấp nhất dành cho Sensei và học viên chuyên sâu")
-                .features("Không giới hạn trích xuất, 5,000 token AI/ngày, Huy hiệu VIP Hoàng Gia")
+                .description("Gói đặc quyền cao cấp 2 năm (730 ngày) dành cho Sensei và học viên chuyên sâu")
+                .features("Trích xuất lời video không giới hạn, 5,000 token AI/ngày, Huy hiệu VIP Hoàng Gia, Đầy đủ kho đề JLPT")
                 .isActive(true)
                 .build();
 
@@ -188,7 +188,8 @@ public class DataInitializer implements CommandLineRunner {
             jdbcTemplate.execute("UPDATE subscription_plans SET code = 'FREE' WHERE id = 1 AND code IS NULL");
             jdbcTemplate.execute("UPDATE subscription_plans SET code = 'PRO_MONTHLY' WHERE id = 2 AND code IS NULL");
             jdbcTemplate.execute("UPDATE subscription_plans SET code = 'PRO_YEARLY' WHERE id = 3 AND code IS NULL");
-            jdbcTemplate.execute("UPDATE subscription_plans SET code = 'VIP_SPECIAL' WHERE id = 4 AND code IS NULL");
+            jdbcTemplate.execute("UPDATE subscription_plans SET code = 'PRO_2YEARS', name = 'JLSP Premium 2 Năm (Mastery Plus)', duration_days = 730, daily_token_limit = 5000 WHERE id = 4 OR code = 'VIP_SPECIAL'");
+            jdbcTemplate.execute("UPDATE users SET vip_expires_at = NOW() + INTERVAL '730 days' WHERE vip_expires_at > NOW() + INTERVAL '1000 days'");
             jdbcTemplate.execute("UPDATE subscription_plans SET duration_days = 30 WHERE code = 'PRO_MONTHLY'");
             jdbcTemplate.execute("UPDATE subscription_plans SET duration_days = 365 WHERE code = 'PRO_YEARLY'");
 

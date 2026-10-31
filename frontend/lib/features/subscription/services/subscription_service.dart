@@ -236,7 +236,7 @@ class SubscriptionService {
     try {
       final token = await TokenStorage.instance.getAccessToken();
       final response = await _client.post(
-        Uri.parse('$baseUrl/checkout'),
+        Uri.parse((paymentMethod == 'MOCK' || paymentMethod == 'TEST') ? '$baseUrl/mock-checkout' : '$baseUrl/checkout'),
         headers: {
           'Content-Type': 'application/json',
           if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
@@ -262,7 +262,7 @@ class SubscriptionService {
       final String resolvedPlanName = planId == 2
           ? 'JLSP Pro (1 Tháng)'
           : (planId == 4
-              ? 'JLSP VIP Đặc Biệt (Lifetime Sensei)'
+              ? 'JLSP Premium 2 Năm (Mastery Plus)'
               : 'JLSP Mastery (1 Năm)');
       final String vnpaySandboxUrl =
           'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'
@@ -310,6 +310,48 @@ class SubscriptionService {
       planName: planName,
       durationDays: durationDays,
     );
+  }
+
+  Future<Map<String, dynamic>> verifyPromoCode(String code, {int? planId}) async {
+    final token = await TokenStorage.instance.getAccessToken();
+    final response = await _client.post(
+      Uri.parse('${ApiConstants.baseUrl}/payments/verify-promo'),
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'code': code.trim().toUpperCase(),
+        if (planId != null) 'planId': planId,
+      }),
+    ).timeout(const Duration(seconds: 8));
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200 && json['success'] == true) {
+      return json['data'] as Map<String, dynamic>;
+    } else {
+      final msg = json['message'] as String? ?? 'Mã khuyến mãi không hợp lệ hoặc đã hết hạn';
+      throw Exception(msg);
+    }
+  }
+
+  Future<void> cancelSubscription({required int userId}) async {
+    final currentUser = await AuthService.instance.getCurrentUser();
+    final effectiveUserId = currentUser?.id ?? userId;
+    final token = await TokenStorage.instance.getAccessToken();
+
+    try {
+      await _client.post(
+        Uri.parse('${ApiConstants.baseUrl}/payments/cancel?userId=$effectiveUserId'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 8));
+    } catch (_) {}
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_subscription_$effectiveUserId');
   }
 
   Future<SubscriptionStatus> getMyStatus({required int userId}) async {
@@ -371,8 +413,8 @@ class SubscriptionService {
       if (durationDays == null || durationDays <= 0) {
         final lower = (planName ?? '').toLowerCase();
         if (lower.contains('trọn đời') || lower.contains('lifetime')) {
-          resolvedDuration = 36500;
-          resolvedName = planName ?? 'Gói Trọn Đời';
+          resolvedDuration = 730;
+          resolvedName = 'JLSP Premium 2 Năm (Mastery Plus)';
         } else if (lower.contains('1 năm') ||
             lower.contains('mastery') ||
             lower.contains('12 tháng')) {
@@ -394,14 +436,12 @@ class SubscriptionService {
           resolvedDuration = 365;
           resolvedName = 'JLSP Mastery (1 Năm)';
         } else if (planId == 4) {
-          resolvedDuration = 36500;
-          resolvedName = 'JLSP VIP Đặc Biệt (Lifetime Sensei)';
+          resolvedDuration = 730;
+          resolvedName = 'JLSP Premium 2 Năm (Mastery Plus)';
         }
       }
 
-      final endDate = resolvedDuration >= 3650
-          ? now.add(const Duration(days: 36500))
-          : now.add(Duration(days: resolvedDuration));
+      final endDate = now.add(Duration(days: resolvedDuration));
 
       final data = {
         'isVip': true,
@@ -447,23 +487,23 @@ class SubscriptionService {
     return const [
       SubscriptionPlan(
         id: 4,
-        code: 'VIP_SPECIAL',
-        name: 'Gói Trọn Đời (Lifetime)',
-        description: 'Đặc quyền vĩnh viễn không cần gia hạn\n699.000 đ trọn gói',
-        price: 699000,
+        code: 'PRO_2YEARS',
+        name: 'JLSP Premium 2 Năm (Mastery Plus)',
+        description: 'Gói đặc quyền cao cấp 2 năm (730 ngày) dành cho Sensei và học viên chuyên sâu',
+        price: 1990000,
         dailyTokenLimit: 5000,
-        originalPrice: 999000,
-        durationDays: 36500,
+        originalPrice: 2490000,
+        durationDays: 730,
         features: [
           'Toàn bộ đặc quyền Premium cao cấp nhất',
           'Phân tích ngữ pháp AI chuyên sâu',
           'Tải bài học offline không giới hạn',
           'Huy hiệu Premium Vương miện danh dự',
-          'Sử dụng vĩnh viễn, không cần gia hạn',
+          'Thời hạn sử dụng 2 năm (730 ngày)',
         ],
         isActive: true,
         displayOrder: 1,
-        badgeLabel: 'Giảm 30% - Bán chạy nhất',
+        badgeLabel: 'Tiết kiệm 30% - Cao cấp nhất',
         discountPercent: 30,
       ),
       SubscriptionPlan(

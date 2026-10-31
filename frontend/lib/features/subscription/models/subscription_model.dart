@@ -77,17 +77,13 @@ class SubscriptionPlan {
     return _formatNumber(perMonth);
   }
 
-  bool get isLifetime {
-    final lower = name.toLowerCase();
-    return durationDays >= 3650 ||
-        lower.contains('trọn đời') ||
-        lower.contains('lifetime');
-  }
+  bool get isLifetime => false;
 
   String get durationLabel {
-    if (isLifetime) return 'Trọn đời';
-    if (durationDays >= 365) return '${(durationDays / 365).round()} Năm';
-    if (durationDays >= 30) return '${(durationDays / 30).round()} Tháng';
+    if (durationDays >= 730) return '2 Năm';
+    if (durationDays >= 365) return '1 Năm';
+    if (durationDays >= 90) return '3 Tháng';
+    if (durationDays >= 30) return '1 Tháng';
     return '$durationDays Ngày';
   }
 
@@ -219,21 +215,7 @@ class SubscriptionStatus {
   }
 
   bool get hasActiveSubscription => isVip;
-  bool get isLifetime {
-    if (!isVip) return false;
-    final name = (planName ?? '').toLowerCase();
-    if (name.contains('1 tháng') ||
-        name.contains('3 tháng') ||
-        name.contains('1 năm') ||
-        name.contains('12 tháng') ||
-        name.contains('pro') ||
-        name.contains('mastery')) {
-      return false;
-    }
-    return name.contains('trọn đời') ||
-        name.contains('lifetime') ||
-        remainingDays >= 3650;
-  }
+  bool get isLifetime => false;
 
   String get formattedExpiryDate {
     if (endDate == null) return '';

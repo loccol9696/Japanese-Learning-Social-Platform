@@ -7,12 +7,14 @@ class SubscriptionSuccessDialog extends StatelessWidget {
   final PaymentResponse payment;
   final SubscriptionPlan plan;
   final VoidCallback onDismiss;
+  final VoidCallback? onViewProfile;
 
   const SubscriptionSuccessDialog({
     super.key,
     required this.payment,
     required this.plan,
     required this.onDismiss,
+    this.onViewProfile,
   });
 
   @override
@@ -94,7 +96,7 @@ class SubscriptionSuccessDialog extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               height: 48,
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppPalette.accent,
                   foregroundColor: AppPalette.onAccent,
@@ -105,21 +107,36 @@ class SubscriptionSuccessDialog extends StatelessWidget {
                 ),
                 onPressed: () {
                   Navigator.of(context).pop();
-                  onDismiss();
+                  if (onViewProfile != null) {
+                    onViewProfile!();
+                  } else {
+                    onDismiss();
+                  }
                 },
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.person_outline_rounded, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Xem thông tin gói trong Hồ sơ',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                icon: const Icon(Icons.person_outline_rounded, size: 20),
+                label: const Text(
+                  'Xem thông tin trong Hồ sơ',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 42,
+              child: TextButton(onPressed: () { Navigator.of(context).pop(); onDismiss(); },
+                child: Text(
+                  'Đóng',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppPalette.textSecondary,
+                  ),
                 ),
               ),
             ),
@@ -155,3 +172,4 @@ class SubscriptionSuccessDialog extends StatelessWidget {
     );
   }
 }
+
