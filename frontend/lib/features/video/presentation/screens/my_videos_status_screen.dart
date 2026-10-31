@@ -7,6 +7,9 @@ import '../../../profile/data/datasources/profile_remote_datasource.dart';
 import '../../../profile/data/repositories/profile_repository_impl.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../domain/models/user_video_model.dart';
+import '../../../profile/domain/models/topic_model.dart';
+import '../../../topic/topic_service.dart';
+import '../widgets/video_classification_fields.dart';
 import 'upload_video_screen.dart';
 import '../../../../core/theme/app_palette.dart';
 
@@ -73,6 +76,11 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
     final descCtrl = TextEditingController(text: video.description ?? '');
     var level = _levels.contains(video.jlptLevel) ? video.jlptLevel : 'N5';
     final formKey = GlobalKey<FormState>();
+    final classificationKey = GlobalKey<VideoClassificationFieldsState>();
+    var topicIds = video.topics.map((t) => t.id).toSet();
+    var hashtags = video.hashtags;
+    final selectableTopics = {...await _loadTopics(), ...video.topics}.toList();
+    if (!mounted) return;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -113,6 +121,15 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                     ],
                     onChanged: (v) => setLocal(() => level = v ?? level),
                   ),
+                  const SizedBox(height: 18),
+                  VideoClassificationFields(
+                    key: classificationKey,
+                    topics: selectableTopics,
+                    selectedTopicIds: topicIds,
+                    onTopicsChanged: (ids) => setLocal(() => topicIds = ids),
+                    hashtags: hashtags,
+                    onHashtagsChanged: (tags) => setLocal(() => hashtags = tags),
+                  ),
                 ],
               ),
             ),
@@ -124,6 +141,7 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
             ),
             TextButton(
               onPressed: () {
+                if (classificationKey.currentState?.commitPending() == false) return;
                 if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
               },
               child: const Text('Lưu'),
@@ -145,6 +163,8 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
         title: title,
         description: desc,
         jlptLevel: level,
+        topicIds: topicIds,
+        hashtags: hashtags,
       );
       if (!mounted) return;
       AppToast.showSuccess('Đã cập nhật video', context: context);
@@ -155,6 +175,15 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
       if (mounted) {
         AppToast.showError('Không thể cập nhật video', context: context);
       }
+    }
+  }
+
+  /// Danh sách chủ đề chỉ để gắn thêm: tải lỗi thì vẫn sửa được các mục khác.
+  Future<List<TopicModel>> _loadTopics() async {
+    try {
+      return await TopicService().fetchTopics();
+    } catch (_) {
+      return const [];
     }
   }
 

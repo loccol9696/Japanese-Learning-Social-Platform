@@ -8,8 +8,10 @@ import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../explore/presentation/explore_screen.dart';
 import '../../../chat/presentation/widgets/share_video_sheet.dart';
 import '../../../follow/presentation/screens/user_profile_screen.dart';
+import '../../../profile/domain/models/topic_model.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../screens/video_script_screen.dart';
@@ -126,6 +128,32 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   /// null khi video không có thông tin người đăng (không mở được trang cá nhân).
   VoidCallback? get _onCreatorTap =>
       widget.post.creatorId == null ? null : _openCreatorProfile;
+
+  void _openTopic(TopicModel topic) {
+    _openSimilarVideos(ExploreScreen(showBackButton: true, initialTopicId: topic.id));
+  }
+
+  void _openHashtag(String hashtag) {
+    _openSimilarVideos(ExploreScreen(showBackButton: true, initialSearch: '#$hashtag'));
+  }
+
+  /// Mở danh sách video cùng chủ đề / hashtag. Video tạm dừng trong lúc xem rồi phát tiếp.
+  Future<void> _openSimilarVideos(ExploreScreen screen) async {
+    RubySubtitleWidget.dismissLookups();
+    final controller = _videoController;
+    final wasPlaying = controller != null && controller.value.isPlaying;
+    if (controller != null && wasPlaying) await controller.pause();
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(backgroundColor: AppPalette.background, body: screen),
+      ),
+    );
+    if (!mounted) return;
+    if (controller != null && wasPlaying && identical(controller, _videoController)) {
+      await controller.play();
+    }
+  }
 
   /// Mở trang cá nhân của người đăng. Video tạm dừng trong lúc xem rồi phát tiếp,
   /// để không còn tiếng phát ở phía sau.
@@ -662,6 +690,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                         post: widget.post,
                         theme: theme,
                         onCreatorTap: _onCreatorTap,
+                        onTopicTap: _openTopic,
+                        onHashtagTap: _openHashtag,
                       ),
                     ],
                   ),
@@ -825,6 +855,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                                 post: widget.post,
                                 theme: theme,
                                 onCreatorTap: _onCreatorTap,
+                                onTopicTap: _openTopic,
+                                onHashtagTap: _openHashtag,
                               ),
                             ],
                           ),

@@ -12,16 +12,13 @@ import java.time.LocalDateTime;
         // Feed / Khám phá: lọc PUBLIC + APPROVED rồi sắp theo created_at.
         @Index(name = "idx_videos_feed", columnList = "status, mod_status, created_at"),
         // Video của một người (hồ sơ, quản lý đăng tải, feed Following).
-        @Index(name = "idx_videos_user_created", columnList = "user_id, created_at"),
+        @Index(name = "idx_videos_user_created", columnList = "user_id, created_at")
         // Cố ý KHÔNG đánh chỉ mục view_count cho tab "Thịnh hành": cột này bị UPDATE ở
         // mỗi lượt xem, có chỉ
         // mục thì mọi lượt xem đều ghi thêm vào chỉ mục (mất cập nhật HOT, chỉ mục
         // phình). Cần thì dùng
         // bảng xếp hạng được tính định kỳ / Redis thay vì sắp xếp trực tiếp trên cột
         // nóng.
-        // Lọc theo chủ đề rồi sắp theo thời gian (topic_id hầu như không đổi nên chỉ
-        // mục rẻ).
-        @Index(name = "idx_videos_topic_feed", columnList = "topic_id, status, mod_status, created_at")
 })
 @Getter
 @Setter
@@ -91,11 +88,26 @@ public class Video {
     private String subtitles;
 
     /**
-     * Chủ đề của video (tuỳ chọn). EAGER vì bảng chủ đề rất nhỏ và luôn được hiển thị kèm video.
+     * Chủ đề của video (tuỳ chọn, nhiều chủ đề): metadata hệ thống, dùng để phân loại và cá nhân hoá feed.
      */
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "topic_id")
-    private com.jlsp.backend.topic.entity.Topic topic;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "video_topics",
+            joinColumns = @JoinColumn(name = "video_id"),
+            inverseJoinColumns = @JoinColumn(name = "topic_id"),
+            indexes = @Index(name = "idx_video_topics_topic", columnList = "topic_id, video_id"))
+    @Builder.Default
+    private java.util.Set<com.jlsp.backend.topic.entity.Topic> topics = new java.util.HashSet<>();
+
+    /**
+     * Hashtag người đăng tự điền (tuỳ chọn), dùng cho tìm kiếm / khám phá.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "video_hashtags",
+            joinColumns = @JoinColumn(name = "video_id"),
+            inverseJoinColumns = @JoinColumn(name = "hashtag_id"),
+            indexes = @Index(name = "idx_video_hashtags_hashtag", columnList = "hashtag_id, video_id"))
+    @Builder.Default
+    private java.util.Set<Hashtag> hashtags = new java.util.HashSet<>();
 
     /**
      * Kết quả phân tích ngữ pháp do AI (Gemini) sinh ra từ subtitles, định dạng

@@ -108,6 +108,7 @@ class ApiConstants {
   // Profile endpoints
   static String get profileUrl => '$baseUrl/profile';
   static String get topicsUrl => '$baseUrl/topics';
+  static String get hashtagSuggestUrl => '$baseUrl/hashtags/suggest';
   static String get reportsUrl => '$baseUrl/reports';
   static String get notificationsUrl => '$baseUrl/notifications';
 
@@ -151,6 +152,7 @@ class ApiConstants {
   static String shareVideoUrl(int videoId) => '$baseUrl/videos/$videoId/share';
   static String shareDeckUrl(int deckId) => '$baseUrl/flashcards/sets/$deckId/share';
   static String videoDetailUrl(String videoId) => '$baseUrl/videos/$videoId';
+  static String videoClassificationUrl(int videoId) => '$baseUrl/videos/$videoId/classification';
 
   /// Server Socket.IO của chat: cùng host với API nhưng port riêng (9092).
   static String get socketUrl {

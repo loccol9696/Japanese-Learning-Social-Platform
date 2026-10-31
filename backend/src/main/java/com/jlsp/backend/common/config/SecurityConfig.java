@@ -55,6 +55,7 @@ public class SecurityConfig {
             "/api/v1/users/*/public-profile",
             "/api/v1/topics/**",
             "/topics/**",
+            "/api/v1/hashtags/**",
             "/api/v1/subscription-plans",
             "/api/v1/subscription-plans/{id:[0-9]+}",
             "/api/v1/dictionary/**",
@@ -140,7 +141,8 @@ public class SecurityConfig {
 
                 // Kiểm duyệt video
                 .requestMatchers("/api/v1/videos/moderation", "/api/v1/videos/*/approve",
-                        "/api/v1/videos/*/reject").hasAnyRole("ADMIN", "MODERATOR")
+                        "/api/v1/videos/*/reject", "/api/v1/videos/*/classification")
+                .hasAnyRole("ADMIN", "MODERATOR")
 
                 // Nội dung công khai
                 .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()

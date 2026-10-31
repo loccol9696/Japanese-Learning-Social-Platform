@@ -12,6 +12,8 @@ class VideoManageService {
     required String title,
     String? description,
     required String jlptLevel,
+    Set<int>? topicIds,
+    List<String>? hashtags,
   }) async {
     await _api.patch(
       ApiConstants.videoDetailUrl('$videoId'),
@@ -19,7 +21,21 @@ class VideoManageService {
         'title': title,
         'description': description ?? '',
         'jlptLevel': jlptLevel,
+        if (topicIds != null) 'topicIds': topicIds.toList(),
+        'hashtags': ?hashtags,
       },
+    );
+  }
+
+  /// Kiểm duyệt viên sửa chủ đề / hashtag; video giữ nguyên trạng thái duyệt.
+  Future<void> updateClassification(
+    int videoId, {
+    required Set<int> topicIds,
+    required List<String> hashtags,
+  }) async {
+    await _api.patch(
+      ApiConstants.videoClassificationUrl(videoId),
+      body: {'topicIds': topicIds.toList(), 'hashtags': hashtags},
     );
   }
 

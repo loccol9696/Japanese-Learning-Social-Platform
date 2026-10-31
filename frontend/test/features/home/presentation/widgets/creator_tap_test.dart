@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/features/profile/domain/models/topic_model.dart';
 import 'package:frontend/features/home/domain/models/video_post.dart';
 import 'package:frontend/features/home/presentation/widgets/interaction_sidebar.dart';
 import 'package:frontend/features/home/presentation/widgets/video_info_overlay.dart';
@@ -24,6 +25,49 @@ const _post = VideoPost(
 
 void main() {
   infoOverlayLayoutTests();
+
+  testWidgets('hiện chủ đề và hashtag; bấm thẻ báo đúng chủ đề / hashtag', (tester) async {
+    int? topicId;
+    String? hashtag;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: VideoInfoOverlay(
+            post: _post.copyWith(
+              topics: const [TopicModel(id: 3, name: 'Du lịch')],
+              hashtags: const ['tokyo'],
+            ),
+            onTopicTap: (topic) => topicId = topic.id,
+            onHashtagTap: (tag) => hashtag = tag,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Du lịch'));
+    await tester.tap(find.text('#tokyo'));
+
+    expect(topicId, 3);
+    expect(hashtag, 'tokyo');
+  });
+
+  testWidgets('giới hạn số thẻ hiện trên video', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: VideoInfoOverlay(
+            post: _post.copyWith(
+              topics: const [TopicModel(id: 1, name: 'A'), TopicModel(id: 2, name: 'B'), TopicModel(id: 3, name: 'C')],
+              hashtags: const ['d', 'e', 'f', 'g', 'h'],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('#e'), findsOneWidget);
+    expect(find.text('#f'), findsNothing);
+  });
 
   testWidgets('bấm @username của người đăng gọi onCreatorTap', (tester) async {
     var taps = 0;

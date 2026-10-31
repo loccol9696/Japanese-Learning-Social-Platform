@@ -14,6 +14,8 @@ import '../../../../core/network/api_client.dart';
 import '../../../home/presentation/widgets/bottom_nav_dock.dart';
 import '../../../profile/domain/models/topic_model.dart';
 import '../../../topic/topic_service.dart';
+import '../../domain/hashtag_rules.dart';
+import '../widgets/video_classification_fields.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/widgets/app_toast.dart';
 
@@ -640,8 +642,13 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   final _thumbnailController = TextEditingController();
   final List<_SubtitleDraft> _subtitles = [];
   String _jlptLevel = 'N5';
+  final _classificationKey = GlobalKey<VideoClassificationFieldsState>();
   List<TopicModel> _topics = const [];
-  int? _topicId;
+
+  /// Chủ đề đang gắn trên bản nháp; có thể đã bị admin ẩn nên không nằm trong [_topics].
+  List<TopicModel> _attachedTopics = const [];
+  Set<int> _topicIds = {};
+  List<String> _hashtags = const [];
   bool _isPublic = true;
   bool _isSubmitting = false;
   bool _isTranscribing = false;
@@ -680,7 +687,8 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
       final desc = data['description']?.toString();
       final thumb = data['thumbnailUrl']?.toString();
       final level = data['jlptLevel']?.toString();
-      final topicId = (data['topicId'] as num?)?.toInt();
+      final attachedTopics = TopicModel.listFromJson(data['topics']);
+      final hashtags = parseHashtags(data['hashtags']);
       final subtitlesRaw = data['subtitles']?.toString();
       final grammarRaw = data['grammarAnalysis']?.toString();
 
@@ -732,7 +740,9 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         if (level != null && ['N5', 'N4', 'N3', 'N2', 'N1'].contains(level)) {
           _jlptLevel = level;
         }
-        _topicId = topicId;
+        _attachedTopics = attachedTopics;
+        _topicIds = attachedTopics.map((t) => t.id).toSet();
+        _hashtags = hashtags;
         _subtitles
           ..clear()
           ..addAll(parsedSubtitles);
@@ -1012,6 +1022,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   }
 
   Future<void> _publish({bool asDraft = false}) async {
+    if (_classificationKey.currentState?.commitPending() == false) return;
     if (_titleController.text.trim().isEmpty ||
         _thumbnailController.text.trim().isEmpty) {
       _showMessage('Vui lòng nhập tiêu đề và ảnh bìa.');
@@ -1038,7 +1049,8 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         'thumbnailUrl': _thumbnailController.text.trim(),
         'duration': widget.duration < 1 ? 1 : widget.duration,
         'jlptLevel': _jlptLevel,
-        'topicId': _topicId ?? 0,
+        'topicIds': _topicIds.toList(),
+        'hashtags': _hashtags,
         'videoUrl': widget.videoUrl,
         'subtitles': _subtitleJson() ?? '',
         'grammarAnalysis': _grammarAnalysisJson() ?? '',
@@ -1055,7 +1067,6 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           '${ApiConstants.baseUrl}/videos',
           body: {
             ...payload,
-            'topicId': _topicId,
             'subtitles': _subtitleJson(),
             'grammarAnalysis': _grammarAnalysisJson(),
           },
@@ -1209,12 +1220,15 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           _buildSectionTitle('Trình độ JLPT'),
           const SizedBox(height: 10),
           _buildJlptSelector(),
-          if (_topics.isNotEmpty) ...[
-            const SizedBox(height: 22),
-            _buildSectionTitle('Chủ đề (tuỳ chọn)'),
-            const SizedBox(height: 10),
-            _buildTopicSelector(),
-          ],
+          const SizedBox(height: 22),
+          VideoClassificationFields(
+            key: _classificationKey,
+            topics: _selectableTopics,
+            selectedTopicIds: _topicIds,
+            onTopicsChanged: (ids) => setState(() => _topicIds = ids),
+            hashtags: _hashtags,
+            onHashtagsChanged: (tags) => setState(() => _hashtags = tags),
+          ),
           const SizedBox(height: 22),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1471,29 +1485,8 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     );
   }
 
-  Widget _buildTopicSelector() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _topics.map((topic) {
-        final selected = topic.id == _topicId;
-        return ChoiceChip(
-          label: Text(topic.name),
-          selected: selected,
-          // Bấm lại chủ đề đang chọn để bỏ chọn.
-          onSelected: (_) => setState(() => _topicId = selected ? null : topic.id),
-          selectedColor: AppPalette.accent,
-          backgroundColor: AppPalette.background,
-          side: BorderSide(color: AppPalette.border),
-          labelStyle: TextStyle(
-            color: selected ? AppPalette.onAccent : AppPalette.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
-          showCheckmark: false,
-        );
-      }).toList(),
-    );
-  }
+  /// Chủ đề đang hiển thị cộng chủ đề bản nháp đã gắn, để người đăng bỏ được cả chủ đề admin vừa ẩn.
+  List<TopicModel> get _selectableTopics => {..._topics, ..._attachedTopics}.toList();
 
   Widget _buildSubtitleModeSelector() {
     final aiAvailable = (widget.aiTaskId?.isNotEmpty == true) || widget.videoUrl.isNotEmpty;

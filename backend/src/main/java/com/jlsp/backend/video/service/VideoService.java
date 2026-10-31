@@ -4,6 +4,7 @@ import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.user.entity.JLPTLevel;
 import com.jlsp.backend.video.dto.request.CreateVideoRequest;
 import com.jlsp.backend.video.dto.request.ShadowingSubmissionRequest;
+import com.jlsp.backend.video.dto.request.UpdateVideoClassificationRequest;
 import com.jlsp.backend.video.dto.request.UpdateVideoRequest;
 import com.jlsp.backend.video.dto.response.ShadowingPracticeResponse;
 import com.jlsp.backend.video.dto.response.VideoDetailResponse;
@@ -167,13 +168,24 @@ public interface VideoService {
      * @param feed          Loại feed ("for-you" hoặc "following")
      * @param jlptLevel     Cấp độ JLPT cần lọc (tuỳ chọn)
      * @param userId        ID Creator cần lọc (tuỳ chọn)
-     * @param search        Từ khoá tìm theo tiêu đề / mô tả (tuỳ chọn)
-     * @param topicId       Lọc theo chủ đề (tuỳ chọn; bị bỏ qua khi có từ khoá tìm kiếm hoặc feed following)
-     * @param pageable      Phân trang và sắp xếp
+     * @param search        Từ khoá tìm theo tiêu đề, mô tả, chủ đề, hashtag, người đăng; "#abc" chỉ tìm
+     *                      đúng hashtag đó (tuỳ chọn)
+     * @param topicIds      Lọc video thuộc một trong các chủ đề này (tuỳ chọn; kết hợp được với từ khoá và
+     *                      JLPT, bị bỏ qua ở feed following)
+     * @param pageable      Phân trang và sắp xếp; "sort=relevance" xếp theo độ liên quan với từ khoá
      * @return Danh sách video phân trang
      */
     PageResponse<VideoResponse> getAllVideos(Long currentUserId, String feed, JLPTLevel jlptLevel, Long userId,
-            String search, Long topicId, Pageable pageable);
+            String search, List<Long> topicIds, Pageable pageable);
+
+    /**
+     * Kiểm duyệt viên sửa chủ đề / hashtag của video, không đổi trạng thái kiểm duyệt.
+     *
+     * @param videoId ID video
+     * @param request Chủ đề và hashtag mới
+     * @return Chi tiết video sau khi sửa
+     */
+    VideoDetailResponse updateClassification(Long videoId, UpdateVideoClassificationRequest request);
 
     /**
      * Thả tim (Like) video

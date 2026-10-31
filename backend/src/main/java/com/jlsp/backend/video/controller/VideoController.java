@@ -40,7 +40,7 @@ public class VideoController {
 
     /**
      * Hỗ trợ lọc theo loại feed ("for-you", "following"), cấp độ JLPT, hoặc Creator
-     * ID qua Query Parameters.
+     * ID qua Query Parameters. Từ khoá, chủ đề và JLPT kết hợp được với nhau.
      * GET /api/v1/videos
      */
     @GetMapping
@@ -49,12 +49,12 @@ public class VideoController {
             @RequestParam(value = "jlptLevel", required = false) JLPTLevel jlptLevel,
             @RequestParam(value = "userId", required = false) Long targetUserId,
             @RequestParam(value = "search", required = false) String search,
-            @RequestParam(value = "topicId", required = false) Long topicId,
+            @RequestParam(value = "topicIds", required = false) List<Long> topicIds,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Long currentUserId = CurrentUser.idOrNull();
         PageResponse<VideoResponse> response = videoService.getAllVideos(currentUserId, feed, jlptLevel, targetUserId,
-                search, topicId, pageable);
+                search, topicIds, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -99,6 +99,19 @@ public class VideoController {
 
         VideoDetailResponse response = videoService.updateVideo(id, userId, request);
         return ResponseEntity.ok(ApiResponse.success(200, "Cập nhật video thành công", response));
+    }
+
+    /**
+     * Kiểm duyệt viên sửa chủ đề / hashtag của video.
+     * PATCH /api/v1/videos/{id}/classification
+     */
+    @PatchMapping("/{id}/classification")
+    public ResponseEntity<ApiResponse<VideoDetailResponse>> updateClassification(
+            @PathVariable Long id,
+            @RequestBody com.jlsp.backend.video.dto.request.UpdateVideoClassificationRequest request) {
+
+        VideoDetailResponse response = videoService.updateClassification(id, request);
+        return ResponseEntity.ok(ApiResponse.success(200, "Cập nhật phân loại video thành công", response));
     }
 
     /**

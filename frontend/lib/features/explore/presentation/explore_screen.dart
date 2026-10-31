@@ -19,7 +19,18 @@ class ExploreScreen extends StatefulWidget {
   /// Hiện nút quay lại cạnh ô tìm kiếm khi màn được mở riêng (không nằm trong thanh menu).
   final bool showBackButton;
 
-  const ExploreScreen({super.key, this.showBackButton = false});
+  /// Mở sẵn kết quả của từ khoá này, ví dụ "#anime" khi bấm hashtag trên video.
+  final String? initialSearch;
+
+  /// Mở sẵn kết quả của chủ đề này, khi bấm chủ đề trên video.
+  final int? initialTopicId;
+
+  const ExploreScreen({
+    super.key,
+    this.showBackButton = false,
+    this.initialSearch,
+    this.initialTopicId,
+  });
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
@@ -37,10 +48,15 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
   final ScrollController _scrollController = ScrollController();
   Timer? _searchDebounce;
 
-  ExploreFilter _filter = ExploreFilter.trending;
+  /// Đang ở tab tìm người dùng thay vì video.
+  bool _showUsers = false;
+
+  /// Cách sắp xếp người dùng tự chọn; null thì dùng mặc định theo ngữ cảnh, xem [_sort].
+  ExploreSort? _chosenSort;
   String _search = '';
+  String? _jlptLevel;
   List<TopicModel> _topics = const [];
-  int? _topicId;
+  final Set<int> _topicIds = {};
   final List<ExploreVideo> _videos = [];
   int _page = 0;
   bool _isLast = false;
@@ -65,8 +81,25 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    final initialSearch = widget.initialSearch?.trim() ?? '';
+    if (initialSearch.isNotEmpty) {
+      _search = initialSearch;
+      _searchController.text = initialSearch;
+    }
+    if (widget.initialTopicId != null) _topicIds.add(widget.initialTopicId!);
     _loadFirstPage();
     _loadTopics();
+  }
+
+  /// Có từ khoá thì mặc định xếp theo độ liên quan, còn lại là Thịnh hành. "Liên quan" đã chọn
+  /// mất ý nghĩa khi xoá từ khoá nên quay về mặc định.
+  ExploreSort get _sort {
+    final hasKeyword = _search.isNotEmpty;
+    final chosen = _chosenSort;
+    if (chosen == null || (chosen == ExploreSort.relevance && !hasKeyword)) {
+      return hasKeyword ? ExploreSort.relevance : ExploreSort.trending;
+    }
+    return chosen;
   }
 
   /// Chip chủ đề là phần phụ: tải lỗi thì không hiện, danh sách video vẫn dùng được.
@@ -96,9 +129,10 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
 
     try {
       final result = await _service.fetchVideos(
-        filter: _filter,
+        sort: _sort,
         search: _search,
-        topicId: _topicId,
+        jlptLevel: _jlptLevel,
+        topicIds: _topicIds,
       );
       if (!mounted || token != _requestToken) return;
       setState(() {
@@ -125,9 +159,10 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
 
     try {
       final result = await _service.fetchVideos(
-        filter: _filter,
+        sort: _sort,
         search: _search,
-        topicId: _topicId,
+        jlptLevel: _jlptLevel,
+        topicIds: _topicIds,
         page: _page + 1,
       );
       if (!mounted || token != _requestToken) return;
@@ -160,13 +195,12 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
     _searchDebounce = Timer(const Duration(milliseconds: 400), () {
       final next = value.trim();
       if (next == _search) return;
-      if (_filter.isUsers) {
+      if (_showUsers) {
         // Kết quả người dùng do UserSearchResults tự tải khi từ khoá đổi.
         setState(() => _search = next);
         return;
       }
-      _search = next;
-      if (next.isNotEmpty) _topicId = null;
+      setState(() => _search = next);
       _loadFirstPage();
     });
   }
@@ -178,43 +212,42 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
       setState(() {});
       return;
     }
-    if (_filter.isUsers) {
+    if (_showUsers) {
       setState(() => _search = '');
       return;
     }
-    _search = '';
+    setState(() => _search = '');
     _loadFirstPage();
   }
 
-  void _selectTopic(int? topicId) {
-    if (topicId == _topicId) return;
-    _searchDebounce?.cancel();
-    // Máy chủ ưu tiên từ khoá hơn chủ đề, nên chọn chủ đề thì xoá ô tìm kiếm.
-    _searchController.clear();
-    setState(() {
-      _topicId = topicId;
-      _search = '';
-    });
-    if (_scrollController.hasClients) _scrollController.jumpTo(0);
-    _loadFirstPage();
-  }
-
-  void _selectFilter(ExploreFilter filter) {
-    if (filter == _filter) return;
-    // Áp dụng ngay chữ đang gõ (nếu chưa kịp debounce) để hai chế độ dùng chung một từ khoá.
+  /// Đổi một điều kiện lọc rồi tải lại từ đầu; từ khoá, chủ đề, trình độ được giữ và kết hợp với nhau.
+  void _applyFilter(VoidCallback change) {
+    // Áp dụng ngay chữ đang gõ (nếu chưa kịp debounce).
     _searchDebounce?.cancel();
     final typed = _searchController.text.trim();
-    final wasUsers = _filter.isUsers;
     setState(() {
-      _filter = filter;
+      change();
       _search = typed;
-      // Máy chủ ưu tiên từ khoá hơn chủ đề: có từ khoá thì bỏ chủ đề đang chọn khi quay lại video.
-      if (wasUsers && typed.isNotEmpty) _topicId = null;
     });
     // Chế độ người dùng không có danh sách video để tải.
-    if (filter.isUsers) return;
+    if (_showUsers) return;
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     _loadFirstPage();
+  }
+
+  void _toggleTopic(int topicId) {
+    _applyFilter(() {
+      if (!_topicIds.remove(topicId)) _topicIds.add(topicId);
+    });
+  }
+
+  void _toggleJlptLevel(String level) {
+    _applyFilter(() => _jlptLevel = _jlptLevel == level ? null : level);
+  }
+
+  void _selectTab({required bool users}) {
+    if (users == _showUsers) return;
+    _applyFilter(() => _showUsers = users);
   }
 
   Future<void> _toggleSave(ExploreVideo video) async {
@@ -366,8 +399,12 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
           children: [
             _buildSearchBar(),
             const SizedBox(height: 10),
-            _buildFilterChips(),
-            if (_topics.isNotEmpty && !_filter.isUsers) ...[
+            _buildTabs(),
+            if (!_showUsers) ...[
+              const SizedBox(height: 8),
+              _buildJlptChips(),
+            ],
+            if (_topics.isNotEmpty && !_showUsers) ...[
               const SizedBox(height: 8),
               _buildTopicChips(),
             ],
@@ -441,9 +478,9 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
           ),
           cursorColor: _accent,
           decoration: InputDecoration(
-            hintText: _filter.isUsers
+            hintText: _showUsers
                 ? 'Tìm người dùng theo tên hoặc username...'
-                : 'Tìm video theo tiêu đề, nội dung...',
+                : 'Tìm theo tên, chủ đề, #hashtag...',
             hintStyle: TextStyle(color: _textMuted, fontSize: 14),
             prefixIcon: Icon(Icons.search_rounded, color: _textMuted),
             suffixIcon: _searchController.text.isEmpty
@@ -483,30 +520,46 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildTopicChips() {
-    Widget chip(String label, bool selected, VoidCallback onTap) {
-      return GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? _accent : _surfaceHigh,
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: selected ? AppPalette.onAccent : _textMuted,
-            ),
+  Widget _filterChip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? _accent : _surfaceHigh,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? AppPalette.onAccent : _textMuted,
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
+  Widget _buildJlptChips() {
+    return SizedBox(
+      height: 30,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: exploreJlptLevels.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final level = exploreJlptLevels[index];
+          return _filterChip(level, level == _jlptLevel, () => _toggleJlptLevel(level));
+        },
+      ),
+    );
+  }
+
+  Widget _buildTopicChips() {
     return SizedBox(
       height: 30,
       child: ListView.separated(
@@ -516,68 +569,89 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           if (index == 0) {
-            return chip('Mọi chủ đề', _topicId == null, () => _selectTopic(null));
+            return _filterChip('Mọi chủ đề', _topicIds.isEmpty, () => _applyFilter(_topicIds.clear));
           }
           final topic = _topics[index - 1];
-          return chip(topic.name, topic.id == _topicId, () => _selectTopic(topic.id));
+          return _filterChip(topic.name, _topicIds.contains(topic.id), () => _toggleTopic(topic.id));
         },
       ),
     );
   }
 
-  Widget _buildFilterChips() {
+  Widget _buildTabs() {
+    Widget tab(String label, {required bool users}) {
+      final selected = users == _showUsers;
+      return GestureDetector(
+        onTap: () => _selectTab(users: users),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? _accent : _surfaceHigh,
+            borderRadius: BorderRadius.circular(17),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? AppPalette.textPrimary : AppPalette.textSecondary,
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       height: 34,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: ExploreFilter.values.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final filter = ExploreFilter.values[index];
-          final selected = filter == _filter;
-          return GestureDetector(
-            onTap: () => _selectFilter(filter),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected ? _accent : _surfaceHigh,
-                borderRadius: BorderRadius.circular(17),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (filter == ExploreFilter.trending) ...[
-                    Icon(
-                      Icons.local_fire_department_rounded,
-                      size: 16,
-                      color: AppPalette.onVideo,
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  Text(
-                    filter.label,
-                    style: TextStyle(
-                      color: selected
-                          ? AppPalette.textPrimary
-                          : AppPalette.textSecondary,
-                      fontSize: 13,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+        child: Row(
+          children: [
+            tab('Video', users: false),
+            const SizedBox(width: 8),
+            tab('Người dùng', users: true),
+            const Spacer(),
+            if (!_showUsers) _buildSortMenu(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortMenu() {
+    final sort = _sort;
+    return PopupMenuButton<ExploreSort>(
+      tooltip: 'Sắp xếp',
+      color: _surface,
+      initialValue: sort,
+      onSelected: (value) => _applyFilter(() => _chosenSort = value),
+      itemBuilder: (context) => [
+        for (final option in ExploreSort.values)
+          // "Liên quan" cần có từ khoá để so sánh.
+          if (option != ExploreSort.relevance || _search.isNotEmpty)
+            PopupMenuItem(
+              value: option,
+              child: Text(option.label, style: TextStyle(color: AppPalette.textPrimary, fontSize: 14)),
             ),
-          );
-        },
+      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.swap_vert_rounded, size: 18, color: _textMuted),
+          const SizedBox(width: 4),
+          Text(
+            sort.label,
+            style: TextStyle(color: _textMuted, fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildBody(double bottomInset) {
-    if (_filter.isUsers) {
+    if (_showUsers) {
       return UserSearchResults(query: _search, bottomInset: bottomInset);
     }
 
@@ -601,7 +675,9 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
         icon: Icons.video_library_outlined,
         text: _search.isNotEmpty
             ? 'Không tìm thấy video nào cho "$_search"'
-            : 'Chưa có video nào',
+            : (_topicIds.isNotEmpty || _jlptLevel != null)
+                ? 'Không có video nào phù hợp với bộ lọc'
+                : 'Chưa có video nào',
       );
     }
 

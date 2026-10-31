@@ -59,6 +59,7 @@ import {
   type DailyMetricDto
 } from '../services/adminService';
 import TopicsManager from './TopicsManager';
+import VideoClassificationEditor from './VideoClassificationEditor';
 import ReportsManager from './ReportsManager';
 import './AdminDashboard.css';
 
@@ -2923,6 +2924,16 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
                   </span>
                 </div>
               </div>
+
+              <VideoClassificationEditor
+                key={selectedDetailVideo.id}
+                video={selectedDetailVideo}
+                showToast={showToast}
+                onSaved={(updated) => {
+                  setSelectedDetailVideo({ ...selectedDetailVideo, ...updated });
+                  loadModerationVideos();
+                }}
+              />
 
               {/* Description */}
               {selectedDetailVideo.description && (

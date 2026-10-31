@@ -100,7 +100,7 @@ public final class ForYouRanker {
     }
 
     private static boolean topicHit(Set<Long> topicIds, Video v) {
-        return topicIds != null && v.getTopic() != null && topicIds.contains(v.getTopic().getId());
+        return topicIds != null && v.getTopics().stream().anyMatch(t -> topicIds.contains(t.getId()));
     }
 
     /** Lượt xem, thích, lưu gộp lại; lấy log để một video quá nổi không lấn át phần còn lại. */

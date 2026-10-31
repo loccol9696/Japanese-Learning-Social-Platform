@@ -34,6 +34,8 @@ export interface VideoModerationItem {
   moderatedBy?: string;
   moderatedAt?: string;
   jlptLevel?: string;
+  topics?: TopicItem[];
+  hashtags?: string[];
   viewCount?: number;
   likeCount?: number;
   saveCount?: number;
@@ -148,6 +150,23 @@ export async function rejectVideo(videoId: number, reason: string): Promise<Vide
   const resData: ApiResponse<VideoModerationItem> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Từ chối duyệt video thất bại');
+  }
+  return resData.data;
+}
+
+/** Sửa chủ đề / hashtag của video; video giữ nguyên trạng thái kiểm duyệt. */
+export async function updateVideoClassification(
+  videoId: number,
+  payload: { topicIds: number[]; hashtags: string[] },
+): Promise<VideoModerationItem> {
+  const response = await authFetch(`/api/v1/videos/${videoId}/classification`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<VideoModerationItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể cập nhật phân loại video');
   }
   return resData.data;
 }
@@ -473,6 +492,16 @@ export interface TopicItem {
   name: string;
   isActive: boolean;
   sortOrder: number;
+}
+
+/** Chủ đề đang hiển thị; kiểm duyệt viên không có quyền gọi {@link getAllTopicsAdmin}. */
+export async function getActiveTopics(): Promise<TopicItem[]> {
+  const response = await authFetch('/api/v1/topics', { headers: getAuthHeaders() });
+  const resData: ApiResponse<TopicItem[]> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách chủ đề');
+  }
+  return resData.data;
 }
 
 export async function getAllTopicsAdmin(): Promise<TopicItem[]> {

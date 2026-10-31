@@ -77,7 +77,7 @@ void main() {
     expect(find.byTooltip('Tìm người dùng'), findsNothing);
     expect(find.byIcon(Icons.person_search_rounded), findsNothing);
     expect(find.text('Người dùng'), findsOneWidget);
-    expect(find.text('Tìm video theo tiêu đề, nội dung...'), findsOneWidget);
+    expect(find.text('Tìm theo tên, chủ đề, #hashtag...'), findsOneWidget);
   });
 
   testWidgets('chọn tag Người dùng: đổi gợi ý, ẩn hàng chủ đề, tìm người dùng khi gõ', (tester) async {
@@ -110,14 +110,14 @@ void main() {
     await typeSearch(tester, 'tana');
     requests.clear();
 
-    await tester.tap(find.text('Mới nhất'));
+    await tester.tap(find.text('Video'));
     await tester.pumpAndSettle();
 
     expect(find.text('Mọi chủ đề'), findsOneWidget);
-    expect(find.text('Tìm video theo tiêu đề, nội dung...'), findsOneWidget);
+    expect(find.text('Tìm theo tên, chủ đề, #hashtag...'), findsOneWidget);
     final videos = to('/api/v1/videos').single;
     expect(videos.url.queryParameters['search'], 'tana');
-    expect(videos.url.queryParameters.containsKey('topicId'), isFalse);
+    expect(videos.url.queryParameters.containsKey('topicIds'), isFalse);
     expect(find.text('Tanaka Sensei'), findsNothing);
   });
 

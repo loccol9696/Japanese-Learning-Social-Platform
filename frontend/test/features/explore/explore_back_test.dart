@@ -89,7 +89,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   }
 
-  final searchHint = find.text('Tìm video theo tiêu đề, nội dung...');
+  final searchHint = find.text('Tìm theo tên, chủ đề, #hashtag...');
   final feedBack = find.byTooltip('Quay lại danh sách');
 
   Future<void> openFirstVideo(WidgetTester tester) async {

@@ -45,7 +45,8 @@ class VideoServiceImplViewCountTest {
         service = new VideoServiceImpl(videoRepository, mock(VideoLikeRepository.class),
                 mock(VideoSaveRepository.class), mock(VideoCommentRepository.class),
                 mock(ShadowingPracticeRepository.class), mock(UserRepository.class), mock(FollowRepository.class),
-                new VideoMapper(), mock(TopicService.class), mock(NotificationService.class),
+                new VideoMapper(), mock(TopicService.class),
+                mock(com.jlsp.backend.video.service.HashtagService.class), mock(NotificationService.class),
                 mock(BlockService.class), rateLimiter,
                 mock(org.springframework.context.ApplicationEventPublisher.class));
         when(videoRepository.existsById(VIDEO_ID)).thenReturn(true);
