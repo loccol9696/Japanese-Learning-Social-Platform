@@ -184,9 +184,8 @@ class _VietQrPaymentSheetState extends State<VietQrPaymentSheet> {
     final bankName = widget.payment.bankName ?? 'ACB - Ngân hàng TMCP Á Châu';
     final accountNo = widget.payment.accountNo ?? '28442991';
     final accountName = widget.payment.accountName ?? 'PHAM CONG NGUYEN';
-    final int amount = widget.payment.amount.round();
-    final qrUrl = widget.payment.qrUrl ??
-        'https://img.vietqr.io/image/970416-$accountNo-compact2.png?amount=$amount&addInfo=JLSP%20$orderCode&accountName=${accountName.replaceAll(' ', '%20')}';
+    final int amount = widget.plan.price.round();
+    final qrUrl = 'https://img.vietqr.io/image/970416-$accountNo-compact2.png?amount=$amount&addInfo=JLSP%20$orderCode&accountName=${accountName.replaceAll(' ', '%20')}';
 
     return Container(
       constraints: BoxConstraints(

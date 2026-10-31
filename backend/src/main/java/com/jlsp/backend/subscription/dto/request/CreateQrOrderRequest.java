@@ -1,6 +1,7 @@
 package com.jlsp.backend.subscription.dto.request;
 
 import lombok.*;
+import java.math.BigDecimal;
 
 @Data
 @Builder
@@ -15,4 +16,8 @@ public class CreateQrOrderRequest {
     private Long userId;
 
     private String orderCode;
+
+    private BigDecimal amount;
+
+    private String promoCode;
 }

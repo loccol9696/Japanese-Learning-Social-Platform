@@ -111,6 +111,7 @@ class SubscriptionService {
           'userId': effectiveUserId,
           'planId': planId,
           'orderCode': generatedOrderCode,
+          if (price != null) 'amount': price,
         }),
       ).timeout(const Duration(seconds: 12));
 

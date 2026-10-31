@@ -194,7 +194,11 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         String bankBin = "970416";
         String accountNo = "28442991";
         String accountName = "PHAM CONG NGUYEN";
-        long priceLong = plan.getPrice().longValue();
+        BigDecimal finalAmount = plan.getPrice();
+        if (request.getAmount() != null && request.getAmount().compareTo(BigDecimal.ZERO) > 0) {
+            finalAmount = request.getAmount();
+        }
+        long priceLong = finalAmount.longValue();
         String addInfo = "JLSP " + orderCode;
 
         // Link mã QR VietQR Napas chuẩn quét được trên toàn bộ App ngân hàng Việt Nam
@@ -210,7 +214,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                     .verificationCode(verificationCode)
                     .user(user)
                     .plan(plan)
-                    .amount(plan.getPrice())
+                    .amount(finalAmount)
                     .paymentMethod("VIETQR_NAPAS")
                     .status(SubscriptionOrder.OrderStatus.PENDING)
                     .qrUrl(qrUrl)
