@@ -52,6 +52,9 @@ public class SubscriptionOrder {
     @Column(name = "qr_url", columnDefinition = "TEXT")
     private String qrUrl;
 
+    @Column(name = "promo_code", length = 50)
+    private String promoCode;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

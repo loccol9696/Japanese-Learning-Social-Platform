@@ -227,6 +227,36 @@ public class DataInitializer implements CommandLineRunner {
                     "VALUES ('SECONDS_PER_TOKEN', '60', 'Thời lượng video cho 1 Token AI tính bằng giây', NOW()) " +
                     "ON CONFLICT (setting_key) DO NOTHING");
 
+            // Bảng promo_codes (Hệ thống quản lý voucher / mã khuyến mãi động)
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS promo_codes (" +
+                    "id BIGSERIAL PRIMARY KEY, " +
+                    "code VARCHAR(50) UNIQUE NOT NULL, " +
+                    "description TEXT, " +
+                    "discount_percent INT DEFAULT 0, " +
+                    "discount_amount NUMERIC(12, 2) DEFAULT 0, " +
+                    "min_order_amount NUMERIC(12, 2) DEFAULT 0, " +
+                    "max_uses INT DEFAULT 100, " +
+                    "used_count INT DEFAULT 0, " +
+                    "start_date TIMESTAMP, " +
+                    "end_date TIMESTAMP, " +
+                    "is_active BOOLEAN DEFAULT TRUE, " +
+                    "created_at TIMESTAMP DEFAULT NOW(), " +
+                    "updated_at TIMESTAMP DEFAULT NOW())");
+
+            jdbcTemplate.execute("ALTER TABLE subscription_orders ADD COLUMN IF NOT EXISTS promo_code VARCHAR(50)");
+
+            // Khởi tạo các mã voucher mặc định vào database nếu bảng đang trống
+            Integer promoCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM promo_codes", Integer.class);
+            if (promoCount != null && promoCount == 0) {
+                jdbcTemplate.execute("INSERT INTO promo_codes (code, description, discount_percent, discount_amount, max_uses, used_count, start_date, end_date, is_active, created_at, updated_at) VALUES " +
+                        "('JLSP10', 'Giảm 10% áp dụng cho toàn bộ các gói thành viên JLSP', 10, 0, 100, 0, NOW(), NOW() + INTERVAL '2 years', true, NOW(), NOW()), " +
+                        "('JLSP20', 'Ưu đãi chào mừng thành viên mới - Giảm 20%', 20, 0, 50, 0, NOW(), NOW() + INTERVAL '2 years', true, NOW(), NOW()), " +
+                        "('SENSEI', 'Ưu đãi đặc quyền Sensei & Giáo viên - Giảm 15%', 15, 0, 50, 0, NOW(), NOW() + INTERVAL '2 years', true, NOW(), NOW()), " +
+                        "('KOTOBA', 'Giảm trực tiếp 50.000 VNĐ vào hóa đơn', 0, 50000, 200, 0, NOW(), NOW() + INTERVAL '2 years', true, NOW(), NOW()), " +
+                        "('HARU2026', 'Chiến dịch luyện thi JLPT Mùa Xuân 2026 - Giảm 25%', 25, 0, 30, 0, NOW(), NOW() + INTERVAL '2 years', true, NOW(), NOW())");
+                log.info("Đã khởi tạo 5 mã voucher mặc định (JLSP10, JLSP20, SENSEI, KOTOBA, HARU2026) vào bảng promo_codes!");
+            }
+
             log.info("Migration cột database thành công hoàn tất!");
         } catch (Exception e) {
             log.warn("Lưu ý trong quá trình migration cột database: {}", e.getMessage());

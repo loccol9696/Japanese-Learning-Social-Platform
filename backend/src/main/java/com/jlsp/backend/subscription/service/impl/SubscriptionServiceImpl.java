@@ -8,6 +8,10 @@ import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.subscription.dto.request.ConfirmPaymentRequest;
 import com.jlsp.backend.subscription.dto.request.CreateQrOrderRequest;
 import com.jlsp.backend.subscription.dto.request.SubscriptionPlanRequest;
+import com.jlsp.backend.subscription.dto.request.PromoCodeRequest;
+import com.jlsp.backend.subscription.dto.response.PromoCodeResponse;
+import com.jlsp.backend.subscription.entity.PromoCode;
+import com.jlsp.backend.subscription.repository.PromoCodeRepository;
 import com.jlsp.backend.subscription.dto.response.SubscriptionOrderResponse;
 import com.jlsp.backend.subscription.dto.response.SubscriptionPlanResponse;
 import com.jlsp.backend.subscription.dto.response.TokenQuotaResponse;
@@ -57,6 +61,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final UserDailyTokenUsageRepository tokenUsageRepository;
     private final SystemSettingRepository systemSettingRepository;
     private final UserRepository userRepository;
+    private final PromoCodeRepository promoCodeRepository;
 
     @Value("${sepay.api-token:}")
     private String configuredSepayToken;
@@ -209,12 +214,16 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
         SubscriptionOrder order = orderRepository.findByOrderCode(orderCode).orElse(null);
         if (order == null) {
+            String pCode = (request.getPromoCode() != null && !request.getPromoCode().isBlank())
+                    ? request.getPromoCode().trim().toUpperCase()
+                    : null;
             order = SubscriptionOrder.builder()
                     .orderCode(orderCode)
                     .verificationCode(verificationCode)
                     .user(user)
                     .plan(plan)
                     .amount(finalAmount)
+                    .promoCode(pCode)
                     .paymentMethod("VIETQR_NAPAS")
                     .status(SubscriptionOrder.OrderStatus.PENDING)
                     .qrUrl(qrUrl)
@@ -281,6 +290,16 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         order.setStatus(SubscriptionOrder.OrderStatus.SUCCESS);
         order.setCompletedAt(LocalDateTime.now());
         orderRepository.save(order);
+
+        // Tự động tăng số lượt sử dụng voucher nếu đơn hàng có áp dụng mã khuyến mãi
+        if (order.getPromoCode() != null && !order.getPromoCode().isBlank()) {
+            promoCodeRepository.findByCodeIgnoreCase(order.getPromoCode()).ifPresent(promo -> {
+                promo.setUsedCount((promo.getUsedCount() != null ? promo.getUsedCount() : 0) + 1);
+                promoCodeRepository.save(promo);
+                log.info("Tăng số lượt sử dụng của voucher '{}': {}/{} lượt",
+                        promo.getCode(), promo.getUsedCount(), promo.getMaxUses());
+            });
+        }
 
         // Kích hoạt VIP cho User
         User user = order.getUser();
@@ -637,6 +656,30 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         Map<String, Object> res = new HashMap<>();
         res.put("code", code);
 
+        // 1. Kiểm tra trong cơ sở dữ liệu (Dynamic database vouchers)
+        PromoCode promo = promoCodeRepository.findByCodeIgnoreCase(code).orElse(null);
+        if (promo != null) {
+            if (!Boolean.TRUE.equals(promo.getIsActive())) {
+                throw new AppException(400, "Mã khuyến mãi '" + code + "' hiện đang tạm khóa hoặc đã bị vô hiệu hóa.");
+            }
+            LocalDateTime now = LocalDateTime.now();
+            if (promo.getStartDate() != null && now.isBefore(promo.getStartDate())) {
+                throw new AppException(400, "Mã khuyến mãi '" + code + "' chưa đến thời gian áp dụng.");
+            }
+            if (promo.getEndDate() != null && now.isAfter(promo.getEndDate())) {
+                throw new AppException(400, "Mã khuyến mãi '" + code + "' đã hết hạn sử dụng.");
+            }
+            if (promo.getMaxUses() != null && promo.getUsedCount() != null && promo.getUsedCount() >= promo.getMaxUses()) {
+                throw new AppException(400, "Mã khuyến mãi '" + code + "' đã hết lượt sử dụng (đạt giới hạn " + promo.getMaxUses() + " lượt).");
+            }
+            res.put("valid", true);
+            res.put("discountPercent", promo.getDiscountPercent() != null ? promo.getDiscountPercent() : 0);
+            res.put("discountAmount", promo.getDiscountAmount() != null ? promo.getDiscountAmount().intValue() : 0);
+            res.put("description", promo.getDescription() != null ? promo.getDescription() : "Áp dụng mã ưu đãi " + code);
+            return res;
+        }
+
+        // 2. Dự phòng các mã chuẩn
         switch (code) {
             case "JLSP10":
                 res.put("valid", true);
@@ -671,6 +714,125 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             default:
                 throw new AppException(400, "Mã khuyến mãi '" + code + "' không tồn tại hoặc đã hết hạn sử dụng. Vui lòng kiểm tra lại!");
         }
+    }
+
+    // --- Admin Promo Code / Voucher Management APIs ---
+
+    @Override
+    public List<PromoCodeResponse> getAllPromoCodes() {
+        return promoCodeRepository.findAllByOrderByCreatedAtDesc().stream()
+                .map(this::toPromoCodeResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public PromoCodeResponse createPromoCode(PromoCodeRequest request) {
+        String code = request.getCode() != null ? request.getCode().trim().toUpperCase() : "";
+        if (code.isEmpty()) {
+            throw new AppException(400, "Mã khuyến mãi không được để trống");
+        }
+        if (promoCodeRepository.existsByCodeIgnoreCase(code)) {
+            throw new AppException(400, "Mã khuyến mãi '" + code + "' đã tồn tại trong hệ thống");
+        }
+
+        PromoCode promo = PromoCode.builder()
+                .code(code)
+                .description(request.getDescription())
+                .discountPercent(request.getDiscountPercent() != null ? request.getDiscountPercent() : 0)
+                .discountAmount(request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO)
+                .minOrderAmount(request.getMinOrderAmount() != null ? request.getMinOrderAmount() : BigDecimal.ZERO)
+                .maxUses(request.getMaxUses() != null ? request.getMaxUses() : 100)
+                .usedCount(0)
+                .startDate(request.getStartDate() != null ? request.getStartDate() : LocalDateTime.now())
+                .endDate(request.getEndDate())
+                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .build();
+
+        PromoCode saved = promoCodeRepository.save(promo);
+        log.info("Admin created new promo code: {}", saved.getCode());
+        return toPromoCodeResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public PromoCodeResponse updatePromoCode(Long id, PromoCodeRequest request) {
+        PromoCode promo = promoCodeRepository.findById(id)
+                .orElseThrow(() -> new AppException(404, "Không tìm thấy mã khuyến mãi có id: " + id));
+
+        if (request.getCode() != null && !request.getCode().isBlank()) {
+            String newCode = request.getCode().trim().toUpperCase();
+            if (!newCode.equalsIgnoreCase(promo.getCode()) && promoCodeRepository.existsByCodeIgnoreCase(newCode)) {
+                throw new AppException(400, "Mã khuyến mãi '" + newCode + "' đã tồn tại");
+            }
+            promo.setCode(newCode);
+        }
+
+        if (request.getDescription() != null) promo.setDescription(request.getDescription());
+        if (request.getDiscountPercent() != null) promo.setDiscountPercent(request.getDiscountPercent());
+        if (request.getDiscountAmount() != null) promo.setDiscountAmount(request.getDiscountAmount());
+        if (request.getMinOrderAmount() != null) promo.setMinOrderAmount(request.getMinOrderAmount());
+        if (request.getMaxUses() != null) promo.setMaxUses(request.getMaxUses());
+        if (request.getStartDate() != null) promo.setStartDate(request.getStartDate());
+        if (request.getEndDate() != null) promo.setEndDate(request.getEndDate());
+        if (request.getIsActive() != null) promo.setIsActive(request.getIsActive());
+
+        PromoCode updated = promoCodeRepository.save(promo);
+        log.info("Admin updated promo code: {}", updated.getCode());
+        return toPromoCodeResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public PromoCodeResponse togglePromoCodeStatus(Long id) {
+        PromoCode promo = promoCodeRepository.findById(id)
+                .orElseThrow(() -> new AppException(404, "Không tìm thấy mã khuyến mãi có id: " + id));
+        promo.setIsActive(!Boolean.TRUE.equals(promo.getIsActive()));
+        PromoCode saved = promoCodeRepository.save(promo);
+        log.info("Admin toggled promo code '{}' status to: {}", saved.getCode(), saved.getIsActive());
+        return toPromoCodeResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deletePromoCode(Long id) {
+        PromoCode promo = promoCodeRepository.findById(id)
+                .orElseThrow(() -> new AppException(404, "Không tìm thấy mã khuyến mãi có id: " + id));
+        promoCodeRepository.delete(promo);
+        log.info("Admin deleted promo code: {}", promo.getCode());
+    }
+
+    private PromoCodeResponse toPromoCodeResponse(PromoCode p) {
+        String status = "ACTIVE";
+        if (!Boolean.TRUE.equals(p.getIsActive())) {
+            status = "DISABLED";
+        } else {
+            LocalDateTime now = LocalDateTime.now();
+            if (p.getStartDate() != null && now.isBefore(p.getStartDate())) {
+                status = "PENDING";
+            } else if (p.getEndDate() != null && now.isAfter(p.getEndDate())) {
+                status = "EXPIRED";
+            } else if (p.getMaxUses() != null && p.getUsedCount() != null && p.getUsedCount() >= p.getMaxUses()) {
+                status = "EXHAUSTED";
+            }
+        }
+
+        return PromoCodeResponse.builder()
+                .id(p.getId())
+                .code(p.getCode())
+                .description(p.getDescription())
+                .discountPercent(p.getDiscountPercent())
+                .discountAmount(p.getDiscountAmount())
+                .minOrderAmount(p.getMinOrderAmount())
+                .maxUses(p.getMaxUses())
+                .usedCount(p.getUsedCount())
+                .startDate(p.getStartDate())
+                .endDate(p.getEndDate())
+                .isActive(p.getIsActive())
+                .status(status)
+                .createdAt(p.getCreatedAt())
+                .updatedAt(p.getUpdatedAt())
+                .build();
     }
 
     @Override

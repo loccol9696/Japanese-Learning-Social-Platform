@@ -476,3 +476,93 @@ export async function updateAdminProfile(
   return resData.data;
 }
 
+// ==================== ADMIN PROMO CODE / VOUCHER APIS ====================
+
+export interface PromoCodeItem {
+  id: number;
+  code: string;
+  description?: string;
+  discountPercent?: number;
+  discountAmount?: number;
+  minOrderAmount?: number;
+  maxUses: number;
+  usedCount: number;
+  startDate?: string;
+  endDate?: string;
+  isActive: boolean;
+  status: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'EXHAUSTED' | 'DISABLED';
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface PromoCodePayload {
+  code: string;
+  description?: string;
+  discountPercent?: number;
+  discountAmount?: number;
+  minOrderAmount?: number;
+  maxUses?: number;
+  startDate?: string;
+  endDate?: string;
+  isActive?: boolean;
+}
+
+export async function getAdminPromoCodes(): Promise<PromoCodeItem[]> {
+  const response = await fetch('/api/v1/admin/promo-codes', {
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<PromoCodeItem[]> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách mã khuyến mãi');
+  }
+  return resData.data;
+}
+
+export async function createAdminPromoCode(payload: PromoCodePayload): Promise<PromoCodeItem> {
+  const response = await fetch('/api/v1/admin/promo-codes', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<PromoCodeItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tạo mã khuyến mãi');
+  }
+  return resData.data;
+}
+
+export async function updateAdminPromoCode(id: number, payload: PromoCodePayload): Promise<PromoCodeItem> {
+  const response = await fetch(`/api/v1/admin/promo-codes/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<PromoCodeItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể cập nhật mã khuyến mãi');
+  }
+  return resData.data;
+}
+
+export async function toggleAdminPromoCode(id: number): Promise<PromoCodeItem> {
+  const response = await fetch(`/api/v1/admin/promo-codes/${id}/toggle`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<PromoCodeItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể thay đổi trạng thái mã khuyến mãi');
+  }
+  return resData.data;
+}
+
+export async function deleteAdminPromoCode(id: number): Promise<void> {
+  const response = await fetch(`/api/v1/admin/promo-codes/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<void> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể xóa mã khuyến mãi');
+  }
+}

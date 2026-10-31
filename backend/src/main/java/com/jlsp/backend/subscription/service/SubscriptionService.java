@@ -3,7 +3,9 @@ package com.jlsp.backend.subscription.service;
 import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.subscription.dto.request.ConfirmPaymentRequest;
 import com.jlsp.backend.subscription.dto.request.CreateQrOrderRequest;
+import com.jlsp.backend.subscription.dto.request.PromoCodeRequest;
 import com.jlsp.backend.subscription.dto.request.SubscriptionPlanRequest;
+import com.jlsp.backend.subscription.dto.response.PromoCodeResponse;
 import com.jlsp.backend.subscription.dto.response.SubscriptionOrderResponse;
 import com.jlsp.backend.subscription.dto.response.SubscriptionPlanResponse;
 import com.jlsp.backend.subscription.dto.response.TokenQuotaResponse;
@@ -50,4 +52,15 @@ public interface SubscriptionService {
     Map<String, Object> saveSepayApiToken(String apiToken);
 
     Map<String, Object> getSepayTokenStatus();
+
+    // --- Admin Promo Code / Voucher Management ---
+    List<PromoCodeResponse> getAllPromoCodes();
+
+    PromoCodeResponse createPromoCode(PromoCodeRequest request);
+
+    PromoCodeResponse updatePromoCode(Long id, PromoCodeRequest request);
+
+    PromoCodeResponse togglePromoCodeStatus(Long id);
+
+    void deletePromoCode(Long id);
 }
