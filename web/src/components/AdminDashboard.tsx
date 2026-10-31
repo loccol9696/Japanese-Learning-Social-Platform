@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { UserProfile } from '../types/auth';
+import ReportsManager from './ReportsManager';
 import {
   Video,
   AlertTriangle,
@@ -30,9 +31,7 @@ import {
   Coins,
   Save,
   Eye,
-  Play,
-  Trash2,
-  Check
+  Play
 } from 'lucide-react';
 import {
   getModerationVideos,
@@ -49,11 +48,7 @@ import {
   createQrOrder,
   confirmPayment,
   getAdminAnalytics,
-  getReports,
-  resolveReport,
-  dismissReport,
   getPendingReportCount,
-  type ReportItem,
   updateAdminProfile,
   getMetricTrend,
   getTokenRate,
@@ -988,70 +983,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
-  // ==================== CONTENT REPORTS (MODERATOR ONLY) ====================
-  const [reports, setReports] = useState<ReportItem[]>([]);
-  const [reportStatusFilter, setReportStatusFilter] = useState<'PENDING' | 'RESOLVED' | 'DISMISSED' | ''>('PENDING');
-  const [reportTypeFilter, setReportTypeFilter] = useState<'VIDEO' | 'COMMENT' | 'USER' | ''>('');
-  const [isLoadingReports, setIsLoadingReports] = useState(false);
-  const [reportsPage, setReportsPage] = useState(0);
-  const [reportsTotalElements, setReportsTotalElements] = useState(0);
+  // Pending reports count for Moderator badge
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
-
-  const loadReports = async () => {
-    if (!isModerator) return;
-    setIsLoadingReports(true);
-    try {
-      const data = await getReports(reportStatusFilter || undefined, reportTypeFilter || undefined, reportsPage, 10);
-      setReports(data.content || []);
-      setReportsTotalElements(data.totalElements || 0);
-      const pendingCount = await getPendingReportCount();
-      setPendingReportsCount(pendingCount);
-    } catch (err: any) {
-      console.error('Lỗi tải báo cáo vi phạm:', err);
-    } finally {
-      setIsLoadingReports(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isModerator && activeTab === 'reports') {
-      loadReports();
-    }
-  }, [isModerator, activeTab, reportStatusFilter, reportTypeFilter, reportsPage]);
 
   useEffect(() => {
     if (isModerator) {
       getPendingReportCount().then(c => setPendingReportsCount(c)).catch(() => {});
     }
-  }, [isModerator]);
-
-  const handleResolveReportAction = async (reportId: number, action: 'REMOVE_CONTENT' | 'WARN_USER' | 'DISMISS') => {
-    const confirmMsg = action === 'REMOVE_CONTENT'
-      ? 'Xác nhận GỠ BỎ NỘI DUNG vi phạm này? (Nếu là video, video sẽ tự động chuyển sang trạng thái REJECTED)'
-      : 'Xác nhận xử lý báo cáo này?';
-    if (!window.confirm(confirmMsg)) return;
-    try {
-      await resolveReport(
-        reportId,
-        action,
-        action === 'REMOVE_CONTENT' ? 'Nội dung vi phạm tiêu chuẩn cộng đồng' : 'Đã cảnh cáo'
-      );
-      showToast('Đã xử lý khiếu nại báo cáo thành công!');
-      loadReports();
-    } catch (err: any) {
-      alert('Lỗi xử lý báo cáo: ' + err.message);
-    }
-  };
-
-  const handleDismissReportAction = async (reportId: number) => {
-    try {
-      await dismissReport(reportId);
-      showToast('Đã bỏ qua báo cáo không vi phạm.');
-      loadReports();
-    } catch (err: any) {
-      alert('Lỗi bỏ qua báo cáo: ' + err.message);
-    }
-  };
+  }, [isModerator, activeTab]);
 
   return (
     <div className={`admin-viewport ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -2509,223 +2448,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
           {/* ==================== TAB 5: XỬ LÝ REPORT (CHỈ DÀNH CHO ROLE MODERATOR) ==================== */}
           {activeTab === 'reports' && isModerator && (
-            <>
-              {/* Toolbar Bộ lọc & Thao tác */}
-              <div className="toolbar-row">
-                <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>Trạng thái:</span>
-                  <button
-                    onClick={() => { setReportStatusFilter('PENDING'); setReportsPage(0); }}
-                    className={`btn-outline ${reportStatusFilter === 'PENDING' ? 'btn-solid-primary' : ''}`}
-                  >
-                    <span>Chờ xử lý</span>
-                    {pendingReportsCount > 0 && (
-                      <span style={{
-                        background: '#f59e0b',
-                        color: '#000',
-                        fontSize: '0.7rem',
-                        fontWeight: 800,
-                        padding: '1px 6px',
-                        borderRadius: '9999px',
-                        marginLeft: 4
-                      }}>
-                        {pendingReportsCount}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => { setReportStatusFilter('RESOLVED'); setReportsPage(0); }}
-                    className={`btn-outline ${reportStatusFilter === 'RESOLVED' ? 'btn-solid-primary' : ''}`}
-                  >
-                    <span>Đã gỡ / Giải quyết</span>
-                  </button>
-                  <button
-                    onClick={() => { setReportStatusFilter('DISMISSED'); setReportsPage(0); }}
-                    className={`btn-outline ${reportStatusFilter === 'DISMISSED' ? 'btn-solid-primary' : ''}`}
-                  >
-                    <span>Đã bỏ qua</span>
-                  </button>
-                  <button
-                    onClick={() => { setReportStatusFilter(''); setReportsPage(0); }}
-                    className={`btn-outline ${reportStatusFilter === '' ? 'btn-solid-primary' : ''}`}
-                  >
-                    <span>Tất cả</span>
-                  </button>
-
-                  <span style={{ height: 16, width: 1, background: 'var(--admin-border)', margin: '0 4px' }} />
-
-                  <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>Loại mục:</span>
-                  <select
-                    value={reportTypeFilter}
-                    onChange={e => { setReportTypeFilter(e.target.value as any); setReportsPage(0); }}
-                    className="select-sharp"
-                    style={{ padding: '0.25rem 0.65rem', fontSize: '0.8rem' }}
-                  >
-                    <option value="">Tất cả loại (Video / Comment / User)</option>
-                    <option value="VIDEO">Video bài học</option>
-                    <option value="COMMENT">Bình luận</option>
-                    <option value="USER">Tài khoản người dùng</option>
-                  </select>
-                </div>
-
-                <button onClick={loadReports} className="btn-outline">
-                  <RefreshCw size={15} className={isLoadingReports ? 'spin' : ''} />
-                  <span>Làm mới</span>
-                </button>
-              </div>
-
-              {/* Data Table: Danh Sách Báo Cáo Vi Phạm */}
-              <div className="data-table-container">
-                <table className="enterprise-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 80 }}>Mã BC</th>
-                      <th style={{ width: 110 }}>Loại Mục</th>
-                      <th>Mục Bị Báo Cáo</th>
-                      <th style={{ width: 140 }}>Người Khiếu Nại</th>
-                      <th>Lý Do Vi Phạm</th>
-                      <th>Mô Tả Chi Tiết</th>
-                      <th style={{ width: 140 }}>Trạng Thái</th>
-                      <th style={{ width: 130 }}>Thời Gian</th>
-                      <th style={{ width: 180, textAlign: 'center' }}>Thao Tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {isLoadingReports ? (
-                      <tr>
-                        <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
-                          Đang tải danh sách khiếu nại & báo cáo vi phạm...
-                        </td>
-                      </tr>
-                    ) : reports.length === 0 ? (
-                      <tr>
-                        <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
-                          Không có báo cáo vi phạm nào trong mục này. Hệ thống an toàn và lành mạnh!
-                        </td>
-                      </tr>
-                    ) : (
-                      reports.map(r => (
-                        <tr key={r.id}>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#f59e0b' }}>
-                            #REP-{r.id}
-                          </td>
-                          <td>
-                            <span style={{
-                              fontSize: '0.72rem',
-                              fontWeight: 800,
-                              fontFamily: 'var(--font-mono)',
-                              padding: '2px 6px',
-                              borderRadius: '2px',
-                              background: r.targetType === 'VIDEO' ? 'rgba(56, 189, 248, 0.15)' : r.targetType === 'COMMENT' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                              color: r.targetType === 'VIDEO' ? '#38bdf8' : r.targetType === 'COMMENT' ? '#c084fc' : '#facc15',
-                              border: `1px solid ${r.targetType === 'VIDEO' ? 'rgba(56, 189, 248, 0.3)' : r.targetType === 'COMMENT' ? 'rgba(168, 85, 247, 0.3)' : 'rgba(234, 179, 8, 0.3)'}`
-                            }}>
-                              {r.targetType}
-                            </span>
-                          </td>
-                          <td>
-                            <strong style={{ color: 'var(--admin-text-main)', display: 'block', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {r.targetTitle}
-                            </strong>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--admin-text-dim)' }}>ID: #{r.targetId}</span>
-                          </td>
-                          <td style={{ fontWeight: 600, color: 'var(--admin-text-muted)' }}>
-                            @{r.reporterUsername}
-                          </td>
-                          <td>
-                            <span style={{
-                              fontWeight: 700,
-                              fontSize: '0.8rem',
-                              color: '#ef4444',
-                              background: 'rgba(239, 68, 68, 0.12)',
-                              padding: '2px 8px',
-                              borderRadius: '2px',
-                              border: '1px solid rgba(239, 68, 68, 0.25)'
-                            }}>
-                              {r.reason}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: '0.82rem', color: 'var(--admin-text-muted)', maxWidth: 240 }}>
-                            {r.description || '—'}
-                          </td>
-                          <td>
-                            <span className={`status-pill ${r.status === 'RESOLVED' ? 'success' : r.status === 'PENDING' ? 'pending' : 'default'}`}>
-                              {r.status === 'PENDING' ? 'CHỜ XỬ LÝ' : r.status === 'RESOLVED' ? 'ĐÃ GỠ BỎ' : 'ĐÃ BỎ QUA'}
-                            </span>
-                            {r.resolvedBy && (
-                              <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--admin-text-dim)', marginTop: 2 }}>
-                                Bởi: @{r.resolvedBy}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                            {r.createdAt ? new Date(r.createdAt).toLocaleString('vi-VN') : '—'}
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            {r.status === 'PENDING' ? (
-                              <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
-                                <button
-                                  onClick={() => handleResolveReportAction(r.id, 'REMOVE_CONTENT')}
-                                  className="btn-solid-primary"
-                                  style={{ padding: '0.22rem 0.55rem', fontSize: '0.75rem', gap: '0.25rem' }}
-                                  title="Gỡ bỏ nội dung vi phạm này ngay lập tức"
-                                >
-                                  <Trash2 size={13} />
-                                  <span>Gỡ bỏ</span>
-                                </button>
-                                <button
-                                  onClick={() => handleDismissReportAction(r.id)}
-                                  className="btn-outline"
-                                  style={{ padding: '0.22rem 0.55rem', fontSize: '0.75rem', gap: '0.25rem' }}
-                                  title="Bỏ qua báo cáo không có dấu hiệu vi phạm"
-                                >
-                                  <Check size={13} />
-                                  <span>Bỏ qua</span>
-                                </button>
-                              </div>
-                            ) : (
-                              <span style={{ fontSize: '0.75rem', color: 'var(--admin-text-dim)' }}>
-                                {r.actionTaken || 'Đã hoàn tất'}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Phân trang Báo cáo vi phạm */}
-              <div className="pagination-bar">
-                <div className="pagination-info">
-                  Hiển thị <strong>{reports.length > 0 ? (reportsPage * 10) + 1 : 0}</strong> - <strong>{Math.min((reportsPage + 1) * 10, reportsTotalElements)}</strong> trên tổng số <strong>{reportsTotalElements}</strong> báo cáo (10/trang)
-                </div>
-                <div className="pagination-actions">
-                  <button
-                    className="pagination-btn"
-                    disabled={reportsPage === 0 || isLoadingReports}
-                    onClick={() => setReportsPage(prev => Math.max(0, prev - 1))}
-                    title="Trang trước"
-                  >
-                    <ChevronLeft size={16} />
-                    <span>Trang trước</span>
-                  </button>
-                  <span className="pagination-page-indicator">
-                    Trang {reportsTotalElements > 0 ? reportsPage + 1 : 0}
-                  </span>
-                  <button
-                    className="pagination-btn"
-                    disabled={reports.length < 10 || (reportsPage + 1) * 10 >= reportsTotalElements || isLoadingReports}
-                    onClick={() => setReportsPage(prev => prev + 1)}
-                    title="Trang sau"
-                  >
-                    <span>Trang sau</span>
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-              </div>
-            </>
+            <ReportsManager isAdmin={false} showToast={showToast} />
           )}
           {/* ==================== TAB 6: TRANG HỒ SƠ CÁ NHÂN (ADMIN & MODERATOR) ==================== */}
           {activeTab === 'profile' && (

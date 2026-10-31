@@ -486,79 +486,95 @@ export async function updateAdminProfile(
 }
 
 // ==================== CONTENT REPORTS (MODERATOR ONLY) ====================
+export type ReportTargetType = 'VIDEO' | 'COMMENT' | 'USER';
+export type ReportReason =
+  | 'SPAM'
+  | 'INAPPROPRIATE'
+  | 'HARASSMENT'
+  | 'MISINFORMATION'
+  | 'COPYRIGHT'
+  | 'OTHER';
+export type ReportStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED';
+export type ReportAction = 'NONE' | 'HIDE_VIDEO' | 'DELETE_COMMENT' | 'LOCK_USER';
+
 export interface ReportItem {
   id: number;
-  reporterId: number;
-  reporterUsername: string;
-  targetType: 'VIDEO' | 'COMMENT' | 'USER';
+  targetType: ReportTargetType;
   targetId: number;
-  targetTitle: string;
-  reason: string;
-  description?: string;
-  status: 'PENDING' | 'RESOLVED' | 'DISMISSED';
-  actionTaken?: string;
-  resolvedBy?: string;
+  reason: ReportReason;
+  detail?: string;
+  status: ReportStatus;
+  action?: ReportAction;
+  resolutionNote?: string;
+  resolvedBy?: number;
   resolvedAt?: string;
   createdAt: string;
+  reporterId: number;
+  reporterUsername: string;
+  targetExists: boolean;
+  targetSummary?: string;
+  targetOwnerId?: number;
+  targetOwnerUsername?: string;
+  targetVideoId?: number;
+  pendingCountForTarget?: number;
 }
 
 export async function getReports(
-  status?: string,
-  targetType?: string,
+  status: ReportStatus = 'PENDING',
+  targetType?: ReportTargetType | '',
   page = 0,
   size = 10
 ): Promise<PageResponse<ReportItem>> {
-  const params = new URLSearchParams({ page: page.toString(), size: size.toString() });
-  if (status) params.append('status', status);
-  if (targetType) params.append('targetType', targetType);
-
-  const response = await fetch(`/api/v1/reports?${params.toString()}`, {
+  const params = new URLSearchParams({ status, page: String(page), size: String(size) });
+  if (targetType) params.set('targetType', targetType);
+  const response = await fetch(`/api/v1/admin/reports?${params.toString()}`, {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<PageResponse<ReportItem>> = await response.json();
   if (!response.ok) {
-    throw new Error(resData.message || 'Không thể tải danh sách báo cáo vi phạm');
+    throw new Error(resData.message || 'Không thể tải danh sách báo cáo');
   }
   return resData.data;
 }
 
-export async function resolveReport(
-  reportId: number,
-  action: 'REMOVE_CONTENT' | 'WARN_USER' | 'DISMISS',
-  actionNote?: string
-): Promise<ReportItem> {
-  const response = await fetch(`/api/v1/reports/${reportId}/resolve`, {
+export async function resolveReport(id: number, action: ReportAction, note: string): Promise<ReportItem> {
+  const response = await fetch(`/api/v1/admin/reports/${id}/resolve`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ action, actionNote }),
+    body: JSON.stringify({ action, note: note.trim() || undefined }),
   });
   const resData: ApiResponse<ReportItem> = await response.json();
   if (!response.ok) {
-    throw new Error(resData.message || 'Không thể xử lý báo cáo vi phạm');
+    throw new Error(resData.message || 'Không thể xử lý báo cáo');
   }
   return resData.data;
 }
 
-export async function dismissReport(reportId: number): Promise<ReportItem> {
-  const response = await fetch(`/api/v1/reports/${reportId}/dismiss`, {
+export async function dismissReport(id: number, note?: string): Promise<ReportItem> {
+  const response = await fetch(`/api/v1/admin/reports/${id}/dismiss`, {
     method: 'POST',
     headers: getAuthHeaders(),
+    body: JSON.stringify({ note: note ? note.trim() : undefined }),
   });
   const resData: ApiResponse<ReportItem> = await response.json();
   if (!response.ok) {
-    throw new Error(resData.message || 'Không thể bỏ qua báo cáo');
+    throw new Error(resData.message || 'Không thể bác bỏ báo cáo');
   }
   return resData.data;
 }
 
 export async function getPendingReportCount(): Promise<number> {
-  const response = await fetch('/api/v1/reports/count-pending', {
-    headers: getAuthHeaders(),
-  });
-  const resData: ApiResponse<number> = await response.json();
-  if (!response.ok) {
+  try {
+    const response = await fetch('/api/v1/admin/reports?status=PENDING&page=0&size=1', {
+      headers: getAuthHeaders(),
+    });
+    const resData: ApiResponse<PageResponse<ReportItem>> = await response.json();
+    if (!response.ok || !resData.data) {
+      return 0;
+    }
+    return resData.data.totalElements || 0;
+  } catch {
     return 0;
   }
-  return resData.data || 0;
 }
 
