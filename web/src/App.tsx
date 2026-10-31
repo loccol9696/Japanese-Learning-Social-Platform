@@ -8,19 +8,21 @@ import { SESSION_EXPIRED_EVENT, clearSession, getToken, isTokenExpired, saveSess
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
 
-  // Khôi phục phiên đã lưu, trừ khi token đã hết hạn.
+  // Restore session from localStorage if available (Bỏ qua và xóa sạch token demo cũ)
   useEffect(() => {
     const savedUser = localStorage.getItem('jlsp_user');
     const token = getToken();
     if (savedUser && token) {
-      if (isTokenExpired(token)) {
-        clearSession();
+      if (token.startsWith('demo_') || token.startsWith('mock_')) {
+        localStorage.removeItem('jlsp_user');
+        localStorage.removeItem('jlsp_token');
         return;
       }
       try {
         setCurrentUser(JSON.parse(savedUser));
-      } catch {
-        clearSession();
+      } catch (e) {
+        localStorage.removeItem('jlsp_user');
+        localStorage.removeItem('jlsp_token');
       }
     }
   }, []);

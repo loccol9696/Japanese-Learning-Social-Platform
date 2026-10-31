@@ -3,6 +3,7 @@ package com.jlsp.backend.video.controller;
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.common.security.CurrentUser;
+import com.jlsp.backend.common.security.ratelimit.ClientIpResolver;
 import com.jlsp.backend.user.entity.JLPTLevel;
 import com.jlsp.backend.video.dto.request.CreateVideoRequest;
 import com.jlsp.backend.video.dto.request.ScoreShadowingLineRequest;
@@ -16,7 +17,8 @@ import com.jlsp.backend.video.dto.response.ShadowingPracticeResponse;
 import com.jlsp.backend.video.dto.response.VideoDetailResponse;
 import com.jlsp.backend.video.dto.response.VideoResponse;
 import com.jlsp.backend.video.service.VideoService;
-import com.jlsp.backend.common.security.ratelimit.ClientIpResolver;
+import com.jlsp.backend.video.service.VideoTrashService;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ import java.util.List;
 public class VideoController {
 
     private final VideoService videoService;
+    private final VideoTrashService videoTrashService;
     private final ClientIpResolver clientIpResolver;
     private final ShadowingLineService shadowingLineService;
 
@@ -116,7 +119,7 @@ public class VideoController {
     }
 
     /**
-     * Xóa video khỏi hệ thống (Chỉ chủ video hoặc ADMIN mới có quyền).
+     * Chuyển video vào thùng rác (Chỉ chủ video hoặc ADMIN mới có quyền).
      * DELETE /api/v1/videos/{id}
      */
     @DeleteMapping("/{id}")
@@ -125,8 +128,39 @@ public class VideoController {
 
         Long userId = CurrentUser.requireId();
 
-        videoService.deleteVideo(id, userId);
-        return ResponseEntity.ok(ApiResponse.success(200, "Xóa video thành công", null));
+        videoTrashService.moveToTrash(id, userId);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã chuyển video vào thùng rác", null));
+    }
+
+    /**
+     * Video trong thùng rác của người dùng hiện tại (mới xóa trước).
+     * GET /api/v1/videos/trash
+     */
+    @GetMapping("/trash")
+    public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getTrash(
+            @PageableDefault(size = 30) Pageable pageable) {
+        Long userId = CurrentUser.requireId();
+        return ResponseEntity.ok(ApiResponse.success(videoTrashService.listTrash(userId, pageable)));
+    }
+
+    /**
+     * Khôi phục video cùng bình luận và tương tác của nó.
+     * POST /api/v1/videos/{id}/restore
+     */
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<ApiResponse<Void>> restoreVideo(@PathVariable Long id) {
+        videoTrashService.restore(id, CurrentUser.requireId());
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã khôi phục video", null));
+    }
+
+    /**
+     * Xóa hẳn video đang trong thùng rác, không chờ hết hạn lưu.
+     * DELETE /api/v1/videos/{id}/permanent
+     */
+    @DeleteMapping("/{id}/permanent")
+    public ResponseEntity<ApiResponse<Void>> deleteVideoPermanently(@PathVariable Long id) {
+        videoTrashService.deletePermanently(id, CurrentUser.requireId());
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã xóa vĩnh viễn video", null));
     }
 
     /*

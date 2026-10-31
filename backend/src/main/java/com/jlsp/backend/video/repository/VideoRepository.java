@@ -12,7 +12,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repository thao tác với bảng 'videos'.
@@ -181,4 +183,24 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
      */
     @Query("SELECT COALESCE(SUM(v.likeCount), 0) FROM Video v WHERE v.user.id = :userId")
     long sumLikesByUserId(@Param("userId") Long userId);
+
+    // Các truy vấn thùng rác dùng SQL thuần vì @SQLRestriction ẩn video đã xóa khỏi mọi truy vấn JPA.
+
+    /**
+     * Thùng rác của một người, chỉ gồm video còn trong hạn lưu (xóa sau :cutoff).
+     */
+    @Query(value = "SELECT * FROM videos WHERE user_id = :userId AND deleted_at >= :cutoff ORDER BY deleted_at DESC",
+            countQuery = "SELECT COUNT(*) FROM videos WHERE user_id = :userId AND deleted_at >= :cutoff",
+            nativeQuery = true)
+    Page<Video> findTrashByUserId(@Param("userId") Long userId, @Param("cutoff") LocalDateTime cutoff, Pageable pageable);
+
+    @Query(value = "SELECT * FROM videos WHERE id = :id AND deleted_at IS NOT NULL", nativeQuery = true)
+    Optional<Video> findDeletedById(@Param("id") Long id);
+
+    /**
+     * Video đã quá hạn lưu, cũ nhất trước.
+     */
+    @Query(value = "SELECT id FROM videos WHERE deleted_at < :cutoff ORDER BY deleted_at LIMIT :limit",
+            nativeQuery = true)
+    List<Long> findExpiredTrashIds(@Param("cutoff") LocalDateTime cutoff, @Param("limit") int limit);
 }

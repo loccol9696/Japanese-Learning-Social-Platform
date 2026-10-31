@@ -8,39 +8,39 @@
    ========================================================================== */
 
 :root {
-  /* White Canvas & Crisp Surfaces */
-  --admin-bg-base: #f8fafc;            /* Clean light slate canvas */
-  --admin-bg-surface: #ffffff;         /* Pure white cards, tables, modals */
-  --admin-bg-surface-elevated: #f1f5f9;/* Soft light slate for headers/strips */
-  --admin-bg-hover: #f0f9ff;           /* Light ocean sky hover tint */
+  /* TikTok Deep Black Canvas & Surface Palette */
+  --admin-bg-base: #08080a;            /* Pure obsidian dark canvas */
+  --admin-bg-surface: #121216;         /* Dark surfaces, cards, tables, modals */
+  --admin-bg-surface-elevated: #1a1a22;/* Elevated strips / sub-headers */
+  --admin-bg-hover: rgba(254, 44, 85, 0.08); /* TikTok red-pink hover tint */
   
-  /* Precision 1px Borders */
-  --admin-border: #cbd5e1;             /* Slate 300 - clear high-contrast borders */
-  --admin-border-subtle: #e2e8f0;      /* Slate 200 - clean inner row borders */
-  --admin-border-focus: #0284c7;       /* Ocean blue focus ring */
+  /* Precision 1px Dark Borders */
+  --admin-border: #23232c;             /* Clear dark borders */
+  --admin-border-subtle: #191920;      /* Subtle divider borders */
+  --admin-border-focus: #FE2C55;       /* TikTok pink-red focus ring */
 
   /* High Readability Typography */
-  --admin-text-main: #0f172a;          /* Slate 900 - dark, high contrast */
-  --admin-text-muted: #334155;         /* Slate 700 - labels & table headers */
-  --admin-text-dim: #64748b;           /* Slate 500 - meta & helper text */
+  --admin-text-main: #f4f4f6;          /* Crisp high contrast white */
+  --admin-text-muted: #a1a1aa;         /* Neutral muted gray */
+  --admin-text-dim: #71717a;           /* Meta helper text */
 
-  /* Ocean Blue Brand Palette */
-  --admin-primary: #0284c7;            /* Ocean / Sky Blue 600 */
-  --admin-primary-hover: #0369a1;      /* Deep Ocean Blue 700 */
-  --admin-primary-soft: #e0f2fe;       /* Ocean Sky 100 background */
-  --admin-accent: #0ea5e9;             /* Vibrant Sky Blue accent */
-  --admin-navy: #034694;               /* Rich Deep Navy */
+  /* TikTok Pink-Red Brand Palette */
+  --admin-primary: #FE2C55;            /* TikTok Signature Pink-Red */
+  --admin-primary-hover: #e02449;      /* Darker Red-Pink */
+  --admin-primary-soft: rgba(254, 44, 85, 0.12); /* Soft red-pink highlight */
+  --admin-accent: #25F4EE;             /* TikTok Cyan Accent */
+  --admin-navy: #0e0e12;               /* Obsidian Navy Black */
 
   /* Status Colors */
-  --admin-success: #059669;            /* Emerald 600 */
-  --admin-success-bg: #ecfdf5;         /* Emerald 50 */
-  --admin-danger: #dc2626;             /* Red 600 */
-  --admin-danger-bg: #fef2f2;          /* Red 50 */
-  --admin-warning: #d97706;            /* Amber 600 */
-  --admin-warning-bg: #fffbeb;         /* Amber 50 */
+  --admin-success: #10b981;            /* Emerald */
+  --admin-success-bg: rgba(16, 185, 129, 0.12);
+  --admin-danger: #ef4444;             /* Red */
+  --admin-danger-bg: rgba(239, 68, 68, 0.12);
+  --admin-warning: #f59e0b;            /* Amber */
+  --admin-warning-bg: rgba(245, 158, 11, 0.12);
 
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --radius-sharp: 2px;
+  --radius-sharp: 4px;
 }
 
 /* Base Viewport - Solid opaque background to prevent ambient glow bleed-through */
@@ -305,7 +305,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  background: var(--admin-bg-surface);
   border: 1px solid var(--admin-border);
   border-radius: var(--radius-sharp);
   color: var(--admin-text-muted);
@@ -353,7 +353,7 @@
 .collapsed-logout-btn {
   width: 42px;
   height: 36px;
-  background: #ffffff;
+  background: var(--admin-bg-surface);
   border: 1px solid var(--admin-border);
   border-radius: var(--radius-sharp);
   color: var(--admin-danger);
@@ -606,7 +606,7 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  background-color: #f1f5f9;
+  background-color: var(--admin-bg-surface-elevated);
   border-bottom: 2px solid var(--admin-border);
   color: var(--admin-text-muted);
   font-weight: 700;
@@ -629,7 +629,7 @@
   border-bottom: 1px solid var(--admin-border-subtle);
   color: var(--admin-text-main);
   vertical-align: middle;
-  background-color: #ffffff;
+  background-color: var(--admin-bg-surface);
 }
 
 .enterprise-table tbody tr:hover td {
@@ -674,7 +674,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  background-color: #ffffff;
+  background-color: var(--admin-bg-surface);
   border: 1px solid var(--admin-border);
   border-radius: var(--radius-sharp);
   padding: 0.45rem 0.85rem;
@@ -879,20 +879,20 @@
 }
 
 .role-tag.admin {
-  background: #eef2ff;
-  color: #4338ca;
-  border: 1px solid #c7d2fe;
+  background: rgba(254, 44, 85, 0.12);
+  color: #FE2C55;
+  border: 1px solid rgba(254, 44, 85, 0.3);
 }
 
 .role-tag.moderator {
-  background: #e0f2fe;
-  color: #0284c7;
-  border: 1px solid #bae6fd;
+  background: rgba(37, 244, 238, 0.12);
+  color: #25F4EE;
+  border: 1px solid rgba(37, 244, 238, 0.3);
 }
 
 .role-tag.user {
-  background: #f1f5f9;
-  color: #475569;
+  background: rgba(255, 255, 255, 0.06);
+  color: #a1a1aa;
   border: 1px solid var(--admin-border);
 }
 
@@ -1115,7 +1115,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background-color: #ffffff;
+  background-color: var(--admin-bg-surface);
 }
 
 .modal-sharp-footer {
@@ -1141,7 +1141,7 @@
 }
 
 .form-input-sharp, .form-textarea-sharp, .form-select-sharp {
-  background-color: #ffffff;
+  background-color: var(--admin-bg-base);
   border: 1px solid var(--admin-border);
   border-radius: var(--radius-sharp);
   color: var(--admin-text-main);
@@ -1326,7 +1326,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.35rem 0.65rem;
-  background-color: #ffffff;
+  background-color: var(--admin-bg-surface);
   border: 1px solid var(--admin-border);
   border-radius: var(--radius-sharp);
   font-size: 0.78rem;
@@ -1460,6 +1460,10 @@
   flex-direction: column;
   gap: 1.15rem;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  max-width: 100%;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .chart-card-header {
@@ -1527,7 +1531,7 @@
   width: 100%;
   max-width: 44px;
   min-height: 6px;
-  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  background: linear-gradient(180deg, #ff4d6d 0%, #FE2C55 100%);
   border-radius: 2px 2px 0 0;
   transform-origin: bottom;
   animation: chartBarRise 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -1577,7 +1581,7 @@
   font-family: var(--font-mono);
   font-weight: 700;
   color: var(--admin-text-main);
-  background: #ffffff;
+  background: var(--admin-bg-surface-elevated);
   border: 1px solid var(--admin-border);
   padding: 0.1rem 0.35rem;
   border-radius: 2px;
@@ -1735,7 +1739,7 @@
 }
 
 .chart-mini-select {
-  background: #ffffff;
+  background: var(--admin-bg-surface);
   border: 1px solid var(--admin-border);
   border-radius: var(--radius-sharp);
   padding: 0.22rem 0.5rem;
@@ -1970,12 +1974,12 @@
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
-  background-color: #f0f9ff;
-  border: 1px solid #bae6fd;
+  background-color: rgba(37, 244, 238, 0.08);
+  border: 1px solid rgba(37, 244, 238, 0.25);
   border-radius: var(--radius-sharp);
   padding: 0.85rem 1rem;
   font-size: 0.82rem;
-  color: #0369a1;
+  color: #25F4EE;
   line-height: 1.4;
 }
 
@@ -2114,7 +2118,7 @@
 .token-rate-input-box {
   display: flex;
   align-items: center;
-  background: #ffffff;
+  background: var(--admin-bg-base);
   border: 1px solid var(--admin-border);
   border-radius: var(--radius-sharp);
   padding: 0 0.75rem;
@@ -2347,3 +2351,73 @@
 }
 
 
+
+
+/* Custom Date Range Picker in Charts */
+.chart-date-range-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--admin-bg-base);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-sharp);
+  padding: 0.15rem 0.5rem;
+  transition: all 0.15s ease;
+}
+
+.chart-date-range-group:focus-within {
+  border-color: var(--admin-primary);
+  box-shadow: 0 0 0 2px rgba(254, 44, 85, 0.2);
+}
+
+.chart-date-label {
+  font-size: 0.72rem;
+  color: var(--admin-text-dim);
+  font-weight: 700;
+}
+
+.chart-date-input {
+  background: transparent;
+  border: none;
+  font-size: 0.76rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--admin-text-main);
+  outline: none;
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+.chart-date-input:focus {
+  color: var(--admin-primary);
+}
+
+
+/* Chart Scroll Wrapper to prevent overflow when selecting multiple months/days */
+.chart-scroll-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.65rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--admin-primary) var(--admin-bg-surface-elevated);
+}
+
+.chart-scroll-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.chart-scroll-wrapper::-webkit-scrollbar-track {
+  background: var(--admin-bg-surface-elevated);
+  border-radius: 4px;
+}
+
+.chart-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: var(--admin-primary);
+  border-radius: 4px;
+}
+
+.chart-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--admin-primary-hover);
+}

@@ -39,17 +39,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
 
     try {
       const data = await loginUser(usernameOrEmail, password);
-      const userProfile: UserProfile = data.user || {
-        username: usernameOrEmail,
-        email: usernameOrEmail.includes('@') ? usernameOrEmail : `${usernameOrEmail}@jlsp.edu`,
-        fullName: 'Học viên Nihongo',
-        streakDays: 14,
-        xp: 850,
-        level: 'JLPT N3'
-      };
-      onLoginSuccess(userProfile, data.accessToken);
+      if (!data || !data.accessToken || !data.user) {
+        throw new Error('Dữ liệu xác thực trả về từ máy chủ Backend không hợp lệ.');
+      }
+      onLoginSuccess(data.user, data.accessToken);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Xác thực không thành công. Hãy thử lại hoặc chọn tài khoản demo.');
+      setErrorMessage(err.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.');
     } finally {
       setIsLoading(false);
     }
@@ -58,6 +53,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
   const handleDemoFill = () => {
     setUsernameOrEmail('admin');
     setPassword('AdminPassword123@');
+    setErrorMessage(null);
+  };
+
+  const handleModeratorFill = () => {
+    setUsernameOrEmail('moderator');
+    setPassword('ModeratorPassword123@');
     setErrorMessage(null);
   };
 
@@ -262,19 +263,38 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
             </form>
 
             {/* Production Utility: 1-Click Sandbox Credential */}
-            <div className="sandbox-quick-fill">
-              <div className="quick-fill-hint">
-                <span className="hint-label">Môi trường kiểm thử:</span>
-                <span className="hint-meta font-mono">admin / AdminPassword123@</span>
+            <div className="sandbox-quick-fill" style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="quick-fill-hint">
+                  <span className="hint-label">Admin:</span>
+                  <span className="hint-meta font-mono">admin / AdminPassword123@</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDemoFill}
+                  className="quick-fill-action-btn"
+                  title="Điền tài khoản Admin"
+                >
+                  <Check size={13} />
+                  <span>Admin</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleDemoFill}
-                className="quick-fill-action-btn"
-              >
-                <Check size={13} />
-                <span>Nạp mẫu</span>
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="quick-fill-hint">
+                  <span className="hint-label">Moderator:</span>
+                  <span className="hint-meta font-mono">moderator / ModeratorPassword123@</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleModeratorFill}
+                  className="quick-fill-action-btn"
+                  style={{ color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' }}
+                  title="Điền tài khoản Kiểm duyệt viên Moderator"
+                >
+                  <Check size={13} />
+                  <span>Moderator</span>
+                </button>
+              </div>
             </div>
 
             {/* Server Connectivity Info */}

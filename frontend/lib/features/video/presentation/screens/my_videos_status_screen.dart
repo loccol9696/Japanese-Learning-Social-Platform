@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_palette.dart';
 import '../../../../core/widgets/app_toast.dart';
-import '../../data/video_manage_service.dart';
 import '../../../profile/data/datasources/profile_remote_datasource.dart';
 import '../../../profile/data/repositories/profile_repository_impl.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
+import '../../data/services/video_trash_service.dart';
+import '../../data/video_manage_service.dart';
 import '../../domain/models/user_video_model.dart';
+import 'deleted_videos_screen.dart';
 import 'upload_video_screen.dart';
-import '../../../../core/theme/app_palette.dart';
 
 class MyVideosStatusScreen extends StatefulWidget {
   final ProfileRepository? repository;
+  final VideoTrashService? trashService;
 
-  const MyVideosStatusScreen({super.key, this.repository});
+  const MyVideosStatusScreen({super.key, this.repository, this.trashService});
 
   @override
   State<MyVideosStatusScreen> createState() => _MyVideosStatusScreenState();
@@ -21,6 +24,7 @@ class MyVideosStatusScreen extends StatefulWidget {
 
 class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
   late final ProfileRepository _repository;
+  late final VideoTrashService _trashService;
   final VideoManageService _manage = VideoManageService();
   bool _isLoading = true;
   List<UserVideoModel> _allVideos = [];
@@ -29,9 +33,56 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
   @override
   void initState() {
     super.initState();
-    _repository = widget.repository ??
+    _repository =
+        widget.repository ??
         ProfileRepositoryImpl(remoteDataSource: ProfileRemoteDataSourceImpl());
+    _trashService = widget.trashService ?? VideoTrashService();
     _loadVideos();
+  }
+
+  Future<void> _moveToTrash(UserVideoModel video) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Xóa video?'),
+        content: const Text(
+          'Video cùng bình luận và lượt tương tác sẽ được giữ trong thùng rác '
+          '30 ngày, sau đó bị xóa hẳn. Bạn có thể khôi phục trong thời gian này.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await _trashService.moveToTrash(video.id);
+      if (!mounted) return;
+      setState(() {
+        _allVideos = _allVideos.where((v) => v.id != video.id).toList();
+      });
+      AppToast.showSuccess('Đã chuyển video vào thùng rác', context: context);
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.showError('Không thể xóa video: $error', context: context);
+    }
+  }
+
+  Future<void> _openTrash() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DeletedVideosScreen(service: _trashService),
+      ),
+    );
+    // Video vừa khôi phục phải hiện lại trong danh sách.
+    if (mounted) await _loadVideos();
   }
 
   Future<void> _loadVideos() async {
@@ -79,7 +130,10 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
           backgroundColor: AppColors.surfaceCard,
-          title: Text('Sửa video', style: TextStyle(color: AppPalette.textPrimary)),
+          title: Text(
+            'Sửa video',
+            style: TextStyle(color: AppPalette.textPrimary),
+          ),
           content: Form(
             key: formKey,
             child: SingleChildScrollView(
@@ -158,42 +212,6 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
     }
   }
 
-  Future<void> _deleteVideo(UserVideoModel video) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceCard,
-        title: Text('Xoá video?', style: TextStyle(color: AppPalette.textPrimary)),
-        content: Text(
-          '"${video.title}" sẽ bị xoá vĩnh viễn cùng lượt thích và bình luận.',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Huỷ'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Xoá', style: TextStyle(color: AppPalette.error)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    try {
-      await _manage.delete(video.id);
-      if (!mounted) return;
-      setState(() => _allVideos.removeWhere((v) => v.id == video.id));
-      AppToast.showSuccess('Đã xoá video', context: context);
-    } on ApiException catch (e) {
-      if (mounted) AppToast.showError(e.message, context: context);
-    } catch (_) {
-      if (mounted) AppToast.showError('Không thể xoá video', context: context);
-    }
-  }
-
   bool _matchesFilter(UserVideoModel v, String filter) {
     switch (filter) {
       case 'ALL':
@@ -230,7 +248,11 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.chevron_left_rounded, color: AppPalette.textPrimary, size: 30),
+          icon: Icon(
+            Icons.chevron_left_rounded,
+            color: AppPalette.textPrimary,
+            size: 30,
+          ),
           tooltip: 'Quay lại',
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -243,13 +265,32 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Video đã xóa',
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: AppColors.softSkyBlue,
+            ),
+            onPressed: _openTrash,
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.refresh_rounded,
+              color: AppColors.softSkyBlue,
+            ),
+            onPressed: _loadVideos,
+          ),
+        ],
       ),
       body: Column(
         children: [
           _buildFilterBar(),
           Expanded(
             child: _isLoading
-                ? Center(child: CircularProgressIndicator(color: AppPalette.info))
+                ? Center(
+                    child: CircularProgressIndicator(color: AppPalette.info),
+                  )
                 : RefreshIndicator(
                     onRefresh: _loadVideos,
                     color: AppPalette.info,
@@ -263,7 +304,9 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                             separatorBuilder: (_, _) => Divider(
                               height: 1,
                               thickness: 1,
-                              color: AppPalette.textPrimary.withValues(alpha: 0.07),
+                              color: AppPalette.textPrimary.withValues(
+                                alpha: 0.07,
+                              ),
                             ),
                             itemBuilder: (context, index) =>
                                 _buildVideoRow(_filteredVideos[index]),
@@ -288,7 +331,9 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
+          bottom: BorderSide(
+            color: AppPalette.textPrimary.withValues(alpha: 0.08),
+          ),
         ),
       ),
       child: Row(
@@ -303,7 +348,9 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: _selectedFilter == key ? AppPalette.info : Colors.transparent,
+                        color: _selectedFilter == key
+                            ? AppPalette.info
+                            : Colors.transparent,
                         width: 2,
                       ),
                     ),
@@ -319,7 +366,9 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                               style: TextStyle(
                                 color: _selectedFilter == key
                                     ? AppPalette.textPrimary
-                                    : AppPalette.textPrimary.withValues(alpha: 0.6),
+                                    : AppPalette.textPrimary.withValues(
+                                        alpha: 0.6,
+                                      ),
                                 fontWeight: _selectedFilter == key
                                     ? FontWeight.w800
                                     : FontWeight.w600,
@@ -330,7 +379,9 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                               style: TextStyle(
                                 color: _selectedFilter == key
                                     ? AppPalette.info
-                                    : AppPalette.textPrimary.withValues(alpha: 0.45),
+                                    : AppPalette.textPrimary.withValues(
+                                        alpha: 0.45,
+                                      ),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -382,7 +433,8 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                 width: 56,
                 height: 76,
                 color: AppPalette.surface,
-                child: video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
+                child:
+                    video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
                     ? Image.network(
                         video.thumbnailUrl!,
                         fit: BoxFit.cover,
@@ -415,7 +467,10 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                         Container(
                           width: 8,
                           height: 8,
-                          decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                         const SizedBox(width: 6),
                         Flexible(
@@ -433,7 +488,11 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                       Text(
                         reason,
                         key: const ValueKey('rejection-reason'),
-                        style: TextStyle(color: AppPalette.error, fontSize: 12.5, height: 1.3),
+                        style: TextStyle(
+                          color: AppPalette.error,
+                          fontSize: 12.5,
+                          height: 1.3,
+                        ),
                       ),
                     ],
                   ],
@@ -448,15 +507,22 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
                 color: AppPalette.surface,
                 tooltip: 'Tùy chọn',
                 icon: Icon(Icons.more_vert_rounded, color: mutedText, size: 18),
-                onSelected: (v) => v == 'edit' ? _editVideo(video) : _deleteVideo(video),
+                onSelected: (v) =>
+                    v == 'edit' ? _editVideo(video) : _moveToTrash(video),
                 itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'edit',
-                    child: Text('Sửa', style: TextStyle(color: AppPalette.textPrimary)),
+                    child: Text(
+                      'Sửa',
+                      style: TextStyle(color: AppPalette.textPrimary),
+                    ),
                   ),
                   PopupMenuItem(
                     value: 'delete',
-                    child: Text('Xoá', style: TextStyle(color: AppPalette.error)),
+                    child: Text(
+                      'Xoá',
+                      style: TextStyle(color: AppPalette.error),
+                    ),
                   ),
                 ],
               ),

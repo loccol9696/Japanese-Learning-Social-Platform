@@ -205,21 +205,6 @@ public class VideoServiceImpl implements VideoService {
     }
 
     /**
-     * Xóa video khỏi hệ thống.
-     */
-    @Override
-    @Transactional
-    public void deleteVideo(Long id, Long currentUserId) {
-        Video video = videoRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Video", "id", id));
-
-        validateOwnership(video, currentUserId);
-
-        videoRepository.delete(video);
-        log.info("Xóa video ID: {} thành công bởi user ID: {}", id, currentUserId);
-    }
-
-    /**
      * Lấy danh sách video đề xuất "Dành cho bạn" (For-You Feed).
      * Tự động lọc theo cấp độ JLPT nếu có yêu cầu.
      */

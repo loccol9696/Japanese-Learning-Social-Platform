@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { UserProfile } from '../types/auth';
+import ReportsManager from './ReportsManager';
 import {
   Video,
   AlertTriangle,
@@ -19,6 +20,7 @@ import {
   Key,
   Download,
   Copy,
+  QrCode,
   RefreshCw,
   ArrowUpDown,
   Sparkles,
@@ -29,8 +31,7 @@ import {
   Coins,
   Save,
   Eye,
-  Play,
-  Tag
+  Play
 } from 'lucide-react';
 import {
   getModerationVideos,
@@ -44,8 +45,10 @@ import {
   getAllPlansAdmin,
   updatePlan,
   getSubscriptionOrders,
-  adminConfirmOrder,
+  createQrOrder,
+  confirmPayment,
   getAdminAnalytics,
+  getPendingReportCount,
   updateAdminProfile,
   getMetricTrend,
   getTokenRate,
@@ -58,8 +61,6 @@ import {
   type AdminAnalyticsData,
   type DailyMetricDto
 } from '../services/adminService';
-import TopicsManager from './TopicsManager';
-import ReportsManager from './ReportsManager';
 import './AdminDashboard.css';
 
 interface AdminDashboardProps {
@@ -68,7 +69,7 @@ interface AdminDashboardProps {
   onUpdateUser?: (updated: UserProfile) => void;
 }
 
-type TabType = 'analytics' | 'videos' | 'users' | 'subscriptions' | 'pricing' | 'topics' | 'reports' | 'profile';
+type TabType = 'analytics' | 'videos' | 'users' | 'subscriptions' | 'pricing' | 'reports' | 'profile';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onUpdateUser }) => {
   const isModerator = user.role === 'MODERATOR';
@@ -80,10 +81,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
   // Enforce role separation on tab changes
   useEffect(() => {
-    if (isAdmin && activeTab === 'videos') {
+    if (isAdmin && (activeTab === 'videos' || activeTab === 'reports')) {
       setActiveTab('analytics');
     }
-    if (isModerator && (activeTab === 'users' || activeTab === 'subscriptions' || activeTab === 'pricing' || activeTab === 'topics' || activeTab === 'analytics')) {
+    if (isModerator && (activeTab === 'users' || activeTab === 'subscriptions' || activeTab === 'pricing' || activeTab === 'analytics')) {
       setActiveTab('videos');
     }
   }, [isAdmin, isModerator, activeTab]);
@@ -335,25 +336,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   ) => {
     if (isLoading) {
       return (
-        <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
-          <span className="live-pulse-dot" style={{ display: 'inline-block', marginRight: 8 }} />
-          Đang tải dữ liệu biểu đồ...
+        <div className="chart-scroll-wrapper">
+          <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
+            <span className="live-pulse-dot" style={{ display: 'inline-block', marginRight: 8 }} />
+            Đang tải dữ liệu biểu đồ từ máy chủ Backend...
+          </div>
         </div>
       );
     }
 
     if (!metrics || metrics.length === 0) {
       return (
-        <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
-          Chưa có dữ liệu thống kê (0)
+        <div className="chart-scroll-wrapper">
+          <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
+            Chưa có dữ liệu thống kê từ máy chủ (0)
+          </div>
         </div>
       );
     }
 
-    const width = 640;
-    const height = 210;
     const isDense = metrics.length > 14;
-    const padX = isDense ? 22 : 40;
+    const width = isDense ? Math.max(640, metrics.length * 36) : 640;
+    const height = 210;
+    const padX = isDense ? 24 : 40;
     const padY = 32;
     const chartW = width - 2 * padX;
     const chartH = height - 2 * padY;
@@ -389,102 +394,112 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     const areaPath = `${curvePath} L ${points[points.length - 1].x.toFixed(1)} ${(height - padY).toFixed(1)} L ${points[0].x.toFixed(1)} ${(height - padY).toFixed(1)} Z`;
 
     return (
-      <div className="curved-chart-container">
-        <svg viewBox={`0 0 ${width} ${height}`} className="curved-chart-svg">
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.4" />
-              <stop offset="100%" stopColor={color} stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
+      <div className="chart-scroll-wrapper">
+        <div className="curved-chart-container" style={{ width: `${width}px`, minWidth: '100%' }}>
+          <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="curved-chart-svg">
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.4" />
+                <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
 
-          {/* Guide grid lines */}
-          <line x1={padX} y1={padY} x2={width - padX} y2={padY} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
-          <line x1={padX} y1={height / 2} x2={width - padX} y2={height / 2} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
-          <line x1={padX} y1={height - padY} x2={width - padX} y2={height - padY} stroke="var(--admin-border)" strokeWidth="1.5" />
+            {/* Guide grid lines */}
+            <line x1={padX} y1={padY} x2={width - padX} y2={padY} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
+            <line x1={padX} y1={height / 2} x2={width - padX} y2={height / 2} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
+            <line x1={padX} y1={height - padY} x2={width - padX} y2={height - padY} stroke="var(--admin-border)" strokeWidth="1.5" />
 
-          {/* Area Fill under curve */}
-          <path d={areaPath} fill={`url(#${gradientId})`} />
+            {/* Area Fill under curve */}
+            <path d={areaPath} fill={`url(#${gradientId})`} />
 
-          {/* Parabolic Curved Spline Line */}
-          <path d={curvePath} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Parabolic Curved Spline Line */}
+            <path d={curvePath} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
-          {/* Nodes with Badges and Labels */}
-          {points.map((pt, i) => {
-            const valStr = formatVal(pt.value);
-            const badgeW = Math.max(26, valStr.length * 7 + 10);
-            const showLabel = !isDense || (i % 3 === 0) || (i === points.length - 1) || (pt.value > 0);
-            const showBadge = !isDense || (pt.value > 0);
+            {/* Nodes with Badges and Labels */}
+            {points.map((pt, i) => {
+              const valStr = formatVal(pt.value);
+              const badgeW = Math.max(26, valStr.length * 7 + 10);
+              const step = Math.ceil(points.length / 22);
+              const showLabel = !isDense || (i % step === 0) || (i === points.length - 1) || (pt.value > 0);
+              const showBadge = !isDense || (pt.value > 0);
 
-            return (
-              <g key={i} className="chart-svg-node">
-                <title>{`${pt.label}: ${valStr}`}</title>
+              return (
+                <g key={i} className="chart-svg-node">
+                  <title>{`${pt.label}: ${valStr}`}</title>
 
-                {/* Vertical hint line */}
-                {pt.value > 0 && (
-                  <line
-                    x1={pt.x}
-                    y1={pt.y}
-                    x2={pt.x}
-                    y2={height - padY}
-                    stroke={color}
-                    strokeWidth="1"
-                    strokeDasharray="2 2"
-                    opacity="0.45"
-                  />
-                )}
-
-                {/* Point circle */}
-                <circle
-                  cx={pt.x}
-                  cy={pt.y}
-                  r={pt.value > 0 ? (isDense ? 4.5 : 5.5) : (isDense ? 2.5 : 3.5)}
-                  fill="#ffffff"
-                  stroke={pt.value > 0 ? color : '#94a3b8'}
-                  strokeWidth="2.5"
-                />
-
-                {/* Badge Container */}
-                {showBadge && (
-                  <>
-                    <rect
-                      x={pt.x - badgeW / 2}
-                      y={Math.min(height - padY - 26, Math.max(6, pt.y - 25))}
-                      width={badgeW}
-                      height={18}
-                      rx={3}
-                      fill="#ffffff"
-                      stroke={pt.value > 0 ? color : '#cbd5e1'}
-                      strokeWidth="1.2"
-                      className="chart-svg-badge-rect"
+                  {/* Vertical hint line */}
+                  {pt.value > 0 && (
+                    <line
+                      x1={pt.x}
+                      y1={pt.y}
+                      x2={pt.x}
+                      y2={height - padY}
+                      stroke="var(--admin-border)"
+                      strokeDasharray="2 2"
+                      opacity="0.6"
                     />
+                  )}
+
+                  {/* Data Node Point */}
+                  <circle
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={pt.value > 0 ? (isDense ? 3.5 : 5) : 2.5}
+                    fill={pt.value > 0 ? color : 'var(--admin-border)'}
+                    stroke="var(--admin-bg-surface)"
+                    strokeWidth="2"
+                    className="chart-svg-circle"
+                  />
+
+                  {/* Floating Value Pill Badge */}
+                  {showBadge && (
+                    <g transform={`translate(${pt.x - badgeW / 2}, ${pt.y - 25})`} className="chart-svg-badge-group">
+                      <rect
+                        width={badgeW}
+                        height="18"
+                        rx="3"
+                        fill="var(--admin-bg-surface-elevated)"
+                        stroke="var(--admin-border)"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x={badgeW / 2}
+                        y="12"
+                        textAnchor="middle"
+                        fill="var(--admin-text-main)"
+                        fontSize="10"
+                        fontFamily="var(--font-mono)"
+                        fontWeight="700"
+                      >
+                        {valStr}
+                      </text>
+                    </g>
+                  )}
+
+                  {/* Bottom Horizontal X-Axis Label */}
+                  {showLabel && (
                     <text
                       x={pt.x}
-                      y={Math.min(height - padY - 13, Math.max(19, pt.y - 12))}
+                      y={height - 8}
                       textAnchor="middle"
-                      className="chart-svg-badge-text"
-                      fill={pt.value > 0 ? '#0f172a' : '#94a3b8'}
+                      fill="var(--admin-text-dim)"
+                      fontSize={isDense ? "9.5" : "11"}
+                      fontFamily="var(--font-mono)"
+                      fontWeight="600"
+                      className="chart-svg-label"
                     >
-                      {valStr}
+                      {pt.label}
                     </text>
-                  </>
-                )}
-
-                {/* X Axis Label */}
-                {showLabel && (
-                  <text x={pt.x} y={height - 10} textAnchor="middle" className="chart-svg-label">
-                    {pt.label}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
       </div>
     );
   };
 
-  // Helper render biểu đồ cột trực quan
   const renderBarChart = (
     metrics: { dateLabel: string; value: number }[] | undefined,
     colorClass: string,
@@ -493,51 +508,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   ) => {
     if (isLoading) {
       return (
-        <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210 }}>
-          <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Đang tải dữ liệu biểu đồ...</span>
+        <div className="chart-scroll-wrapper">
+          <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210, width: '100%' }}>
+            <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Đang tải dữ liệu biểu đồ từ máy chủ Backend...</span>
+          </div>
         </div>
       );
     }
 
     if (!metrics || metrics.length === 0) {
       return (
-        <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210 }}>
-          <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Chưa có dữ liệu (0)</span>
+        <div className="chart-scroll-wrapper">
+          <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210, width: '100%' }}>
+            <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Chưa có dữ liệu thống kê từ máy chủ (0)</span>
+          </div>
         </div>
       );
     }
 
     const maxVal = Math.max(1, ...metrics.map(t => t.value));
     const isDense = metrics.length > 14;
+    const computedWidth = isDense ? `${Math.max(640, metrics.length * 36)}px` : '100%';
 
     return (
-      <div className="chart-bars-wrap">
-        {metrics.map((t, idx) => {
-          const heightPct = t.value > 0 ? Math.max(10, (t.value / maxVal) * 85) : 3;
-          const showLabel = !isDense || (idx % 3 === 0) || (idx === metrics.length - 1) || (t.value > 0);
-          return (
-            <div key={idx} className="chart-col-item">
+      <div className="chart-scroll-wrapper">
+        <div
+          className="chart-bars-wrap"
+          style={{
+            width: computedWidth,
+            justifyContent: isDense ? 'flex-start' : 'space-between',
+            gap: isDense ? '0.45rem' : '0.75rem'
+          }}
+        >
+          {metrics.map((t, idx) => {
+            const heightPct = t.value > 0 ? Math.max(10, (t.value / maxVal) * 85) : 3;
+            const step = Math.ceil(metrics.length / 22);
+            const showLabel = !isDense || (idx % step === 0) || (idx === metrics.length - 1) || (t.value > 0);
+            return (
               <div
-                className={`chart-bar-rect ${colorClass} ${t.value === 0 ? 'is-zero' : ''}`}
+                key={idx}
+                className="chart-col-item"
                 style={{
-                  height: `${heightPct}%`,
-                  animationDelay: `${idx * 20}ms`
+                  minWidth: isDense ? 28 : undefined,
+                  flex: isDense ? '0 0 auto' : 1
                 }}
-                title={`${t.dateLabel}: ${formatVal(t.value)}`}
               >
-                <span className="chart-bar-val-badge">
-                  {t.value > 0 ? formatVal(t.value) : (isDense ? '' : '0')}
-                </span>
+                <div
+                  className={`chart-bar-rect ${colorClass} ${t.value === 0 ? 'is-zero' : ''}`}
+                  style={{
+                    height: `${heightPct}%`,
+                    animationDelay: `${Math.min(idx * 15, 600)}ms`
+                  }}
+                  title={`${t.dateLabel}: ${formatVal(t.value)}`}
+                >
+                  <span className="chart-bar-val-badge">
+                    {t.value > 0 ? formatVal(t.value) : (isDense ? '' : '0')}
+                  </span>
+                </div>
+                <span className="chart-col-label">{showLabel ? t.dateLabel : ''}</span>
               </div>
-              <span className="chart-col-label">{showLabel ? t.dateLabel : ''}</span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     );
   };
 
-  // ==================== VIDEO MODERATION (MODERATOR ONLY) ====================
   const [videos, setVideos] = useState<VideoModerationItem[]>([]);
   const [videoModFilter, setVideoModFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [isLoadingVideos, setIsLoadingVideos] = useState(false);
@@ -769,8 +805,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   const [orderSortField, setOrderSortField] = useState<'createdAt' | 'amount' | 'status'>('createdAt');
   const [orderSortDir, setOrderSortDir] = useState<'asc' | 'desc'>('desc');
 
-  // Đơn đang được admin duyệt tay (để khoá nút, tránh bấm hai lần)
-  const [confirmingOrderCode, setConfirmingOrderCode] = useState<string | null>(null);
+  // QR Test Simulator State
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [selectedPlanCode, setSelectedPlanCode] = useState('PRO_MONTHLY');
+  const [activeQrOrder, setActiveQrOrder] = useState<{
+    id?: number;
+    orderCode: string;
+    verificationCode: string;
+    planName: string;
+    amount: number;
+    qrUrl?: string;
+    qrCodeUrl?: string;
+    status: string;
+  } | null>(null);
+  const [verificationInput, setVerificationInput] = useState('');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentSuccessData, setPaymentSuccessData] = useState<any | null>(null);
 
   // Pagination state for subscription orders table (Limit 10 per page)
   const [ordersPage, setOrdersPage] = useState(0);
@@ -809,25 +859,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
-  const handleAdminConfirm = async (order: SubscriptionOrderItem) => {
-    const note = window.prompt(
-      `Duyệt tay đơn ${order.orderCode} (${order.amount?.toLocaleString('vi-VN')} đ).
-Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
-    );
-    if (note === null) return;
-    if (!note.trim()) {
-      alert('Vui lòng ghi lý do duyệt.');
+  const handleCreateQrOrder = async () => {
+    try {
+      const data = await createQrOrder(selectedPlanCode);
+      setActiveQrOrder(data);
+      setVerificationInput(data.verificationCode); // Tiện ích điền sẵn mã dưới QR để test nhanh
+      setPaymentSuccessData(null);
+    } catch (err: any) {
+      alert('Lỗi tạo mã QR: ' + err.message);
+    }
+  };
+
+  const handleConfirmQrPayment = async () => {
+    if (!activeQrOrder) return;
+    if (!verificationInput.trim()) {
+      alert('Vui lòng nhập mã xác thực hiện ở dưới QR!');
       return;
     }
-    setConfirmingOrderCode(order.orderCode);
+    setIsProcessingPayment(true);
     try {
-      await adminConfirmOrder(order.orderCode, note.trim());
-      showToast(`Đã duyệt đơn ${order.orderCode}. Gói đã được kích hoạt cho người dùng.`);
+      const result = await confirmPayment(activeQrOrder.orderCode, verificationInput.trim());
+      setPaymentSuccessData(result);
+      showToast('Thanh toán thành công! Gói VIP và hạn mức Token ngày đã được nâng cấp.');
       loadSubscriptionOrders();
     } catch (err: any) {
-      alert('Duyệt đơn thất bại: ' + err.message);
+      alert('Xác thực thất bại: ' + err.message);
     } finally {
-      setConfirmingOrderCode(null);
+      setIsProcessingPayment(false);
     }
   };
 
@@ -925,6 +983,15 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
     }
   };
 
+  // Pending reports count for Moderator badge
+  const [pendingReportsCount, setPendingReportsCount] = useState(0);
+
+  useEffect(() => {
+    if (isModerator) {
+      getPendingReportCount().then(c => setPendingReportsCount(c)).catch(() => {});
+    }
+  }, [isModerator, activeTab]);
+
   return (
     <div className={`admin-viewport ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       {/* Toast Notification */}
@@ -987,6 +1054,23 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
             </button>
           )}
 
+          {/* TAB: XỬ LÝ REPORT - CHỈ HIỆN VỚI MODERATOR (ĐÃ XÓA KHỎI ADMIN) */}
+          {isModerator && (
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`nav-tab-item ${activeTab === 'reports' ? 'active' : ''}`}
+              title="Xử lý khiếu nại & báo cáo vi phạm"
+            >
+              <AlertTriangle size={18} />
+              {!isSidebarCollapsed && <span>Xử lý Report</span>}
+              {!isSidebarCollapsed && (
+                <span className="nav-tab-badge" style={{ background: '#f59e0b', color: '#000', fontWeight: 800 }}>
+                  {pendingReportsCount > 0 ? `${pendingReportsCount} MỚI` : 'BÁO CÁO'}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* TAB: QUẢN LÝ NGƯỜI DÙNG & TẠO TK HÀNG LOẠT (CHỈ ADMIN) */}
           {isAdmin && (
             <button
@@ -1022,28 +1106,6 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
               {!isSidebarCollapsed && <span>Gói & Hạn mức Token</span>}
             </button>
           )}
-
-          {/* TAB: CHỦ ĐỀ (CHỈ ADMIN) */}
-          {isAdmin && (
-            <button
-              onClick={() => setActiveTab('topics')}
-              className={`nav-tab-item ${activeTab === 'topics' ? 'active' : ''}`}
-              title="Quản lý chủ đề video & sở thích"
-            >
-              <Tag size={18} />
-              {!isSidebarCollapsed && <span>Chủ đề</span>}
-            </button>
-          )}
-
-          {/* TAB: XỬ LÝ BÁO CÁO (CẢ ADMIN VÀ MODERATOR) */}
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`nav-tab-item ${activeTab === 'reports' ? 'active' : ''}`}
-            title="Xử lý báo cáo vi phạm"
-          >
-            <AlertTriangle size={18} />
-            {!isSidebarCollapsed && <span>Xử lý Report</span>}
-          </button>
 
           {/* TAB: TRANG HỒ SƠ CÁ NHÂN (CẢ ADMIN VÀ MODERATOR) */}
           <button
@@ -1130,9 +1192,8 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
               {activeTab === 'analytics' && 'Thống Kê Nền Tảng & Biểu Đồ Phân Tích'}
               {activeTab === 'videos' && 'Duyệt Video Bài Học (Moderator Only)'}
               {activeTab === 'users' && 'Quản Lý Người Dùng & Phân Quyền Hệ Thống'}
-              {activeTab === 'subscriptions' && 'Lịch Sử Giao Dịch & Duyệt Thanh Toán'}
+              {activeTab === 'subscriptions' && 'Lịch Sử Giao Dịch & Giả Lập Thanh Toán QR'}
               {activeTab === 'pricing' && 'Cấu Hình Gói VIP & Hạn Mức Token Trích Xuất AI'}
-              {activeTab === 'topics' && 'Quản Lý Chủ Đề Video & Sở Thích Người Dùng'}
               {activeTab === 'reports' && 'Xử Lý Khiếu Nại & Báo Cáo Vi Phạm'}
               {activeTab === 'profile' && 'Hồ Sơ Cá Nhân & Quản Trị Hệ Thống'}
             </h1>
@@ -1170,6 +1231,18 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
               </>
             )}
 
+            {activeTab === 'subscriptions' && isAdmin && (
+              <button
+                onClick={() => {
+                  setIsQrModalOpen(true);
+                  handleCreateQrOrder();
+                }}
+                className="btn-solid-primary"
+              >
+                <QrCode size={15} />
+                <span>⚡ Giả lập Quét QR Thanh toán Local</span>
+              </button>
+            )}
           </div>
         </header>
 
@@ -2102,28 +2175,26 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
                       <th className="sortable" onClick={() => handleToggleSort('amount')}>
                         Số Tiền (VND) ↕
                       </th>
-                      <th>Nội Dung Chuyển Khoản</th>
-                      <th>Đã Nhận (VND)</th>
+                      <th>Mã Xác Thực (Dưới QR)</th>
                       <th className="sortable" onClick={() => handleToggleSort('status')}>
                         Trạng Thái ↕
                       </th>
                       <th className="sortable" onClick={() => handleToggleSort('createdAt')}>
                         Thời Gian ↕
                       </th>
-                      <th>Thao Tác</th>
                     </tr>
                   </thead>
                   <tbody>
                     {isLoadingOrders ? (
                       <tr>
-                        <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
                           Đang tải lịch sử giao dịch gói...
                         </td>
                       </tr>
                     ) : orders.length === 0 ? (
                       <tr>
-                        <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
-                          Chưa có giao dịch nào. Đơn xuất hiện ở đây khi người dùng bấm mua gói trong ứng dụng.
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
+                          Chưa có lịch sử giao dịch nào. Bấm nút <strong>"⚡ Giả lập Quét QR Thanh toán Local"</strong> ở trên để tạo giao dịch thử nghiệm!
                         </td>
                       </tr>
                     ) : (
@@ -2134,7 +2205,7 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
                           </td>
                           <td style={{ fontWeight: 600 }}>{o.userDisplayName || o.username}</td>
                           <td>
-                            <span style={{ fontWeight: 700, color: '#0f172a' }}>{o.planName}</span>
+                            <span style={{ fontWeight: 700, color: 'var(--admin-text-main)' }}>{o.planName}</span>
                           </td>
                           <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.9rem' }}>
                             {o.amount?.toLocaleString('vi-VN')} đ
@@ -2149,15 +2220,12 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
                               borderRadius: '2px',
                               color: '#38bdf8'
                             }}>
-                              {o.transferMemo || o.orderCode}
+                              {o.verificationCode}
                             </span>
-                          </td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
-                            {o.paidAmount != null ? `${o.paidAmount.toLocaleString('vi-VN')} đ` : '—'}
                           </td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', minHeight: '24px' }}>
-                              <span className={`status-pill ${o.status === 'SUCCESS' ? 'success' : o.status === 'PENDING' || o.status === 'NEEDS_REVIEW' ? 'pending' : 'danger'
+                              <span className={`status-pill ${o.status === 'SUCCESS' ? 'success' : o.status === 'PENDING' ? 'pending' : 'danger'
                                 }`}
                                 style={{ transform: 'translateY(10px)' }}
                               >
@@ -2167,18 +2235,6 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
                           </td>
                           <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
                             {o.createdAt ? new Date(o.createdAt).toLocaleString('vi-VN') : '—'}
-                          </td>
-                          <td>
-                            {o.status !== 'SUCCESS' && o.status !== 'CANCELLED' && o.status !== 'FAILED' && (
-                              <button
-                                className="btn-outline"
-                                disabled={confirmingOrderCode === o.orderCode}
-                                onClick={() => handleAdminConfirm(o)}
-                                title="Duyệt tay khi đã nhận đủ tiền nhưng hệ thống chưa tự khớp"
-                              >
-                                {confirmingOrderCode === o.orderCode ? 'Đang duyệt...' : 'Duyệt tay'}
-                              </button>
-                            )}
                           </td>
                         </tr>
                       ))
@@ -2390,9 +2446,10 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
             </>
           )}
 
-          {/* ==================== TAB 5: XỬ LÝ REPORT ==================== */}
-          {activeTab === 'topics' && isAdmin && <TopicsManager showToast={showToast} />}
-          {activeTab === 'reports' && <ReportsManager isAdmin={isAdmin} showToast={showToast} />}
+          {/* ==================== TAB 5: XỬ LÝ REPORT (CHỈ DÀNH CHO ROLE MODERATOR) ==================== */}
+          {activeTab === 'reports' && isModerator && (
+            <ReportsManager isAdmin={false} showToast={showToast} />
+          )}
           {/* ==================== TAB 6: TRANG HỒ SƠ CÁ NHÂN (ADMIN & MODERATOR) ==================== */}
           {activeTab === 'profile' && (
             <div className="profile-page-grid">
@@ -3060,6 +3117,138 @@ Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
         </div>
       )}
 
+      {/* ==================== MODAL: GIẢ LẬP THANH TOÁN QR LOCAL ==================== */}
+      {isQrModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-sharp-box" style={{ maxWidth: '520px' }}>
+            <div className="modal-sharp-header">
+              <h3 className="modal-sharp-title">⚡ Giả Lập Quét QR Thanh Toán Local</h3>
+              <button onClick={() => setIsQrModalOpen(false)} className="btn-icon-square">✕</button>
+            </div>
+            <div className="modal-sharp-body">
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <label className="form-label-sharp" style={{ minWidth: '90px' }}>Chọn gói mua:</label>
+                <select
+                  className="form-select-sharp"
+                  style={{ flex: 1 }}
+                  value={selectedPlanCode}
+                  onChange={e => {
+                    setSelectedPlanCode(e.target.value);
+                  }}
+                >
+                  {plans && plans.length > 0 ? (
+                    plans.map(p => (
+                      <option key={p.id} value={p.code}>
+                        {p.name} ({p.price.toLocaleString('vi-VN')} đ - {p.dailyTokenLimit} token/ngày)
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="FREE">Gói 1 Năm (419.000 đ - 50 token/ngày)</option>
+                      <option value="PRO_YEARLY">Gói 3 Tháng (299.000 đ - 50 token/ngày)</option>
+                      <option value="PRO_MONTHLY">Gói Trọn Đời (699.000 đ - 50 token/ngày)</option>
+                    </>
+                  )}
+                </select>
+                <button onClick={handleCreateQrOrder} className="btn-outline">
+                  Tạo QR
+                </button>
+              </div>
+
+              {activeQrOrder && (
+                <div className="qr-display-box">
+                  <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--admin-text-main)' }}>
+                    {activeQrOrder.planName} • {activeQrOrder.amount?.toLocaleString('vi-VN')} đ
+                  </div>
+
+                  {/* Real QR image from Backend */}
+                  <div className="qr-code-canvas-wrap">
+                    {activeQrOrder.qrUrl || activeQrOrder.qrCodeUrl ? (
+                      <img
+                        src={activeQrOrder.qrUrl || activeQrOrder.qrCodeUrl}
+                        alt={`Mã QR đơn ${activeQrOrder.orderCode}`}
+                        width="160"
+                        height="160"
+                        style={{ display: 'block', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <QrCode size={120} style={{ color: 'var(--admin-primary)' }} />
+                    )}
+                  </div>
+
+                  {/* THE PROMINENT VERIFICATION CODE DISPLAYED UNDER THE QR CODE AS REQUESTED */}
+                  <div className="verification-code-banner">
+                    <span className="verification-code-title">
+                      Mã xác thực hiển thị ở dưới mã QR:
+                    </span>
+                    <span className="verification-code-display">
+                      {activeQrOrder.verificationCode}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                      (Người dùng quét QR ngân hàng hoặc nhập mã này vào trang thanh toán để kích hoạt)
+                    </span>
+                  </div>
+
+                  {/* Payment Confirmation Form */}
+                  <div style={{ width: '100%', marginTop: '0.5rem' }}>
+                    <label className="form-label-sharp" style={{ color: 'var(--admin-text-main)', marginBottom: '0.3rem', display: 'block' }}>
+                      Nhập mã xác thực để hoàn tất thanh toán:
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        type="text"
+                        className="form-input-sharp"
+                        style={{
+                          flex: 1,
+                          background: '#f1f5f9',
+                          color: '#0f172a',
+                          border: '1px solid #cbd5e1',
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 700,
+                          fontSize: '1rem',
+                          textAlign: 'center'
+                        }}
+                        value={verificationInput}
+                        onChange={e => setVerificationInput(e.target.value)}
+                        placeholder="e.g. JLSP-XXXXX"
+                      />
+                      <button
+                        onClick={handleConfirmQrPayment}
+                        disabled={isProcessingPayment}
+                        className="btn-solid-primary"
+                        style={{ whiteSpace: 'nowrap' }}
+                      >
+                        {isProcessingPayment ? 'Đang xác thực...' : 'Xác nhận thanh toán'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {paymentSuccessData && (
+                    <div style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      border: '1px solid #10b981',
+                      padding: '0.75rem',
+                      borderRadius: '2px',
+                      color: '#047857',
+                      fontSize: '0.85rem',
+                      width: '100%',
+                      textAlign: 'center',
+                      fontWeight: 600
+                    }}>
+                      ✓ Giao dịch thành công! Tài khoản đã được nâng cấp VIP và mở rộng hạn mức Token ngày.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="modal-sharp-footer">
+              <button onClick={() => setIsQrModalOpen(false)} className="btn-outline">
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ==================== MODAL: CHỈNH SỬA BIỂU PHÍ & TOKEN LIMIT ==================== */}
       {editingPlan && (

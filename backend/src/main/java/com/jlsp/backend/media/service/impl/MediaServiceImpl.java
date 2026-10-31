@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Cài đặt nghiệp vụ xử lý tải lên và sinh chữ ký Cloudinary.
@@ -29,6 +31,10 @@ import java.util.Map;
 @Slf4j
 @RequiredArgsConstructor
 public class MediaServiceImpl implements MediaService {
+
+    /** /{cloud}/{image|video}/upload/[biến đổi/]v{version}/{public_id}.{đuôi} */
+    private static final Pattern CLOUDINARY_PATH =
+            Pattern.compile("^/[^/]+/(image|video)/upload/(?:.+?/)?v\\d+/(.+?)(?:\\.[^./]+)?$");
 
     private final Cloudinary cloudinary;
 
@@ -203,6 +209,44 @@ public class MediaServiceImpl implements MediaService {
         }
 
         return response.getBody();
+    }
+
+    @Override
+    public void deleteByUrl(String url) {
+        CloudinaryAsset asset = parseCloudinaryUrl(url);
+        if (asset == null) {
+            return;
+        }
+        try {
+            Map<String, Object> options = new HashMap<>();
+            options.put("resource_type", asset.resourceType());
+            options.put("invalidate", true);
+            Object result = cloudinary.uploader().destroy(asset.publicId(), options).get("result");
+            log.info("Gỡ file Cloudinary public_id={}: {}", asset.publicId(), result);
+        } catch (Exception e) {
+            log.warn("Không thể gỡ file Cloudinary public_id={}", asset.publicId(), e);
+        }
+    }
+
+    /** Tách resource_type và public_id từ URL Cloudinary; null nếu không phải URL Cloudinary. */
+    static CloudinaryAsset parseCloudinaryUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(url.trim());
+            String host = uri.getHost();
+            if (host == null || !(host.equals("cloudinary.com") || host.endsWith(".cloudinary.com"))) {
+                return null;
+            }
+            Matcher matcher = CLOUDINARY_PATH.matcher(uri.getPath());
+            return matcher.matches() ? new CloudinaryAsset(matcher.group(1), matcher.group(2)) : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    record CloudinaryAsset(String resourceType, String publicId) {
     }
 
     private void validateCloudinaryConfig() {
