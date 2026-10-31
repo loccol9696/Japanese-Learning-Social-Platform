@@ -3,6 +3,8 @@ package com.jlsp.backend.video.entity;
 import com.jlsp.backend.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 
@@ -16,6 +18,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@SQLRestriction("deleted_at IS NULL")
 public class VideoComment {
 
     @Id
@@ -42,8 +45,18 @@ public class VideoComment {
     @Column(nullable = false, length = 1000)
     private String content;
 
+    /** Số lượt đánh giá hữu ích. Có default ở DB để ddl-auto thêm được cột vào bảng đã có dữ liệu. */
+    @Column(name = "like_count", nullable = false)
+    @ColumnDefault("0")
+    @Builder.Default
+    private Integer likeCount = 0;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    /** Thời điểm xóa mềm, trùng với video chứa nó; NULL = chưa xóa. */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {

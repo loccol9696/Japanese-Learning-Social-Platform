@@ -119,6 +119,12 @@ class ApiConstants {
       '$baseUrl/videos/$videoId/approve';
   static String rejectVideoUrl(int videoId) =>
       '$baseUrl/videos/$videoId/reject';
+  static String videoUrl(int videoId) => '$baseUrl/videos/$videoId';
+  static String get videoTrashUrl => '$baseUrl/videos/trash';
+  static String restoreVideoUrl(int videoId) =>
+      '$baseUrl/videos/$videoId/restore';
+  static String permanentDeleteVideoUrl(int videoId) =>
+      '$baseUrl/videos/$videoId/permanent';
 
   // Follow endpoints (chỉ follow lẫn nhau mới nhắn tin được)
   static String followUrl(int userId) => '$baseUrl/users/$userId/follow';

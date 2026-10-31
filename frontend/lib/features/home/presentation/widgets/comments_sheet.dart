@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/auth/auth_guard.dart';
+import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../../follow/presentation/screens/user_profile_screen.dart';
 import '../../../report/report_service.dart';
 import '../../../report/report_sheet.dart';
 import '../../data/models/video_comment.dart';
 import '../../data/services/comment_service.dart';
-import '../../../../core/theme/app_palette.dart';
-import '../../../../core/widgets/app_toast.dart';
+import 'comment_like_button.dart';
+import 'comment_sort_bar.dart';
 
 Future<void> showCommentsSheet(
   BuildContext context, {
@@ -48,6 +50,13 @@ class _CommentsSheetState extends State<_CommentsSheet> {
 
   /// Bình luận đang được trả lời (được tô nổi bật và hiện ở thanh "Đang trả lời").
   VideoComment? _replyTarget;
+  CommentSort _sort = CommentSort.helpful;
+
+  /// Lần tải mới nhất; kết quả của các lần cũ hơn bị bỏ qua khi đổi sort liên tiếp.
+  int _loadId = 0;
+
+  /// Bình luận đang chờ backend xác nhận lượt đánh giá.
+  final Set<int> _likesInFlight = {};
 
   /// Tổng số bình luận bao gồm cả reply lồng nhau.
   int get _totalCommentCount =>
@@ -67,13 +76,93 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   }
 
   Future<void> _load() async {
+    final loadId = ++_loadId;
     try {
-      final comments = await _service.fetchComments(widget.videoId);
-      if (mounted) setState(() => _comments = comments);
+      final comments = await _service.fetchComments(
+        widget.videoId,
+        sort: _sort,
+      );
+      if (mounted && loadId == _loadId) {
+        setState(() {
+          _comments = comments;
+          _error = null;
+        });
+      }
     } catch (error) {
-      if (mounted) setState(() => _error = '$error');
+      if (mounted && loadId == _loadId) setState(() => _error = '$error');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && loadId == _loadId) setState(() => _loading = false);
+    }
+  }
+
+  void _changeSort(CommentSort sort) {
+    setState(() => _sort = sort);
+    _load();
+  }
+
+  bool _isOwnComment(VideoComment comment) =>
+      AuthSession.instance.user?.id == comment.userId;
+
+  void _updateComment(int id, VideoComment Function(VideoComment) update) {
+    VideoComment apply(VideoComment comment) {
+      if (comment.id == id) return update(comment);
+      return comment.copyWith(replies: comment.replies.map(apply).toList());
+    }
+
+    setState(() => _comments = _comments.map(apply).toList());
+  }
+
+  /// Cập nhật ngay trên màn hình rồi lấy số thật từ backend. Danh sách không đổi
+  /// thứ tự tại đây để bình luận không nhảy khỏi vị trí người dùng vừa nhấn.
+  Future<void> _toggleLike(VideoComment comment) async {
+    if (_likesInFlight.contains(comment.id)) return;
+    final wasGuest = !AuthSession.instance.isAuthenticated;
+    if (!await requireAuthentication(
+      context,
+      message: 'Vui lòng đăng nhập để đánh giá bình luận.',
+    )) {
+      return;
+    }
+    if (!mounted || _isOwnComment(comment)) return;
+
+    final liked = !comment.isLiked;
+    _likesInFlight.add(comment.id);
+    _updateComment(
+      comment.id,
+      (current) => current.copyWith(
+        isLiked: liked,
+        likeCount: liked ? current.likeCount + 1 : current.likeCount - 1,
+      ),
+    );
+    try {
+      final result = liked
+          ? await _service.likeComment(widget.videoId, comment.id)
+          : await _service.unlikeComment(widget.videoId, comment.id);
+      if (!mounted) return;
+      _updateComment(
+        comment.id,
+        (current) => current.copyWith(
+          isLiked: result.isLiked,
+          likeCount: result.likeCount,
+        ),
+      );
+      // Danh sách được tải khi còn là khách nên chưa biết các lượt đánh giá trước đó.
+      if (wasGuest) await _load();
+    } catch (error) {
+      if (!mounted) return;
+      _updateComment(
+        comment.id,
+        (current) => current.copyWith(
+          isLiked: comment.isLiked,
+          likeCount: comment.likeCount,
+        ),
+      );
+      AppToast.showError(
+        'Không thể cập nhật đánh giá: $error',
+        context: context,
+      );
+    } finally {
+      _likesInFlight.remove(comment.id);
     }
   }
 
@@ -217,6 +306,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                   ],
                 ),
               ),
+              CommentSortBar(selected: _sort, onChanged: _changeSort),
               Expanded(child: _buildBody()),
               _buildComposer(),
             ],
@@ -336,7 +426,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               ),
                             ),
                             // Phản hồi: ghi rõ đang trả lời ai, để biết ai trả lời ai.
-                            if (isReply && (comment.replyToName ?? '').isNotEmpty)
+                            if (isReply &&
+                                (comment.replyToName ?? '').isNotEmpty)
                               WidgetSpan(
                                 alignment: PlaceholderAlignment.middle,
                                 child: GestureDetector(
@@ -348,7 +439,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                             MaterialPageRoute<void>(
                                               builder: (_) => UserProfileScreen(
                                                 userId: comment.replyToUserId!,
-                                                initialName: comment.replyToName,
+                                                initialName:
+                                                    comment.replyToName,
                                               ),
                                             ),
                                           );
@@ -397,8 +489,16 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
+                    CommentLikeButton(
+                      likeCount: comment.likeCount,
+                      isLiked: comment.isLiked,
+                      onTap: _isOwnComment(comment)
+                          ? null
+                          : () => _toggleLike(comment),
+                    ),
+                    const SizedBox(width: 16),
                     _actionButton('Trả lời', () => _startReply(comment)),
-                    if (AuthSession.instance.user?.id != comment.userId)
+                    if (!_isOwnComment(comment))
                       _actionButton(
                         'Báo cáo',
                         () => showReportSheet(
@@ -480,7 +580,11 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                   IconButton(
                     tooltip: 'Hủy trả lời',
                     onPressed: _cancelReply,
-                    icon: Icon(Icons.close, size: 20, color: AppPalette.textSecondary),
+                    icon: Icon(
+                      Icons.close,
+                      size: 20,
+                      color: AppPalette.textSecondary,
+                    ),
                   ),
                 ],
               ),

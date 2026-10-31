@@ -120,4 +120,14 @@ public class VideoResponse {
      * Thời điểm đăng tải
      */
     private LocalDateTime createdAt;
+
+    /**
+     * Thời điểm chuyển vào thùng rác (chỉ có ở danh sách thùng rác)
+     */
+    private LocalDateTime deletedAt;
+
+    /**
+     * Thời điểm video sẽ bị xóa hẳn (chỉ có ở danh sách thùng rác)
+     */
+    private LocalDateTime purgeAt;
 }

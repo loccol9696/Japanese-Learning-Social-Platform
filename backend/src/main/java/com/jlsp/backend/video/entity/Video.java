@@ -4,6 +4,7 @@ import com.jlsp.backend.user.entity.JLPTLevel;
 import com.jlsp.backend.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 
@@ -21,13 +22,16 @@ import java.time.LocalDateTime;
         // nóng.
         // Lọc theo chủ đề rồi sắp theo thời gian (topic_id hầu như không đổi nên chỉ
         // mục rẻ).
-        @Index(name = "idx_videos_topic_feed", columnList = "topic_id, status, mod_status, created_at")
+        @Index(name = "idx_videos_topic_feed", columnList = "topic_id, status, mod_status, created_at"),
+        // Dọn thùng rác: tìm video đã quá hạn lưu.
+        @Index(name = "idx_videos_deleted_at", columnList = "deleted_at")
 })
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@SQLRestriction("deleted_at IS NULL")
 public class Video {
 
     /**
@@ -172,6 +176,13 @@ public class Video {
      */
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /**
+     * Thời điểm chuyển vào thùng rác; NULL = đang hoạt động.
+     * Hết hạn lưu, VideoTrashPurgeJob xóa hẳn video cùng dữ liệu phụ thuộc.
+     */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {
