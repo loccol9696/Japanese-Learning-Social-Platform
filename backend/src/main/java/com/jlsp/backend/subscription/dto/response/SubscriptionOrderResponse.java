@@ -14,7 +14,8 @@ public class SubscriptionOrderResponse {
 
     private Long id;
     private String orderCode;
-    private String verificationCode;
+    /** Mã chuyển khoản (cũng là mã đơn): người dùng phải ghi đúng mã này trong nội dung chuyển khoản. */
+    private String transferMemo;
     private Long userId;
     private String username;
     private String userEmail;
@@ -22,10 +23,14 @@ public class SubscriptionOrderResponse {
     private String planName;
     private Integer dailyTokenLimit;
     private BigDecimal amount;
+    private BigDecimal paidAmount;
     private String paymentMethod;
     private SubscriptionOrder.OrderStatus status;
     private String qrUrl;
-    private String paymentWebUrl;
+    private String bankName;
+    private String accountNo;
+    private String accountName;
+    private LocalDateTime expiresAt;
     private LocalDateTime createdAt;
     private LocalDateTime completedAt;
 }

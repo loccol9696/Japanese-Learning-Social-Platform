@@ -2,8 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/notification/notification_sheet.dart';
-import 'package:frontend/core/localization/app_language.dart';
-import 'package:frontend/core/localization/locale_manager.dart';
 import 'package:frontend/features/profile/domain/models/topic_model.dart';
 import 'package:frontend/features/profile/domain/models/user_profile_model.dart';
 import 'package:frontend/features/profile/domain/repositories/profile_repository.dart';
@@ -180,8 +178,7 @@ void main() {
     // Tiêu đề và các hàng cài đặt
     expect(find.text('Cài đặt'), findsOneWidget);
     expect(find.text('Tài khoản'), findsOneWidget);
-    expect(find.text('Ngôn ngữ'), findsOneWidget);
-    expect(find.text('Tiếng Việt'), findsOneWidget);
+    expect(find.text('Ngôn ngữ'), findsNothing);
     expect(find.text('Đổi mật khẩu'), findsOneWidget);
     expect(find.text('Người đã chặn'), findsOneWidget);
     // Các mục chưa có tính năng và mục trùng với icon chuông đã được gỡ.
@@ -253,32 +250,21 @@ void main() {
     expect(find.text('Quản lý duyệt nội dung'), findsOneWidget);
   });
 
-  testWidgets('ProfileScreen settings sheet changes the app language', (tester) async {
-    addTearDown(() => localeManager.changeLanguage(AppLanguage.vi));
+  testWidgets('ProfileScreen settings theme picker only offers light and dark', (tester) async {
     final mockRepo = _MockProfileRepository();
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ProfileScreen(repository: mockRepo),
-        ),
-      ),
+      MaterialApp(home: Scaffold(body: ProfileScreen(repository: mockRepo))),
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Tùy chọn & Cài đặt'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ngôn ngữ'));
+    await tester.tap(find.text('Giao diện'));
     await tester.pumpAndSettle();
 
-    // Bảng chọn ngôn ngữ liệt kê cả 3 ngôn ngữ
-    expect(find.text('English'), findsOneWidget);
-    expect(find.text('日本語'), findsOneWidget);
-
-    await tester.tap(find.text('English'));
-    await tester.pumpAndSettle();
-
-    expect(localeManager.currentLanguage, AppLanguage.en);
-    expect(find.text('Switched to English'), findsOneWidget);
+    expect(find.text('Sáng'), findsOneWidget);
+    expect(find.text('Tối'), findsWidgets);
+    expect(find.text('Theo hệ thống'), findsNothing);
   });
 }

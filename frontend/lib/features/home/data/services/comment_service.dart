@@ -28,9 +28,11 @@ class CommentService {
     String videoId,
     String content, {
     int? parentId,
+    int? replyToId,
   }) async {
     final body = <String, dynamic>{'content': content};
     if (parentId != null) body['parentId'] = parentId;
+    if (replyToId != null) body['replyToId'] = replyToId;
     final response = await _apiClient.post(
       '${ApiConstants.baseUrl}/videos/$videoId/comments',
       body: body,

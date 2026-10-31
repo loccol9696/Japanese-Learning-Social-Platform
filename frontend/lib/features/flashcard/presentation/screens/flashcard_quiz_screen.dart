@@ -389,26 +389,27 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
     return Container(
       key: const ValueKey('quiz-question-card'),
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 150),
+      height: 190,
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppPalette.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.06)),
+        border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: AppPalette.textPrimary.withValues(alpha: 0.55),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+          Align(
+            alignment: Alignment.topLeft,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: AppPalette.textPrimary.withValues(alpha: 0.55),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-          const SizedBox(height: 14),
           Center(
             child: Text(
               text,

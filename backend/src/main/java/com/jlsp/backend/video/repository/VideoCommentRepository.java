@@ -4,6 +4,7 @@ import com.jlsp.backend.common.repository.IdCount;
 import com.jlsp.backend.video.entity.VideoComment;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -16,10 +17,16 @@ public interface VideoCommentRepository extends JpaRepository<VideoComment, Long
     List<VideoComment> findByVideoIdAndParentIsNullOrderByCreatedAtDesc(Long videoId);
 
     /** Toàn bộ phản hồi của video trong MỘT truy vấn (thay vì mỗi bình luận gốc một truy vấn). */
-    @EntityGraph(attributePaths = {"user", "parent"})
+    @EntityGraph(attributePaths = {"user", "parent", "replyTo", "replyTo.user"})
     List<VideoComment> findByVideoIdAndParentIsNotNullOrderByCreatedAtAsc(Long videoId);
     long countByVideoId(Long videoId);
+    List<VideoComment> findByParentId(Long parentId);
     void deleteByParentId(Long parentId);
+
+    /** Gỡ liên kết "trả lời" tới các bình luận sắp xoá, để khoá ngoại không chặn việc xoá. */
+    @Modifying
+    @Query("UPDATE VideoComment c SET c.replyTo = null WHERE c.replyTo.id IN :ids")
+    void clearReplyTo(@Param("ids") Collection<Long> ids);
 
     /** Số bình luận của nhiều video trong một truy vấn (video không có bình luận sẽ không có dòng). */
     @Query("SELECT c.video.id AS id, COUNT(c) AS total FROM VideoComment c " +

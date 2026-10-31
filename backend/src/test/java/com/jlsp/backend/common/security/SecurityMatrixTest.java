@@ -117,6 +117,8 @@ class SecurityMatrixTest {
             "POST /api/v1/auth/resend-otp",
             "POST /api/v1/auth/forgot-password",
             "POST /api/v1/auth/reset-password",
+            // Webhook ngân hàng: không có JWT; controller tự xác thực khoá Apikey (có test riêng).
+            "POST /api/v1/payments/webhook/sepay",
     })
     void publicEndpointsDoNotNeedLogin(String endpoint) throws Exception {
         assertThat(call(endpoint, null)).isEqualTo(200);
@@ -127,6 +129,9 @@ class SecurityMatrixTest {
     private static final String[] LOGIN_REQUIRED = {
             "GET /api/v1/profile",
             "PUT /api/v1/profile",
+            "GET /api/v1/onboarding",
+            "PUT /api/v1/onboarding",
+            "POST /api/v1/onboarding/skip",
             "GET /api/v1/notifications",
             "GET /api/v1/notifications/unread-count",
             "POST /api/v1/notifications/read-all",
@@ -147,7 +152,10 @@ class SecurityMatrixTest {
             "GET /api/v1/users/search",
             "POST /api/v1/auth/change-password",
             "POST /api/v1/media/upload",
-            "POST /api/v1/payments/create-order",
+            "POST /api/v1/payments/orders",
+            "GET /api/v1/payments/orders",
+            "GET /api/v1/payments/orders/JLSPABCD2345",
+            "GET /api/v1/payments/my-subscription",
             "GET /api/v1/payments/my-quota",
             "POST /api/speech/transcribe",
     };
@@ -176,6 +184,41 @@ class SecurityMatrixTest {
         assertThat(call("PUT /api/v1/videos/42", null)).isEqualTo(401);
     }
 
+    // ------------------------------------------------------------------ đường dẫn thanh toán cũ không được mở lại
+
+    /**
+     * Các đường dẫn từng bị mở công khai (hoặc tự xác nhận thanh toán) ở bản thanh toán cũ. Chúng không còn tồn tại và
+     * khách gọi vào phải bị chặn ở bộ lọc bảo mật, kể cả khi sau này ai đó thêm lại alias.
+     */
+    private static final String[] LEGACY_PAYMENT_PATHS = {
+            "POST /api/v1/payments/confirm",
+            "POST /api/v1/payments/approve/TX-123456",
+            "POST /api/v1/payments/admin/approve/TX-123456",
+            "POST /api/v1/payments/create-qr-order",
+            "POST /api/v1/payments/checkout",
+            "POST /api/v1/payments/sepay-token",
+            "GET /api/v1/payments/sepay-token/status",
+            "POST /api/v1/payments/webhook/casso",
+            "GET /api/v1/payments/my-status",
+            "GET /api/v1/payments/history",
+            "GET /api/v1/payments/order-status/TX-123456",
+            "GET /api/v1/subscriptions/history",
+            "POST /api/v1/subscriptions/confirm",
+            "PUT /api/v1/subscriptions/plans/3",
+            "POST /api/v1/subscriptions/plans/admin",
+            "DELETE /api/v1/subscriptions/plans/admin/3",
+            "GET /api/payment/history",
+            "POST /api/payment/confirm",
+            "POST /api/payment/webhook/sepay",
+    };
+
+    @Test
+    void legacyPaymentPathsAreNotOpenToGuests() throws Exception {
+        for (String endpoint : LEGACY_PAYMENT_PATHS) {
+            assertThat(call(endpoint, null)).as("khách gọi %s", endpoint).isEqualTo(401);
+        }
+    }
+
     // ------------------------------------------------------------------ chỉ ADMIN
 
     private static final String[] ADMIN_ONLY = {
@@ -194,7 +237,8 @@ class SecurityMatrixTest {
             "POST /api/v1/topics/admin",
             "PUT /api/v1/topics/admin/3",
             "DELETE /api/v1/topics/admin/3",
-            "GET /api/v1/payments/history",
+            "GET /api/v1/admin/payments",
+            "POST /api/v1/admin/payments/JLSPABCD2345/confirm",
             "GET /api/v1/subscription-plans/admin-all",
             "POST /api/v1/subscription-plans",
             "PUT /api/v1/subscription-plans/3",

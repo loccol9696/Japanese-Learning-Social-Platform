@@ -20,6 +20,11 @@ public interface FlashcardRepository extends JpaRepository<Flashcard, Long> {
 
     Page<Flashcard> findByFlashcardSetSetId(Long setId, Pageable pageable);
 
+    /** Thẻ của bộ theo thứ tự hiển thị: đã sắp xếp trước, thẻ mới (chưa có thứ tự) theo thứ tự tạo. */
+    @Query("SELECT f FROM Flashcard f WHERE f.flashcardSet.setId = :setId " +
+           "ORDER BY f.sortOrder ASC NULLS LAST, f.cardId ASC")
+    List<Flashcard> findOrderedBySetId(@Param("setId") Long setId);
+
     long countByFlashcardSetSetId(Long setId);
 
     /** Số thẻ của nhiều bộ trong MỘT truy vấn (bộ không có thẻ sẽ không có dòng). */

@@ -165,4 +165,64 @@ void main() {
 
     await tester.pump(const Duration(seconds: 4));
   });
+
+  group('kéo đổi chỗ thẻ', () {
+    final deck = FlashcardSetModel(setId: 7, title: 'N2', totalCards: 3);
+
+    setUp(() {
+      serverCards = [_card(1, '専門', 'chuyên môn'), _card(2, '学校', 'trường học'), _card(3, '先生', 'giáo viên')];
+    });
+
+    Future<void> dragFirstBelowSecond(WidgetTester tester) async {
+      final gesture = await tester.startGesture(tester.getCenter(find.byKey(const ValueKey('card-drag-handle-0'))));
+      await tester.pump(const Duration(milliseconds: 100));
+      for (var i = 0; i < 8; i++) {
+        await gesture.moveBy(const Offset(0, 30));
+        await tester.pump(const Duration(milliseconds: 30));
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    String termAt(WidgetTester tester, int index) => tester
+        .widget<TextField>(find.descendant(of: draft(index), matching: find.byType(TextField)).first)
+        .controller!
+        .text;
+
+    testWidgets('kéo biểu tượng ⠿ của thẻ đầu xuống thì đổi chỗ và đánh lại số', (tester) async {
+      await pumpEditor(tester, deck: deck);
+      expect(termAt(tester, 0), '専門');
+
+      await dragFirstBelowSecond(tester);
+
+      expect(termAt(tester, 0), '学校');
+      expect(termAt(tester, 1), '専門');
+      expect(termAt(tester, 2), '先生');
+    });
+
+    testWidgets('lưu sau khi đổi chỗ: gửi thứ tự mới lên server', (tester) async {
+      await pumpEditor(tester, deck: deck);
+      await dragFirstBelowSecond(tester);
+
+      await tester.tap(find.text('Lưu'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final order = requests.where((r) => r.method == 'PUT' && r.url.path.endsWith('/flashcards/sets/7/cards/order'));
+      expect(order, hasLength(1));
+      expect(jsonDecode(order.single.body), {'ids': [2, 1, 3]});
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('lưu mà không đổi chỗ: không gọi API sắp xếp', (tester) async {
+      await pumpEditor(tester, deck: deck);
+
+      await tester.tap(find.text('Lưu'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(requests.where((r) => r.url.path.endsWith('/cards/order')), isEmpty);
+      await tester.pump(const Duration(seconds: 5));
+    });
+  });
 }

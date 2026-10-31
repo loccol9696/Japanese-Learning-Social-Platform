@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// Vuốt ngang sang phải ở bất kỳ đâu trên màn để quay lại, màn trượt theo ngón tay như khi vuốt giữa các tab.
@@ -26,6 +27,43 @@ class SwipeBackDetector extends StatefulWidget {
 
   @override
   State<SwipeBackDetector> createState() => _SwipeBackDetectorState();
+}
+
+/// Vùng mà vuốt bắt đầu từ bên trong nó thì không bao giờ là vuốt-quay-lại (ví dụ thẻ học kéo sang phải để chấm điểm).
+///
+/// Chắc chắn hơn việc chỉ dựa vào cuộc đua cử chỉ: ngón tay vừa chạm xuống trong vùng này là [SwipeBackDetector]
+/// bỏ qua cho tới khi nhấc tay.
+class SwipeBackBlocker extends StatelessWidget {
+  const SwipeBackBlocker({super.key, required this.child});
+
+  final Widget child;
+
+  /// Các ngón tay đang chạm trong vùng chặn. Gỡ khi nhấc / huỷ qua route toàn cục nên không bị kẹt nếu widget biến
+  /// mất giữa chừng (vd. thẻ bay đi rồi được thay bằng thẻ mới).
+  static final Set<int> _pressed = {};
+
+  static void _track(PointerDownEvent event) {
+    final pointer = event.pointer;
+    _pressed.add(pointer);
+    final router = GestureBinding.instance.pointerRouter;
+    void release(PointerEvent e) {
+      if (e is PointerUpEvent || e is PointerCancelEvent) {
+        _pressed.remove(pointer);
+        router.removeRoute(pointer, release);
+      }
+    }
+
+    router.addRoute(pointer, release);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: _track,
+      child: child,
+    );
+  }
 }
 
 /// Cho một màn "nhận" cử chỉ vuốt quay lại khi nó đang ở trạng thái con (ví dụ đang xem video trong cùng trang
@@ -137,6 +175,9 @@ class _SwipeBackDetectorState extends State<SwipeBackDetector> {
   }
 
   void _onDragStart(DragStartDetails details) {
+    _override = null;
+    _dragging = false;
+    if (SwipeBackBlocker._pressed.isNotEmpty) return;
     final navigator = _navigator;
     if (navigator == null) return;
     final route = _topRoute(navigator);
@@ -172,8 +213,12 @@ class _SwipeBackDetectorState extends State<SwipeBackDetector> {
     if (override != null) {
       _override = null;
       final width = context.size?.width ?? 1;
-      final velocity = details.velocity.pixelsPerSecond.dx / width; // chiều rộng màn mỗi giây
-      final goBack = velocity.abs() >= _overrideVelocity ? velocity > 0 : _overrideDx / width >= _overrideFraction;
+      final velocity =
+          details.velocity.pixelsPerSecond.dx /
+          width; // chiều rộng màn mỗi giây
+      final goBack = velocity.abs() >= _overrideVelocity
+          ? velocity > 0
+          : _overrideDx / width >= _overrideFraction;
       _overrideDx = 0;
       if (override.onDragEnd != null) {
         override.onDragEnd!(goBack);
@@ -193,15 +238,19 @@ class _SwipeBackDetectorState extends State<SwipeBackDetector> {
     }
 
     final width = context.size?.width ?? 1;
-    final velocity = details.velocity.pixelsPerSecond.dx / width; // chiều rộng màn mỗi giây
+    final velocity =
+        details.velocity.pixelsPerSecond.dx / width; // chiều rộng màn mỗi giây
     // Vuốt đủ nhanh thì theo hướng vuốt; chậm thì theo vị trí đã kéo (qua nửa màn thì quay lại).
-    final shouldPop = velocity.abs() >= 1.0 ? velocity > 0 : controller.value < 0.5;
+    final shouldPop = velocity.abs() >= 1.0
+        ? velocity > 0
+        : controller.value < 0.5;
 
     if (shouldPop) {
       navigator.pop();
       if (controller.isAnimating) {
         void onStatus(AnimationStatus status) {
-          if (status == AnimationStatus.dismissed || status == AnimationStatus.completed) {
+          if (status == AnimationStatus.dismissed ||
+              status == AnimationStatus.completed) {
             controller.removeStatusListener(onStatus);
             navigator.didStopUserGesture();
           }
@@ -213,7 +262,11 @@ class _SwipeBackDetectorState extends State<SwipeBackDetector> {
       }
     } else {
       controller
-          .animateTo(1.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut)
+          .animateTo(
+            1.0,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          )
           .whenComplete(navigator.didStopUserGesture);
     }
   }

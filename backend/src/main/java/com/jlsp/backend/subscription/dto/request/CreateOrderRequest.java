@@ -1,17 +1,15 @@
 package com.jlsp.backend.subscription.dto.request;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
+/** Tạo đơn mua gói: chỉ gửi gói muốn mua; người mua luôn lấy từ access token, không từ body. */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CreateQrOrderRequest {
+public class CreateOrderRequest {
 
     private Long planId;
 
     private String planCode;
-
-    private Long userId;
 }

@@ -12,6 +12,11 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    /** Khoá dòng người dùng khi cộng hạn VIP, để hai đơn thanh toán cùng lúc không ghi đè lên nhau. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE u.id = :id")
+    Optional<User> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
+
     @EntityGraph(attributePaths = "subscriptionPlan")
     Optional<User> findByUsername(String username);
 
@@ -26,9 +31,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
-    /** Email so khớp không phân biệt hoa thường (dữ liệu cũ có thể còn chữ hoa). */
+    /**
+     * Email so khớp không phân biệt hoa thường (dữ liệu cũ có thể còn chữ hoa). Đăng nhập dùng hàm này rồi map sang
+     * UserResponse (đọc tên gói) ngoài phiên làm việc, nên phải nạp sẵn gói, nếu không người đã mua gói đăng nhập sẽ
+     * bị lỗi 500 (LazyInitializationException).
+     */
+    @EntityGraph(attributePaths = "subscriptionPlan")
     Optional<User> findByEmailIgnoreCase(String email);
 
+    @EntityGraph(attributePaths = "subscriptionPlan")
     Optional<User> findByGoogleSub(String googleSub);
 
     boolean existsByEmailIgnoreCase(String email);

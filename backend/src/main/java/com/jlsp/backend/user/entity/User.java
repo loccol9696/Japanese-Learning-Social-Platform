@@ -75,6 +75,15 @@ public class User {
     @Column(name = "vip_expires_at")
     private LocalDateTime vipExpiresAt;
 
+    /** Thời điểm đã trả lời 2 câu hỏi chào mừng (trình độ + sở thích). Null = chưa. */
+    @Column(name = "onboarding_completed_at")
+    private LocalDateTime onboardingCompletedAt;
+
+    /** Số lần bấm "Bỏ qua" câu hỏi chào mừng; đạt mức tối đa thì không hỏi nữa. */
+    @Column(name = "onboarding_skip_count", nullable = false, columnDefinition = "integer default 0 not null")
+    @Builder.Default
+    private Integer onboardingSkipCount = 0;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

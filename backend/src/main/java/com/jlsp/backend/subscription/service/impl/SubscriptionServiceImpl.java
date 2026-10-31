@@ -2,17 +2,12 @@ package com.jlsp.backend.subscription.service.impl;
 
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
-import com.jlsp.backend.common.response.PageResponse;
-import com.jlsp.backend.subscription.dto.request.ConfirmPaymentRequest;
-import com.jlsp.backend.subscription.dto.request.CreateQrOrderRequest;
 import com.jlsp.backend.subscription.dto.request.SubscriptionPlanRequest;
-import com.jlsp.backend.subscription.dto.response.SubscriptionOrderResponse;
 import com.jlsp.backend.subscription.dto.response.SubscriptionPlanResponse;
+import com.jlsp.backend.subscription.dto.response.SubscriptionStatusResponse;
 import com.jlsp.backend.subscription.dto.response.TokenQuotaResponse;
-import com.jlsp.backend.subscription.entity.SubscriptionOrder;
 import com.jlsp.backend.subscription.entity.SubscriptionPlan;
 import com.jlsp.backend.subscription.entity.UserDailyTokenUsage;
-import com.jlsp.backend.subscription.repository.SubscriptionOrderRepository;
 import com.jlsp.backend.subscription.repository.SubscriptionPlanRepository;
 import com.jlsp.backend.subscription.repository.UserDailyTokenUsageRepository;
 import com.jlsp.backend.subscription.service.SubscriptionService;
@@ -20,8 +15,6 @@ import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +30,6 @@ import java.util.stream.Collectors;
 public class SubscriptionServiceImpl implements SubscriptionService {
 
     private final SubscriptionPlanRepository planRepository;
-    private final SubscriptionOrderRepository orderRepository;
     private final UserDailyTokenUsageRepository tokenUsageRepository;
     private final UserRepository userRepository;
 
@@ -129,107 +121,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     }
 
     @Override
-    @Transactional
-    public SubscriptionOrderResponse createQrOrder(CreateQrOrderRequest request) {
-        SubscriptionPlan plan = null;
-        if (request.getPlanId() != null) {
-            plan = planRepository.findById(request.getPlanId()).orElse(null);
-        }
-        if (plan == null && request.getPlanCode() != null && !request.getPlanCode().isBlank()) {
-            plan = planRepository.findByCode(request.getPlanCode().trim().toUpperCase()).orElse(null);
-        }
-        if (plan == null) {
-            plan = planRepository.findAll().stream().findFirst()
-                    .orElseThrow(() -> new AppException(404, "Không tìm thấy gói thành viên tương ứng"));
-        }
-
-        if (request.getUserId() == null) {
-            throw new AppException(401, "Vui lòng đăng nhập để tiếp tục");
-        }
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new AppException(404, "Không tìm thấy tài khoản"));
-
-        long timestamp = System.currentTimeMillis();
-        String orderCode = "TX-" + (timestamp % 1000000);
-        String verificationCode = "JLSP-" + (int)(Math.random() * 90000 + 10000);
-
-        // QR image link using VietQR standard quick-link format / QR Server
-        String qrContent = String.format("JLSP_PAYMENT_%s_%s", orderCode, verificationCode);
-        String qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" + qrContent;
-
-        SubscriptionOrder order = SubscriptionOrder.builder()
-                .orderCode(orderCode)
-                .verificationCode(verificationCode)
-                .user(user)
-                .plan(plan)
-                .amount(plan.getPrice())
-                .paymentMethod("VIETQR_LOCAL")
-                .status(SubscriptionOrder.OrderStatus.PENDING)
-                .qrUrl(qrUrl)
-                .build();
-
-        SubscriptionOrder saved = orderRepository.save(order);
-        log.info("Created QR Payment Order {} for user {} with verificationCode {}", orderCode, user.getUsername(), verificationCode);
-        return toOrderResponse(saved);
-    }
-
-    @Override
-    @Transactional
-    public SubscriptionOrderResponse confirmPayment(ConfirmPaymentRequest request) {
-        String code = request.getVerificationCode() != null ? request.getVerificationCode().trim().toUpperCase() : "";
-        SubscriptionOrder order = orderRepository.findByVerificationCode(code)
-                .orElseThrow(() -> new AppException(400, "Mã xác nhận dưới QR không hợp lệ hoặc không tồn tại: " + code));
-
-        if (order.getStatus() == SubscriptionOrder.OrderStatus.SUCCESS) {
-            return toOrderResponse(order);
-        }
-
-        order.setStatus(SubscriptionOrder.OrderStatus.SUCCESS);
-        order.setCompletedAt(LocalDateTime.now());
-        orderRepository.save(order);
-
-        // Kích hoạt VIP cho User
-        User user = order.getUser();
-        user.setSubscriptionPlan(order.getPlan());
-        LocalDateTime currentExpire = user.getVipExpiresAt();
-        LocalDateTime baseTime = (currentExpire != null && currentExpire.isAfter(LocalDateTime.now())) ? currentExpire : LocalDateTime.now();
-        user.setVipExpiresAt(baseTime.plusDays(order.getPlan().getDurationDays()));
-        userRepository.save(user);
-
-        log.info("Payment CONFIRMED for order {} via code {}. User {} upgraded to plan {} with limit {} tokens/day!",
-                order.getOrderCode(), code, user.getUsername(), order.getPlan().getName(), order.getPlan().getDailyTokenLimit());
-
-        return toOrderResponse(order);
-    }
-
-    @Override
-    public SubscriptionOrderResponse getOrderStatus(String orderCode) {
-        SubscriptionOrder order = orderRepository.findByOrderCode(orderCode)
-                .orElseThrow(() -> new ResourceNotFoundException("SubscriptionOrder", "orderCode", orderCode));
-        return toOrderResponse(order);
-    }
-
-    @Override
-    public PageResponse<SubscriptionOrderResponse> getSubscriptionHistory(SubscriptionOrder.OrderStatus status, Pageable pageable) {
-        Page<SubscriptionOrder> page = (status != null)
-                ? orderRepository.findByStatus(status, pageable)
-                : orderRepository.findAll(pageable);
-
-        List<SubscriptionOrderResponse> responses = page.getContent().stream()
-                .map(this::toOrderResponse)
-                .collect(Collectors.toList());
-
-        return PageResponse.<SubscriptionOrderResponse>builder()
-                .content(responses)
-                .page(page.getNumber())
-                .size(page.getSize())
-                .totalElements(page.getTotalElements())
-                .totalPages(page.getTotalPages())
-                .last(page.isLast())
-                .build();
-    }
-
-    @Override
     public TokenQuotaResponse checkTokenQuota(Long userId) {
         User user = userRepository.findById(userId).orElse(null);
 
@@ -269,6 +160,36 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 .dailyTokenLimit(limit)
                 .tokensUsedToday(used)
                 .tokensRemainingToday(Math.max(0, limit - used))
+                .build();
+    }
+
+    @Override
+    public SubscriptionStatusResponse getMySubscription(Long userId) {
+        User user = userRepository.findById(userId).orElse(null);
+        TokenQuotaResponse quota = checkTokenQuota(userId);
+
+        LocalDateTime now = LocalDateTime.now();
+        SubscriptionPlan plan = user != null ? user.getSubscriptionPlan() : null;
+        boolean paidPlan = plan != null && plan.getPrice() != null && plan.getPrice().signum() > 0;
+        LocalDateTime expiresAt = user != null ? user.getVipExpiresAt() : null;
+        boolean active = paidPlan && (expiresAt == null || expiresAt.isAfter(now));
+        boolean lifetime = active && expiresAt == null;
+        int remainingDays = 0;
+        if (active && expiresAt != null) {
+            remainingDays = (int) Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(now, expiresAt));
+        }
+
+        return SubscriptionStatusResponse.builder()
+                .vip(active)
+                .planId(active ? plan.getId() : null)
+                .planCode(active ? plan.getCode() : null)
+                .planName(quota.getPlanName())
+                .expiresAt(active ? expiresAt : null)
+                .lifetime(lifetime)
+                .remainingDays(remainingDays)
+                .dailyTokenLimit(quota.getDailyTokenLimit())
+                .tokensUsedToday(quota.getTokensUsedToday())
+                .tokensRemainingToday(quota.getTokensRemainingToday())
                 .build();
     }
 
@@ -332,30 +253,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 .isActive(plan.getIsActive())
                 .createdAt(plan.getCreatedAt())
                 .updatedAt(plan.getUpdatedAt())
-                .build();
-    }
-
-    private SubscriptionOrderResponse toOrderResponse(SubscriptionOrder order) {
-        User user = order.getUser();
-        SubscriptionPlan plan = order.getPlan();
-
-        return SubscriptionOrderResponse.builder()
-                .id(order.getId())
-                .orderCode(order.getOrderCode())
-                .verificationCode(order.getVerificationCode())
-                .userId(user != null ? user.getId() : null)
-                .username(user != null ? user.getUsername() : null)
-                .userEmail(user != null ? user.getEmail() : null)
-                .planId(plan != null ? plan.getId() : null)
-                .planName(plan != null ? plan.getName() : null)
-                .dailyTokenLimit(plan != null ? plan.getDailyTokenLimit() : 50)
-                .amount(order.getAmount())
-                .paymentMethod(order.getPaymentMethod())
-                .status(order.getStatus())
-                .qrUrl(order.getQrUrl())
-                .paymentWebUrl("/payment-confirm?code=" + order.getVerificationCode())
-                .createdAt(order.getCreatedAt())
-                .completedAt(order.getCompletedAt())
                 .build();
     }
 }

@@ -25,8 +25,7 @@ class FlashcardListeningScreen extends StatefulWidget {
   State<FlashcardListeningScreen> createState() => _FlashcardListeningScreenState();
 }
 
-class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
-    with SingleTickerProviderStateMixin {
+class _FlashcardListeningScreenState extends State<FlashcardListeningScreen> {
   final TextEditingController _inputController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final FlashcardService _service = FlashcardService.instance;
@@ -42,12 +41,9 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
   int _fireTrigger = 0;
 
   bool _isPlayingAudio = false;
-  double _speechRate = 1.0; // 1.0 or 0.7
   bool _isButtonPressed = false;
 
   Timer? _audioTimeoutTimer;
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
 
   late StudyOptions _options;
 
@@ -56,21 +52,12 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
     super.initState();
     _options = widget.options?.copyWith() ?? StudyOptions();
 
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 850),
-    );
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.20).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
     _loadCards();
   }
 
   @override
   void dispose() {
     _stopAudio();
-    _pulseController.dispose();
     _inputController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -104,10 +91,6 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
   void _stopAudio() {
     _audioTimeoutTimer?.cancel();
     _audioTimeoutTimer = null;
-    if (_pulseController.isAnimating) {
-      _pulseController.stop();
-      _pulseController.reset();
-    }
     if (_isPlayingAudio && mounted) {
       setState(() => _isPlayingAudio = false);
     }
@@ -125,7 +108,6 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
     if (textToSpeak.isEmpty) return;
 
     setState(() => _isPlayingAudio = true);
-    _pulseController.repeat(reverse: true);
 
     _audioTimeoutTimer = Timer(const Duration(seconds: 4), () {
       if (mounted) _stopAudio();
@@ -134,24 +116,16 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
     TtsService.speak(
       text: textToSpeak,
       lang: langCode,
-      rate: _speechRate,
+      rate: 1.0,
       onStart: () {
         if (mounted && !_isPlayingAudio) {
           setState(() => _isPlayingAudio = true);
-          _pulseController.repeat(reverse: true);
         }
       },
       onComplete: () {
         if (mounted) _stopAudio();
       },
     );
-  }
-
-  void _toggleSpeed() {
-    setState(() {
-      _speechRate = (_speechRate == 1.0) ? 0.7 : 1.0;
-    });
-    _playCurrentAudio();
   }
 
   void _openSettings() {
@@ -221,47 +195,6 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
     _service.submitAnswer(card.cardId, isMatch);
 
     Future.delayed(Duration(milliseconds: reachedFireMilestone ? 2100 : 1600), () {
-      if (!mounted) return;
-      if (_currentIndex < _cards.length - 1) {
-        setState(() {
-          _currentIndex++;
-          _inputController.clear();
-          _isCorrect = null;
-          _feedbackMessage = null;
-        });
-        _focusNode.requestFocus();
-        _playCurrentAudio();
-      } else {
-        _showCompleted();
-      }
-    });
-  }
-
-  void _onSkip() {
-    if (_cards.isEmpty) return;
-    final card = _cards[_currentIndex];
-    final isDefinition = _options.displayFrontFace == 'definition';
-
-    String fullAnswerDisplay;
-    if (isDefinition) {
-      final readingPart = (card.reading != null &&
-              card.reading!.trim().isNotEmpty &&
-              card.reading!.trim().toLowerCase() != card.term.trim().toLowerCase())
-          ? ' (${card.reading})'
-          : '';
-      fullAnswerDisplay = '${card.term}$readingPart: ${card.meaning}';
-    } else {
-      fullAnswerDisplay = '${card.meaning} (${card.term})';
-    }
-
-    _streak.record(correct: false);
-    setState(() {
-      _isCorrect = false;
-      _feedbackMessage = 'Đáp án đúng: $fullAnswerDisplay';
-    });
-    _service.submitAnswer(card.cardId, false);
-
-    Future.delayed(const Duration(milliseconds: 1600), () {
       if (!mounted) return;
       if (_currentIndex < _cards.length - 1) {
         setState(() {
@@ -381,125 +314,48 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            SizedBox(
-                              width: 124,
-                              height: 124,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                clipBehavior: Clip.none,
-                                children: [
-                                  // Sóng âm lan tỏa mờ xung quanh khi phát âm thanh
-                                  if (_isPlayingAudio)
-                                    AnimatedBuilder(
-                                      animation: _pulseAnimation,
-                                      builder: (context, child) {
-                                        final waveScale = _pulseAnimation.value;
-                                        final waveOpacity =
-                                            ((1.20 - waveScale) / 0.20 * 0.45).clamp(0.0, 0.45);
-                                        return Container(
-                                          width: 90 * waveScale + 14,
-                                          height: 90 * waveScale + 14,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: AppPalette.accent.withValues(alpha: waveOpacity),
-                                              width: 2.0,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-
-                                  // Nút loa tròn lớn nổi bật (~90px)
-                                  GestureDetector(
-                                    onTapDown: (_) => setState(() => _isButtonPressed = true),
-                                    onTapUp: (_) {
-                                      setState(() => _isButtonPressed = false);
-                                      _playCurrentAudio();
-                                    },
-                                    onTapCancel: () => setState(() => _isButtonPressed = false),
-                                    child: AnimatedScale(
-                                      scale: _isButtonPressed ? 0.94 : 1.0,
-                                      duration: const Duration(milliseconds: 100),
-                                      child: Container(
-                                        width: 90,
-                                        height: 90,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: AppPalette.surfaceHigh,
-                                          border: Border.all(
-                                            color: _isPlayingAudio
-                                                ? AppPalette.accent
-                                                : AppPalette.textPrimary.withValues(alpha: 0.12),
-                                            width: _isPlayingAudio ? 2.5 : 1.5,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: _isPlayingAudio
-                                                  ? AppPalette.accent.withValues(alpha: 0.35)
-                                                  : AppPalette.shadow,
-                                              blurRadius: _isPlayingAudio ? 24 : 12,
-                                              spreadRadius: _isPlayingAudio ? 3 : 0,
-                                            ),
-                                          ],
-                                        ),
-                                        child: Center(
-                                          child: Icon(
-                                            Icons.volume_up_rounded,
-                                            size: 46,
-                                            color: AppPalette.accent,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                            GestureDetector(
+                              onTapDown: (_) =>
+                                  setState(() => _isButtonPressed = true),
+                              onTapUp: (_) {
+                                setState(() => _isButtonPressed = false);
+                                _playCurrentAudio();
+                              },
+                              onTapCancel: () =>
+                                  setState(() => _isButtonPressed = false),
+                              child: AnimatedScale(
+                                scale: _isButtonPressed ? 0.94 : 1.0,
+                                duration: const Duration(milliseconds: 100),
+                                child: Container(
+                                  width: 100,
+                                  height: 100,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppPalette.accent,
                                   ),
-                                ],
+                                  child: Icon(
+                                    Icons.volume_up_rounded,
+                                    size: 40,
+                                    color: AppPalette.onAccent,
+                                  ),
+                                ),
                               ),
                             ),
 
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 18),
 
                             // Dòng text mờ hướng dẫn
                             Text(
-                              'Chạm để nghe',
+                              'Chạm để nghe câu',
                               style: TextStyle(
                                 color: AppPalette.textSecondary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                                fontSize: 16,
                               ),
                             ),
                           ],
                         ),
                       ),
 
-                      // 2. Nút chuyển tốc độ dạng badge thu nhỏ tối giản ở GÓC DƯỚI BÊN PHẢI thẻ
-                      Positioned(
-                        right: 16,
-                        bottom: 16,
-                        child: GestureDetector(
-                          onTap: _toggleSpeed,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppPalette.textPrimary.withValues(alpha: 0.06),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppPalette.textPrimary.withValues(alpha: 0.1),
-                                width: 1.0,
-                              ),
-                            ),
-                            child: Text(
-                              _speechRate == 0.7 ? '0.7x' : '1.0x',
-                              style: TextStyle(
-                                color: AppPalette.textSecondary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -521,55 +377,79 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen>
                     ),
                   ),
 
-                // Nút "Không biết" ở góc phải
+                // Ô nghe-viết và nút kiểm tra đáp án.
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: _onSkip,
-                      child: Text(
-                        'Không biết',
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _inputController,
+                        focusNode: _focusNode,
+                        enabled: _feedbackMessage == null,
+                        minLines: 4,
+                        maxLines: 5,
+                        onChanged: (_) => setState(() {}),
                         style: TextStyle(
-                          color: AppPalette.accent,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          color: AppPalette.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textInputAction: TextInputAction.newline,
+                        decoration: InputDecoration(
+                          hintText: 'Gõ lại câu bạn vừa nghe...',
+                          hintStyle: TextStyle(
+                            color: AppPalette.textSecondary,
+                            fontSize: 16,
+                          ),
+                          filled: true,
+                          fillColor: AppPalette.background,
+                          contentPadding: const EdgeInsets.all(16),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: AppPalette.border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: AppPalette.accent,
+                              width: 1.5,
+                            ),
+                          ),
+                          disabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: AppPalette.border),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-
-                // Vùng nhập liệu gạch chân với gợi ý phù hợp theo mặt thẻ phát âm
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-                  child: TextField(
-                    controller: _inputController,
-                    focusNode: _focusNode,
-                    style: TextStyle(
-                      color: AppPalette.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _checkAnswer(),
-                    decoration: InputDecoration(
-                      hintText: _options.displayFrontFace == 'definition'
-                          ? 'NHẬP THUẬT NGỮ BẠN NGHE ĐƯỢC'
-                          : 'NHẬP ĐỊNH NGHĨA BẠN NGHE ĐƯỢC',
-                      hintStyle: TextStyle(
-                        color: AppPalette.textPrimary.withValues(alpha: 0.35),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: FilledButton(
+                          onPressed:
+                              _inputController.text.trim().isEmpty ||
+                                  _feedbackMessage != null
+                              ? null
+                              : _checkAnswer,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppPalette.accent,
+                            foregroundColor: AppPalette.onAccent,
+                            disabledBackgroundColor: AppPalette.surfaceHigh,
+                            disabledForegroundColor: AppPalette.textSecondary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text(
+                            'Kiểm tra đáp án',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppPalette.accent, width: 2),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppPalette.accent, width: 2.5),
-                      ),
-                    ),
+                    ],
                   ),
                 ),
               ],

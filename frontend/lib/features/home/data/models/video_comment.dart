@@ -2,6 +2,10 @@ class VideoComment {
   final int id;
   final int videoId;
   final int? parentId;
+
+  /// Tên người được trả lời (null với bình luận gốc).
+  final String? replyToName;
+  final int? replyToUserId;
   final int userId;
   final String username;
   final String displayName;
@@ -14,6 +18,8 @@ class VideoComment {
     required this.id,
     required this.videoId,
     required this.parentId,
+    this.replyToName,
+    this.replyToUserId,
     required this.userId,
     required this.username,
     required this.displayName,
@@ -28,6 +34,10 @@ class VideoComment {
       id: _toInt(json['id']),
       videoId: _toInt(json['videoId']),
       parentId: json['parentId'] == null ? null : _toInt(json['parentId']),
+      replyToName: json['replyToName']?.toString(),
+      replyToUserId: json['replyToUserId'] == null
+          ? null
+          : _toInt(json['replyToUserId']),
       userId: _toInt(json['userId']),
       username: json['username']?.toString() ?? '',
       displayName: json['displayName']?.toString() ?? '',

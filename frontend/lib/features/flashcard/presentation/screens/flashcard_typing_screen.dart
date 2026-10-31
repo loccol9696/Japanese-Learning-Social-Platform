@@ -263,7 +263,9 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     // Nếu mặt trước (câu hỏi) là Định nghĩa -> Yêu cầu nhập Thuật ngữ
     // Nếu mặt trước (câu hỏi) là Thuật ngữ -> Yêu cầu nhập Định nghĩa
     final questionText = isInputTerm ? card.meaning : card.term;
-    final hintLabel = isInputTerm ? 'NHẬP THUẬT NGỮ' : 'NHẬP ĐỊNH NGHĨA';
+    final inputHint = isInputTerm
+        ? 'Nhập thuật ngữ...'
+        : 'Nhập định nghĩa...';
 
     return Scaffold(
       backgroundColor: AppPalette.background,
@@ -346,34 +348,78 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
                   ),
                 ),
 
-                // Underline Input Field
+                // Answer input
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-                  child: TextField(
-                    controller: _inputController,
-                    focusNode: _focusNode,
-                    style: TextStyle(
-                      color: AppPalette.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _checkAnswer(),
-                    decoration: InputDecoration(
-                      hintText: hintLabel,
-                      hintStyle: TextStyle(
-                        color: AppPalette.textPrimary.withValues(alpha: 0.35),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _inputController,
+                        focusNode: _focusNode,
+                        enabled: _feedbackMessage == null,
+                        minLines: 4,
+                        maxLines: 5,
+                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textInputAction: TextInputAction.newline,
+                        decoration: InputDecoration(
+                          hintText: inputHint,
+                          hintStyle: TextStyle(
+                            color: AppPalette.textSecondary,
+                            fontSize: 16,
+                          ),
+                          filled: true,
+                          fillColor: AppPalette.background,
+                          contentPadding: const EdgeInsets.all(16),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: AppPalette.border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: AppPalette.accent,
+                              width: 1.5,
+                            ),
+                          ),
+                          disabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: AppPalette.border),
+                          ),
+                        ),
                       ),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppPalette.accent, width: 2),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: FilledButton(
+                          onPressed: _inputController.text.trim().isEmpty ||
+                                  _feedbackMessage != null
+                              ? null
+                              : _checkAnswer,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppPalette.accent,
+                            foregroundColor: AppPalette.onAccent,
+                            disabledBackgroundColor: AppPalette.surfaceHigh,
+                            disabledForegroundColor: AppPalette.textSecondary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text(
+                            'Kiểm tra đáp án',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppPalette.accent, width: 2.5),
-                      ),
-                    ),
+                    ],
                   ),
                 ),
               ],

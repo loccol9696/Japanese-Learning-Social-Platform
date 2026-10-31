@@ -49,6 +49,9 @@ public class UserResponse {
     private LocalDateTime vipExpiresAt;
     private String subscriptionPlanName;
 
+    /** App cần mở câu hỏi chào mừng (trình độ + sở thích) hay không. */
+    private boolean needsOnboarding;
+
     public JLPTLevel getCurrentLevel() {
         return this.jlptLevel;
     }

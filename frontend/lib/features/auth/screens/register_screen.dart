@@ -25,39 +25,38 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final GlobalKey<FormFieldState<String>> _confirmFieldKey =
-      GlobalKey<FormFieldState<String>>();
 
-  // Khớp với ràng buộc backend (RegisterRequest) và cột display_name (100).
+  // Khớp với ràng buộc backend (RegisterRequest).
   static const int _usernameMin = 3;
   static const int _usernameMax = 50;
-  static const int _displayNameMax = 100;
   static const int _passwordMax = 72; // BCrypt chỉ dùng 72 byte đầu
   static const int _emailMax = 254;
 
   static final RegExp _emailRegex = RegExp(
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,}$",
   );
-  static final RegExp _usernameRegex = RegExp(r'^[A-Za-z0-9._]+$');
   static final RegExp _whitespace = RegExp(r'\s');
 
+  /// Họ và tên: chỉ chữ cái, các từ cách nhau đúng một khoảng trắng (khớp DisplayNameRules ở server).
+  static final RegExp _displayNameRegex = RegExp(
+    r'^[\p{L}\p{M}]+( [\p{L}\p{M}]+)*$',
+    unicode: true,
+  );
+  static const int _displayNameMax = 100;
+
   bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
+    _displayNameController.dispose();
     _usernameController.dispose();
-    _nameController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -70,28 +69,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
+  String? _validateDisplayName(String? value) {
+    final name = value?.trim() ?? '';
+    if (name.isEmpty) return 'Vui lòng nhập Họ và tên';
+    if (name.length > _displayNameMax) {
+      return 'Họ và tên tối đa $_displayNameMax ký tự';
+    }
+    if (!_displayNameRegex.hasMatch(name)) {
+      return 'Họ và tên chỉ gồm chữ cái và khoảng trắng, không có ký tự đặc biệt';
+    }
+    return null;
+  }
+
   String? _validateUsername(String? value) {
     final username = value?.trim() ?? '';
     if (username.isEmpty) return 'Vui lòng nhập Tên đăng nhập';
     if (username.length < _usernameMin || username.length > _usernameMax) {
       return 'Tên đăng nhập phải từ $_usernameMin đến $_usernameMax ký tự';
     }
-    if (!_usernameRegex.hasMatch(username)) {
-      return 'Chỉ dùng chữ cái không dấu, số, dấu chấm (.) hoặc gạch dưới (_)';
-    }
-    if (username.startsWith('.') ||
-        username.endsWith('.') ||
-        username.contains('..')) {
-      return 'Dấu chấm không được ở đầu, cuối hoặc đứng liền nhau';
-    }
-    return null;
-  }
-
-  String? _validateDisplayName(String? value) {
-    final name = value?.trim() ?? '';
-    if (name.isEmpty) return 'Vui lòng nhập Họ và tên hiển thị';
-    if (name.length > _displayNameMax) {
-      return 'Họ và tên tối đa $_displayNameMax ký tự';
+    if (_whitespace.hasMatch(username)) {
+      return 'Tên đăng nhập không được chứa khoảng trắng';
     }
     return null;
   }
@@ -105,19 +102,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return validateNewPassword(password);
   }
 
-  String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) return 'Vui lòng nhập lại Mật khẩu';
-    if (value != _passwordController.text) {
-      return 'Mật khẩu nhập lại không khớp';
-    }
-    return null;
-  }
-
   Future<void> _handleRegister() async {
     FocusScope.of(context).unfocus();
     final email = _emailController.text.trim().toLowerCase();
     final username = _usernameController.text.trim();
-    final displayName = _nameController.text.trim();
     final password = _passwordController.text;
 
     if (!(_formKey.currentState?.validate() ?? false)) {
@@ -131,7 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         username: username,
         email: email,
         password: password,
-        displayName: displayName,
+        displayName: _displayNameController.text.trim(),
       );
 
       if (!mounted) return;
@@ -180,10 +168,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     List<TextInputFormatter>? inputFormatters,
     TextInputAction textInputAction = TextInputAction.next,
     Iterable<String>? autofillHints,
-    ValueChanged<String>? onChanged,
     ValueChanged<String>? onFieldSubmitted,
-    Key? fieldKey,
   }) {
+    OutlineInputBorder border([Color? color, double width = 1.5]) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: color == null
+              ? BorderSide.none
+              : BorderSide(color: color, width: width),
+        );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -191,13 +184,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           label,
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            fontSize: 14,
-            color: AppPalette.textPrimary,
+            fontSize: 13,
+            color: AppPalette.textPrimary.withValues(alpha: 0.85),
           ),
         ),
         const SizedBox(height: 8),
         TextFormField(
-          key: fieldKey,
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
@@ -209,7 +201,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
           textInputAction: textInputAction,
           autofillHints: autofillHints,
-          onChanged: onChanged,
           onFieldSubmitted: onFieldSubmitted,
           enabled: !_isLoading,
           style: TextStyle(
@@ -230,26 +221,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             filled: true,
             fillColor: AppPalette.surface,
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppPalette.border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppPalette.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppPalette.accent, width: 1.5),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppPalette.error),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppPalette.error, width: 1.5),
-            ),
+            border: border(),
+            enabledBorder: border(),
+            focusedBorder: border(AppPalette.accent),
+            errorBorder: border(AppPalette.error, 1),
+            focusedErrorBorder: border(AppPalette.error),
             errorMaxLines: 2,
           ),
         ),
@@ -270,261 +246,238 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (mounted) _showSnackBar(message, isError: true);
   }
 
+  void _goToLogin() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppPalette.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: authPagePadding(context),
-          child: Form(
-            key: _formKey,
-            child: AutofillGroup(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-
-                  // Tiêu đề
-                  Text(
-                    'Tạo tài khoản',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppPalette.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // 3. Ô Email
-                  _buildInputField(
-                    label: 'Email',
-                    hintText: 'name@example.com',
-                    prefixIcon: Icons.mail_outline,
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: _validateEmail,
-                    maxLength: _emailMax,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.deny(_whitespace),
-                    ],
-                    autofillHints: const [AutofillHints.email],
-                  ),
-                  const SizedBox(height: 18),
-
-                  // 4. Ô Tên đăng nhập (Username)
-                  _buildInputField(
-                    label: 'Tên đăng nhập',
-                    hintText: 'sakura99',
-                    prefixIcon: Icons.account_circle_outlined,
-                    controller: _usernameController,
-                    validator: _validateUsername,
-                    maxLength: _usernameMax,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.deny(_whitespace),
-                    ],
-                    autofillHints: const [AutofillHints.newUsername],
-                  ),
-                  const SizedBox(height: 18),
-
-                  // 5. Ô Họ và tên (DisplayName)
-                  _buildInputField(
-                    label: 'Họ và tên',
-                    hintText: 'Nguyễn Văn A',
-                    prefixIcon: Icons.person_outline,
-                    controller: _nameController,
-                    keyboardType: TextInputType.name,
-                    validator: _validateDisplayName,
-                    maxLength: _displayNameMax,
-                    autofillHints: const [AutofillHints.name],
-                  ),
-                  const SizedBox(height: 18),
-
-                  // 6. Ô Mật khẩu
-                  _buildInputField(
-                    label: 'Mật khẩu',
-                    hintText: 'Tối thiểu 6 ký tự',
-                    prefixIcon: Icons.lock_outline,
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    validator: _validatePassword,
-                    maxLength: _passwordMax,
-                    autofillHints: const [AutofillHints.newPassword],
-                    onChanged: (_) {
-                      // Kiểm tra lại ô xác nhận khi mật khẩu thay đổi
-                      if (_confirmPasswordController.text.isNotEmpty) {
-                        _confirmFieldKey.currentState?.validate();
-                      }
-                    },
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        size: 20,
-                        color: AppPalette.textSecondary,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // 6b. Ô Nhập lại mật khẩu
-                  _buildInputField(
-                    label: 'Nhập lại mật khẩu',
-                    hintText: 'Nhập lại mật khẩu ở trên',
-                    prefixIcon: Icons.lock_outline,
-                    controller: _confirmPasswordController,
-                    fieldKey: _confirmFieldKey,
-                    obscureText: _obscureConfirmPassword,
-                    validator: _validateConfirmPassword,
-                    maxLength: _passwordMax,
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) {
-                      if (!_isLoading) _handleRegister();
-                    },
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirmPassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        size: 20,
-                        color: AppPalette.textSecondary,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscureConfirmPassword = !_obscureConfirmPassword;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Nút Tạo tài khoản
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppPalette.accent,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: _isLoading ? null : _handleRegister,
-                      child: _isLoading
-                          ? SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: AppPalette.textPrimary,
-                              ),
-                            )
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Tạo tài khoản',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppPalette.textPrimary,
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                                Icon(
-                                  Icons.arrow_forward,
-                                  size: 18,
-                                  color: AppPalette.textPrimary,
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // 9. Kẻ ngang phân cách
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Divider(color: AppPalette.border, thickness: 1),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          'HOẶC TIẾP TỤC VỚI',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppPalette.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Divider(color: AppPalette.border, thickness: 1),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Nút "Tiếp tục với Google"
-                  GoogleSignInButton(
-                    enabled: !_isLoading,
-                    onSuccess: _onGoogleSuccess,
-                    onError: _onGoogleError,
-                  ),
-                  const SizedBox(height: 28),
-
-                  // 11. Chuyển sang màn Đăng nhập
-                  Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: authPagePadding(context),
+                child: Form(
+                  key: _formKey,
+                  child: AutofillGroup(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 20,
+                            color: AppPalette.textPrimary,
+                          ),
+                          onPressed: _goToLogin,
+                        ),
+                        const SizedBox(height: 32),
+
                         Text(
-                          'Đã có tài khoản? ',
+                          'Tạo tài khoản',
                           style: TextStyle(
-                            fontSize: 14,
-                            color: AppPalette.textSecondary,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            color: AppPalette.textPrimary,
                           ),
                         ),
-                        GestureDetector(
-                          onTap: _isLoading
-                              ? null
-                              : () {
-                                  if (Navigator.of(context).canPop()) {
-                                    Navigator.of(context).pop();
-                                  } else {
-                                    Navigator.of(context).pushReplacement(
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const LoginScreen(),
-                                      ),
-                                    );
-                                  }
-                                },
-                          child: Text(
-                            'Đăng nhập ngay',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: AppPalette.textPrimary,
+                        const SizedBox(height: 32),
+
+                        _buildInputField(
+                          label: 'Email',
+                          hintText: 'name@example.com',
+                          prefixIcon: Icons.mail_outline,
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: _validateEmail,
+                          maxLength: _emailMax,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(_whitespace),
+                          ],
+                          autofillHints: const [AutofillHints.email],
+                        ),
+                        const SizedBox(height: 18),
+
+                        _buildInputField(
+                          label: 'Họ và tên',
+                          hintText: 'Nguyễn Văn An',
+                          prefixIcon: Icons.badge_outlined,
+                          controller: _displayNameController,
+                          validator: _validateDisplayName,
+                          maxLength: _displayNameMax,
+                          // Chặn ngay lúc gõ: chỉ nhận chữ cái và khoảng trắng.
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[\p{L}\p{M} ]', unicode: true),
                             ),
+                          ],
+                          autofillHints: const [AutofillHints.name],
+                        ),
+                        const SizedBox(height: 18),
+
+                        _buildInputField(
+                          label: 'Tên đăng nhập',
+                          hintText: 'sakura99',
+                          prefixIcon: Icons.person_outline,
+                          controller: _usernameController,
+                          validator: _validateUsername,
+                          maxLength: _usernameMax,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(_whitespace),
+                          ],
+                          autofillHints: const [AutofillHints.newUsername],
+                        ),
+                        const SizedBox(height: 18),
+
+                        _buildInputField(
+                          label: 'Mật khẩu',
+                          hintText: 'Tối thiểu 8 ký tự, gồm chữ và số',
+                          prefixIcon: Icons.lock_outline,
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          validator: _validatePassword,
+                          maxLength: _passwordMax,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.newPassword],
+                          onFieldSubmitted: (_) {
+                            if (!_isLoading) _handleRegister();
+                          },
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                              size: 20,
+                              color: AppPalette.textSecondary,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
                           ),
                         ),
+                        const SizedBox(height: 24),
+
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppPalette.accent,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            onPressed: _isLoading ? null : _handleRegister,
+                            child: _isLoading
+                                ? SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: AppPalette.textPrimary,
+                                    ),
+                                  )
+                                : Text(
+                                    'Tạo tài khoản',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppPalette.textPrimary,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Divider(
+                                color: AppPalette.border,
+                                thickness: 1,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Text(
+                                'hoặc',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppPalette.textSecondary,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(
+                                color: AppPalette.border,
+                                thickness: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        GoogleSignInButton(
+                          enabled: !_isLoading,
+                          onSuccess: _onGoogleSuccess,
+                          onError: _onGoogleError,
+                        ),
+                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                ),
+              ),
+            ),
+            // Dòng chuyển sang Đăng nhập cố định ở đáy màn hình.
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                authPagePadding(context).left,
+                8,
+                authPagePadding(context).right,
+                24,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Đã có tài khoản? ',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppPalette.textSecondary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _isLoading ? null : _goToLogin,
+                    child: Text(
+                      'Đăng nhập',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppPalette.textPrimary,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

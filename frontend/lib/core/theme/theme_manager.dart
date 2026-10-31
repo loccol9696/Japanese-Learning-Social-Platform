@@ -39,7 +39,7 @@ class ThemeManager extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(_prefsKey);
-      final restored = ThemeMode.values.where((m) => m.name == saved);
+      final restored = [ThemeMode.light, ThemeMode.dark].where((m) => m.name == saved); // bỏ lựa chọn "theo hệ thống" cũ
       if (restored.isNotEmpty) _apply(restored.first);
     } catch (_) {
       // Không đọc được bộ nhớ thì dùng mặc định.

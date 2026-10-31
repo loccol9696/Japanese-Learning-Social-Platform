@@ -65,6 +65,21 @@ cloudinary:
   api-key: ${CLOUDINARY_API_KEY}
   api-secret: ${CLOUDINARY_API_SECRET}
 
+# Thanh toán mua gói bằng chuyển khoản VietQR. Thiếu thông tin tài khoản nhận thì không tạo được đơn.
+payment:
+  enabled: ${PAYMENT_ENABLED:true}
+  bank-bin: ${PAYMENT_BANK_BIN:}
+  bank-name: ${PAYMENT_BANK_NAME:}
+  account-no: ${PAYMENT_ACCOUNT_NO:}
+  account-name: ${PAYMENT_ACCOUNT_NAME:}
+  order-ttl-minutes: ${PAYMENT_ORDER_TTL_MINUTES:15}
+  late-grace-hours: ${PAYMENT_LATE_GRACE_HOURS:24}
+  max-orders-per-hour: ${PAYMENT_MAX_ORDERS_PER_HOUR:10}
+
+sepay:
+  # Khoá bí mật SePay gửi kèm webhook (header Authorization: Apikey <khoá>). Để trống thì webhook từ chối mọi yêu cầu.
+  webhook-key: ${SEPAY_WEBHOOK_KEY:}
+
 server:
   port: 8080
   # Nén gzip JSON (feed kèm phụ đề khá nặng); app Flutter / trình duyệt tự giải nén.

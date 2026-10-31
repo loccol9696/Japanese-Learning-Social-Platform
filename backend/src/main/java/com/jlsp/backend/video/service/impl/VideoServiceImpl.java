@@ -23,6 +23,7 @@ import com.jlsp.backend.video.repository.VideoCommentRepository;
 import com.jlsp.backend.video.repository.VideoLikeRepository;
 import com.jlsp.backend.video.repository.VideoRepository;
 import com.jlsp.backend.video.repository.VideoSaveRepository;
+import com.jlsp.backend.video.service.ForYouRanker;
 import com.jlsp.backend.video.service.VideoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -224,6 +225,36 @@ public class VideoServiceImpl implements VideoService {
         }
 
         return toVideoPageResponse(page, currentUserId);
+    }
+
+    /** Số video mới nhất được đưa vào xếp hạng; đủ rộng để có lựa chọn, đủ nhỏ để xếp trong bộ nhớ. */
+    static final int RECOMMEND_POOL_SIZE = 400;
+
+    /**
+     * Feed "Dành cho bạn" theo trình độ và sở thích người dùng đã chọn ở câu hỏi chào mừng.
+     * Chưa đăng nhập hoặc chưa có sở thích thì dùng feed thường.
+     */
+    @Override
+    public PageResponse<VideoResponse> getRecommendedFeed(Long currentUserId, Pageable pageable) {
+        User viewer = currentUserId == null ? null : userRepository.findById(currentUserId).orElse(null);
+        ForYouRanker.Preferences prefs = viewer == null ? null : new ForYouRanker.Preferences(
+                viewer.getJlptLevel(),
+                viewer.getTopics().stream().map(t -> t.getId()).collect(Collectors.toSet()));
+        if (prefs == null || prefs.isEmpty()) {
+            return getForYouFeed(currentUserId, null, pageable);
+        }
+
+        Page<Video> pool = videoRepository.findFeed(VideoStatus.PUBLIC, VideoModStatus.APPROVED,
+                excludedAuthorIds(currentUserId),
+                org.springframework.data.domain.PageRequest.of(0, RECOMMEND_POOL_SIZE,
+                        org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")));
+        List<Video> ranked = ForYouRanker.rank(pool.getContent(), prefs, LocalDateTime.now());
+
+        long from = Math.min(pageable.getOffset(), ranked.size());
+        long to = Math.min(from + pageable.getPageSize(), ranked.size());
+        Pageable plain = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        return toVideoPageResponse(new org.springframework.data.domain.PageImpl<>(
+                ranked.subList((int) from, (int) to), plain, ranked.size()), currentUserId);
     }
 
     /**
@@ -541,6 +572,9 @@ public class VideoServiceImpl implements VideoService {
         }
         if ("following".equalsIgnoreCase(feed)) {
             return getFollowingFeed(currentUserId, pageable);
+        }
+        if ("recommended".equalsIgnoreCase(feed) && topicId == null && jlptLevel == null) {
+            return getRecommendedFeed(currentUserId, pageable);
         }
         if (topicId != null) {
             return getTopicFeed(currentUserId, topicId, jlptLevel, pageable);

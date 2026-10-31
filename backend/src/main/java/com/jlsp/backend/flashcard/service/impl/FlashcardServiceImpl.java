@@ -161,7 +161,7 @@ public class FlashcardServiceImpl implements FlashcardService {
     public FlashcardSetResponse getSetById(Long userId, Long setId) {
         FlashcardSet set = requireReadableSet(userId, setId);
         List<FlashcardResponse> preview = cardRepository
-                .findByFlashcardSetSetId(setId, PageRequest.of(0, DETAIL_PREVIEW_CARDS, Sort.by("cardId")))
+                .findByFlashcardSetSetId(setId, PageRequest.of(0, DETAIL_PREVIEW_CARDS, Sort.by(Sort.Order.asc("sortOrder").nullsLast(), Sort.Order.asc("cardId"))))
                 .getContent().stream()
                 .map(c -> mapToCardResponse(c, null))
                 .collect(Collectors.toList());
@@ -173,8 +173,40 @@ public class FlashcardServiceImpl implements FlashcardService {
     @Transactional
     public void deleteSet(Long userId, Long setId) {
         FlashcardSet set = requireOwnedSet(userId, setId, "You do not have permission to delete this set");
-        progressRepository.deleteByUserIdAndSetId(userId, setId);
+        // Cả tiến độ của người khác đã luyện trên bộ công khai này, nếu không khóa ngoại sẽ chặn việc xóa.
+        progressRepository.deleteAllBySetId(setId);
         setRepository.delete(set);
+    }
+
+    @Override
+    @Transactional
+    public void reorderSets(Long userId, List<Long> orderedSetIds) {
+        List<FlashcardSet> sets = setRepository.findAllOrderedByUserId(userId);
+        List<Long> current = sets.stream().map(FlashcardSet::getSetId).toList();
+        List<Long> order = ReorderUtil.apply(current, orderedSetIds);
+        Map<Long, FlashcardSet> byId = sets.stream().collect(Collectors.toMap(FlashcardSet::getSetId, s -> s));
+        for (int i = 0; i < order.size(); i++) {
+            FlashcardSet set = byId.get(order.get(i));
+            if (!Objects.equals(set.getSortOrder(), i)) {
+                set.setSortOrder(i);
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void reorderCards(Long userId, Long setId, List<Long> orderedCardIds) {
+        requireOwnedSet(userId, setId, "You do not have permission to reorder cards in this set");
+        List<Flashcard> cards = cardRepository.findOrderedBySetId(setId);
+        List<Long> current = cards.stream().map(Flashcard::getCardId).toList();
+        List<Long> order = ReorderUtil.apply(current, orderedCardIds);
+        Map<Long, Flashcard> byId = cards.stream().collect(Collectors.toMap(Flashcard::getCardId, c -> c));
+        for (int i = 0; i < order.size(); i++) {
+            Flashcard card = byId.get(order.get(i));
+            if (!Objects.equals(card.getSortOrder(), i)) {
+                card.setSortOrder(i);
+            }
+        }
     }
 
     // ------------------------------------------------------------------ thẻ
@@ -183,7 +215,7 @@ public class FlashcardServiceImpl implements FlashcardService {
     @Transactional(readOnly = true)
     public List<FlashcardResponse> getCardsInSet(Long userId, Long setId, Boolean starredOnly, Boolean shuffle) {
         requireReadableSet(userId, setId);
-        List<Flashcard> cards = cardRepository.findByFlashcardSetSetId(setId);
+        List<Flashcard> cards = cardRepository.findOrderedBySetId(setId);
         Map<Long, FlashcardProgress> progressMap = progressRepository.findByUserIdAndSetId(userId, setId).stream()
                 .collect(Collectors.toMap(p -> p.getId().getCardId(), p -> p));
 
@@ -228,6 +260,7 @@ public class FlashcardServiceImpl implements FlashcardService {
     @Transactional
     public void deleteCard(Long userId, Long cardId) {
         Flashcard card = requireOwnedCard(userId, cardId, "You do not have permission to delete this card");
+        progressRepository.deleteByCardId(card.getCardId());
         cardRepository.delete(card);
     }
 
@@ -260,7 +293,6 @@ public class FlashcardServiceImpl implements FlashcardService {
                         .id(new FlashcardProgressId(userId, cardId))
                         .user(user)
                         .flashcard(card)
-                        .boxLevel(0)
                         .correctCount(0)
                         .incorrectCount(0)
                         .build());
@@ -281,26 +313,18 @@ public class FlashcardServiceImpl implements FlashcardService {
                         .id(new FlashcardProgressId(userId, request.getCardId()))
                         .user(user)
                         .flashcard(card)
-                        .boxLevel(0)
                         .correctCount(0)
                         .incorrectCount(0)
                         .isStarred(false)
                         .build());
 
-        int currentLevel = progress.getBoxLevel() != null ? progress.getBoxLevel() : 0;
-        LocalDateTime now = LocalDateTime.now();
-        progress.setLastReviewedAt(now);
-
+        // Các chế độ luyện tập (trắc nghiệm, gõ, nghe, ghép cặp) chỉ ghi thống kê đúng/sai. Lịch ôn (nextReviewAt,
+        // ease, khoảng cách) chỉ do học ngắt quãng (reviewCard) quyết định, tránh hai thuật toán ghi đè lên nhau.
+        progress.setLastReviewedAt(LocalDateTime.now());
         if (Boolean.TRUE.equals(request.getIsCorrect())) {
-            int newLevel = Math.min(5, currentLevel + 1);
-            progress.setBoxLevel(newLevel);
-            progress.setCorrectCount((progress.getCorrectCount() != null ? progress.getCorrectCount() : 0) + 1);
-            progress.setNextReviewAt(calculateNextReview(now, newLevel));
+            progress.setCorrectCount(nz(progress.getCorrectCount()) + 1);
         } else {
-            int newLevel = Math.max(0, currentLevel - 1);
-            progress.setBoxLevel(newLevel);
-            progress.setIncorrectCount((progress.getIncorrectCount() != null ? progress.getIncorrectCount() : 0) + 1);
-            progress.setNextReviewAt(now.plusHours(12));
+            progress.setIncorrectCount(nz(progress.getIncorrectCount()) + 1);
         }
 
         progressRepository.save(progress);
@@ -423,7 +447,8 @@ public class FlashcardServiceImpl implements FlashcardService {
         List<StudyCardResponse> due = new ArrayList<>();
         List<StudyCardResponse> fresh = new ArrayList<>();
 
-        for (Flashcard card : cardRepository.findByFlashcardSetSetId(setId)) {
+        // Theo thứ tự người dùng đã sắp xếp, để thẻ mới được học đúng thứ tự đó.
+        for (Flashcard card : cardRepository.findOrderedBySetId(setId)) {
             FlashcardProgress p = progressMap.get(card.getCardId());
             CardState state = p == null || p.getSrsState() == null ? CardState.NEW : p.getSrsState();
             boolean scheduled = p != null && p.getNextReviewAt() != null;
@@ -507,14 +532,10 @@ public class FlashcardServiceImpl implements FlashcardService {
         if (next.lapsed()) {
             progress.setLapseCount(nz(progress.getLapseCount()) + 1);
         }
-        // Giữ các chỉ số cũ để phần "đã thuộc" ở Thư viện thẻ vẫn chạy.
-        int box = nz(progress.getBoxLevel());
         if (next.graduated()) {
             progress.setCorrectCount(nz(progress.getCorrectCount()) + 1);
-            progress.setBoxLevel(Math.min(5, box + 1));
         } else if (request.getRating() == ReviewRating.AGAIN) {
             progress.setIncorrectCount(nz(progress.getIncorrectCount()) + 1);
-            progress.setBoxLevel(Math.max(0, box - 1));
         }
         progressRepository.save(progress);
         streakService.recordActivity(userId);
@@ -567,7 +588,9 @@ public class FlashcardServiceImpl implements FlashcardService {
     @Override
     @Transactional
     public void resetSetProgress(Long userId, Long setId) {
-        progressRepository.deleteByUserIdAndSetId(userId, setId);
+        // Giữ dấu sao: chỉ xóa tiến độ của thẻ không gắn sao, còn thẻ gắn sao thì đưa về như chưa học.
+        progressRepository.deleteUnstarredByUserIdAndSetId(userId, setId);
+        progressRepository.resetStarredByUserIdAndSetId(userId, setId);
     }
 
     // ------------------------------------------------------------------ lưu từ vựng từ video
@@ -676,17 +699,6 @@ public class FlashcardServiceImpl implements FlashcardService {
         }
         return userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(404, "Không tìm thấy tài khoản"));
-    }
-
-    private LocalDateTime calculateNextReview(LocalDateTime now, int boxLevel) {
-        return switch (boxLevel) {
-            case 1 -> now.plusDays(1);
-            case 2 -> now.plusDays(3);
-            case 3 -> now.plusDays(7);
-            case 4 -> now.plusDays(14);
-            case 5 -> now.plusDays(30);
-            default -> now.plusHours(12);
-        };
     }
 
     private FlashcardSetResponse mapToSetResponse(FlashcardSet set, long totalCards, long masteredCount,

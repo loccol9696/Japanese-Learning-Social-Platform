@@ -68,6 +68,12 @@ public interface VideoService {
     PageResponse<VideoResponse> getForYouFeed(Long currentUserId, JLPTLevel jlptLevel, Pageable pageable);
 
     /**
+     * Feed "Dành cho bạn" xếp theo trình độ và sở thích người dùng đã chọn (feed=recommended).
+     * Chưa đăng nhập hoặc chưa có sở thích thì trả feed thường.
+     */
+    PageResponse<VideoResponse> getRecommendedFeed(Long currentUserId, Pageable pageable);
+
+    /**
      * Lấy danh sách video từ những Creator mà người dùng đang theo dõi (Following
      * Feed).
      *
