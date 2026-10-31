@@ -520,7 +520,7 @@ class _ShadowingSheetState extends State<ShadowingSheet> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Expanded(
                     child: ListView(
                       children: [

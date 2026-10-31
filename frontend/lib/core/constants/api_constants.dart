@@ -23,6 +23,7 @@ class ApiConstants {
     if (kIsWeb) {
       return 'http://localhost:8080/api/v1';
     }
+
     try {
       if (Platform.isAndroid) {
         return 'http://10.0.2.2:8080/api/v1';
@@ -30,6 +31,7 @@ class ApiConstants {
     } catch (_) {
       // Fallback
     }
+
     return 'http://localhost:8080/api/v1';
   }
 
@@ -88,6 +90,8 @@ class ApiConstants {
       '$baseUrl/flashcards/video/save';
   static String speechStatusUrl(String taskId) =>
       '${baseUrl.replaceFirst('/api/v1', '/api')}/speech/status/$taskId';
+  static String get analyzeGrammarUrl =>
+      '${baseUrl.replaceFirst('/api/v1', '/api')}/speech/analyze-grammar';
 
   // Subscription endpoints
   static String get subscriptionPlansBaseUrl => '$baseUrl/subscription-plans';
@@ -143,6 +147,14 @@ class ApiConstants {
       '$baseUrl/chat/conversations/$id/messages';
   static String chatReadUrl(int id) => '$baseUrl/chat/conversations/$id/read';
   static String get chatUnreadCountUrl => '$baseUrl/chat/unread-count';
+  static String chatRecallUrl(int messageId) =>
+      '$baseUrl/chat/messages/$messageId/recall';
+  static String chatTranslationUrl(int messageId) =>
+      '$baseUrl/chat/messages/$messageId/translation';
+  static String chatBlockUrl(int userId) => '$baseUrl/chat/blocks/$userId';
+  static String get chatDevicesUrl => '$baseUrl/chat/devices';
+  static String get chatImageUploadUrl =>
+      '$baseUrl/media/upload?folder=jlsp/chat';
   static String shareVideoUrl(int videoId) => '$baseUrl/videos/$videoId/share';
   static String shareDeckUrl(int deckId) => '$baseUrl/flashcards/sets/$deckId/share';
   static String videoDetailUrl(String videoId) => '$baseUrl/videos/$videoId';

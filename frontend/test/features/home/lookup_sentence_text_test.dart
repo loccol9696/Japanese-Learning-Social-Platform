@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/home/presentation/widgets/lookup_sentence_text.dart';
 import 'package:frontend/features/home/presentation/widgets/ruby_subtitle_widget.dart';
+import 'package:frontend/features/home/presentation/widgets/word_lookup_card.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';

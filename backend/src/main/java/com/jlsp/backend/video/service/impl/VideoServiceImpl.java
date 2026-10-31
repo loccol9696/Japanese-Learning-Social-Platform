@@ -16,6 +16,7 @@ import com.jlsp.backend.video.dto.response.ShadowingPracticeResponse;
 import com.jlsp.backend.video.dto.response.VideoDetailResponse;
 import com.jlsp.backend.video.dto.response.VideoResponse;
 import com.jlsp.backend.video.entity.*;
+import com.jlsp.backend.video.event.SubtitlesUpdatedEvent;
 import com.jlsp.backend.video.mapper.VideoMapper;
 import com.jlsp.backend.video.repository.ShadowingPracticeRepository;
 import com.jlsp.backend.video.repository.VideoCommentRepository;
@@ -27,6 +28,7 @@ import com.jlsp.backend.video.service.VideoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import java.time.LocalDateTime;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -64,6 +66,7 @@ public class VideoServiceImpl implements VideoService {
 
     /** Một người xem chỉ được tính một lượt xem cho mỗi video trong khoảng này. */
     static final java.time.Duration VIEW_DEDUP_WINDOW = java.time.Duration.ofMinutes(30);
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Đăng tải bài học video mới.
@@ -84,6 +87,12 @@ public class VideoServiceImpl implements VideoService {
                 : null;
         Video video = videoMapper.toEntity(request, creator, topic);
         Video savedVideo = videoRepository.save(video);
+
+        // Có subtitles và chưa có kết quả phân tích ngữ pháp trước đó -> phân tích ngữ pháp bằng AI sau khi commit
+        if (savedVideo.getSubtitles() != null && !savedVideo.getSubtitles().isBlank()
+                && (savedVideo.getGrammarAnalysis() == null || savedVideo.getGrammarAnalysis().isBlank())) {
+            eventPublisher.publishEvent(new SubtitlesUpdatedEvent(savedVideo.getId()));
+        }
 
         log.info("Tạo video thành công với ID: {}", savedVideo.getId());
         return videoMapper.toVideoDetailResponse(savedVideo, false, false);
@@ -492,12 +501,15 @@ public class VideoServiceImpl implements VideoService {
         validateOwnership(video, currentUserId);
 
         video.setSubtitles(subtitlesJson);
+        // Subtitles đổi -> kết quả phân tích cũ không còn đúng, xoá và phân tích lại
+        video.setGrammarAnalysis(null);
         Video updated = videoRepository.save(video);
 
         boolean isLiked = videoLikeRepository.existsByIdUserIdAndIdVideoId(currentUserId, videoId);
         boolean isSaved = videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, videoId);
 
         log.info("Cập nhật phụ đề thành công cho video ID: {}", videoId);
+        eventPublisher.publishEvent(new SubtitlesUpdatedEvent(videoId));
         return videoMapper.toVideoDetailResponse(updated, isLiked, isSaved);
     }
 

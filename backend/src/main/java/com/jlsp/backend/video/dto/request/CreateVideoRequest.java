@@ -63,6 +63,11 @@ public class CreateVideoRequest {
     private String subtitles;
 
     /**
+     * Dữ liệu phân tích ngữ pháp định dạng JSON (nếu có)
+     */
+    private String grammarAnalysis;
+
+    /**
      * Trạng thái hiển thị (Mặc định là PUBLIC nếu null)
      */
     private VideoStatus status;

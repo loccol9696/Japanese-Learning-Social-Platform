@@ -23,6 +23,7 @@ import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/auth/auth_guard.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../chat/data/services/chat_hub.dart';
 import '../../../chat/presentation/screens/messages_tab.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -83,6 +84,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   void _syncFeedPlayback() {
     _feedPlaybackAllowed.value =
         _currentNavIndex == 0 && _pagesAboveFeed == 0 && !_routeCovered;
+    ChatHub.instance.messagesTabVisible.value =
+        _currentNavIndex == BottomNavDock.messagesIndex;
   }
 
   @override

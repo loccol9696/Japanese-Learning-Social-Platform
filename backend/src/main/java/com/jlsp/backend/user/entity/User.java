@@ -60,7 +60,7 @@ public class User {
     @Builder.Default
     private Boolean isActive = true;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "subscription_plan_id")
     private com.jlsp.backend.subscription.entity.SubscriptionPlan subscriptionPlan;
 

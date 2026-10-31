@@ -34,6 +34,7 @@ class VideoPost {
     this.videoUrl = '',
     required this.creatorName,
     this.creatorId,
+
     required this.creatorTag,
     required this.creatorAvatarUrl,
     required this.accentInfo,
@@ -117,8 +118,8 @@ class VideoPost {
       id: json['id'] as String? ?? '',
       backgroundImageUrl: json['backgroundImageUrl'] as String? ?? '',
       videoUrl: json['videoUrl'] as String? ?? '',
-      creatorName: json['creatorName'] as String? ?? '',
       creatorId: (json['creatorId'] as num?)?.toInt(),
+      creatorName: json['creatorName'] as String? ?? '',
       creatorTag: json['creatorTag'] as String? ?? '',
       creatorAvatarUrl: json['creatorAvatarUrl'] as String? ?? '',
       accentInfo: json['accentInfo'] as String? ?? '',

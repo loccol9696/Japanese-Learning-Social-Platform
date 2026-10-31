@@ -19,8 +19,6 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   datasource:
     url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -49,19 +47,18 @@ spring:
     host: smtp.gmail.com
     port: 587
     username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}         # App Password 16 ký tự từ Google
+    password: ${MAIL_PASSWORD} # App Password 16 ký tự từ Google
     properties:
       mail:
         smtp:
           auth: true
           starttls:
             enable: true
-  ai:
+ai:
   vocal-service:
     # Điền link từ Cloudflare / Ngrok của máy bạn
     url: untraitorous-huong-conversably.ngrok-free.dev/api/v1/separate-vocal
     enabled: true
-
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
@@ -104,6 +101,13 @@ socketio:
   enabled: ${SOCKETIO_ENABLED:true}
   host: ${SOCKETIO_HOST:0.0.0.0}
   port: ${SOCKETIO_PORT:9092}
+  # Số luồng xử lý event; mỗi user luôn vào cùng một luồng để giữ thứ tự tin nhắn
+  worker-threads: ${SOCKETIO_WORKER_THREADS:4}
+
+# Thông báo đẩy chat qua Firebase Cloud Messaging. Để trống thì tự tắt.
+fcm:
+  project-id: ${FCM_PROJECT_ID:}
+  credentials-path: ${FCM_CREDENTIALS_PATH:}
 
 jwt:
   # Bắt buộc khai báo, tối thiểu 32 byte (256 bit). Server sẽ không khởi động nếu thiếu.
@@ -111,7 +115,6 @@ jwt:
   issuer: jlsp-backend
   access-token-ttl: ${JWT_ACCESS_TTL:PT30M}
   refresh-token-ttl: ${JWT_REFRESH_TTL:P14D}
-
 ---
 # Cấu hình riêng khi chạy Profile: dev
 spring:
@@ -127,6 +130,14 @@ gcp:
 app:
   security:
     enabled: true
+
+ai-analysis:
+  mock:
+    delay-ms: 1500
+    enabled: true
+  api-key: "fake-key"
+  base-url: "https://fake-api.com"
+  
 
 ---
 # Cấu hình riêng cho môi trường Production
@@ -147,7 +158,7 @@ spring:
 
 app:
   security:
-    enabled: true          # Bắt buộc bật toàn bộ filter bảo mật và kiểm tra JWT
+    enabled: true # Bắt buộc bật toàn bộ filter bảo mật và kiểm tra JWT
 
 gcp:
   stt:
@@ -157,3 +168,10 @@ gcp:
     credentials-path: ${GCP_CREDENTIALS_PATH:classpath:credentials/credentials.json}
   storage:
     bucket-name: ${GCP_BUCKET_NAME:sptote_bucket_1}
+
+ai-analysis:
+  mock:
+    enabled: false
+  api-key: ${GEMINI_API_KEY}
+  base-url: "https://generativelanguage.googleapis.com/v1beta"
+  model: ${GEMINI_MODEL}

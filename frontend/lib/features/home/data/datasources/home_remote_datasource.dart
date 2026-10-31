@@ -106,7 +106,6 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       backgroundImageUrl: _previewImageUrl(videoUrl, thumbnailUrl),
       videoUrl: videoUrl,
       creatorName: creatorName,
-      creatorId: _toInt(json['creatorId']) == 0 ? null : _toInt(json['creatorId']),
       creatorTag: creatorTag,
       creatorAvatarUrl: creatorAvatarUrl,
       accentInfo: 'Japanese Learning',

@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+
+import 'package:http/http.dart' as http;
+
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/chat_models.dart';
@@ -35,11 +39,6 @@ class ChatService {
     return Conversation.fromJson(_map(data));
   }
 
-  /// Xoá cuộc trò chuyện ở phía mình: tin hiện có bị ẩn và hội thoại ra khỏi hộp thư; người kia vẫn giữ lịch sử.
-  Future<void> deleteConversation(int id) async {
-    await _api.delete(ApiConstants.chatConversationUrl(id));
-  }
-
   /// [before] lấy tin cũ hơn (mới nhất trước); [after] lấy tin mới hơn mốc đó
   /// (cũ nhất trước) để đồng bộ phần đã lỡ. Không dùng cả hai cùng lúc.
   Future<MessagePage> fetchMessages(
@@ -62,13 +61,87 @@ class ChatService {
   Future<ChatMessage> sendText(
     int conversationId,
     String content,
-    String clientMsgId,
-  ) async {
+    String clientMsgId, {
+    int? replyToId,
+  }) async {
     final data = await _api.post(
       ApiConstants.chatMessagesUrl(conversationId),
-      body: {'type': 'TEXT', 'content': content, 'clientMsgId': clientMsgId},
+      body: {
+        'type': 'TEXT',
+        'content': content,
+        'clientMsgId': clientMsgId,
+        'replyToId': ?replyToId,
+      },
     );
     return ChatMessage.fromJson(_map(data));
+  }
+
+  /// Đường gửi ảnh dự phòng khi socket mất kết nối.
+  Future<ChatMessage> sendImage(
+    int conversationId,
+    String imageUrl,
+    String clientMsgId, {
+    int? replyToId,
+  }) async {
+    final data = await _api.post(
+      ApiConstants.chatMessagesUrl(conversationId),
+      body: {
+        'type': 'IMAGE',
+        'imageUrl': imageUrl,
+        'clientMsgId': clientMsgId,
+        'replyToId': ?replyToId,
+      },
+    );
+    return ChatMessage.fromJson(_map(data));
+  }
+
+  /// Tải ảnh lên Cloudinary qua backend, trả về URL.
+  Future<String> uploadImage(Uint8List bytes, String fileName) async {
+    final response = await _api.sendMultipart(
+      () =>
+          http.MultipartRequest(
+              'POST',
+              Uri.parse(ApiConstants.chatImageUploadUrl),
+            )
+            ..files.add(
+              http.MultipartFile.fromBytes('file', bytes, filename: fileName),
+            ),
+      timeout: const Duration(seconds: 60),
+    );
+    final data = _map(ApiClient.decodeResponse(response));
+    return (data['secureUrl'] ?? data['url']).toString();
+  }
+
+  Future<ChatMessage> recallMessage(int messageId) async {
+    final data = await _api.post(ApiConstants.chatRecallUrl(messageId));
+    return ChatMessage.fromJson(_map(data));
+  }
+
+  /// Bản dịch Nhật → Việt của một tin.
+  Future<String> translateMessage(int messageId) async {
+    final data = await _api.get(ApiConstants.chatTranslationUrl(messageId));
+    return _map(data)['translation']?.toString() ?? '';
+  }
+
+  /// Xoá đoạn chat ở phía người dùng hiện tại.
+  Future<void> deleteConversation(int conversationId) async {
+    await _api.delete(ApiConstants.chatConversationUrl(conversationId));
+  }
+
+  Future<void> blockUser(int userId) async {
+    await _api.post(ApiConstants.chatBlockUrl(userId));
+  }
+
+  Future<void> unblockUser(int userId) async {
+    await _api.delete(ApiConstants.chatBlockUrl(userId));
+  }
+
+  /// Đăng ký token FCM để nhận thông báo đẩy.
+  Future<void> registerDevice(String token, String platform) async {
+    await _api.post(
+      ApiConstants.chatDevicesUrl,
+      body: {'token': token, 'platform': platform},
+    );
   }
 
   Future<void> markRead(int conversationId, int lastMessageId) async {

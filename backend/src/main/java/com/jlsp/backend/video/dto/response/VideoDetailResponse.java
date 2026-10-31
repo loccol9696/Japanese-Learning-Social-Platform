@@ -61,6 +61,11 @@ public class VideoDetailResponse {
     private String subtitles;
 
     /**
+     * Kết quả phân tích ngữ pháp (JSON array SegmentGrammarAnalysis), null nếu chưa phân tích xong
+     */
+    private String grammarAnalysis;
+
+    /**
      * Lượt xem
      */
     private Long viewCount;

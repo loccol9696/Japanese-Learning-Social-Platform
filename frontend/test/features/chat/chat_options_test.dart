@@ -173,7 +173,7 @@ void main() {
       await openChat(tester);
 
       await chooseOption(tester, 'Xóa cuộc trò chuyện');
-      expect(find.text('Xóa cuộc trò chuyện?'), findsOneWidget);
+      expect(find.text('Xóa đoạn chat với Yuuka?'), findsOneWidget);
       expect(requests.where((r) => r.method == 'DELETE'), isEmpty); // chưa xoá khi chưa xác nhận
 
       await tester.tap(find.text('Xóa'));
@@ -196,7 +196,7 @@ void main() {
       expect(find.byKey(const ValueKey('chat-options-button')), findsOneWidget);
     });
 
-    testWidgets('chặn người dùng: xác nhận rồi gọi POST block và thoát khung chat', (tester) async {
+    testWidgets('chặn người dùng: xác nhận rồi gọi POST chặn trong chat', (tester) async {
       await openChat(tester);
 
       await chooseOption(tester, 'Chặn người dùng');
@@ -205,9 +205,8 @@ void main() {
       await tester.tap(find.text('Chặn'));
       await tester.pumpAndSettle();
 
-      final blocks = requests.where((r) => r.method == 'POST' && r.url.path.endsWith('/users/5/block'));
+      final blocks = requests.where((r) => r.method == 'POST' && r.url.path.endsWith('/chat/blocks/5'));
       expect(blocks, hasLength(1));
-      expect(find.text('vào chat'), findsOneWidget);
     });
 
     testWidgets('báo cáo mở bảng chọn lý do báo cáo người dùng', (tester) async {

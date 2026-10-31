@@ -7,7 +7,6 @@ import 'package:frontend/features/home/presentation/widgets/video_info_overlay.d
 const _post = VideoPost(
   id: '1',
   backgroundImageUrl: '',
-  creatorId: 7,
   creatorName: 'Bob',
   creatorTag: '@bob',
   creatorAvatarUrl: '',

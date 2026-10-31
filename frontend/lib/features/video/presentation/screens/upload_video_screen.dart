@@ -610,6 +610,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   bool _isSubmitting = false;
   bool _isTranscribing = false;
   bool _isManualSubtitleMode = false;
+  bool _isAnalyzingGrammar = false;
 
   @override
   void initState() {
@@ -652,8 +653,13 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         if (result is! Map<String, dynamic>) {
           throw Exception('Không thể kiểm tra kết quả AI.');
         }
-        final body = result;
+        // Trường hợp backend bọc trong ApiResponse { code, message, data: {...} }
+        final Map<String, dynamic> body = (result['data'] is Map<String, dynamic>)
+            ? (result['data'] as Map<String, dynamic>)
+            : result;
         final status = body['status']?.toString();
+        debugPrint('[STT DEBUG] status=$status, totalSegments=${body['totalSegments']}');
+
         if (status == 'COMPLETED') {
           final segments = body['segments'];
           if (segments is List) {
@@ -670,7 +676,9 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                   ..clear()
                   ..addAll(drafts);
                 _isTranscribing = false;
+                _isManualSubtitleMode = false;
               });
+              _showMessage('Đã tạo phụ đề thành công (${drafts.length} đoạn)!');
             }
           }
           return;
@@ -763,6 +771,95 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     subtitle.dispose();
   }
 
+  double _parseTimeToSeconds(String timeStr) {
+    final parts = timeStr.trim().split(':');
+    if (parts.length != 2) return 0.0;
+    final minutes = int.tryParse(parts[0]) ?? 0;
+    final seconds = double.tryParse(parts[1]) ?? 0.0;
+    return (minutes * 60 + seconds);
+  }
+
+  Future<void> _analyzeGrammar() async {
+    final validSubtitles = _subtitles
+        .where((s) => s.japanese.text.trim().isNotEmpty)
+        .toList();
+    if (validSubtitles.isEmpty) {
+      _showMessage('Chưa có lời thoại để phân tích ngữ pháp.');
+      return;
+    }
+
+    setState(() => _isAnalyzingGrammar = true);
+    try {
+      final segmentsPayload = validSubtitles.map((s) {
+        return {
+          'startTime': _parseTimeToSeconds(s.start),
+          'endTime': _parseTimeToSeconds(s.end),
+          'text': s.japanese.text.trim(),
+          'translatedText': s.translation.text.trim(),
+        };
+      }).toList();
+
+      final response = await ApiClient.instance.post(
+        ApiConstants.analyzeGrammarUrl,
+        body: {'segments': segmentsPayload},
+      );
+      debugPrint('[GRAMMAR DEBUG] raw response: $response');
+      List<dynamic>? results;
+      if (response is List) {
+        results = response;
+      } else if (response is Map<String, dynamic>) {
+        if (response['data'] is List) {
+          results = response['data'] as List<dynamic>;
+        } else if (response['result'] is List) {
+          results = response['result'] as List<dynamic>;
+        }
+      }
+
+      if (results != null && mounted) {
+        setState(() {
+          for (var i = 0; i < results!.length && i < validSubtitles.length; i++) {
+            final item = results[i];
+            if (item is Map<String, dynamic> && item['grammarPoints'] is List) {
+              final points = (item['grammarPoints'] as List)
+                  .whereType<Map<String, dynamic>>()
+                  .map(_GrammarDraft.fromJson)
+                  .toList();
+              validSubtitles[i].grammarPoints = points;
+            }
+          }
+        });
+        final totalPoints = validSubtitles.fold<int>(0, (sum, s) => sum + s.grammarPoints.length);
+        _showMessage('Phân tích ngữ pháp thành công! Tìm thấy $totalPoints điểm ngữ pháp.');
+      }
+    } catch (error, stack) {
+      debugPrint("[GRAMMAR ERROR] $error\n$stack");
+      if (mounted) {
+        _showMessage(error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isAnalyzingGrammar = false);
+      }
+    }
+  }
+
+  String? _grammarAnalysisJson() {
+    final items = <Map<String, dynamic>>[];
+    for (var i = 0; i < _subtitles.length; i++) {
+      final s = _subtitles[i];
+      if (s.japanese.text.trim().isEmpty) continue;
+      items.add({
+        'index': i,
+        'startTime': _parseTimeToSeconds(s.start),
+        'endTime': _parseTimeToSeconds(s.end),
+        'text': s.japanese.text.trim(),
+        'grammarPoints': s.grammarPoints.map((g) => g.toJson()).toList(),
+      });
+    }
+    final hasPoints = items.any((it) => (it['grammarPoints'] as List).isNotEmpty);
+    return hasPoints ? jsonEncode(items) : null;
+  }
+
   Future<void> _publish({bool asDraft = false}) async {
     if (_titleController.text.trim().isEmpty ||
         _thumbnailController.text.trim().isEmpty) {
@@ -786,6 +883,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           if (_topicId != null) 'topicId': _topicId,
           'videoUrl': widget.videoUrl,
           'subtitles': _subtitleJson(),
+          'grammarAnalysis': _grammarAnalysisJson(),
           'status': asDraft ? 'PRIVATE' : (_isPublic ? 'PUBLIC' : 'PRIVATE'),
         },
       );
@@ -876,14 +974,56 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             _buildTopicSelector(),
           ],
           const SizedBox(height: 22),
-          _buildSectionTitle('Phụ đề & Lời thoại'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildSectionTitle('Phụ đề & Lời thoại'),
+              if (_subtitles.isNotEmpty && !_isTranscribing)
+                TextButton.icon(
+                  onPressed: _isAnalyzingGrammar ? null : _analyzeGrammar,
+                  icon: _isAnalyzingGrammar
+                      ? SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppPalette.accent,
+                          ),
+                        )
+                      : Icon(Icons.psychology_outlined, size: 18, color: AppPalette.accent),
+                  label: Text(
+                    _isAnalyzingGrammar ? 'Đang phân tích...' : 'Phân tích ngữ pháp',
+                    style: TextStyle(
+                      color: AppPalette.accent,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 10),
           _buildSubtitleModeSelector(),
           const SizedBox(height: 12),
-          if (_isTranscribing)
+          if (_isTranscribing || _isAnalyzingGrammar)
             Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: LinearProgressIndicator(color: AppPalette.accent),
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LinearProgressIndicator(color: AppPalette.accent),
+                  const SizedBox(height: 6),
+                  Text(
+                    _isAnalyzingGrammar
+                        ? 'AI đang phân tích ngữ pháp trong từng đoạn thoại...'
+                        : 'AI đang nhận diện lời thoại và sinh phụ đề...',
+                    style: TextStyle(
+                      color: AppPalette.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
             ),
           if (!_isTranscribing && _subtitles.isEmpty && !_isManualSubtitleMode)
             Padding(
@@ -1243,6 +1383,65 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               style: TextStyle(color: AppPalette.textSecondary),
             ),
           ],
+          if (subtitle.grammarPoints.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: subtitle.grammarPoints.map((g) {
+                return Tooltip(
+                  message: '${g.meaning}\n${g.explanation}',
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3B1D28),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppPalette.accent.withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppPalette.accent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            g.jlptLevel.isNotEmpty ? g.jlptLevel : 'JLPT',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          g.pattern,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if (g.meaning.isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            ': ${g.meaning}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppPalette.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
     );
@@ -1344,6 +1543,7 @@ class _SubtitleDraft {
   final japanese = TextEditingController();
   final translation = TextEditingController();
   bool editing;
+  List<_GrammarDraft> grammarPoints;
 
   _SubtitleDraft({
     required this.start,
@@ -1351,7 +1551,8 @@ class _SubtitleDraft {
     String japaneseText = '',
     String translationText = '',
     this.editing = true,
-  }) {
+    List<_GrammarDraft>? grammarPoints,
+  }) : grammarPoints = grammarPoints ?? [] {
     japanese.text = japaneseText;
     translation.text = translationText;
   }
@@ -1360,4 +1561,38 @@ class _SubtitleDraft {
     japanese.dispose();
     translation.dispose();
   }
+}
+
+class _GrammarDraft {
+  final String pattern;
+  final String matchedText;
+  final String jlptLevel;
+  final String meaning;
+  final String explanation;
+
+  const _GrammarDraft({
+    required this.pattern,
+    required this.matchedText,
+    required this.jlptLevel,
+    required this.meaning,
+    required this.explanation,
+  });
+
+  factory _GrammarDraft.fromJson(Map<String, dynamic> json) {
+    return _GrammarDraft(
+      pattern: json['pattern']?.toString() ?? '',
+      matchedText: json['matchedText']?.toString() ?? '',
+      jlptLevel: json['jlptLevel']?.toString() ?? '',
+      meaning: json['meaning']?.toString() ?? '',
+      explanation: json['explanation']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'pattern': pattern,
+    'matchedText': matchedText,
+    'jlptLevel': jlptLevel,
+    'meaning': meaning,
+    'explanation': explanation,
+  };
 }

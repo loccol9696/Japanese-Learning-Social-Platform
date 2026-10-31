@@ -39,6 +39,7 @@ public class VideoMapper {
                 .topic(topic)
                 .videoUrl(request.getVideoUrl())
                 .subtitles(request.getSubtitles())
+                .grammarAnalysis(request.getGrammarAnalysis())
                 .status(request.getStatus() != null ? request.getStatus() : VideoStatus.PUBLIC)
                 .modStatus((request.getStatus() == VideoStatus.PRIVATE) 
                         ? com.jlsp.backend.video.entity.VideoModStatus.APPROVED 
@@ -119,6 +120,7 @@ public class VideoMapper {
                 .topicName(video.getTopic() != null ? video.getTopic().getName() : null)
                 .videoUrl(video.getVideoUrl())
                 .subtitles(video.getSubtitles())
+                .grammarAnalysis(video.getGrammarAnalysis())
                 .viewCount(video.getViewCount())
                 .likeCount(video.getLikeCount())
                 .saveCount(video.getSaveCount())

@@ -2,6 +2,7 @@ package com.jlsp.backend.chat.controller;
 
 import com.jlsp.backend.chat.dto.request.CreateConversationRequest;
 import com.jlsp.backend.chat.dto.request.MarkReadRequest;
+import com.jlsp.backend.chat.dto.request.RegisterDeviceRequest;
 import com.jlsp.backend.chat.dto.request.SendMessageRequest;
 import com.jlsp.backend.chat.dto.request.ShareDeckRequest;
 import com.jlsp.backend.chat.dto.request.ShareVideoRequest;
@@ -11,6 +12,7 @@ import com.jlsp.backend.chat.dto.response.MessagePageResponse;
 import com.jlsp.backend.chat.dto.response.MessageResponse;
 import com.jlsp.backend.chat.dto.response.ReadReceiptResponse;
 import com.jlsp.backend.chat.service.ChatService;
+import com.jlsp.backend.chat.service.ChatTranslationService;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.response.PageResponse;
@@ -36,6 +38,7 @@ import java.util.Map;
 public class ChatController {
 
     private final ChatService chatService;
+    private final ChatTranslationService translationService;
 
     /** GET /api/v1/chat/contacts — những người follow lẫn nhau (được phép nhắn tin). */
     @GetMapping("/chat/contacts")
@@ -64,11 +67,11 @@ public class ChatController {
         return ResponseEntity.ok(ApiResponse.success(chatService.getConversation(CurrentUser.requireId(), id)));
     }
 
-    /** DELETE /api/v1/chat/conversations/{id} — xoá cuộc trò chuyện ở phía mình (người kia vẫn giữ lịch sử). */
+    /** DELETE /api/v1/chat/conversations/{id} — xoá đoạn chat ở phía người gọi. */
     @DeleteMapping("/chat/conversations/{id}")
     public ResponseEntity<ApiResponse<Void>> clearConversation(@PathVariable Long id) {
         chatService.clearConversation(CurrentUser.requireId(), id);
-        return ResponseEntity.ok(ApiResponse.success(200, "Đã xoá cuộc trò chuyện", null));
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã xoá đoạn chat", null));
     }
 
     /**
@@ -117,6 +120,47 @@ public class ChatController {
     public ResponseEntity<ApiResponse<Map<String, Long>>> getUnreadCount() {
         return ResponseEntity.ok(ApiResponse.success(
                 Map.of("count", chatService.getUnreadCount(CurrentUser.requireId()))));
+    }
+
+    /** POST /api/v1/chat/messages/{id}/recall — thu hồi tin của mình (trong 24 giờ). */
+    @PostMapping("/chat/messages/{id}/recall")
+    public ResponseEntity<ApiResponse<MessageResponse>> recallMessage(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(chatService.recallMessage(CurrentUser.requireId(), id)));
+    }
+
+    /** GET /api/v1/chat/messages/{id}/translation — dịch tin nhắn Nhật → Việt. */
+    @GetMapping("/chat/messages/{id}/translation")
+    public ResponseEntity<ApiResponse<Map<String, String>>> translateMessage(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                Map.of("translation", translationService.translate(CurrentUser.requireId(), id))));
+    }
+
+    /** POST /api/v1/chat/blocks/{userId} — chặn một người trong chat. */
+    @PostMapping("/chat/blocks/{userId}")
+    public ResponseEntity<ApiResponse<Void>> blockUser(@PathVariable Long userId) {
+        chatService.blockUser(CurrentUser.requireId(), userId);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã chặn", null));
+    }
+
+    /** DELETE /api/v1/chat/blocks/{userId} — bỏ chặn. */
+    @DeleteMapping("/chat/blocks/{userId}")
+    public ResponseEntity<ApiResponse<Void>> unblockUser(@PathVariable Long userId) {
+        chatService.unblockUser(CurrentUser.requireId(), userId);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã bỏ chặn", null));
+    }
+
+    /** POST /api/v1/chat/devices — đăng ký token FCM của thiết bị. */
+    @PostMapping("/chat/devices")
+    public ResponseEntity<ApiResponse<Void>> registerDevice(@Valid @RequestBody RegisterDeviceRequest request) {
+        chatService.registerDevice(CurrentUser.requireId(), request.getToken(), request.getPlatform());
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã đăng ký thiết bị", null));
+    }
+
+    /** DELETE /api/v1/chat/devices?token=... — ngừng nhận thông báo trên thiết bị này. */
+    @DeleteMapping("/chat/devices")
+    public ResponseEntity<ApiResponse<Void>> unregisterDevice(@RequestParam String token) {
+        chatService.unregisterDevice(CurrentUser.requireId(), token);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã huỷ đăng ký thiết bị", null));
     }
 
     /** POST /api/v1/videos/{id}/share — chia sẻ video cho nhiều người (follow lẫn nhau). */

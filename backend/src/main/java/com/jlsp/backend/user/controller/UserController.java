@@ -13,6 +13,9 @@ import com.jlsp.backend.user.dto.response.PublicProfileResponse;
 import com.jlsp.backend.user.dto.response.UserResponse;
 import com.jlsp.backend.user.service.FollowService;
 import com.jlsp.backend.user.service.UserService;
+import com.jlsp.backend.video.dto.response.VideoResponse;
+import com.jlsp.backend.video.service.VideoService;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -30,7 +33,7 @@ public class UserController {
 
     private final UserService userService;
     private final FollowService followService;
-    private final com.jlsp.backend.video.service.VideoService videoService;
+    private final VideoService videoService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody CreateUserRequest request) {
@@ -171,12 +174,12 @@ public class UserController {
      * GET /api/v1/users/{id}/videos
      */
     @GetMapping("/{id}/videos")
-    public ResponseEntity<ApiResponse<PageResponse<com.jlsp.backend.video.dto.response.VideoResponse>>> getVideosByUserId(
+    public ResponseEntity<ApiResponse<PageResponse<VideoResponse>>> getVideosByUserId(
             @PathVariable Long id,
             @PageableDefault(size = 10, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
 
         Long viewerId = CurrentUser.idOrNull();
-        PageResponse<com.jlsp.backend.video.dto.response.VideoResponse> response = videoService.getVideosByUserId(id,
+        PageResponse<VideoResponse> response = videoService.getVideosByUserId(id,
                 viewerId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }

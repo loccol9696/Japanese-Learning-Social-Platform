@@ -12,9 +12,13 @@ import '../core/widgets/app_toast.dart';
 import '../core/widgets/swipe_back_detector.dart';
 import '../features/auth/data/auth_session.dart';
 import '../features/auth/screens/login_screen.dart';
+import '../core/network/api_exception.dart';
 import '../features/onboarding/data/onboarding_service.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/chat/data/services/chat_hub.dart';
+import '../features/chat/data/services/chat_push_service.dart';
+import '../features/chat/data/services/chat_service.dart';
+import '../features/chat/presentation/screens/chat_detail_screen.dart';
 import '../features/notification/notification_hub.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import 'routes.dart';
@@ -49,6 +53,7 @@ class App extends StatefulWidget {
 
 class _AppState extends State<App> {
   StreamSubscription<void>? _expiredSubscription;
+  StreamSubscription<int>? _pushSubscription;
 
   @override
   void initState() {
@@ -57,6 +62,9 @@ class _AppState extends State<App> {
     ChatHub.instance.init();
     // Thông báo: giữ số chưa đọc và nhận thông báo mới qua cùng kết nối socket.
     NotificationHub.instance.init();
+    _pushSubscription = ChatPushService.instance.onOpenConversation.listen(
+      _openConversation,
+    );
     // Theme: khôi phục lựa chọn sáng/tối đã lưu; đổi theme thì dựng lại toàn bộ
     // cây widget để cả các widget `const` cũng nhận màu mới.
     themeManager.init();
@@ -75,7 +83,22 @@ class _AppState extends State<App> {
   void dispose() {
     themeManager.removeListener(_rebuildEverything);
     _expiredSubscription?.cancel();
+    _pushSubscription?.cancel();
     super.dispose();
+  }
+
+  /// Người dùng bấm vào thông báo tin nhắn.
+  Future<void> _openConversation(int conversationId) async {
+    try {
+      final conversation = await ChatService().fetchConversation(conversationId);
+      AppToast.navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => ChatDetailScreen(conversation: conversation),
+        ),
+      );
+    } on ApiException catch (error) {
+      AppToast.showError(error.message);
+    }
   }
 
   /// Màu được đọc qua getter toàn cục nên widget `const` sẽ không tự dựng lại;

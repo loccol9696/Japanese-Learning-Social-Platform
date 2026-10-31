@@ -149,6 +149,13 @@
 			<artifactId>kuromoji-ipadic</artifactId>
 			<version>0.9.0</version>
 		</dependency>
+		<!-- Source: https://mvnrepository.com/artifact/com.google.genai/google-genai -->
+		<dependency>
+			<groupId>com.google.genai</groupId>
+			<artifactId>google-genai</artifactId>
+			<version>1.78.0</version>
+			<scope>compile</scope>
+		</dependency>
 		<!-- Server Socket.IO (chat realtime), chạy port riêng, hỗ trợ client Socket.IO 1.x - 4.x -->
 		<dependency>
 			<groupId>com.corundumstudio.socketio</groupId>

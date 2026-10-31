@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../data/services/dictionary_service.dart';
 import 'ruby_subtitle_widget.dart';
+import 'word_lookup_card.dart';
 
 /// Câu tiếng Nhật chạm vào từng từ để tra nghĩa và lưu Flashcard, dùng cho danh sách câu thoại ở màn Kịch bản.
 ///

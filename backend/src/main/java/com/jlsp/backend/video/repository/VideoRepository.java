@@ -28,7 +28,18 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 
     long countByStatus(VideoStatus status);
 
-    @EntityGraph(attributePaths = "user")
+    /**
+     * Lưu kết quả phân tích ngữ pháp, CHỈ KHI subtitles vẫn là bản đã được phân tích.
+     * Nếu user đã sửa subtitles trong lúc AI chạy -> không cập nhật (trả về 0),
+     * job mới (do lần sửa đó kích hoạt) sẽ ghi kết quả đúng.
+     */
+    @Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("UPDATE Video v SET v.grammarAnalysis = :analysis WHERE v.id = :id AND v.subtitles = :subtitles")
+    int updateGrammarAnalysisIfSubtitlesUnchanged(@Param("id") Long id,
+                                                  @Param("subtitles") String subtitles,
+                                                  @Param("analysis") String analysis);
+
     Page<Video> findByModStatus(com.jlsp.backend.video.entity.VideoModStatus modStatus, Pageable pageable);
 
     long countByModStatus(com.jlsp.backend.video.entity.VideoModStatus modStatus);

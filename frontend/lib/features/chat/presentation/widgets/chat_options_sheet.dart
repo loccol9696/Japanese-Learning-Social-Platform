@@ -6,16 +6,19 @@ import '../../../../core/theme/app_palette.dart';
 enum ChatOption { report, block, deleteConversation }
 
 /// Mở bảng tuỳ chọn (báo cáo, chặn, xoá cuộc trò chuyện); trả về lựa chọn hoặc null nếu đóng bảng.
-Future<ChatOption?> showChatOptionsSheet(BuildContext context) {
+Future<ChatOption?> showChatOptionsSheet(BuildContext context, {bool blocked = false}) {
   return showModalBottomSheet<ChatOption>(
     context: context,
     backgroundColor: Colors.transparent,
-    builder: (_) => const ChatOptionsSheet(),
+    builder: (_) => ChatOptionsSheet(blocked: blocked),
   );
 }
 
 class ChatOptionsSheet extends StatelessWidget {
-  const ChatOptionsSheet({super.key});
+  const ChatOptionsSheet({super.key, this.blocked = false});
+
+  /// Đã chặn người này thì dòng chặn đổi thành "Bỏ chặn".
+  final bool blocked;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +53,7 @@ class ChatOptionsSheet extends StatelessWidget {
               _OptionRow(
                 key: const ValueKey('chat-option-block'),
                 icon: Icons.block_rounded,
-                label: 'Chặn người dùng',
+                label: blocked ? 'Bỏ chặn người dùng' : 'Chặn người dùng',
                 color: AppPalette.error,
                 option: ChatOption.block,
               ),

@@ -5,7 +5,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/token_storage.dart';
-import 'package:frontend/core/widgets/square_add_button.dart';
 import 'package:frontend/features/chat/presentation/screens/inbox_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -60,64 +59,14 @@ Future<void> _pumpInbox(WidgetTester tester, List<Map<String, dynamic>> conversa
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('có ô tìm cuộc trò chuyện và nút + bên phải, kể cả khi hộp thư trống', (tester) async {
-    await _pumpInbox(tester, const []);
-
-    expect(find.text('Tin nhắn'), findsOneWidget);
-    expect(find.text('Tìm cuộc trò chuyện...'), findsOneWidget);
-    expect(find.byKey(const ValueKey('new-chat-button')), findsOneWidget);
-    expect(find.text('Chưa có cuộc trò chuyện nào'), findsOneWidget);
-
-    final field = tester.getRect(find.byKey(const ValueKey('inbox-search')));
-    final button = tester.getRect(find.byType(SquareAddButton));
-    expect(button.left, greaterThan(field.right));
-  });
-
-  testWidgets('gõ vào ô tìm kiếm lọc theo tên, username hoặc nội dung tin cuối', (tester) async {
-    await _pumpInbox(tester, [
-      _conversation(1, 'Yuuka', 'yuukachan', 'cái gì'),
-      _conversation(2, 'Haruto', 'haruto99', 'Cảm ơn nhé'),
-      _conversation(3, 'Mai Linh', 'mailinh', 'Video hay quá'),
-    ]);
-    expect(find.text('Yuuka'), findsOneWidget);
-    expect(find.text('Haruto'), findsOneWidget);
-
-    await tester.enterText(find.byKey(const ValueKey('inbox-search')), 'haru');
-    await tester.pump();
-    expect(find.text('Haruto'), findsOneWidget);
-    expect(find.text('Yuuka'), findsNothing);
-
-    await tester.enterText(find.byKey(const ValueKey('inbox-search')), 'video');
-    await tester.pump();
-    expect(find.text('Mai Linh'), findsOneWidget);
-    expect(find.text('Haruto'), findsNothing);
-
-    await tester.enterText(find.byKey(const ValueKey('inbox-search')), 'yuukachan');
-    await tester.pump();
-    expect(find.text('Yuuka'), findsOneWidget);
-  });
-
-  testWidgets('không khớp ai thì báo không tìm thấy; xoá chữ thì hiện lại đủ danh sách', (tester) async {
+  // Ô tìm kiếm trong hộp thư giờ là bản của dev (lọc theo tên và username); ở đây chỉ kiểm nút "Tin nhắn mới"
+  // vẫn mở bảng kéo lên của nhánh này.
+  testWidgets('nút "Tin nhắn mới" mở bảng "Tin nhắn mới"', (tester) async {
     await _pumpInbox(tester, [_conversation(1, 'Yuuka', 'yuukachan', 'cái gì')]);
 
-    await tester.enterText(find.byKey(const ValueKey('inbox-search')), 'zzz');
-    await tester.pump();
-    expect(find.byKey(const ValueKey('inbox-no-match')), findsOneWidget);
-    expect(find.text('Yuuka'), findsNothing);
-
-    await tester.enterText(find.byKey(const ValueKey('inbox-search')), '');
-    await tester.pump();
-    expect(find.text('Yuuka'), findsOneWidget);
-    expect(find.byKey(const ValueKey('inbox-no-match')), findsNothing);
-  });
-
-  testWidgets('nút + mở bảng "Tin nhắn mới"', (tester) async {
-    await _pumpInbox(tester, [_conversation(1, 'Yuuka', 'yuukachan', 'cái gì')]);
-
-    await tester.tap(find.byKey(const ValueKey('new-chat-button')));
+    await tester.tap(find.byTooltip('Tin nhắn mới'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Tin nhắn mới'), findsOneWidget);
     expect(find.text('Tìm bạn bè'), findsOneWidget);
   });
 }
