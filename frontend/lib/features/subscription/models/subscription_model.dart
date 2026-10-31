@@ -174,6 +174,7 @@ class PaymentResponse {
 
 class SubscriptionStatus {
   final bool isVip;
+  final bool isAdmin;
   final int? subscriptionId;
   final int? planId;
   final String? planName;
@@ -185,6 +186,7 @@ class SubscriptionStatus {
 
   const SubscriptionStatus({
     required this.isVip,
+    this.isAdmin = false,
     this.subscriptionId,
     this.planId,
     this.planName,
@@ -197,8 +199,10 @@ class SubscriptionStatus {
 
   factory SubscriptionStatus.fromJson(Map<String, dynamic> json) {
     final isVipVal = json['isVip'] as bool? ?? false;
+    final isAdminVal = json['isAdmin'] as bool? ?? false;
     return SubscriptionStatus(
-      isVip: isVipVal,
+      isVip: isVipVal || isAdminVal,
+      isAdmin: isAdminVal,
       subscriptionId: json['subscriptionId'] as int?,
       planId: json['planId'] as int?,
       planName: json['planName'] as String?,
@@ -209,13 +213,13 @@ class SubscriptionStatus {
       endDate: json['endDate'] != null
           ? DateTime.tryParse(json['endDate'])
           : null,
-      remainingDays: (json['remainingDays'] as num?)?.toInt() ?? 0,
-      dailyTokenLimit: (json['dailyTokenLimit'] as num?)?.toInt() ?? (isVipVal ? 500 : 50),
+      remainingDays: (json['remainingDays'] as num?)?.toInt() ?? (isAdminVal ? 99999 : 0),
+      dailyTokenLimit: (json['dailyTokenLimit'] as num?)?.toInt() ?? (isAdminVal ? 999999 : (isVipVal ? 500 : 50)),
     );
   }
 
-  bool get hasActiveSubscription => isVip;
-  bool get isLifetime => false;
+  bool get hasActiveSubscription => isVip || isAdmin;
+  bool get isLifetime => isAdmin || remainingDays >= 3650;
 
   String get formattedExpiryDate {
     if (endDate == null) return '';

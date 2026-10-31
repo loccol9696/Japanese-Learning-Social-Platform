@@ -12,6 +12,14 @@ public class UserMapper {
         if (entity == null) {
             return null;
         }
+        boolean isAdmin = entity.getRole() == com.jlsp.backend.user.entity.UserRole.ADMIN;
+        String planName = entity.getSubscriptionPlan() != null 
+                ? entity.getSubscriptionPlan().getName() 
+                : (isAdmin ? "Quản trị viên (Toàn quyền VIP)" : null);
+        java.time.LocalDateTime vipExpire = entity.getVipExpiresAt() != null 
+                ? entity.getVipExpiresAt() 
+                : (isAdmin ? java.time.LocalDateTime.now().plusYears(100) : null);
+
         return UserResponse.builder()
                 .id(entity.getId())
                 .username(entity.getUsername())
@@ -25,8 +33,8 @@ public class UserMapper {
                 .authProvider(entity.getAuthProvider())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
-                .vipExpiresAt(entity.getVipExpiresAt())
-                .subscriptionPlanName(entity.getSubscriptionPlan() != null ? entity.getSubscriptionPlan().getName() : null)
+                .vipExpiresAt(vipExpire)
+                .subscriptionPlanName(planName)
                 .build();
     }
 

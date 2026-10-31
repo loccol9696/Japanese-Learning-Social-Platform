@@ -41,7 +41,7 @@ class UserProfileModel {
 
   bool get isModerator => role.toUpperCase() == 'MODERATOR' || role.toUpperCase() == 'ADMIN';
   bool get isAdmin => role.toUpperCase() == 'ADMIN';
-  bool get isVip => subscriptionPlanName != null && subscriptionPlanName!.isNotEmpty;
+  bool get isVip => isAdmin || (subscriptionPlanName != null && subscriptionPlanName!.isNotEmpty);
 
   UserProfileModel copyWith({
     int? id,

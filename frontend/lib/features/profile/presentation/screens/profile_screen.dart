@@ -231,14 +231,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildSettingsSheet(BuildContext sheetContext) {
+    final bool isAdmin = _profile.isAdmin;
     final rows = <_SettingsRowData>[
       _SettingsRowData(
         icon: Icons.workspace_premium_rounded,
         iconColor: AppPalette.gold,
-        title: 'Gói thành viên Premium',
-        value: _isPremium
-            ? (_membershipStatus?.planName ?? 'Đang kích hoạt')
-            : 'Nâng cấp ngay',
+        title: isAdmin ? 'Đặc quyền Quản trị viên' : 'Gói thành viên Premium',
+        value: isAdmin
+            ? 'Toàn quyền VIP (Vô hạn)'
+            : (_isPremium
+                ? (_membershipStatus?.planName ?? 'Đang kích hoạt')
+                : 'Nâng cấp ngay'),
         valueColor: AppPalette.gold,
         onTap: () {
           Navigator.of(sheetContext).pop();
@@ -730,21 +733,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppPalette.accentSoft,
+                              color: _profile.isAdmin
+                                  ? const Color(0xFFF59E0B).withValues(alpha: 0.18)
+                                  : AppPalette.accentSoft,
                               borderRadius: BorderRadius.circular(6),
+                              border: _profile.isAdmin
+                                  ? Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6))
+                                  : null,
                             ),
-                            child: Text(
-                              _profile.isAdmin ? 'ADMIN' : 'MOD',
-                              style: TextStyle(
-                                color: AppPalette.accent,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_profile.isAdmin) ...[
+                                  const Icon(Icons.workspace_premium_rounded, size: 12, color: Color(0xFFFBBF24)),
+                                  const SizedBox(width: 3),
+                                ],
+                                Text(
+                                  _profile.isAdmin ? 'ADMIN VIP' : 'MOD',
+                                  style: TextStyle(
+                                    color: _profile.isAdmin ? const Color(0xFFFBBF24) : AppPalette.accent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                        const SizedBox(width: 8),
-                        _buildPlanTag(),
+                        if (!_profile.isAdmin) ...[
+                          const SizedBox(width: 8),
+                          _buildPlanTag(),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 3),
@@ -847,21 +866,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildCompactMembershipBanner() {
-    final isPremium = _isPremium;
+    final bool isAdmin = _profile.isAdmin;
+    final isPremium = _isPremium || isAdmin;
     final status = _membershipStatus;
     final accentColor = isPremium ? AppPalette.gold : AppPalette.info;
 
-    final String titleText = isPremium
-        ? (status?.planName ?? _profile.subscriptionPlanName ?? 'JLSP Premium')
-        : 'Nâng cấp JLSP Premium';
-    final String subtitleText = isPremium
-        ? (status == null
-              ? 'Đang kích hoạt đặc quyền VIP'
-              : (status.isLifetime
-                    ? 'Vĩnh viễn · ${status.effectiveTokenLimit} Token AI/ngày'
-                    : 'Còn ${status.daysRemaining} ngày · ${status.effectiveTokenLimit} Token AI/ngày'))
-        : 'Mở khóa Token AI, Shadowing & Flashcard không giới hạn';
-    final String ctaText = isPremium ? 'Đổi / Gia hạn' : 'Mua gói';
+    final String titleText = isAdmin
+        ? 'Đặc quyền Quản trị viên (Admin)'
+        : (isPremium
+            ? (status?.planName ?? _profile.subscriptionPlanName ?? 'JLSP Premium')
+            : 'Nâng cấp JLSP Premium');
+    final String subtitleText = isAdmin
+        ? 'Toàn quyền hệ thống · Không giới hạn Token AI'
+        : (isPremium
+            ? (status == null
+                  ? 'Đang kích hoạt đặc quyền VIP'
+                  : (status.isLifetime
+                        ? 'Vĩnh viễn · ${status.effectiveTokenLimit} Token AI/ngày'
+                        : 'Còn ${status.daysRemaining} ngày · ${status.effectiveTokenLimit} Token AI/ngày'))
+            : 'Mở khóa Token AI, Shadowing & Flashcard không giới hạn');
+    final String ctaText = isAdmin ? 'Xem bảng giá' : (isPremium ? 'Đổi / Gia hạn' : 'Mua gói');
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),

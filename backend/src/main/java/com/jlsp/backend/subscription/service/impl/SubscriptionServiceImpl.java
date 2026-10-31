@@ -424,6 +424,17 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     public TokenQuotaResponse checkTokenQuota(Long userId) {
         User user = userRepository.findById(userId).orElse(null);
 
+        // Tài khoản Admin được hưởng đặc quyền toàn hệ thống và không giới hạn Token AI
+        if (user != null && user.getRole() == com.jlsp.backend.user.entity.UserRole.ADMIN) {
+            return TokenQuotaResponse.builder()
+                    .userId(userId)
+                    .planName("Quản trị viên (Toàn quyền VIP)")
+                    .dailyTokenLimit(999999)
+                    .tokensUsedToday(0)
+                    .tokensRemainingToday(999999)
+                    .build();
+        }
+
         SubscriptionPlan freePlan = planRepository.findByCode("FREE").orElse(null);
         int freeLimit = (freePlan != null && freePlan.getDailyTokenLimit() != null)
                 ? freePlan.getDailyTokenLimit()
@@ -465,6 +476,12 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Transactional
     public void validateAndDeductTokens(Long userId, int tokensRequired) {
         User user = userRepository.findById(userId).orElse(null);
+
+        // Tài khoản Admin được hưởng đặc quyền toàn hệ thống và không bị giới hạn Token AI
+        if (user != null && user.getRole() == com.jlsp.backend.user.entity.UserRole.ADMIN) {
+            log.info("Bypassing token limit check for ADMIN user ID {}", userId);
+            return;
+        }
 
         SubscriptionPlan freePlan = planRepository.findByCode("FREE").orElse(null);
         int freeLimit = (freePlan != null && freePlan.getDailyTokenLimit() != null)
@@ -552,6 +569,22 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Override
     public Map<String, Object> getUserSubscriptionStatus(Long userId) {
         User user = userRepository.findById(userId).orElse(null);
+
+        // Tài khoản Admin được hưởng đặc quyền VIP toàn hệ thống vĩnh viễn
+        if (user != null && user.getRole() == com.jlsp.backend.user.entity.UserRole.ADMIN) {
+            Map<String, Object> adminStatus = new HashMap<>();
+            adminStatus.put("isVip", true);
+            adminStatus.put("isAdmin", true);
+            adminStatus.put("planId", 999999L);
+            adminStatus.put("planName", "Quản trị viên (Toàn quyền VIP)");
+            adminStatus.put("status", "ACTIVE");
+            adminStatus.put("startDate", LocalDateTime.now().toString());
+            adminStatus.put("endDate", LocalDateTime.now().plusYears(100).toString());
+            adminStatus.put("remainingDays", 36500);
+            adminStatus.put("dailyTokenLimit", 999999);
+            return adminStatus;
+        }
+
         Map<String, Object> result = new HashMap<>();
 
         boolean isVip = false;

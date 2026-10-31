@@ -211,6 +211,7 @@ public class DataInitializer implements CommandLineRunner {
             // Cột cho bảng users (VIP & Subscriptions)
             jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS vip_expires_at TIMESTAMP");
             jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan_id BIGINT");
+            jdbcTemplate.execute("UPDATE users SET vip_expires_at = '2099-12-31 23:59:59' WHERE role = 'ADMIN' AND vip_expires_at IS NULL");
 
             // Dọn dẹp triệt để bất kỳ dữ liệu mẫu giả nào (100% dữ liệu thực từ database)
             jdbcTemplate.execute("DELETE FROM subscription_orders WHERE order_code LIKE 'ORD-SEED%'");
