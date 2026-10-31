@@ -20,6 +20,8 @@ public class UpdateUserRequest {
     private String username;
 
     @Size(max = 100, message = "Display name must not exceed 100 characters")
+    @jakarta.validation.constraints.Pattern(regexp = com.jlsp.backend.auth.dto.request.DisplayNameRules.REGEX,
+            message = com.jlsp.backend.auth.dto.request.DisplayNameRules.MESSAGE)
     private String displayName;
 
     private String email;

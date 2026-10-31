@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
@@ -37,6 +38,12 @@ class ProfileUpdateScreen extends StatefulWidget {
 }
 
 class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
+  /// Họ và tên: chỉ chữ cái, các từ cách nhau đúng một khoảng trắng (khớp quy tắc ở server).
+  static final RegExp _displayNameRegex = RegExp(
+    r'^[\p{L}\p{M}]+( [\p{L}\p{M}]+)*$',
+    unicode: true,
+  );
+
   /// Xanh dương nhạt cho liên kết "Đổi ảnh đại diện".
   static Color get _linkBlue => AppPalette.info;
 
@@ -465,6 +472,10 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
         _buildFieldLabel(appStrings.displayName),
         TextFormField(
           controller: _displayNameController,
+          // Chặn ngay lúc gõ: chỉ nhận chữ cái và khoảng trắng.
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[\p{L}\p{M} ]', unicode: true)),
+          ],
           cursorColor: AppPalette.accent,
           onChanged: (_) => setState(() {}),
           style: TextStyle(
@@ -503,6 +514,9 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
             }
             if (value.trim().length > 100) {
               return 'Tên hiển thị không được quá 100 ký tự';
+            }
+            if (!_displayNameRegex.hasMatch(value.trim())) {
+              return 'Họ và tên chỉ gồm chữ cái và khoảng trắng, không có ký tự đặc biệt';
             }
             return null;
           },

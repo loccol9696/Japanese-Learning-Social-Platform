@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../data/models/auth_response_model.dart';
 import '../password_policy.dart';
 import '../widgets/google_sign_in_button.dart';
 import '../../../app/routes.dart';
+
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_exception.dart';
@@ -22,6 +24,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -35,8 +38,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   static final RegExp _emailRegex = RegExp(
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,}$",
   );
-  static final RegExp _usernameRegex = RegExp(r'^[A-Za-z0-9._]+$');
   static final RegExp _whitespace = RegExp(r'\s');
+
+  /// Họ và tên: chỉ chữ cái, các từ cách nhau đúng một khoảng trắng (khớp DisplayNameRules ở server).
+  static final RegExp _displayNameRegex = RegExp(
+    r'^[\p{L}\p{M}]+( [\p{L}\p{M}]+)*$',
+    unicode: true,
+  );
+  static const int _displayNameMax = 100;
 
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -44,6 +53,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _emailController.dispose();
+    _displayNameController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -58,19 +68,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
+  String? _validateDisplayName(String? value) {
+    final name = value?.trim() ?? '';
+    if (name.isEmpty) return 'Vui lòng nhập Họ và tên';
+    if (name.length > _displayNameMax) {
+      return 'Họ và tên tối đa $_displayNameMax ký tự';
+    }
+    if (!_displayNameRegex.hasMatch(name)) {
+      return 'Họ và tên chỉ gồm chữ cái và khoảng trắng, không có ký tự đặc biệt';
+    }
+    return null;
+  }
+
   String? _validateUsername(String? value) {
     final username = value?.trim() ?? '';
     if (username.isEmpty) return 'Vui lòng nhập Tên đăng nhập';
     if (username.length < _usernameMin || username.length > _usernameMax) {
       return 'Tên đăng nhập phải từ $_usernameMin đến $_usernameMax ký tự';
     }
-    if (!_usernameRegex.hasMatch(username)) {
-      return 'Chỉ dùng chữ cái không dấu, số, dấu chấm (.) hoặc gạch dưới (_)';
-    }
-    if (username.startsWith('.') ||
-        username.endsWith('.') ||
-        username.contains('..')) {
-      return 'Dấu chấm không được ở đầu, cuối hoặc đứng liền nhau';
+    if (_whitespace.hasMatch(username)) {
+      return 'Tên đăng nhập không được chứa khoảng trắng';
     }
     return null;
   }
@@ -97,11 +114,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Không nhập họ tên lúc đăng ký: tên hiển thị mặc định là tên đăng nhập, đổi được trong trang cá nhân.
       await AuthService.instance.register(
         username: username,
         email: email,
         password: password,
+        displayName: _displayNameController.text.trim(),
       );
 
       if (!mounted) return;
@@ -194,7 +211,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: TextStyle(color: AppPalette.textSecondary, fontSize: 14),
-            prefixIcon: Icon(prefixIcon, size: 20, color: AppPalette.textSecondary),
+            prefixIcon: Icon(
+              prefixIcon,
+              size: 20,
+              color: AppPalette.textSecondary,
+            ),
             suffixIcon: suffixIcon,
             filled: true,
             fillColor: AppPalette.surface,
@@ -288,6 +309,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         const SizedBox(height: 18),
 
                         _buildInputField(
+                          label: 'Họ và tên',
+                          hintText: 'Nguyễn Văn An',
+                          prefixIcon: Icons.badge_outlined,
+                          controller: _displayNameController,
+                          validator: _validateDisplayName,
+                          maxLength: _displayNameMax,
+                          // Chặn ngay lúc gõ: chỉ nhận chữ cái và khoảng trắng.
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[\p{L}\p{M} ]', unicode: true),
+                            ),
+                          ],
+                          autofillHints: const [AutofillHints.name],
+                        ),
+                        const SizedBox(height: 18),
+
+                        _buildInputField(
                           label: 'Tên đăng nhập',
                           hintText: 'sakura99',
                           prefixIcon: Icons.person_outline,
@@ -373,7 +411,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                               child: Text(
                                 'hoặc',
                                 style: TextStyle(

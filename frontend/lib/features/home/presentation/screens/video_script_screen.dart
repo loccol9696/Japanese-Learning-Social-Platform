@@ -10,6 +10,8 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../data/services/shadowing_service.dart';
 import '../../domain/models/ruby_segment.dart';
+import '../widgets/lookup_sentence_text.dart';
+import '../widgets/ruby_subtitle_widget.dart';
 import 'dictation_sheet.dart';
 import 'shadowing_sheet.dart';
 
@@ -421,7 +423,13 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
       );
     }
 
-    return Scrollbar(
+    // Cuộn danh sách làm bảng tra từ lệch khỏi từ được chạm, nên đóng bảng khi bắt đầu cuộn.
+    return NotificationListener<ScrollStartNotification>(
+      onNotification: (_) {
+        RubySubtitleWidget.dismissLookups();
+        return false;
+      },
+      child: Scrollbar(
       controller: _listController,
       thumbVisibility: true,
       thickness: 5,
@@ -469,8 +477,12 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          cue.text,
+                        LookupSentenceText(
+                          sentence: cue.text,
+                          // Tra từ thì tạm dừng video để đọc bảng nghĩa, giống phụ đề ở trang chủ.
+                          onLookupActiveChanged: (active) {
+                            if (active) widget.controller?.pause();
+                          },
                           style: TextStyle(
                             fontSize: 17,
                             height: 1.35,
@@ -568,6 +580,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
             ),
           );
         },
+      ),
       ),
     );
   }

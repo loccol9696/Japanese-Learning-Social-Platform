@@ -41,27 +41,28 @@ void main() {
   }
 
   group('Đăng ký', () {
-    testWidgets('chỉ còn Email, Tên đăng nhập, Mật khẩu; Đăng nhập nằm ở đáy', (tester) async {
+    testWidgets('có Email, Họ và tên, Tên đăng nhập, Mật khẩu; Đăng nhập nằm ở đáy', (tester) async {
       await pump(tester, const RegisterScreen());
 
-      expect(find.byType(TextFormField), findsNWidgets(3));
+      expect(find.byType(TextFormField), findsNWidgets(4));
       expect(find.text('Email'), findsOneWidget);
       expect(find.text('Tên đăng nhập'), findsOneWidget);
       expect(find.text('Mật khẩu'), findsOneWidget);
-      expect(find.text('Họ và tên'), findsNothing);
+      expect(find.text('Họ và tên'), findsOneWidget);
       expect(find.text('Nhập lại mật khẩu'), findsNothing);
       expect(find.text('hoặc'), findsOneWidget);
       expect(find.text('Đăng nhập'), findsOneWidget);
       expect(tester.getTopLeft(find.text('Đăng nhập')).dy, greaterThan(1400));
     });
 
-    testWidgets('đăng ký gửi tên hiển thị mặc định là tên đăng nhập', (tester) async {
+    testWidgets('đăng ký gửi Họ và tên đã nhập', (tester) async {
       await pump(tester, const RegisterScreen());
 
       final fields = find.byType(TextFormField);
       await tester.enterText(fields.at(0), 'Sakura@Example.com');
-      await tester.enterText(fields.at(1), 'sakura99');
-      await tester.enterText(fields.at(2), 'matkhau123');
+      await tester.enterText(fields.at(1), 'Nguyễn Văn_An9!');
+      await tester.enterText(fields.at(2), 'sakura99');
+      await tester.enterText(fields.at(3), 'matkhau123');
       await tester.tap(find.widgetWithText(ElevatedButton, 'Tạo tài khoản'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -71,7 +72,23 @@ void main() {
       final body = jsonDecode(register.single.body) as Map<String, dynamic>;
       expect(body['email'], 'sakura@example.com');
       expect(body['username'], 'sakura99');
-      expect(body['displayName'], 'sakura99');
+      // Ký tự đặc biệt và số bị loại ngay lúc gõ.
+      expect(body['displayName'], 'Nguyễn VănAn');
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('tên đăng nhập được dùng ký tự đặc biệt, chỉ cấm khoảng trắng', (tester) async {
+      await pump(tester, const RegisterScreen());
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'sakura@example.com');
+      await tester.enterText(fields.at(1), 'Sakura');
+      await tester.enterText(fields.at(2), 'sakura.#_99!');
+      await tester.enterText(fields.at(3), 'matkhau123');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Tạo tài khoản'));
+      await tester.pump();
+
+      expect(find.textContaining('Chỉ dùng chữ cái'), findsNothing);
+      expect(find.textContaining('Dấu chấm'), findsNothing);
       await tester.pump(const Duration(seconds: 5));
     });
   });

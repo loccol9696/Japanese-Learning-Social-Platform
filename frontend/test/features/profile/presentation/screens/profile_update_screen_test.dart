@@ -230,6 +230,46 @@ void main() {
     expect(fakeRepo.profile.interests.contains('Luyện thi JLPT'), isTrue);
   });
 
+  Future<void> pumpUpdate(WidgetTester tester, _FakeProfileRepository repo) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(MaterialApp(home: ProfileUpdateScreen(repository: repo)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+
+  testWidgets('Họ và tên: gõ ký tự đặc biệt và số bị loại ngay, giữ chữ có dấu', (tester) async {
+    final repo = _FakeProfileRepository();
+    await pumpUpdate(tester, repo);
+
+    await tester.enterText(find.byType(TextFormField).first, 'Nguyễn Văn_A@#9!');
+    await tester.pump();
+
+    expect(find.text('Nguyễn VănA'), findsOneWidget);
+  });
+
+  testWidgets('Họ và tên cũ có ký tự đặc biệt thì không lưu được và báo lỗi', (tester) async {
+    final repo = _FakeProfileRepository()
+      ..profile = const UserProfileModel(
+        id: 1,
+        username: 'test_user',
+        displayName: 'Kenji_99',
+        avatarUrl: '',
+        currentLevel: 'N3',
+        bio: '',
+        interests: [],
+        topics: [],
+      );
+    await pumpUpdate(tester, repo);
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Lưu thay đổi'));
+    await tester.pump();
+
+    expect(find.textContaining('không có ký tự đặc biệt'), findsOneWidget);
+    expect(repo.updateProfileCalled, isFalse);
+  });
+
   testWidgets('ProfileUpdateScreen shows change-avatar link and opens AvatarPickerSheet',
       (WidgetTester tester) async {
     final fakeRepo = _FakeProfileRepository();

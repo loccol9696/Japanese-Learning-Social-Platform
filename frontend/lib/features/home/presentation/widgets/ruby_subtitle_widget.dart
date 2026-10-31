@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import '../../../../core/auth/auth_guard.dart';
@@ -52,6 +53,9 @@ class RubySubtitleWidget extends StatefulWidget {
   /// Phát tín hiệu để mọi bảng tra từ đang mở tự đóng (vd. khi rời tab Home).
   static final ValueNotifier<int> _dismissSignal = ValueNotifier<int>(0);
   static void dismissLookups() => _dismissSignal.value++;
+
+  /// Để các nơi khác cũng dùng bảng tra từ (vd. màn Kịch bản) tự đóng theo cùng tín hiệu.
+  static ValueListenable<int> get dismissSignal => _dismissSignal;
 
   @override
   State<RubySubtitleWidget> createState() => _RubySubtitleWidgetState();
@@ -178,7 +182,7 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {},
-                    child: _WordLookupCard(
+                    child: WordLookupCard(
                       key: ValueKey(selected.baseForm),
                       token: selected,
                       sentence: widget.sentence ?? '',
@@ -342,12 +346,12 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
 
 /// Bảng tra từ: cách đọc, từ gốc, nghĩa, từ loại, cấp JLPT, phát âm và
 /// lưu Flashcard.
-class _WordLookupCard extends StatefulWidget {
+class WordLookupCard extends StatefulWidget {
   final SubtitleToken token;
   final String sentence;
   final VoidCallback onClose;
 
-  const _WordLookupCard({
+  const WordLookupCard({
     super.key,
     required this.token,
     required this.sentence,
@@ -355,10 +359,10 @@ class _WordLookupCard extends StatefulWidget {
   });
 
   @override
-  State<_WordLookupCard> createState() => _WordLookupCardState();
+  State<WordLookupCard> createState() => WordLookupCardState();
 }
 
-class _WordLookupCardState extends State<_WordLookupCard> {
+class WordLookupCardState extends State<WordLookupCard> {
   // Kích thước và màu dùng chung để bảng đồng nhất.
   static const double _cardWidth = 280.0;
   static const double _cardMinHeight = 148.0;

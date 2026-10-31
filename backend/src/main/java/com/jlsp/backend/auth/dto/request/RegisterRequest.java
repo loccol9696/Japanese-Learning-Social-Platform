@@ -18,8 +18,7 @@ public class RegisterRequest {
 
     @NotBlank(message = "Vui lòng nhập tên đăng nhập")
     @Size(min = 3, max = 50, message = "Tên đăng nhập phải từ 3 đến 50 ký tự")
-    @Pattern(regexp = "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$",
-            message = "Tên đăng nhập chỉ gồm chữ cái không dấu, số, dấu chấm hoặc gạch dưới")
+    @Pattern(regexp = "^\\S+$", message = "Tên đăng nhập không được chứa khoảng trắng")
     private String username;
 
     @NotBlank(message = "Vui lòng nhập email")
@@ -32,5 +31,6 @@ public class RegisterRequest {
     private String password;
 
     @Size(max = 100, message = "Họ và tên tối đa 100 ký tự")
+    @Pattern(regexp = DisplayNameRules.REGEX, message = DisplayNameRules.MESSAGE)
     private String displayName;
 }
