@@ -34,6 +34,11 @@ public class VideoComment {
     @JoinColumn(name = "parent_id")
     private VideoComment parent;
 
+    /** Bình luận mà câu này trả lời: chính là {@link #parent} khi trả lời bình luận gốc, hoặc một phản hồi khác khi trả lời phản hồi. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reply_to_id")
+    private VideoComment replyTo;
+
     @Column(nullable = false, length = 1000)
     private String content;
 

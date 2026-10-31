@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io' show File;
 import 'dart:typed_data';
 
@@ -7,9 +6,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/app_palette.dart';
@@ -56,6 +57,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isUploadingAvatar = false;
+  bool _avatarImageFailed = false;
   Uint8List? _localAvatarBytes;
 
   UserProfileModel _profile = const UserProfileModel();
@@ -100,6 +102,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
       _profile = profile;
       _availableTopics = topics;
       _selectedAvatarUrl = profile.avatarUrl;
+      _avatarImageFailed = false;
       _selectedLevel = profile.currentLevel;
       _selectedInterests = List<String>.from(profile.interests);
       _displayNameController.text = profile.displayName;
@@ -159,6 +162,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     setState(() {
       _selectedAvatarUrl = '';
       _localAvatarBytes = null;
+      _avatarImageFailed = false;
     });
     AppToast.showInfo('Đã xóa ảnh. Bấm "Lưu thay đổi" để áp dụng.', context: context);
   }
@@ -169,16 +173,33 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
     AppToast.showError('Không thể chọn ảnh: $e', context: context);
   }
 
-  /// Hiển thị ngay ảnh vừa chọn rồi tải lên máy chủ; lỗi mạng thì dùng ảnh nhúng base64.
+  /// Hiển thị ngay ảnh vừa chọn rồi tải lên máy chủ.
   Future<void> _processAvatarBytes(
     Uint8List bytes,
     String fileName,
     String extension,
   ) async {
+    final normalizedExtension = extension.toLowerCase().replaceFirst('.', '');
+    final subtype = switch (normalizedExtension) {
+      'jpg' || 'jpeg' => 'jpeg',
+      'png' => 'png',
+      'webp' => 'webp',
+      'gif' => 'gif',
+      _ => null,
+    };
+    if (subtype == null) {
+      AppToast.showError(
+        'Chỉ hỗ trợ ảnh JPG, PNG, WEBP hoặc GIF.',
+        context: context,
+      );
+      return;
+    }
+
     try {
       setState(() {
         _localAvatarBytes = bytes;
         _isUploadingAvatar = true;
+        _avatarImageFailed = false;
       });
 
       // Upload to Cloudinary media endpoint
@@ -193,6 +214,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                 'file',
                 imageBytes,
                 filename: fileName.isNotEmpty ? fileName : 'avatar.png',
+                contentType: MediaType('image', subtype),
               ),
             ),
           timeout: const Duration(seconds: 60),
@@ -209,24 +231,29 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
             setState(() {
               _selectedAvatarUrl = uploadedUrl;
               _isUploadingAvatar = false;
+              _avatarImageFailed = false;
             });
             AppToast.showSuccess('Đã tải ảnh lên thành công!', context: context);
             return;
           }
+          throw Exception('Backend không trả về đường dẫn ảnh.');
         }
       } catch (uploadErr) {
         debugPrint('[ProfileUpdateScreen] Cloud upload error: $uploadErr');
+        if (!mounted) return;
+        setState(() {
+          _localAvatarBytes = null;
+          _isUploadingAvatar = false;
+        });
+        final message = uploadErr is ApiException
+            ? uploadErr.message
+            : 'Không thể tải ảnh lên. Vui lòng thử lại.';
+        AppToast.showError(
+          message,
+          context: context,
+        );
+        return;
       }
-
-      // Fallback: encode as base64 data URI so it can be saved and displayed anywhere
-      if (!mounted) return;
-      final base64String = base64Encode(bytes);
-      final dataUri = 'data:image/$extension;base64,$base64String';
-      setState(() {
-        _selectedAvatarUrl = dataUri;
-        _isUploadingAvatar = false;
-      });
-      AppToast.showSuccess('Đã chọn ảnh từ thiết bị!', context: context);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isUploadingAvatar = false);
@@ -248,6 +275,13 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
   }
 
   Future<void> _saveProfile() async {
+    if (_isUploadingAvatar) {
+      AppToast.showInfo(
+        'Ảnh đang được tải lên, vui lòng chờ một chút.',
+        context: context,
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -273,6 +307,14 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
       final savedProfile = await _repository.updateProfile(updated);
       if (!mounted) return;
 
+      if (_selectedAvatarUrl.isNotEmpty &&
+          savedProfile.avatarUrl != _selectedAvatarUrl) {
+        throw ApiException(
+          statusCode: 500,
+          message: 'Máy chủ chưa lưu được ảnh đại diện. Vui lòng thử lại.',
+        );
+      }
+
       setState(() {
         _profile = savedProfile;
         _isSaving = false;
@@ -284,12 +326,15 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
       if (Navigator.canPop(context)) {
         Navigator.of(context).pop(true);
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _isSaving = false;
       });
-      AppToast.showError(appStrings.updateFailed, context: context);
+      final message = error is ApiException
+          ? error.message
+          : appStrings.updateFailed;
+      AppToast.showError(message, context: context);
     }
   }
 
@@ -414,7 +459,11 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
             backgroundImage: avatarImage,
             onBackgroundImageError: avatarImage == null
                 ? null
-                : (context, error) {},
+                : (context, error) {
+                    if (!_avatarImageFailed && mounted) {
+                      setState(() => _avatarImageFailed = true);
+                    }
+                  },
             child: _isUploadingAvatar
                 ? SizedBox(
                     width: 24.0,
@@ -424,7 +473,7 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                       strokeWidth: 2.5,
                     ),
                   )
-                : (avatarImage == null
+                : (avatarImage == null || _avatarImageFailed
                       ? Text(
                           initial,
                           style: TextStyle(
@@ -589,8 +638,8 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                 borderRadius: BorderRadius.circular(10.0),
               ),
             ),
-            onPressed: _isSaving ? null : _saveProfile,
-            child: _isSaving
+            onPressed: _isSaving || _isUploadingAvatar ? null : _saveProfile,
+            child: _isSaving || _isUploadingAvatar
                 ? Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -604,7 +653,9 @@ class _ProfileUpdateScreenState extends State<ProfileUpdateScreen> {
                       ),
                       const SizedBox(width: 10.0),
                       Text(
-                        appStrings.saving,
+                        _isUploadingAvatar
+                            ? 'Đang tải ảnh...'
+                            : appStrings.saving,
                         style: const TextStyle(
                           fontSize: 15.0,
                           fontWeight: FontWeight.w700,

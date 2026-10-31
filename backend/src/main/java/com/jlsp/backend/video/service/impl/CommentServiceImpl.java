@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,8 +66,19 @@ public class CommentServiceImpl implements CommentService {
                 throw new IllegalArgumentException("Bình luận trả lời phải thuộc cùng video");
             }
         }
+        VideoComment replyTo = parent;
+        if (parent != null && request.getReplyToId() != null && !request.getReplyToId().equals(parent.getId())) {
+            // Trả lời một phản hồi: phải là phản hồi khác thuộc cùng bình luận gốc.
+            VideoComment target = commentRepository.findById(request.getReplyToId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Comment", "id", request.getReplyToId()));
+            if (!target.getVideo().getId().equals(videoId) || target.getParent() == null
+                    || !target.getParent().getId().equals(parent.getId())) {
+                throw new IllegalArgumentException("Bình luận được trả lời không hợp lệ");
+            }
+            replyTo = target;
+        }
         VideoComment comment = commentRepository.save(VideoComment.builder()
-                .video(video).user(user).parent(parent).content(request.getContent().trim()).build());
+                .video(video).user(user).parent(parent).replyTo(replyTo).content(request.getContent().trim()).build());
 
         Long videoOwnerId = video.getUser().getId();
         if (parent != null) {
@@ -93,8 +105,22 @@ public class CommentServiceImpl implements CommentService {
         if (!isAdmin && !comment.getUser().getId().equals(userId)) {
             throw new AppException(403, "Bạn chỉ có thể xóa bình luận của chính mình");
         }
+        // Các phản hồi sắp bị xoá (kể cả phản hồi của bình luận này) cần được gỡ trỏ "trả lời" trước,
+        // nếu không khoá ngoại sẽ chặn việc xoá.
+        List<Long> doomed = commentRepository.findByParentId(commentId).stream()
+                .map(VideoComment::getId)
+                .collect(Collectors.toCollection(ArrayList::new));
+        doomed.add(commentId);
+        commentRepository.clearReplyTo(doomed);
         commentRepository.deleteByParentId(commentId);
         commentRepository.delete(comment);
+    }
+
+    /** Tên hiển thị của người dùng, lùi về tên đăng nhập khi chưa có tên hiển thị. */
+    private static String nameOf(User user) {
+        return user.getDisplayName() != null && !user.getDisplayName().isBlank()
+                ? user.getDisplayName()
+                : user.getUsername();
     }
 
     private VideoCommentResponse toResponse(VideoComment comment, Set<Long> hidden,
@@ -104,6 +130,8 @@ public class CommentServiceImpl implements CommentService {
                 .id(comment.getId())
                 .videoId(comment.getVideo().getId())
                 .parentId(comment.getParent() == null ? null : comment.getParent().getId())
+                .replyToName(comment.getReplyTo() == null ? null : nameOf(comment.getReplyTo().getUser()))
+                .replyToUserId(comment.getReplyTo() == null ? null : comment.getReplyTo().getUser().getId())
                 .userId(user.getId())
                 .username(user.getUsername())
                 .displayName(user.getDisplayName())

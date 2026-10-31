@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/auth/auth_guard.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../follow/presentation/screens/user_profile_screen.dart';
 import '../../../report/report_service.dart';
 import '../../../report/report_sheet.dart';
 import '../../data/models/video_comment.dart';
@@ -101,6 +102,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         widget.videoId,
         content,
         parentId: target == null ? null : (target.parentId ?? target.id),
+        replyToId: target?.id,
       );
       if (!mounted) return;
       setState(() {
@@ -268,22 +270,35 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: avatarRadius,
-            backgroundColor: AppPalette.surfaceHigh,
-            backgroundImage: comment.avatarUrl.isNotEmpty
-                ? NetworkImage(comment.avatarUrl)
-                : null,
-            child: comment.avatarUrl.isEmpty
-                ? Text(
-                    name.isEmpty ? '?' : name[0].toUpperCase(),
-                    style: TextStyle(
-                      color: AppPalette.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: isReply ? 12 : 14,
-                    ),
-                  )
-                : null,
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => UserProfileScreen(
+                    userId: comment.userId,
+                    initialName: name,
+                  ),
+                ),
+              );
+            },
+            child: CircleAvatar(
+              radius: avatarRadius,
+              backgroundColor: AppPalette.surfaceHigh,
+              backgroundImage: comment.avatarUrl.isNotEmpty
+                  ? NetworkImage(comment.avatarUrl)
+                  : null,
+              child: comment.avatarUrl.isEmpty
+                  ? Text(
+                      name.isEmpty ? '?' : name[0].toUpperCase(),
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: isReply ? 12 : 14,
+                      ),
+                    )
+                  : null,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -293,8 +308,63 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(
-                        name,
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => UserProfileScreen(
+                                        userId: comment.userId,
+                                        initialName: name,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  name,
+                                  style: TextStyle(
+                                    color: AppPalette.textSecondary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Phản hồi: ghi rõ đang trả lời ai, để biết ai trả lời ai.
+                            if (isReply && (comment.replyToName ?? '').isNotEmpty)
+                              WidgetSpan(
+                                alignment: PlaceholderAlignment.middle,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: comment.replyToUserId == null
+                                      ? null
+                                      : () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute<void>(
+                                              builder: (_) => UserProfileScreen(
+                                                userId: comment.replyToUserId!,
+                                                initialName: comment.replyToName,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                  child: Text(
+                                    '  ▸  ${comment.replyToName}',
+                                    style: TextStyle(
+                                      color: AppPalette.textSecondary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
