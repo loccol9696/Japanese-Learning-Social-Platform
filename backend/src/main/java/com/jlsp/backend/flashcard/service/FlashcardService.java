@@ -19,6 +19,12 @@ public interface FlashcardService {
 
     void deleteSet(Long userId, Long setId);
 
+    /** Lưu thứ tự bộ thẻ trong thư viện sau khi người dùng kéo thả. */
+    void reorderSets(Long userId, java.util.List<Long> orderedSetIds);
+
+    /** Lưu thứ tự thẻ trong một bộ (chỉ chủ bộ thẻ). */
+    void reorderCards(Long userId, Long setId, java.util.List<Long> orderedCardIds);
+
     List<FlashcardResponse> getCardsInSet(Long userId, Long setId, Boolean starredOnly, Boolean shuffle);
 
     FlashcardResponse addCardToSet(Long userId, Long setId, CreateFlashcardRequest request);
@@ -41,7 +47,7 @@ public interface FlashcardService {
 
     List<QuizQuestionResponse> generateQuiz(Long userId, Long setId, Integer limit);
 
-    MatchingGameResponse generateMatchingGame(Long setId, Integer pairCount);
+    MatchingGameResponse generateMatchingGame(Long userId, Long setId, Integer pairCount);
 
     void resetSetProgress(Long userId, Long setId);
 

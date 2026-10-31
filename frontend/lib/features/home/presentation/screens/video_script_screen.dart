@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../core/auth/auth_guard.dart';
@@ -6,7 +10,18 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../data/services/shadowing_service.dart';
 import '../../domain/models/ruby_segment.dart';
-import 'shadowing_screen.dart';
+import '../widgets/lookup_sentence_text.dart';
+import '../widgets/ruby_subtitle_widget.dart';
+import 'dictation_sheet.dart';
+import 'shadowing_sheet.dart';
+
+/// Chiều cao khung video ở màn Kịch bản: vừa khít video theo tỉ lệ thật ([aspectRatio] = rộng / cao), nên video
+/// ngang không bị chừa khoảng trống trên dưới. Chưa biết tỉ lệ (video chưa tải) thì tạm dùng 16:9. Video dọc hoặc
+/// vuông cao hơn 42% chiều cao màn sẽ bị chặn ở mức đó để danh sách câu thoại bên dưới vẫn còn chỗ xem.
+double scriptVideoHeight(Size screen, {double? aspectRatio}) {
+  final ratio = (aspectRatio != null && aspectRatio > 0) ? aspectRatio : 16 / 9;
+  return math.min(screen.width / ratio, screen.height * 0.42);
+}
 
 /// Màn "Kịch bản": xem lại video kèm danh sách toàn bộ câu thoại theo thời gian.
 /// Dùng chung [VideoPlayerController] với video đang xem, bấm một câu để tua tới.
@@ -45,6 +60,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
 
   /// lineIndex -> điểm cao nhất của người dùng.
   Map<int, int> _bestScores = {};
+  final Map<int, int> _bestDictationScores = {};
 
   bool get _canPractice =>
       widget.videoId != null && int.tryParse(widget.videoId!) != null;
@@ -53,6 +69,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
   void initState() {
     super.initState();
     _loadBestScores();
+    _loadDictationScores();
   }
 
   @override
@@ -71,6 +88,34 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
     }
   }
 
+  String get _dictationScoreKey =>
+      'dictation_scores_${widget.videoId ?? 'local'}';
+
+  Future<void> _loadDictationScores() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_dictationScoreKey);
+    if (raw == null) return;
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      final scores = <int, int>{
+        for (final entry in decoded.entries)
+          if (int.tryParse(entry.key) != null && entry.value is num)
+            int.parse(entry.key): (entry.value as num).toInt(),
+      };
+      if (mounted) setState(() => _bestDictationScores.addAll(scores));
+    } catch (_) {
+      // Dữ liệu cũ hỏng thì bỏ qua, lần chấm tiếp theo sẽ ghi lại.
+    }
+  }
+
+  Future<void> _saveDictationScores() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _dictationScoreKey,
+      jsonEncode(_bestDictationScores.map((key, value) => MapEntry('$key', value))),
+    );
+  }
+
   Future<void> _openShadowing(int index) async {
     final ok = await requireAuthentication(
       context,
@@ -78,18 +123,40 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
     );
     if (!ok || !mounted) return;
     widget.controller?.pause();
-    final result = await Navigator.of(context).push<Map<int, int>>(
-      MaterialPageRoute(
-        builder: (_) => ShadowingScreen(
-          videoId: widget.videoId!,
-          cues: widget.cues,
-          startIndex: index,
-          videoController: widget.controller,
-          bestScores: _bestScores,
-        ),
-      ),
+    // Mở ngay trên màn Kịch bản dưới dạng bảng; điểm mới được báo về từng lần chấm xong.
+    await showShadowingSheet(
+      context,
+      videoId: widget.videoId!,
+      cues: widget.cues,
+      startIndex: index,
+      videoController: widget.controller,
+      bestScores: _bestScores,
+      onScoresChanged: (scores) {
+        if (mounted) setState(() => _bestScores = Map<int, int>.of(scores));
+      },
     );
-    if (result != null && mounted) setState(() => _bestScores = result);
+  }
+
+  Future<void> _openDictation(int index) async {
+    final ok = await requireAuthentication(
+      context,
+      message: 'Bạn cần đăng nhập để luyện nghe và viết.',
+    );
+    if (!ok || !mounted) return;
+    widget.controller?.pause();
+    await showDictationSheet(
+      context,
+      cues: widget.cues,
+      startIndex: index,
+      videoController: widget.controller,
+      onScore: (lineIndex, score) {
+        final previous = _bestDictationScores[lineIndex] ?? 0;
+        if (score > previous && mounted) {
+          setState(() => _bestDictationScores[lineIndex] = score);
+          _saveDictationScores();
+        }
+      },
+    );
   }
 
   Color _scoreColor(int score) {
@@ -210,10 +277,11 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
             child: IconButton(
               onPressed: () => Navigator.of(context).pop(),
               icon: Icon(
-                Icons.arrow_back_ios_new_rounded,
-                size: 18,
+                Icons.chevron_left_rounded,
+                size: 30,
                 color: AppPalette.textPrimary,
               ),
+              tooltip: 'Quay lại',
             ),
           ),
           Text(
@@ -245,7 +313,11 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
           onTap: _togglePlay,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            height: 160,
+            key: const ValueKey('script-video-area'),
+            height: scriptVideoHeight(
+              MediaQuery.sizeOf(context),
+              aspectRatio: (video != null && initialized) ? video.value.aspectRatio : null,
+            ),
             width: double.infinity,
             color: AppPalette.surface,
             child: Stack(
@@ -262,15 +334,15 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                   opacity: playing ? 0 : 1,
                   duration: const Duration(milliseconds: 150),
                   child: Container(
-                    width: 64,
-                    height: 64,
+                    width: 72,
+                    height: 72,
                     decoration: const BoxDecoration(
                       color: Color(0xFF2C3068),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.play_arrow_rounded,
-                      size: 38,
+                      size: 42,
                       color: AppPalette.textPrimary,
                     ),
                   ),
@@ -351,7 +423,13 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
       );
     }
 
-    return Scrollbar(
+    // Cuộn danh sách làm bảng tra từ lệch khỏi từ được chạm, nên đóng bảng khi bắt đầu cuộn.
+    return NotificationListener<ScrollStartNotification>(
+      onNotification: (_) {
+        RubySubtitleWidget.dismissLookups();
+        return false;
+      },
+      child: Scrollbar(
       controller: _listController,
       thumbVisibility: true,
       thickness: 5,
@@ -399,8 +477,12 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          cue.text,
+                        LookupSentenceText(
+                          sentence: cue.text,
+                          // Tra từ thì tạm dừng video để đọc bảng nghĩa, giống phụ đề ở trang chủ.
+                          onLookupActiveChanged: (active) {
+                            if (active) widget.controller?.pause();
+                          },
                           style: TextStyle(
                             fontSize: 17,
                             height: 1.35,
@@ -432,39 +514,73 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                     ),
                   ),
                   if (_canPractice)
-                    InkWell(
-                      onTap: () => _openShadowing(i),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 2, 0, 2),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.mic_none_rounded,
-                              size: 22,
-                              color: isActive
-                                  ? _linkBlue
-                                  : AppPalette.textSecondary,
-                            ),
-                            if (_bestScores[i] != null)
-                              Text(
-                                '${_bestScores[i]}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: _scoreColor(_bestScores[i]!),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          onTap: () => _openShadowing(i),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 2, 6, 2),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.mic_none_rounded,
+                                  size: 22,
+                                  color: isActive ? _linkBlue : AppPalette.textSecondary,
                                 ),
-                              ),
-                          ],
+                                if (_bestScores[i] != null)
+                                  Text(
+                                    '${_bestScores[i]}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: _scoreColor(_bestScores[i]!),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
+                        InkWell(
+                          onTap: () => _openDictation(i),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 4, 0, 4),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.edit_outlined,
+                                  size: 22,
+                                  color: isActive
+                                      ? _linkBlue
+                                      : AppPalette.textSecondary,
+                                ),
+                                if (_bestDictationScores[i] != null)
+                                  Text(
+                                    '${_bestDictationScores[i]}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: _scoreColor(
+                                        _bestDictationScores[i]!,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                 ],
               ),
             ),
           );
         },
+      ),
       ),
     );
   }

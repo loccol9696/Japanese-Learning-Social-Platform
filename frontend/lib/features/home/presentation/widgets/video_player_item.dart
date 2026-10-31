@@ -19,6 +19,7 @@ import 'ruby_subtitle_widget.dart';
 import 'subtitle_mode.dart';
 import 'video_info_overlay.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/video/app_video_playback.dart';
 
 class VideoPlayerItem extends StatefulWidget {
   final VideoPost post;
@@ -32,6 +33,9 @@ class VideoPlayerItem extends StatefulWidget {
   final VoidCallback? onCommentTap;
   final bool allowAccountActions;
 
+  /// Chỉ video đang hiển thị trong PageView mới được phát và phát âm thanh.
+  final bool isActive;
+
   /// Mở video tại mốc này (vd. khi mở video được bạn bè chia sẻ kèm câu phụ đề).
   final Duration? initialPosition;
 
@@ -39,6 +43,11 @@ class VideoPlayerItem extends StatefulWidget {
   /// mở màn khác đè lên feed): video tạm dừng và phát tiếp khi true trở lại.
   /// null = luôn được phát.
   final ValueListenable<bool>? playbackAllowed;
+
+  /// true (mặc định) khi video nằm trong Home và thanh menu dưới đè lên nội dung nên phải chừa chỗ cho nó.
+  /// false ở các màn không có thanh menu (xem video từ kết quả tìm kiếm, video được chia sẻ) để video và phụ đề
+  /// kéo sát đáy màn hình, không bị chừa một khoảng trống.
+  final bool reserveBottomBar;
 
   const VideoPlayerItem({
     super.key,
@@ -49,8 +58,10 @@ class VideoPlayerItem extends StatefulWidget {
     this.onCreatorFollowChanged,
     this.onCommentTap,
     this.allowAccountActions = true,
+    this.isActive = true,
     this.initialPosition,
     this.playbackAllowed,
+    this.reserveBottomBar = true,
   });
 
   @override
@@ -70,6 +81,7 @@ class _FloatingHeartEffect {
 class _VideoPlayerItemState extends State<VideoPlayerItem>
     with TickerProviderStateMixin {
   bool _isPlaying = true;
+  bool _isMutedForWebAutoplay = false;
   SubtitleMode _subtitleMode = SubtitleMode.bilingual;
   bool? _doubleTapLikedOverride;
   int? _doubleTapLikeCountOverride;
@@ -163,16 +175,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       return;
     }
     if (!mounted) return;
-    final position =
-        _activeSubtitle?.start ??
-        _videoController?.value.position ??
-        Duration.zero;
     await showShareVideoSheet(
       context,
       videoId: widget.post.id,
-      title: widget.post.topicTag,
-      thumbnailUrl: widget.post.backgroundImageUrl,
-      startMs: position.inMilliseconds,
     );
   }
 
@@ -263,12 +268,14 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   void initState() {
     super.initState();
     widget.playbackAllowed?.addListener(_onPlaybackAllowedChanged);
+    appVideoPlaybackAllowed.addListener(_onPlaybackAllowedChanged);
     _initializeVideo();
   }
 
   @override
   void dispose() {
     widget.playbackAllowed?.removeListener(_onPlaybackAllowedChanged);
+    appVideoPlaybackAllowed.removeListener(_onPlaybackAllowedChanged);
     for (final effect in _floatingHearts) {
       effect.controller.dispose();
     }
@@ -277,6 +284,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   }
 
   bool get _playbackAllowed => widget.playbackAllowed?.value ?? true;
+  bool get _canAutoPlay =>
+      _playbackAllowed && appVideoPlaybackAllowed.value && widget.isActive;
 
   /// Video bị dừng vì không còn hiện trên màn hình (không phải người dùng bấm dừng).
   bool _pausedForHidden = false;
@@ -286,16 +295,19 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   void _onPlaybackAllowedChanged() {
     final controller = _videoController;
     if (controller == null || !controller.value.isInitialized) return;
-    if (!_playbackAllowed) {
+    if (!_canAutoPlay) {
       if (controller.value.isPlaying) {
         _pausedForHidden = true;
         controller.pause();
       }
     } else if (_pausedForHidden) {
       _pausedForHidden = false;
-      controller.play().catchError((error) {
-        debugPrint('Video playback failed: $error');
-      });
+      _isMutedForWebAutoplay = false;
+      controller.setVolume(1).then((_) => controller.play()).catchError(
+        (error) {
+          debugPrint('Video playback failed: $error');
+        },
+      );
     }
   }
 
@@ -305,6 +317,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     if (oldWidget.playbackAllowed != widget.playbackAllowed) {
       oldWidget.playbackAllowed?.removeListener(_onPlaybackAllowedChanged);
       widget.playbackAllowed?.addListener(_onPlaybackAllowedChanged);
+    }
+    if (oldWidget.isActive != widget.isActive) {
+      _onPlaybackAllowedChanged();
     }
     if (oldWidget.post.id != widget.post.id ||
         oldWidget.post.isLiked != widget.post.isLiked ||
@@ -332,7 +347,12 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     try {
       await controller.initialize();
       await controller.setLooping(true);
-      await controller.setVolume(0);
+      // Trình duyệt chặn autoplay có tiếng. Video đầu tiên cần chạy mute;
+      // lần chạm đầu tiên hoặc thao tác vuốt sẽ mở tiếng trở lại.
+      _isMutedForWebAutoplay = kIsWeb && widget.isActive;
+      await controller.setVolume(
+        widget.isActive && !kIsWeb ? 1 : 0,
+      );
       final startAt = widget.initialPosition;
       if (startAt != null && startAt < controller.value.duration) {
         await controller.seekTo(startAt);
@@ -343,7 +363,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       _updateActiveSubtitle();
 
       // Tải xong khi feed đang bị che: chờ hiện lại mới phát.
-      if (!_playbackAllowed) {
+      if (!_canAutoPlay) {
         _pausedForHidden = true;
         return;
       }
@@ -436,7 +456,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
     } else if (_pausedForLookup) {
       _pausedForLookup = false;
-      if (_isPlaying && mounted && _playbackAllowed) {
+      if (_isPlaying && mounted && _canAutoPlay) {
         controller.play().catchError((error) {
           debugPrint('Video playback failed: $error');
         });
@@ -447,6 +467,14 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   void _handleTapToPlayPause() {
     final controller = _videoController;
     if (controller == null || !controller.value.isInitialized) {
+      return;
+    }
+
+    if (controller.value.isPlaying && _isMutedForWebAutoplay) {
+      _isMutedForWebAutoplay = false;
+      controller.setVolume(1).catchError((error) {
+        debugPrint('Video unmute failed: $error');
+      });
       return;
     }
 
@@ -466,14 +494,51 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     }
   }
 
+  /// Khoảng cách từ mép trên thanh menu dưới tới đáy cột tương tác; đủ để né thanh tiến trình.
+  /// Cả bố cục dọc lẫn ngang dùng chung để cột không nhảy vị trí khi video tải xong.
+  static const double _sidebarBottomGap = 28.0;
+  static const double _actionBarRightShift = 6.0;
+
+  Widget _buildInteractionSidebar({
+    required AdaptiveVideoTheme theme,
+    required double bottom,
+    required double width,
+  }) {
+    return Positioned(
+      right: -_actionBarRightShift,
+      bottom: bottom,
+      width: width,
+      child: Center(
+        child: InteractionSidebar(
+          post: widget.post,
+          theme: theme,
+          subtitleMode: _subtitleMode,
+          isLikedOverride: _doubleTapLikedOverride,
+          likeCountOverride: _doubleTapLikeCountOverride,
+          onToggleSubtitles: _cycleSubtitleMode,
+          onLikeToggle: widget.onLikeToggle,
+          onSaveToggle: widget.onSaveToggle,
+          onFollowToggle: widget.onFollowToggle,
+          onCreatorTap: _onCreatorTap,
+          onCommentTap: widget.onCommentTap,
+          onShareTap: _handleShare,
+          onScriptTap: _openScript,
+          allowAccountActions: widget.allowAccountActions,
+        ),
+      ),
+    );
+  }
+
+  /// Chiều cao thanh menu dưới cần chừa (0 khi màn này không có thanh menu), chưa gồm vùng an toàn.
+  double get _barHeight => widget.reserveBottomBar ? BottomNavDock.contentHeight : 0.0;
+
   @override
   Widget build(BuildContext context) {
     // Dynamic contrast theme based on background brightness
     final theme = AdaptiveVideoTheme(isLight: widget.post.isLightBackground);
     // Chiều cao thanh menu dưới (kể cả vùng an toàn) để các lớp phủ né ra.
     final navBarHeight =
-        BottomNavDock.contentHeight + MediaQuery.paddingOf(context).bottom;
-    const actionBarRightShift = 6.0;
+        _barHeight + MediaQuery.paddingOf(context).bottom;
     final activeCue = _activeSubtitle;
     final displayedSegments = widget.post.subtitleCues.isEmpty
         ? widget.post.rubySegments
@@ -562,30 +627,11 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                   ),
                 ),
 
-                // 4. Right Side Interaction Sidebar (căn giữa theo chiều dọc)
-                Positioned(
-                  right: -actionBarRightShift,
-                  top: 0,
-                  bottom: 0,
+                // 4. Cột tương tác bên phải, neo sát đáy (cùng vị trí với bố cục ngang)
+                _buildInteractionSidebar(
+                  theme: theme,
+                  bottom: navBarHeight + _sidebarBottomGap,
                   width: tabWidth,
-                  child: Center(
-                    child: InteractionSidebar(
-                      post: widget.post,
-                      theme: theme,
-                      subtitleMode: _subtitleMode,
-                      isLikedOverride: _doubleTapLikedOverride,
-                      likeCountOverride: _doubleTapLikeCountOverride,
-                      onToggleSubtitles: _cycleSubtitleMode,
-                      onLikeToggle: widget.onLikeToggle,
-                      onSaveToggle: widget.onSaveToggle,
-                      onFollowToggle: widget.onFollowToggle,
-                      onCreatorTap: _onCreatorTap,
-                      onCommentTap: widget.onCommentTap,
-                      onShareTap: _handleShare,
-                      onScriptTap: _openScript,
-                      allowAccountActions: widget.allowAccountActions,
-                    ),
-                  ),
                 ),
                 Positioned.fill(child: _buildFloatingHearts()),
 
@@ -692,7 +738,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           final mediaPadding = MediaQuery.paddingOf(context);
           final topReservedHeight = mediaPadding.top + 56.0;
           final bottomReservedHeight =
-              BottomNavDock.contentHeight + mediaPadding.bottom;
+              _barHeight + mediaPadding.bottom;
           final contentHeight = math.max(
             0.0,
             constraints.maxHeight - topReservedHeight - bottomReservedHeight,
@@ -702,7 +748,6 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           final remainingHeight = math.max(0.0, contentHeight - videoHeight);
           final contentZoneHeight = math.min(220.0, remainingHeight);
           final tabWidth = constraints.maxWidth / 5;
-          const actionBarRightShift = 6.0;
           final topVideoSpacer = math.max(
             0.0,
             remainingHeight - contentZoneHeight,
@@ -793,28 +838,10 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                 bottom: bottomReservedHeight,
                 child: _buildProgressBar(theme),
               ),
-              Positioned(
-                right: -actionBarRightShift,
-                bottom: bottomReservedHeight + 16,
+              _buildInteractionSidebar(
+                theme: theme,
+                bottom: bottomReservedHeight + _sidebarBottomGap,
                 width: tabWidth,
-                child: Center(
-                  child: InteractionSidebar(
-                    post: widget.post,
-                    theme: theme,
-                    subtitleMode: _subtitleMode,
-                    isLikedOverride: _doubleTapLikedOverride,
-                    likeCountOverride: _doubleTapLikeCountOverride,
-                    onToggleSubtitles: _cycleSubtitleMode,
-                    onLikeToggle: widget.onLikeToggle,
-                    onSaveToggle: widget.onSaveToggle,
-                    onFollowToggle: widget.onFollowToggle,
-                    onCreatorTap: _onCreatorTap,
-                    onCommentTap: widget.onCommentTap,
-                    onShareTap: _handleShare,
-                    onScriptTap: _openScript,
-                    allowAccountActions: widget.allowAccountActions,
-                  ),
-                ),
               ),
             ],
           );

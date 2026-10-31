@@ -9,6 +9,10 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../../follow/presentation/screens/user_profile_screen.dart';
+import '../../../flashcard/data/services/flashcard_service.dart';
+import '../../../flashcard/presentation/screens/deck_overview_screen.dart';
+import '../../../report/report_service.dart';
+import '../../../report/report_sheet.dart';
 import '../../data/models/chat_models.dart';
 import '../../data/services/chat_hub.dart';
 import '../../data/services/chat_service.dart';
@@ -17,6 +21,7 @@ import '../chat_format.dart';
 import '../route_visibility.dart';
 import '../widgets/chat_avatar.dart';
 import '../widgets/chat_dialogs.dart';
+import '../widgets/chat_options_sheet.dart';
 import '../widgets/chat_image_viewer.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_study_sheet.dart';
@@ -836,6 +841,41 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     );
   }
 
+  /// Bảng tùy chọn: báo cáo, chặn / bỏ chặn, xóa cuộc trò chuyện.
+  Future<void> _openOptions() async {
+    final option = await showChatOptionsSheet(context, blocked: _conversation.blockedByMe);
+    if (option == null || !mounted) return;
+    switch (option) {
+      case ChatOption.report:
+        await showReportSheet(
+          context,
+          target: ReportTarget.user,
+          targetId: _conversation.otherUser.id,
+          subject: 'người dùng này',
+        );
+      case ChatOption.block:
+        await _toggleBlock();
+      case ChatOption.deleteConversation:
+        await _deleteConversation();
+    }
+  }
+
+  Future<void> _openDeck(ChatMessage message) async {
+    final deck = message.deck;
+    if (deck == null || !deck.available) return;
+    try {
+      final set = await FlashcardService.instance.getSetById(deck.id);
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => DeckOverviewScreen(deck: set)),
+      );
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+    } catch (_) {
+      if (mounted) AppToast.showError('Không mở được bộ thẻ này', context: context);
+    }
+  }
+
   void _openVideo(ChatMessage message) {
     final video = message.video;
     if (video == null || !video.available) return;
@@ -956,18 +996,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
             )
           : null,
       actions: [
-        PopupMenuButton<void>(
-          tooltip: 'Tuỳ chọn',
-          itemBuilder: (_) => [
-            PopupMenuItem<void>(
-              onTap: _toggleBlock,
-              child: Text(_conversation.blockedByMe ? 'Bỏ chặn' : 'Chặn'),
-            ),
-            PopupMenuItem<void>(
-              onTap: _deleteConversation,
-              child: const Text('Xóa đoạn chat'),
-            ),
-          ],
+        IconButton(
+          key: const ValueKey('chat-options-button'),
+          onPressed: _openOptions,
+          icon: Icon(Icons.more_vert_rounded, color: AppPalette.textPrimary),
+          tooltip: 'Tùy chọn',
         ),
       ],
       title: GestureDetector(
@@ -1124,6 +1157,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                             onTap: () => _toggleDetails(message),
                             onRetry: () => _retry(message),
                             onOpenVideo: () => _openVideo(message),
+                            onOpenDeck: () => _openDeck(message),
                             onOpenImage: () => _openImage(message.imageUrl),
                             onLongPress: () => _showMessageActions(message),
                             onStudy: () =>

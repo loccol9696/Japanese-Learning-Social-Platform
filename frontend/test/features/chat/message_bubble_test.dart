@@ -37,6 +37,17 @@ ChatMessage _share({bool available = true, int? startMs}) => ChatMessage(
   ),
 );
 
+final _fixedText = ChatMessage(
+  id: 5,
+  conversationId: 1,
+  senderId: 3,
+  type: MessageType.text,
+  content: 'cái gì',
+  clientMsgId: 'x',
+  createdAt: DateTime(2026, 10, 24, 9, 5),
+  status: MessageStatus.sent,
+);
+
 Future<void> _pump(
   WidgetTester tester,
   Widget child, {
@@ -80,6 +91,24 @@ void main() {
     expect(find.text('Đã xem'), findsOneWidget);
     expect(find.text('09:05'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tin ngắn thì bong bóng ôm vừa chữ, không kéo dài hết chiều ngang', (tester) async {
+    await _pump(
+      tester,
+      MessageBubble(message: _fixedText, isMine: true),
+      width: 400,
+    );
+
+    final bubble = tester.getRect(find.ancestor(
+      of: find.text('cái gì'),
+      matching: find.byType(Container),
+    ).first);
+    final text = tester.getRect(find.text('cái gì'));
+
+    // Rộng hơn chữ đúng phần đệm hai bên (14 + 14), không phải gần hết bề ngang màn hình.
+    expect(bubble.width, closeTo(text.width + 28, 1));
+    expect(bubble.width, lessThan(150));
   });
 
   testWidgets('failed message can be retried', (tester) async {

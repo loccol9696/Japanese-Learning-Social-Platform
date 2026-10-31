@@ -82,7 +82,7 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
       ),
     );
     try {
-      await _dataSource.toggleLike(post.id);
+      await _dataSource.setLiked(post.id, liked: liked);
     } catch (error) {
       _update((_) => post);
       if (mounted) {
@@ -97,9 +97,10 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
   Future<void> _toggleSave() async {
     final post = _post;
     if (post == null || !await requireAuthentication(context)) return;
-    _update((p) => p.copyWith(isSaved: !p.isSaved));
+    final saved = !post.isSaved;
+    _update((p) => p.copyWith(isSaved: saved));
     try {
-      await _dataSource.toggleSave(post.id);
+      await _dataSource.setSaved(post.id, saved: saved);
     } catch (error) {
       _update((_) => post);
       if (mounted) {
@@ -147,6 +148,8 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
             VideoPlayerItem(
               key: ValueKey(post.id),
               post: post,
+              // Màn này không có thanh menu dưới.
+              reserveBottomBar: false,
               initialPosition: widget.startMs == null
                   ? null
                   : Duration(milliseconds: widget.startMs!),

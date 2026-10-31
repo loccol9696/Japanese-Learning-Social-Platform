@@ -67,6 +67,9 @@ class PublicProfile {
   final bool isFollowedBy;
   final bool isSelf;
 
+  /// Người đang xem đã chặn người này.
+  final bool isBlocked;
+
   const PublicProfile({
     required this.id,
     required this.username,
@@ -81,11 +84,16 @@ class PublicProfile {
     this.isFollowing = false,
     this.isFollowedBy = false,
     this.isSelf = false,
+    this.isBlocked = false,
   });
 
   String get name => displayName.isNotEmpty ? displayName : username;
 
-  PublicProfile copyWith({bool? isFollowing, int? followersCount}) =>
+  PublicProfile copyWith({
+    bool? isFollowing,
+    int? followersCount,
+    bool? isBlocked,
+  }) =>
       PublicProfile(
         id: id,
         username: username,
@@ -100,6 +108,7 @@ class PublicProfile {
         isFollowing: isFollowing ?? this.isFollowing,
         isFollowedBy: isFollowedBy,
         isSelf: isSelf,
+        isBlocked: isBlocked ?? this.isBlocked,
       );
 
   factory PublicProfile.fromJson(Map<String, dynamic> json) => PublicProfile(
@@ -116,5 +125,30 @@ class PublicProfile {
     isFollowing: json['isFollowing'] == true,
     isFollowedBy: json['isFollowedBy'] == true,
     isSelf: json['isSelf'] == true,
+    isBlocked: json['isBlocked'] == true,
+  );
+}
+
+/// Một người trong danh sách "người đã chặn".
+class BlockedUser {
+  final int id;
+  final String username;
+  final String displayName;
+  final String avatarUrl;
+
+  const BlockedUser({
+    required this.id,
+    required this.username,
+    required this.displayName,
+    required this.avatarUrl,
+  });
+
+  String get name => displayName.isNotEmpty ? displayName : username;
+
+  factory BlockedUser.fromJson(Map<String, dynamic> json) => BlockedUser(
+    id: _toInt(json['id']),
+    username: json['username']?.toString() ?? '',
+    displayName: json['displayName']?.toString() ?? '',
+    avatarUrl: json['avatarUrl']?.toString() ?? '',
   );
 }

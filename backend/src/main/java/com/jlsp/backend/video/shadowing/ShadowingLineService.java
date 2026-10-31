@@ -27,10 +27,13 @@ public class ShadowingLineService {
     private final UserRepository userRepository;
     private final ShadowingLineAttemptRepository attemptRepository;
     private final ShadowingScorer scorer;
+    private final com.jlsp.backend.streak.service.StreakService streakService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public ShadowingLineService(VideoRepository videoRepository, UserRepository userRepository,
-            ShadowingLineAttemptRepository attemptRepository, KanaNormalizer normalizer) {
+            ShadowingLineAttemptRepository attemptRepository, KanaNormalizer normalizer,
+            com.jlsp.backend.streak.service.StreakService streakService) {
+        this.streakService = streakService;
         this.videoRepository = videoRepository;
         this.userRepository = userRepository;
         this.attemptRepository = attemptRepository;
@@ -61,6 +64,7 @@ public class ShadowingLineService {
                 .recognizedText(spoken)
                 .score(result.score())
                 .build());
+        streakService.recordActivity(userId);
 
         int best = result.score();
         for (Object[] row : attemptRepository.summarize(userId, videoId)) {

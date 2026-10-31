@@ -27,7 +27,7 @@ void main() {
     expect(find.text('Tải tệp lên'), findsOneWidget);
     expect(find.text('Liên kết YouTube'), findsOneWidget);
     expect(find.text('Chạm để chọn video'), findsOneWidget);
-    expect(find.text('MP4, MOV · Tối đa 500MB · Tỷ lệ 9:16 (dọc)'), findsOneWidget);
+    expect(find.text('MP4, MOV · Tối đa 500MB'), findsOneWidget);
     expect(find.byIcon(Icons.cloud_upload_outlined), findsOneWidget);
 
     // Ghi chú đang gập

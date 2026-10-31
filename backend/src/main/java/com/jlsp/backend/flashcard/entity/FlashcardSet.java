@@ -46,6 +46,10 @@ public class FlashcardSet {
     @Builder.Default
     private List<Flashcard> flashcards = new ArrayList<>();
 
+    /** Thứ tự người dùng tự sắp xếp trong thư viện; null (bộ mới) hiện trên cùng. */
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

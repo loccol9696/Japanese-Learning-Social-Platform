@@ -1,4 +1,5 @@
 import type { ApiResponse, UserProfile, UserRole } from '../types/auth';
+import { authFetch, getToken, readJson } from './session';
 
 export interface AdminCreateUserPayload {
   username: string;
@@ -76,14 +77,18 @@ export interface SubscriptionPlanItem {
 export interface SubscriptionOrderItem {
   id: number;
   orderCode: string;
-  verificationCode: string;
+  /** Nội dung chuyển khoản người dùng đã ghi (cũng là mã đơn). */
+  transferMemo?: string;
   username: string;
   userDisplayName?: string;
   planName: string;
   planCode: string;
   amount: number;
+  /** Tổng tiền đã nhận cho đơn (có thể nhiều lần chuyển). */
+  paidAmount?: number;
   paymentMethod: string;
-  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'EXPIRED' | 'CANCELLED' | 'NEEDS_REVIEW';
+  expiresAt?: string;
   createdAt: string;
   completedAt?: string;
 }
@@ -98,7 +103,7 @@ export interface PageResponse<T> {
 }
 
 function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('jlsp_token');
+  const token = getToken();
   return {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -112,10 +117,10 @@ export async function getModerationVideos(
   page = 0,
   size = 10
 ): Promise<PageResponse<VideoModerationItem>> {
-  const response = await fetch(`/api/v1/videos/moderation?status=${modStatus}&modStatus=${modStatus}&page=${page}&size=${size}`, {
+  const response = await authFetch(`/api/v1/videos/moderation?status=${modStatus}&modStatus=${modStatus}&page=${page}&size=${size}`, {
     headers: getAuthHeaders(),
   });
-  const resData: ApiResponse<PageResponse<VideoModerationItem>> = await response.json();
+  const resData: ApiResponse<PageResponse<VideoModerationItem>> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể tải danh sách video cần duyệt');
   }
@@ -123,11 +128,11 @@ export async function getModerationVideos(
 }
 
 export async function approveVideo(videoId: number): Promise<VideoModerationItem> {
-  const response = await fetch(`/api/v1/videos/${videoId}/approve`, {
+  const response = await authFetch(`/api/v1/videos/${videoId}/approve`, {
     method: 'POST',
     headers: getAuthHeaders(),
   });
-  const resData: ApiResponse<VideoModerationItem> = await response.json();
+  const resData: ApiResponse<VideoModerationItem> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Phê duyệt video thất bại');
   }
@@ -135,12 +140,12 @@ export async function approveVideo(videoId: number): Promise<VideoModerationItem
 }
 
 export async function rejectVideo(videoId: number, reason: string): Promise<VideoModerationItem> {
-  const response = await fetch(`/api/v1/videos/${videoId}/reject`, {
+  const response = await authFetch(`/api/v1/videos/${videoId}/reject`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ reason }),
   });
-  const resData: ApiResponse<VideoModerationItem> = await response.json();
+  const resData: ApiResponse<VideoModerationItem> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Từ chối duyệt video thất bại');
   }
@@ -162,10 +167,10 @@ export async function getAdminUsers(
   if (search.trim()) params.append('search', search.trim());
   if (role) params.append('role', role);
 
-  const response = await fetch(`/api/v1/users/admin-list?${params.toString()}`, {
+  const response = await authFetch(`/api/v1/users/admin-list?${params.toString()}`, {
     headers: getAuthHeaders(),
   });
-  const resData: ApiResponse<PageResponse<AdminUserItem>> = await response.json();
+  const resData: ApiResponse<PageResponse<AdminUserItem>> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể tải danh sách tài khoản');
   }
@@ -173,11 +178,11 @@ export async function getAdminUsers(
 }
 
 export async function toggleUserStatus(userId: number): Promise<AdminUserItem> {
-  const response = await fetch(`/api/v1/users/${userId}/toggle-status`, {
+  const response = await authFetch(`/api/v1/users/${userId}/toggle-status`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
   });
-  const resData: ApiResponse<AdminUserItem> = await response.json();
+  const resData: ApiResponse<AdminUserItem> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể thay đổi trạng thái tài khoản');
   }
@@ -185,13 +190,13 @@ export async function toggleUserStatus(userId: number): Promise<AdminUserItem> {
 }
 
 export async function createPrivilegedAccount(payload: AdminCreateUserPayload): Promise<UserProfile> {
-  const response = await fetch('/api/v1/users/admin-create', {
+  const response = await authFetch('/api/v1/users/admin-create', {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
   });
 
-  const resData: ApiResponse<UserProfile> = await response.json();
+  const resData: ApiResponse<UserProfile> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể tạo tài khoản đặc quyền. Vui lòng thử lại!');
   }
@@ -202,7 +207,7 @@ export async function batchCreateAccounts(
   count: number,
   role: 'ADMIN' | 'MODERATOR'
 ): Promise<GeneratedAccountDto[]> {
-  const response = await fetch('/api/v1/users/admin-batch-create', {
+  const response = await authFetch('/api/v1/users/admin-batch-create', {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ count, role }),
@@ -240,13 +245,13 @@ export async function changePassword(payload: {
   newPassword: string;
   username?: string;
 }): Promise<void> {
-  const response = await fetch('/api/v1/auth/change-password', {
+  const response = await authFetch('/api/v1/auth/change-password', {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
   });
 
-  const resData: ApiResponse<void> = await response.json();
+  const resData: ApiResponse<void> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Đổi mật khẩu thất bại. Kiểm tra lại mật khẩu cũ.');
   }
@@ -255,10 +260,10 @@ export async function changePassword(payload: {
 // ==================== PLANS & DAILY TOKEN LIMIT (ADMIN) ====================
 
 export async function getAllPlansAdmin(): Promise<SubscriptionPlanItem[]> {
-  const response = await fetch('/api/v1/subscription-plans/admin-all', {
+  const response = await authFetch('/api/v1/subscription-plans/admin-all', {
     headers: getAuthHeaders(),
   });
-  const resData: ApiResponse<SubscriptionPlanItem[]> = await response.json();
+  const resData: ApiResponse<SubscriptionPlanItem[]> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể tải danh sách gói đăng ký');
   }
@@ -274,12 +279,12 @@ export async function createPlan(payload: {
   description?: string;
   features?: string;
 }): Promise<SubscriptionPlanItem> {
-  const response = await fetch('/api/v1/subscription-plans', {
+  const response = await authFetch('/api/v1/subscription-plans', {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
   });
-  const resData: ApiResponse<SubscriptionPlanItem> = await response.json();
+  const resData: ApiResponse<SubscriptionPlanItem> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể tạo mới gói đăng ký');
   }
@@ -299,12 +304,12 @@ export async function updatePlan(
     isActive?: boolean;
   }
 ): Promise<SubscriptionPlanItem> {
-  const response = await fetch(`/api/v1/subscription-plans/${id}`, {
+  const response = await authFetch(`/api/v1/subscription-plans/${id}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
   });
-  const resData: ApiResponse<SubscriptionPlanItem> = await response.json();
+  const resData: ApiResponse<SubscriptionPlanItem> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể cập nhật gói đăng ký');
   }
@@ -317,10 +322,10 @@ export interface TokenRateDto {
 }
 
 export async function getTokenRate(): Promise<TokenRateDto> {
-  const response = await fetch('/api/v1/subscription-plans/token-rate', {
+  const response = await authFetch('/api/v1/subscription-plans/token-rate', {
     headers: getAuthHeaders(),
   });
-  const resData: ApiResponse<TokenRateDto> = await response.json();
+  const resData: ApiResponse<TokenRateDto> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể tải cấu hình tỷ lệ Token');
   }
@@ -328,64 +333,48 @@ export async function getTokenRate(): Promise<TokenRateDto> {
 }
 
 export async function updateTokenRate(secondsPerToken: number): Promise<TokenRateDto> {
-  const response = await fetch('/api/v1/subscription-plans/token-rate', {
+  const response = await authFetch('/api/v1/subscription-plans/token-rate', {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify({ secondsPerToken }),
   });
-  const resData: ApiResponse<TokenRateDto> = await response.json();
+  const resData: ApiResponse<TokenRateDto> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể lưu cấu hình tỷ lệ Token');
   }
   return resData.data;
 }
 
-// ==================== SUBSCRIPTION ORDER & QR LOCAL SIMULATOR ====================
+// ==================== ĐƠN THANH TOÁN (ADMIN) ====================
 
 export async function getSubscriptionOrders(
   page = 0,
   size = 15,
   sort = 'createdAt,desc'
 ): Promise<PageResponse<SubscriptionOrderItem>> {
-  const response = await fetch(`/api/v1/payments/history?page=${page}&size=${size}&sort=${sort}`, {
+  const response = await authFetch(`/api/v1/admin/payments?page=${page}&size=${size}&sort=${sort}`, {
     headers: getAuthHeaders(),
   });
-  const resData: ApiResponse<PageResponse<SubscriptionOrderItem>> = await response.json();
+  const resData: ApiResponse<PageResponse<SubscriptionOrderItem>> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể tải lịch sử mua gói');
   }
   return resData.data;
 }
 
-export async function createQrOrder(planCode: string): Promise<{
-  orderCode: string;
-  verificationCode: string;
-  planName: string;
-  amount: number;
-  qrCodeUrl: string;
-  status: string;
-}> {
-  const response = await fetch('/api/v1/payments/create-order', {
+/**
+ * Admin duyệt tay một đơn chưa thành công (vd. khách chuyển thiếu rồi bù tiền mặt). Bắt buộc ghi lý do; server lưu lại
+ * người duyệt để truy vết. Đơn thanh toán bình thường được kích hoạt tự động bởi webhook ngân hàng, không qua đây.
+ */
+export async function adminConfirmOrder(orderCode: string, note: string): Promise<SubscriptionOrderItem> {
+  const response = await authFetch(`/api/v1/admin/payments/${encodeURIComponent(orderCode)}/confirm`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ planCode }),
+    body: JSON.stringify({ note }),
   });
-  const resData: ApiResponse<any> = await response.json();
+  const resData: ApiResponse<SubscriptionOrderItem> = await readJson(response);
   if (!response.ok) {
-    throw new Error(resData.message || 'Không thể khởi tạo đơn hàng thanh toán QR');
-  }
-  return resData.data;
-}
-
-export async function confirmPayment(orderCode: string, verificationCode: string): Promise<any> {
-  const response = await fetch('/api/v1/payments/confirm', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ orderCode, verificationCode }),
-  });
-  const resData: ApiResponse<any> = await response.json();
-  if (!response.ok) {
-    throw new Error(resData.message || 'Mã xác thực không đúng hoặc đơn hàng đã xử lý');
+    throw new Error(resData.message || 'Không thể duyệt đơn hàng');
   }
   return resData.data;
 }
@@ -422,10 +411,10 @@ export interface AdminAnalyticsData {
 }
 
 export async function getAdminAnalytics(period: '7days' | 'month' | 'year' = '7days'): Promise<AdminAnalyticsData> {
-  const response = await fetch(`/api/v1/admin/analytics?period=${period}`, {
+  const response = await authFetch(`/api/v1/admin/analytics?period=${period}`, {
     headers: getAuthHeaders(),
   });
-  const resData: ApiResponse<AdminAnalyticsData> = await response.json();
+  const resData: ApiResponse<AdminAnalyticsData> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể tải dữ liệu thống kê');
   }
@@ -442,10 +431,10 @@ export async function getMetricTrend(
   if (year) params.append('year', year.toString());
   if (month) params.append('month', month.toString());
 
-  const response = await fetch(`/api/v1/admin/analytics/trend?${params.toString()}`, {
+  const response = await authFetch(`/api/v1/admin/analytics/trend?${params.toString()}`, {
     headers: getAuthHeaders(),
   });
-  const resData: ApiResponse<DailyMetricDto[]> = await response.json();
+  const resData: ApiResponse<DailyMetricDto[]> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể tải xu hướng dữ liệu');
   }
@@ -464,15 +453,133 @@ export async function updateAdminProfile(
   currentUsername: string,
   payload: UpdateProfilePayload
 ): Promise<AdminUserItem> {
-  const response = await fetch(`/api/v1/users/profile-by-username/${encodeURIComponent(currentUsername)}`, {
+  const response = await authFetch(`/api/v1/users/profile-by-username/${encodeURIComponent(currentUsername)}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
   });
-  const resData: ApiResponse<AdminUserItem> = await response.json();
+  const resData: ApiResponse<AdminUserItem> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể cập nhật thông tin hồ sơ');
   }
   return resData.data;
 }
 
+
+// ==================== TOPICS (ADMIN) ====================
+
+export interface TopicItem {
+  id: number;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export async function getAllTopicsAdmin(): Promise<TopicItem[]> {
+  const response = await authFetch('/api/v1/topics/admin', { headers: getAuthHeaders() });
+  const resData: ApiResponse<TopicItem[]> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách chủ đề');
+  }
+  return resData.data;
+}
+
+export async function createTopic(payload: { name: string; sortOrder?: number }): Promise<TopicItem> {
+  const response = await authFetch('/api/v1/topics/admin', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<TopicItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tạo chủ đề');
+  }
+  return resData.data;
+}
+
+export async function updateTopic(
+  id: number,
+  payload: { name: string; isActive?: boolean; sortOrder?: number }
+): Promise<TopicItem> {
+  const response = await authFetch(`/api/v1/topics/admin/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<TopicItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể cập nhật chủ đề');
+  }
+  return resData.data;
+}
+
+// ==================== REPORTS (ADMIN & MODERATOR) ====================
+
+export type ReportTargetType = 'VIDEO' | 'COMMENT' | 'USER';
+export type ReportStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED';
+export type ReportAction = 'NONE' | 'HIDE_VIDEO' | 'DELETE_COMMENT' | 'LOCK_USER';
+
+export interface ReportItem {
+  id: number;
+  targetType: ReportTargetType;
+  targetId: number;
+  reason: string;
+  detail?: string;
+  status: ReportStatus;
+  action?: ReportAction;
+  resolutionNote?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  reporterId: number;
+  reporterUsername: string;
+  targetExists: boolean;
+  targetSummary?: string;
+  targetOwnerId?: number;
+  targetOwnerUsername?: string;
+  targetVideoId?: number;
+  pendingCountForTarget: number;
+}
+
+export async function getReports(
+  status: ReportStatus,
+  targetType: ReportTargetType | '',
+  page = 0,
+  size = 10
+): Promise<PageResponse<ReportItem>> {
+  const params = new URLSearchParams({ status, page: String(page), size: String(size) });
+  if (targetType) params.set('targetType', targetType);
+  const response = await authFetch(`/api/v1/admin/reports?${params.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<PageResponse<ReportItem>> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách báo cáo');
+  }
+  return resData.data;
+}
+
+export async function resolveReport(id: number, action: ReportAction, note: string): Promise<ReportItem> {
+  const response = await authFetch(`/api/v1/admin/reports/${id}/resolve`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ action, note: note.trim() || undefined }),
+  });
+  const resData: ApiResponse<ReportItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể xử lý báo cáo');
+  }
+  return resData.data;
+}
+
+export async function dismissReport(id: number, note: string): Promise<ReportItem> {
+  const response = await authFetch(`/api/v1/admin/reports/${id}/dismiss`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ note: note.trim() || undefined }),
+  });
+  const resData: ApiResponse<ReportItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể bác bỏ báo cáo');
+  }
+  return resData.data;
+}

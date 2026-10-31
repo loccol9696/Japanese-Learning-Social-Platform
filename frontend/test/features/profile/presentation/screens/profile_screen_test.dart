@@ -1,8 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/core/localization/app_language.dart';
-import 'package:frontend/core/localization/locale_manager.dart';
+import 'package:frontend/features/notification/notification_sheet.dart';
 import 'package:frontend/features/profile/domain/models/topic_model.dart';
 import 'package:frontend/features/profile/domain/models/user_profile_model.dart';
 import 'package:frontend/features/profile/domain/repositories/profile_repository.dart';
@@ -115,15 +114,18 @@ void main() {
 
     // Verify user info
     expect(find.text('Yamada Kenji'), findsOneWidget);
-    // Tên đăng nhập kèm cấp độ JLPT trên cùng một dòng.
+    // Dưới tên: tên đăng nhập kèm cấp độ JLPT trên cùng một dòng, cạnh thẻ gói.
     expect(find.text('@yamada_san · N3'), findsOneWidget);
+    // Hồ sơ mẫu đang có gói VIP còn hạn nên hiện thẻ PREMIUM.
+    expect(find.text('PREMIUM'), findsOneWidget);
 
     // Chỉ số: số in đậm + nhãn trên cùng một dòng
     expect(find.textContaining('đang follow'), findsOneWidget);
     expect(find.textContaining('follower'), findsOneWidget);
     expect(find.textContaining('thích'), findsOneWidget);
 
-    // Không còn hàng nút "Chỉnh sửa" / "Đăng video" và thẻ gói miễn phí
+    // Header gọn: không có hàng nút "Chỉnh sửa" / "Đăng video" và thẻ "Gói Miễn phí" riêng
+    // (sửa hồ sơ mở từ avatar hoặc Cài đặt, đăng video mở từ nút tạo ở thanh điều hướng)
     expect(find.text('Chỉnh sửa'), findsNothing);
     expect(find.text('Đăng video'), findsNothing);
     expect(find.text('Gói Miễn phí'), findsNothing);
@@ -164,6 +166,9 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    // Lối vào Quản lý theo dõi chỉ còn qua số đang follow / follower, không có icon riêng trên đầu trang.
+    expect(find.byTooltip('Quản lý theo dõi'), findsNothing);
+
     // Tap 3-line menu button
     final menuButton = find.byTooltip('Tùy chọn & Cài đặt');
     expect(menuButton, findsOneWidget);
@@ -173,11 +178,13 @@ void main() {
     // Tiêu đề và các hàng cài đặt
     expect(find.text('Cài đặt'), findsOneWidget);
     expect(find.text('Tài khoản'), findsOneWidget);
-    expect(find.text('Thông báo'), findsOneWidget);
-    expect(find.text('Ngôn ngữ'), findsOneWidget);
-    expect(find.text('Tiếng Việt'), findsOneWidget);
-    expect(find.text('Quyền riêng tư'), findsOneWidget);
-    expect(find.text('Trợ giúp và phản hồi'), findsOneWidget);
+    expect(find.text('Ngôn ngữ'), findsNothing);
+    expect(find.text('Đổi mật khẩu'), findsOneWidget);
+    expect(find.text('Người đã chặn'), findsOneWidget);
+    // Các mục chưa có tính năng và mục trùng với icon chuông đã được gỡ.
+    expect(find.text('Quyền riêng tư'), findsNothing);
+    expect(find.text('Trợ giúp và phản hồi'), findsNothing);
+    expect(find.text('Thông báo'), findsNothing);
     expect(find.text('Đăng xuất'), findsOneWidget);
 
     // Lối vào quản lý đăng tải luôn hiện, kèm số video chờ duyệt (mock có 1)
@@ -185,14 +192,22 @@ void main() {
     expect(find.text('1 chờ duyệt'), findsOneWidget);
     // Người dùng thường không thấy mục duyệt video
     expect(find.text('Quản lý duyệt nội dung'), findsNothing);
+  });
 
-    // Hàng chưa có tính năng báo "sẽ hoàn thiện"
-    await tester.tap(find.text('Thông báo'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Thông báo: Tính năng sẽ được hoàn thiện trong thời gian tới'),
-      findsOneWidget,
+  testWidgets('ProfileScreen bell icon opens the notifications sheet', (tester) async {
+    final mockRepo = _MockProfileRepository();
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: ProfileScreen(repository: mockRepo))),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Thông báo'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(NotificationSheet), findsOneWidget);
+    expect(find.text('Thông báo'), findsOneWidget);
   });
 
   testWidgets('ProfileScreen settings "Tài khoản" opens the edit profile screen', (tester) async {
@@ -235,32 +250,21 @@ void main() {
     expect(find.text('Quản lý duyệt nội dung'), findsOneWidget);
   });
 
-  testWidgets('ProfileScreen settings sheet changes the app language', (tester) async {
-    addTearDown(() => localeManager.changeLanguage(AppLanguage.vi));
+  testWidgets('ProfileScreen settings theme picker only offers light and dark', (tester) async {
     final mockRepo = _MockProfileRepository();
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ProfileScreen(repository: mockRepo),
-        ),
-      ),
+      MaterialApp(home: Scaffold(body: ProfileScreen(repository: mockRepo))),
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Tùy chọn & Cài đặt'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ngôn ngữ'));
+    await tester.tap(find.text('Giao diện'));
     await tester.pumpAndSettle();
 
-    // Bảng chọn ngôn ngữ liệt kê cả 3 ngôn ngữ
-    expect(find.text('English'), findsOneWidget);
-    expect(find.text('日本語'), findsOneWidget);
-
-    await tester.tap(find.text('English'));
-    await tester.pumpAndSettle();
-
-    expect(localeManager.currentLanguage, AppLanguage.en);
-    expect(find.text('Switched to English'), findsOneWidget);
+    expect(find.text('Sáng'), findsOneWidget);
+    expect(find.text('Tối'), findsWidgets);
+    expect(find.text('Theo hệ thống'), findsNothing);
   });
 }

@@ -74,6 +74,19 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(200, msg, response));
     }
 
+    /** GET /api/v1/users/search?q=... — tìm người dùng công khai (không lộ email/vai trò). */
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<PageResponse<FollowUserResponse>>> searchPublicUsers(
+            @RequestParam("q") String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                Math.max(page, 0), Math.min(Math.max(size, 1), 50),
+                org.springframework.data.domain.Sort.by("username"));
+        return ResponseEntity.ok(ApiResponse.success(
+                userService.searchPublicUsers(CurrentUser.requireId(), q, pageable)));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable Long id) {
         UserResponse response = userService.getUserById(id);
@@ -129,14 +142,20 @@ public class UserController {
 
     /** GET /api/v1/users/me/followers — những người đang theo dõi mình. */
     @GetMapping("/me/followers")
-    public ResponseEntity<ApiResponse<List<FollowUserResponse>>> getMyFollowers() {
-        return ResponseEntity.ok(ApiResponse.success(followService.getFollowers(CurrentUser.requireId())));
+    public ResponseEntity<ApiResponse<List<FollowUserResponse>>> getMyFollowers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "" + FollowService.MAX_LIST_SIZE) int size) {
+        return ResponseEntity.ok(ApiResponse.success(
+                followService.getFollowers(CurrentUser.requireId(), page, size)));
     }
 
     /** GET /api/v1/users/me/following — những người mình đang theo dõi. */
     @GetMapping("/me/following")
-    public ResponseEntity<ApiResponse<List<FollowUserResponse>>> getMyFollowing() {
-        return ResponseEntity.ok(ApiResponse.success(followService.getFollowing(CurrentUser.requireId())));
+    public ResponseEntity<ApiResponse<List<FollowUserResponse>>> getMyFollowing(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "" + FollowService.MAX_LIST_SIZE) int size) {
+        return ResponseEntity.ok(ApiResponse.success(
+                followService.getFollowing(CurrentUser.requireId(), page, size)));
     }
 
     /** GET /api/v1/users/{id}/public-profile — trang cá nhân công khai (không lộ email). */

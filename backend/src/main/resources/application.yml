@@ -16,9 +16,11 @@ spring:
   application:
     name: backend
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE}
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   datasource:
     url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -64,6 +66,21 @@ cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
   api-key: ${CLOUDINARY_API_KEY}
   api-secret: ${CLOUDINARY_API_SECRET}
+
+# Thanh toán mua gói bằng chuyển khoản VietQR. Thiếu thông tin tài khoản nhận thì không tạo được đơn.
+payment:
+  enabled: ${PAYMENT_ENABLED:true}
+  bank-bin: ${PAYMENT_BANK_BIN:}
+  bank-name: ${PAYMENT_BANK_NAME:}
+  account-no: ${PAYMENT_ACCOUNT_NO:}
+  account-name: ${PAYMENT_ACCOUNT_NAME:}
+  order-ttl-minutes: ${PAYMENT_ORDER_TTL_MINUTES:15}
+  late-grace-hours: ${PAYMENT_LATE_GRACE_HOURS:24}
+  max-orders-per-hour: ${PAYMENT_MAX_ORDERS_PER_HOUR:10}
+
+sepay:
+  # Khoá bí mật SePay gửi kèm webhook (header Authorization: Apikey <khoá>). Để trống thì webhook từ chối mọi yêu cầu.
+  webhook-key: ${SEPAY_WEBHOOK_KEY:}
 
 server:
   port: 8080
@@ -116,13 +133,13 @@ app:
   security:
     enabled: true
 
+# Dev dùng phân tích ngữ pháp giả lập (không gọi Gemini, không tốn quota).
 ai-analysis:
   mock:
     delay-ms: 1500
     enabled: true
   api-key: "fake-key"
   base-url: "https://fake-api.com"
-  
 
 ---
 # Cấu hình riêng cho môi trường Production

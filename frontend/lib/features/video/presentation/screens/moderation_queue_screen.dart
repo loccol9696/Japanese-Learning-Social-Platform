@@ -5,6 +5,7 @@ import '../../../profile/data/repositories/profile_repository_impl.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../domain/models/user_video_model.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 class ModerationQueueScreen extends StatefulWidget {
   final ProfileRepository? repository;
@@ -50,21 +51,11 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
     try {
       await _repository.approveVideo(video.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã phê duyệt video "${video.title}" thành công!'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      AppToast.showSuccess('Đã phê duyệt video "${video.title}" thành công!', context: context);
       _loadVideos();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppToast.showError(e.toString().replaceAll('Exception: ', ''), context: context);
     } finally {
       if (mounted) setState(() => _processingIds.remove(video.id));
     }
@@ -182,9 +173,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                   onPressed: () {
                     final text = reasonController.text.trim();
                     if (text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Vui lòng cung cấp lý do từ chối!')),
-                      );
+                      AppToast.showError('Vui lòng cung cấp lý do từ chối!', context: context);
                       return;
                     }
                     Navigator.of(ctx).pop(text);
@@ -203,21 +192,11 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
       try {
         await _repository.rejectVideo(video.id, result);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã từ chối video "${video.title}" do vi phạm.'),
-            backgroundColor: AppPalette.error,
-          ),
-        );
+        AppToast.showInfo('Đã từ chối video "${video.title}" do vi phạm.', context: context);
         _loadVideos();
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppToast.showError(e.toString().replaceAll('Exception: ', ''), context: context);
       } finally {
         if (mounted) setState(() => _processingIds.remove(video.id));
       }

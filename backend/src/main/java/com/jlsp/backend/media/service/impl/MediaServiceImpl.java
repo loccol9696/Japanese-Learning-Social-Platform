@@ -52,9 +52,9 @@ public class MediaServiceImpl implements MediaService {
         Map<String, Object> paramsToSign = new HashMap<>();
         paramsToSign.put("timestamp", timestamp);
 
-        if (folder != null && !folder.isBlank()) {
-            paramsToSign.put("folder", folder.trim());
-        }
+        // Chữ ký cho phép client tự upload vào đúng thư mục này, nên thư mục phải được kiểm tra.
+        String safeFolder = MediaUploadPolicy.sanitizeFolder(folder);
+        paramsToSign.put("folder", safeFolder);
 
         String signature = cloudinary.apiSignRequest(paramsToSign, apiSecret.trim());
 
@@ -65,7 +65,7 @@ public class MediaServiceImpl implements MediaService {
                 .timestamp(timestamp)
                 .apiKey(apiKey.trim())
                 .cloudName(cloudName.trim())
-                .folder(folder != null ? folder.trim() : null)
+                .folder(safeFolder)
                 .build();
     }
 
@@ -76,16 +76,18 @@ public class MediaServiceImpl implements MediaService {
         if (file == null || file.isEmpty()) {
             throw new AppException(400, "File tải lên không được để trống");
         }
+        MediaUploadPolicy.validateFile(file.getContentType(), file.getSize());
+        String safeFolder = MediaUploadPolicy.sanitizeFolder(folder);
 
         try {
             Map<String, Object> uploadParams = new HashMap<>();
             uploadParams.put("resource_type", "auto");
-            if (folder != null && !folder.isBlank()) {
-                uploadParams.put("folder", folder.trim());
-            }
+            uploadParams.put("folder", safeFolder);
 
+            // Đọc file một lần, dùng lại cho cả Cloudinary và nhận dạng giọng nói bên dưới.
+            byte[] fileBytes = file.getBytes();
             @SuppressWarnings("unchecked")
-            Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(), uploadParams);
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(fileBytes, uploadParams);
             String secureUrl = (String) uploadResult.get("secure_url");
             String aiTaskId = null;
             String aiStatus = "NOT_STARTED";
@@ -93,11 +95,12 @@ public class MediaServiceImpl implements MediaService {
             if ("video".equals(uploadResult.get("resource_type"))
                     && secureUrl != null && !secureUrl.isBlank()) {
                 try {
-                    byte[] downloadedBytes = downloadFromCloudinary(secureUrl);
+                    // Trước đây tải lại toàn bộ video vừa upload từ Cloudinary (tới 500MB) chỉ để lấy
+                    // đúng nội dung mình đã có trong tay.
                     aiTaskId = java.util.UUID.randomUUID().toString();
                     speechToTextService.processAudioAsync(
                             aiTaskId,
-                            downloadedBytes,
+                            fileBytes,
                             file.getOriginalFilename());
                     aiStatus = "PROCESSING";
                 } catch (Exception aiException) {

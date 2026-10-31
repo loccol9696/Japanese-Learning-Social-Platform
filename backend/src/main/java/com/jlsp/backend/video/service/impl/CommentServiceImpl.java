@@ -15,7 +15,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,14 +28,24 @@ public class CommentServiceImpl implements CommentService {
     private final VideoCommentRepository commentRepository;
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
+    private final com.jlsp.backend.block.service.BlockService blockService;
+    private final com.jlsp.backend.notification.service.NotificationService notificationService;
 
     @Override
-    public List<VideoCommentResponse> list(Long videoId) {
+    public List<VideoCommentResponse> list(Long videoId, Long viewerId) {
         if (!videoRepository.existsById(videoId)) {
             throw new ResourceNotFoundException("Video", "id", videoId);
         }
+        Set<Long> hidden = blockService.relatedUserIds(viewerId);
+        // Hai truy vấn cho cả video (gốc và phản hồi), ghép lại trong bộ nhớ.
+        Map<Long, List<VideoComment>> repliesByParent = commentRepository
+                .findByVideoIdAndParentIsNotNullOrderByCreatedAtAsc(videoId).stream()
+                .collect(Collectors.groupingBy(r -> r.getParent().getId()));
         return commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(videoId)
-                .stream().map(this::toResponse).toList();
+                .stream()
+                .filter(c -> !hidden.contains(c.getUser().getId()))
+                .map(c -> toResponse(c, hidden, repliesByParent))
+                .toList();
     }
 
     @Override
@@ -41,6 +55,9 @@ public class CommentServiceImpl implements CommentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Video", "id", videoId));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        if (blockService.isBlockedEitherWay(userId, video.getUser().getId())) {
+            throw new AppException(403, "Bạn không thể bình luận trên video này");
+        }
         VideoComment parent = null;
         if (request.getParentId() != null) {
             parent = commentRepository.findById(request.getParentId())
@@ -49,9 +66,32 @@ public class CommentServiceImpl implements CommentService {
                 throw new IllegalArgumentException("Bình luận trả lời phải thuộc cùng video");
             }
         }
+        VideoComment replyTo = parent;
+        if (parent != null && request.getReplyToId() != null && !request.getReplyToId().equals(parent.getId())) {
+            // Trả lời một phản hồi: phải là phản hồi khác thuộc cùng bình luận gốc.
+            VideoComment target = commentRepository.findById(request.getReplyToId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Comment", "id", request.getReplyToId()));
+            if (!target.getVideo().getId().equals(videoId) || target.getParent() == null
+                    || !target.getParent().getId().equals(parent.getId())) {
+                throw new IllegalArgumentException("Bình luận được trả lời không hợp lệ");
+            }
+            replyTo = target;
+        }
         VideoComment comment = commentRepository.save(VideoComment.builder()
-                .video(video).user(user).parent(parent).content(request.getContent().trim()).build());
-        return toResponse(comment);
+                .video(video).user(user).parent(parent).replyTo(replyTo).content(request.getContent().trim()).build());
+
+        Long videoOwnerId = video.getUser().getId();
+        if (parent != null) {
+            Long parentAuthorId = parent.getUser().getId();
+            notificationService.notify(parentAuthorId, userId, com.jlsp.backend.notification.entity.NotificationType.REPLY, videoId, comment.getId(), comment.getContent());
+            // Chủ video cũng được báo (nếu khác người được trả lời), tránh gửi hai thông báo cho cùng một người.
+            if (!videoOwnerId.equals(parentAuthorId)) {
+                notificationService.notify(videoOwnerId, userId, com.jlsp.backend.notification.entity.NotificationType.COMMENT, videoId, comment.getId(), comment.getContent());
+            }
+        } else {
+            notificationService.notify(videoOwnerId, userId, com.jlsp.backend.notification.entity.NotificationType.COMMENT, videoId, comment.getId(), comment.getContent());
+        }
+        return toResponse(comment, Set.of(), Map.of());
     }
 
     @Override
@@ -65,16 +105,33 @@ public class CommentServiceImpl implements CommentService {
         if (!isAdmin && !comment.getUser().getId().equals(userId)) {
             throw new AppException(403, "Bạn chỉ có thể xóa bình luận của chính mình");
         }
+        // Các phản hồi sắp bị xoá (kể cả phản hồi của bình luận này) cần được gỡ trỏ "trả lời" trước,
+        // nếu không khoá ngoại sẽ chặn việc xoá.
+        List<Long> doomed = commentRepository.findByParentId(commentId).stream()
+                .map(VideoComment::getId)
+                .collect(Collectors.toCollection(ArrayList::new));
+        doomed.add(commentId);
+        commentRepository.clearReplyTo(doomed);
         commentRepository.deleteByParentId(commentId);
         commentRepository.delete(comment);
     }
 
-    private VideoCommentResponse toResponse(VideoComment comment) {
+    /** Tên hiển thị của người dùng, lùi về tên đăng nhập khi chưa có tên hiển thị. */
+    private static String nameOf(User user) {
+        return user.getDisplayName() != null && !user.getDisplayName().isBlank()
+                ? user.getDisplayName()
+                : user.getUsername();
+    }
+
+    private VideoCommentResponse toResponse(VideoComment comment, Set<Long> hidden,
+                                            Map<Long, List<VideoComment>> repliesByParent) {
         User user = comment.getUser();
         return VideoCommentResponse.builder()
                 .id(comment.getId())
                 .videoId(comment.getVideo().getId())
                 .parentId(comment.getParent() == null ? null : comment.getParent().getId())
+                .replyToName(comment.getReplyTo() == null ? null : nameOf(comment.getReplyTo().getUser()))
+                .replyToUserId(comment.getReplyTo() == null ? null : comment.getReplyTo().getUser().getId())
                 .userId(user.getId())
                 .username(user.getUsername())
                 .displayName(user.getDisplayName())
@@ -82,8 +139,11 @@ public class CommentServiceImpl implements CommentService {
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
                 .replies(comment.getParent() == null
-                        ? commentRepository.findByParentIdOrderByCreatedAtAsc(comment.getId())
-                                .stream().map(this::toResponse).toList()
+                        ? repliesByParent.getOrDefault(comment.getId(), List.of())
+                                .stream()
+                                .filter(r -> !hidden.contains(r.getUser().getId()))
+                                .map(r -> toResponse(r, hidden, repliesByParent))
+                                .toList()
                         : List.of())
                 .build();
     }

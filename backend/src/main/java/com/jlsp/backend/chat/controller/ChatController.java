@@ -4,6 +4,7 @@ import com.jlsp.backend.chat.dto.request.CreateConversationRequest;
 import com.jlsp.backend.chat.dto.request.MarkReadRequest;
 import com.jlsp.backend.chat.dto.request.RegisterDeviceRequest;
 import com.jlsp.backend.chat.dto.request.SendMessageRequest;
+import com.jlsp.backend.chat.dto.request.ShareDeckRequest;
 import com.jlsp.backend.chat.dto.request.ShareVideoRequest;
 import com.jlsp.backend.chat.dto.response.ChatUserResponse;
 import com.jlsp.backend.chat.dto.response.ConversationResponse;
@@ -168,6 +169,15 @@ public class ChatController {
             @PathVariable Long id,
             @Valid @RequestBody ShareVideoRequest request) {
         List<MessageResponse> sent = chatService.shareVideo(CurrentUser.requireId(), id, request);
+        return ResponseEntity.ok(ApiResponse.success(200, "Đã chia sẻ cho " + sent.size() + " người", sent));
+    }
+
+    /** POST /api/v1/flashcards/sets/{id}/share — chia sẻ bộ thẻ công khai cho nhiều người (follow lẫn nhau). */
+    @PostMapping("/flashcards/sets/{id}/share")
+    public ResponseEntity<ApiResponse<List<MessageResponse>>> shareDeck(
+            @PathVariable Long id,
+            @Valid @RequestBody ShareDeckRequest request) {
+        List<MessageResponse> sent = chatService.shareDeck(CurrentUser.requireId(), id, request);
         return ResponseEntity.ok(ApiResponse.success(200, "Đã chia sẻ cho " + sent.size() + " người", sent));
     }
 }

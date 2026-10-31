@@ -74,6 +74,22 @@ public class FlashcardController {
         return ResponseEntity.ok(ApiResponse.success(200, "Set deleted successfully", null));
     }
 
+    // 4b. Sắp xếp lại bộ thẻ trong thư viện
+    @PutMapping("/sets/order")
+    public ResponseEntity<ApiResponse<Void>> reorderSets(@Valid @RequestBody ReorderRequest request) {
+        flashcardService.reorderSets(CurrentUser.requireId(), request.getIds());
+        return ResponseEntity.ok(ApiResponse.success(200, "Sets reordered successfully", null));
+    }
+
+    // 4c. Sắp xếp lại thẻ trong một bộ
+    @PutMapping("/sets/{setId}/cards/order")
+    public ResponseEntity<ApiResponse<Void>> reorderCards(
+            @PathVariable Long setId,
+            @Valid @RequestBody ReorderRequest request) {
+        flashcardService.reorderCards(CurrentUser.requireId(), setId, request.getIds());
+        return ResponseEntity.ok(ApiResponse.success(200, "Cards reordered successfully", null));
+    }
+
     // 5. Lấy danh sách thẻ để học (Chế độ Thẻ ghi nhớ / Flashcard study)
     @GetMapping("/sets/{setId}/cards")
     public ResponseEntity<ApiResponse<List<FlashcardResponse>>> getCardsInSet(
@@ -181,7 +197,8 @@ public class FlashcardController {
     public ResponseEntity<ApiResponse<MatchingGameResponse>> generateMatchingGame(
             @PathVariable Long setId,
             @RequestParam(required = false, defaultValue = "5") Integer pairCount) {
-        MatchingGameResponse response = flashcardService.generateMatchingGame(setId, pairCount);
+        Long userId = CurrentUser.requireId();
+        MatchingGameResponse response = flashcardService.generateMatchingGame(userId, setId, pairCount);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

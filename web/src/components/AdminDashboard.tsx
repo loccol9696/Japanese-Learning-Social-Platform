@@ -19,7 +19,6 @@ import {
   Key,
   Download,
   Copy,
-  QrCode,
   RefreshCw,
   ArrowUpDown,
   Sparkles,
@@ -30,7 +29,8 @@ import {
   Coins,
   Save,
   Eye,
-  Play
+  Play,
+  Tag
 } from 'lucide-react';
 import {
   getModerationVideos,
@@ -44,8 +44,7 @@ import {
   getAllPlansAdmin,
   updatePlan,
   getSubscriptionOrders,
-  createQrOrder,
-  confirmPayment,
+  adminConfirmOrder,
   getAdminAnalytics,
   updateAdminProfile,
   getMetricTrend,
@@ -59,6 +58,8 @@ import {
   type AdminAnalyticsData,
   type DailyMetricDto
 } from '../services/adminService';
+import TopicsManager from './TopicsManager';
+import ReportsManager from './ReportsManager';
 import './AdminDashboard.css';
 
 interface AdminDashboardProps {
@@ -67,7 +68,7 @@ interface AdminDashboardProps {
   onUpdateUser?: (updated: UserProfile) => void;
 }
 
-type TabType = 'analytics' | 'videos' | 'users' | 'subscriptions' | 'pricing' | 'reports' | 'profile';
+type TabType = 'analytics' | 'videos' | 'users' | 'subscriptions' | 'pricing' | 'topics' | 'reports' | 'profile';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onUpdateUser }) => {
   const isModerator = user.role === 'MODERATOR';
@@ -82,7 +83,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     if (isAdmin && activeTab === 'videos') {
       setActiveTab('analytics');
     }
-    if (isModerator && (activeTab === 'users' || activeTab === 'subscriptions' || activeTab === 'pricing' || activeTab === 'analytics')) {
+    if (isModerator && (activeTab === 'users' || activeTab === 'subscriptions' || activeTab === 'pricing' || activeTab === 'topics' || activeTab === 'analytics')) {
       setActiveTab('videos');
     }
   }, [isAdmin, isModerator, activeTab]);
@@ -768,20 +769,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   const [orderSortField, setOrderSortField] = useState<'createdAt' | 'amount' | 'status'>('createdAt');
   const [orderSortDir, setOrderSortDir] = useState<'asc' | 'desc'>('desc');
 
-  // QR Test Simulator State
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const [selectedPlanCode, setSelectedPlanCode] = useState('PRO_MONTHLY');
-  const [activeQrOrder, setActiveQrOrder] = useState<{
-    orderCode: string;
-    verificationCode: string;
-    planName: string;
-    amount: number;
-    qrCodeUrl: string;
-    status: string;
-  } | null>(null);
-  const [verificationInput, setVerificationInput] = useState('');
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [paymentSuccessData, setPaymentSuccessData] = useState<any | null>(null);
+  // Đơn đang được admin duyệt tay (để khoá nút, tránh bấm hai lần)
+  const [confirmingOrderCode, setConfirmingOrderCode] = useState<string | null>(null);
 
   // Pagination state for subscription orders table (Limit 10 per page)
   const [ordersPage, setOrdersPage] = useState(0);
@@ -820,33 +809,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
-  const handleCreateQrOrder = async () => {
-    try {
-      const data = await createQrOrder(selectedPlanCode);
-      setActiveQrOrder(data);
-      setVerificationInput(data.verificationCode); // Tiện ích điền sẵn mã dưới QR để test nhanh
-      setPaymentSuccessData(null);
-    } catch (err: any) {
-      alert('Lỗi tạo mã QR: ' + err.message);
-    }
-  };
-
-  const handleConfirmQrPayment = async () => {
-    if (!activeQrOrder) return;
-    if (!verificationInput.trim()) {
-      alert('Vui lòng nhập mã xác thực hiện ở dưới QR!');
+  const handleAdminConfirm = async (order: SubscriptionOrderItem) => {
+    const note = window.prompt(
+      `Duyệt tay đơn ${order.orderCode} (${order.amount?.toLocaleString('vi-VN')} đ).
+Ghi lý do duyệt (bắt buộc, được lưu để truy vết):`
+    );
+    if (note === null) return;
+    if (!note.trim()) {
+      alert('Vui lòng ghi lý do duyệt.');
       return;
     }
-    setIsProcessingPayment(true);
+    setConfirmingOrderCode(order.orderCode);
     try {
-      const result = await confirmPayment(activeQrOrder.orderCode, verificationInput.trim());
-      setPaymentSuccessData(result);
-      showToast('Thanh toán thành công! Gói VIP và hạn mức Token ngày đã được nâng cấp.');
+      await adminConfirmOrder(order.orderCode, note.trim());
+      showToast(`Đã duyệt đơn ${order.orderCode}. Gói đã được kích hoạt cho người dùng.`);
       loadSubscriptionOrders();
     } catch (err: any) {
-      alert('Xác thực thất bại: ' + err.message);
+      alert('Duyệt đơn thất bại: ' + err.message);
     } finally {
-      setIsProcessingPayment(false);
+      setConfirmingOrderCode(null);
     }
   };
 
@@ -1042,6 +1023,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </button>
           )}
 
+          {/* TAB: CHỦ ĐỀ (CHỈ ADMIN) */}
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('topics')}
+              className={`nav-tab-item ${activeTab === 'topics' ? 'active' : ''}`}
+              title="Quản lý chủ đề video & sở thích"
+            >
+              <Tag size={18} />
+              {!isSidebarCollapsed && <span>Chủ đề</span>}
+            </button>
+          )}
+
           {/* TAB: XỬ LÝ BÁO CÁO (CẢ ADMIN VÀ MODERATOR) */}
           <button
             onClick={() => setActiveTab('reports')}
@@ -1137,8 +1130,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               {activeTab === 'analytics' && 'Thống Kê Nền Tảng & Biểu Đồ Phân Tích'}
               {activeTab === 'videos' && 'Duyệt Video Bài Học (Moderator Only)'}
               {activeTab === 'users' && 'Quản Lý Người Dùng & Phân Quyền Hệ Thống'}
-              {activeTab === 'subscriptions' && 'Lịch Sử Giao Dịch & Giả Lập Thanh Toán QR'}
+              {activeTab === 'subscriptions' && 'Lịch Sử Giao Dịch & Duyệt Thanh Toán'}
               {activeTab === 'pricing' && 'Cấu Hình Gói VIP & Hạn Mức Token Trích Xuất AI'}
+              {activeTab === 'topics' && 'Quản Lý Chủ Đề Video & Sở Thích Người Dùng'}
               {activeTab === 'reports' && 'Xử Lý Khiếu Nại & Báo Cáo Vi Phạm'}
               {activeTab === 'profile' && 'Hồ Sơ Cá Nhân & Quản Trị Hệ Thống'}
             </h1>
@@ -1176,18 +1170,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               </>
             )}
 
-            {activeTab === 'subscriptions' && isAdmin && (
-              <button
-                onClick={() => {
-                  setIsQrModalOpen(true);
-                  handleCreateQrOrder();
-                }}
-                className="btn-solid-primary"
-              >
-                <QrCode size={15} />
-                <span>⚡ Giả lập Quét QR Thanh toán Local</span>
-              </button>
-            )}
           </div>
         </header>
 
@@ -2120,26 +2102,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                       <th className="sortable" onClick={() => handleToggleSort('amount')}>
                         Số Tiền (VND) ↕
                       </th>
-                      <th>Mã Xác Thực (Dưới QR)</th>
+                      <th>Nội Dung Chuyển Khoản</th>
+                      <th>Đã Nhận (VND)</th>
                       <th className="sortable" onClick={() => handleToggleSort('status')}>
                         Trạng Thái ↕
                       </th>
                       <th className="sortable" onClick={() => handleToggleSort('createdAt')}>
                         Thời Gian ↕
                       </th>
+                      <th>Thao Tác</th>
                     </tr>
                   </thead>
                   <tbody>
                     {isLoadingOrders ? (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
+                        <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
                           Đang tải lịch sử giao dịch gói...
                         </td>
                       </tr>
                     ) : orders.length === 0 ? (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
-                          Chưa có lịch sử giao dịch nào. Bấm nút <strong>"⚡ Giả lập Quét QR Thanh toán Local"</strong> ở trên để tạo giao dịch thử nghiệm!
+                        <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
+                          Chưa có giao dịch nào. Đơn xuất hiện ở đây khi người dùng bấm mua gói trong ứng dụng.
                         </td>
                       </tr>
                     ) : (
@@ -2165,12 +2149,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                               borderRadius: '2px',
                               color: '#38bdf8'
                             }}>
-                              {o.verificationCode}
+                              {o.transferMemo || o.orderCode}
                             </span>
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
+                            {o.paidAmount != null ? `${o.paidAmount.toLocaleString('vi-VN')} đ` : '—'}
                           </td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', minHeight: '24px' }}>
-                              <span className={`status-pill ${o.status === 'SUCCESS' ? 'success' : o.status === 'PENDING' ? 'pending' : 'danger'
+                              <span className={`status-pill ${o.status === 'SUCCESS' ? 'success' : o.status === 'PENDING' || o.status === 'NEEDS_REVIEW' ? 'pending' : 'danger'
                                 }`}
                                 style={{ transform: 'translateY(10px)' }}
                               >
@@ -2180,6 +2167,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                           </td>
                           <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
                             {o.createdAt ? new Date(o.createdAt).toLocaleString('vi-VN') : '—'}
+                          </td>
+                          <td>
+                            {o.status !== 'SUCCESS' && o.status !== 'CANCELLED' && o.status !== 'FAILED' && (
+                              <button
+                                className="btn-outline"
+                                disabled={confirmingOrderCode === o.orderCode}
+                                onClick={() => handleAdminConfirm(o)}
+                                title="Duyệt tay khi đã nhận đủ tiền nhưng hệ thống chưa tự khớp"
+                              >
+                                {confirmingOrderCode === o.orderCode ? 'Đang duyệt...' : 'Duyệt tay'}
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -2392,22 +2391,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
           )}
 
           {/* ==================== TAB 5: XỬ LÝ REPORT ==================== */}
-          {activeTab === 'reports' && (
-            <div style={{
-              background: 'var(--admin-bg-surface)',
-              border: '1px solid var(--admin-border)',
-              borderRadius: '2px',
-              padding: '2.5rem',
-              textAlign: 'center',
-              color: 'var(--admin-text-dim)'
-            }}>
-              <AlertTriangle size={36} color="#f59e0b" style={{ margin: '0 auto 1rem' }} />
-              <h3 style={{ color: 'var(--admin-text-main)', marginBottom: '0.5rem' }}>Hệ Thống Khiếu Nại & Báo Cáo Nội Dung</h3>
-              <p style={{ maxWidth: '480px', margin: '0 auto', fontSize: '0.85rem' }}>
-                Hiện tại không có báo cáo vi phạm nào tồn đọng. Hệ thống sẽ tự động cập nhật khi có người dùng gắn cờ báo cáo video hoặc bình luận không lành mạnh.
-              </p>
-            </div>
-          )}
+          {activeTab === 'topics' && isAdmin && <TopicsManager showToast={showToast} />}
+          {activeTab === 'reports' && <ReportsManager isAdmin={isAdmin} showToast={showToast} />}
           {/* ==================== TAB 6: TRANG HỒ SƠ CÁ NHÂN (ADMIN & MODERATOR) ==================== */}
           {activeTab === 'profile' && (
             <div className="profile-page-grid">
@@ -3075,153 +3060,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
         </div>
       )}
 
-      {/* ==================== MODAL: GIẢ LẬP THANH TOÁN QR LOCAL ==================== */}
-      {isQrModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-sharp-box" style={{ maxWidth: '520px' }}>
-            <div className="modal-sharp-header">
-              <h3 className="modal-sharp-title">⚡ Giả Lập Quét QR Thanh Toán Local</h3>
-              <button onClick={() => setIsQrModalOpen(false)} className="btn-icon-square">✕</button>
-            </div>
-            <div className="modal-sharp-body">
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <label className="form-label-sharp" style={{ minWidth: '90px' }}>Chọn gói mua:</label>
-                <select
-                  className="form-select-sharp"
-                  style={{ flex: 1 }}
-                  value={selectedPlanCode}
-                  onChange={e => {
-                    setSelectedPlanCode(e.target.value);
-                  }}
-                >
-                  {plans && plans.length > 0 ? (
-                    plans.map(p => (
-                      <option key={p.id} value={p.code}>
-                        {p.name} ({p.price.toLocaleString('vi-VN')} đ - {p.dailyTokenLimit} token/ngày)
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="FREE">Gói 1 Năm (419.000 đ - 50 token/ngày)</option>
-                      <option value="PRO_YEARLY">Gói 3 Tháng (299.000 đ - 50 token/ngày)</option>
-                      <option value="PRO_MONTHLY">Gói Trọn Đời (699.000 đ - 50 token/ngày)</option>
-                    </>
-                  )}
-                </select>
-                <button onClick={handleCreateQrOrder} className="btn-outline">
-                  Tạo QR
-                </button>
-              </div>
-
-              {activeQrOrder && (
-                <div className="qr-display-box">
-                  <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>
-                    {activeQrOrder.planName} • {activeQrOrder.amount?.toLocaleString('vi-VN')} đ
-                  </div>
-
-                  {/* Clean SVG QR Representation */}
-                  <div className="qr-code-canvas-wrap">
-                    <svg width="150" height="150" viewBox="0 0 150 150">
-                      <rect width="150" height="150" fill="#ffffff" />
-                      {/* Top-left position marker */}
-                      <rect x="10" y="10" width="35" height="35" fill="#0f172a" />
-                      <rect x="15" y="15" width="25" height="25" fill="#ffffff" />
-                      <rect x="20" y="20" width="15" height="15" fill="#0f172a" />
-                      {/* Top-right position marker */}
-                      <rect x="105" y="10" width="35" height="35" fill="#0f172a" />
-                      <rect x="110" y="15" width="25" height="25" fill="#ffffff" />
-                      <rect x="115" y="20" width="15" height="15" fill="#0f172a" />
-                      {/* Bottom-left position marker */}
-                      <rect x="10" y="105" width="35" height="35" fill="#0f172a" />
-                      <rect x="15" y="110" width="25" height="25" fill="#ffffff" />
-                      <rect x="20" y="115" width="15" height="15" fill="#0f172a" />
-                      {/* Simulated QR data grid */}
-                      <rect x="55" y="15" width="12" height="12" fill="#0284c7" />
-                      <rect x="75" y="15" width="12" height="12" fill="#0f172a" />
-                      <rect x="55" y="35" width="12" height="12" fill="#0f172a" />
-                      <rect x="55" y="60" width="40" height="40" fill="#0284c7" />
-                      <rect x="65" y="70" width="20" height="20" fill="#ffffff" />
-                      <rect x="105" y="60" width="15" height="15" fill="#0f172a" />
-                      <rect x="125" y="80" width="15" height="15" fill="#0f172a" />
-                      <rect x="55" y="115" width="15" height="15" fill="#0f172a" />
-                      <rect x="80" y="115" width="15" height="15" fill="#0284c7" />
-                      <rect x="110" y="115" width="25" height="20" fill="#0f172a" />
-                    </svg>
-                  </div>
-
-                  {/* THE PROMINENT VERIFICATION CODE DISPLAYED UNDER THE QR CODE AS REQUESTED */}
-                  <div className="verification-code-banner">
-                    <span className="verification-code-title">
-                      Mã xác thực hiển thị ở dưới mã QR:
-                    </span>
-                    <span className="verification-code-display">
-                      {activeQrOrder.verificationCode}
-                    </span>
-                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                      (Người dùng quét QR ngân hàng hoặc nhập mã này vào trang thanh toán để kích hoạt)
-                    </span>
-                  </div>
-
-                  {/* Payment Confirmation Form */}
-                  <div style={{ width: '100%', marginTop: '0.5rem' }}>
-                    <label className="form-label-sharp" style={{ color: '#0f172a', marginBottom: '0.3rem', display: 'block' }}>
-                      Nhập mã xác thực để hoàn tất thanh toán:
-                    </label>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input
-                        type="text"
-                        className="form-input-sharp"
-                        style={{
-                          flex: 1,
-                          background: '#f1f5f9',
-                          color: '#0f172a',
-                          border: '1px solid #cbd5e1',
-                          fontFamily: 'var(--font-mono)',
-                          fontWeight: 700,
-                          fontSize: '1rem',
-                          textAlign: 'center'
-                        }}
-                        value={verificationInput}
-                        onChange={e => setVerificationInput(e.target.value)}
-                        placeholder="e.g. JLSP-XXXXX"
-                      />
-                      <button
-                        onClick={handleConfirmQrPayment}
-                        disabled={isProcessingPayment}
-                        className="btn-solid-primary"
-                        style={{ whiteSpace: 'nowrap' }}
-                      >
-                        {isProcessingPayment ? 'Đang xác thực...' : 'Xác nhận thanh toán'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {paymentSuccessData && (
-                    <div style={{
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      border: '1px solid #10b981',
-                      padding: '0.75rem',
-                      borderRadius: '2px',
-                      color: '#047857',
-                      fontSize: '0.85rem',
-                      width: '100%',
-                      textAlign: 'center',
-                      fontWeight: 600
-                    }}>
-                      ✓ Giao dịch thành công! Tài khoản đã được nâng cấp VIP và mở rộng hạn mức Token ngày.
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="modal-sharp-footer">
-              <button onClick={() => setIsQrModalOpen(false)} className="btn-outline">
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ==================== MODAL: CHỈNH SỬA BIỂU PHÍ & TOKEN LIMIT ==================== */}
       {editingPlan && (

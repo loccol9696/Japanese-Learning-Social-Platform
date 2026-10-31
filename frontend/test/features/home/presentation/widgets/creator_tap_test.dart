@@ -23,6 +23,8 @@ const _post = VideoPost(
 );
 
 void main() {
+  infoOverlayLayoutTests();
+
   testWidgets('bấm @username của người đăng gọi onCreatorTap', (tester) async {
     var taps = 0;
     await tester.pumpWidget(
@@ -67,5 +69,21 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.add_rounded));
     expect((creatorTaps, followTaps), (1, 1));
+  });
+}
+
+void infoOverlayLayoutTests() {
+  testWidgets('thông tin video: @username dòng trên, tên video kèm huy hiệu JLPT ở dòng dưới', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: VideoInfoOverlay(post: _post))),
+    );
+
+    final creator = tester.getTopLeft(find.text('@bob'));
+    final title = tester.getTopLeft(find.text('Chủ đề'));
+    final badge = tester.getTopLeft(find.text('N3'));
+    expect(title.dy, greaterThan(creator.dy));
+    expect((badge.dy - title.dy).abs(), lessThan(8)); // cùng một hàng
+    expect(badge.dx, greaterThan(title.dx));
+    expect(find.byIcon(Icons.smart_display_outlined), findsNothing);
   });
 }

@@ -35,6 +35,11 @@ public class UpdateVideoRequest {
     private JLPTLevel jlptLevel;
 
     /**
+     * Chủ đề mới; null thì giữ nguyên, 0 hoặc số âm để bỏ chủ đề.
+     */
+    private Long topicId;
+
+    /**
      * Trạng thái hiển thị mới (PUBLIC, PRIVATE, UNLISTED)
      */
     private VideoStatus status;

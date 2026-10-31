@@ -151,9 +151,9 @@ void main() {
     await tester.tap(find.text('mở chat'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Tuỳ chọn'));
+    await tester.tap(find.byKey(const ValueKey('chat-options-button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Xóa đoạn chat'));
+    await tester.tap(find.text('Xóa cuộc trò chuyện'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Xóa'));
     await tester.pumpAndSettle();

@@ -129,7 +129,7 @@ public class ChatSocketGateway implements SmartLifecycle {
 
     private void onConnect(SocketIOClient client) {
         String token = extractToken(client.getHandshakeData());
-        var claims = jwtUtils.parse(token).filter(c -> !denylist.isDenied(c.tokenId()));
+        var claims = jwtUtils.parse(token).filter(c -> !denylist.isRevoked(c));
         if (claims.isEmpty()) {
             client.sendEvent(EVENT_AUTH_ERROR, "Phiên đăng nhập không hợp lệ hoặc đã hết hạn");
             client.disconnect();

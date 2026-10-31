@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/auth/auth_guard.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/storage/token_storage.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../../chat/presentation/screens/shared_video_screen.dart';
+import '../../../notification/notification_hub.dart';
+import '../../../notification/notification_sheet.dart';
 import '../../../follow/presentation/screens/follow_manage_screen.dart';
 import '../../../video/domain/models/user_video_model.dart';
 import '../../../video/presentation/screens/moderation_queue_screen.dart';
@@ -16,10 +20,14 @@ import '../../domain/models/user_profile_model.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../../../subscription/models/subscription_model.dart';
 import '../../../subscription/services/subscription_service.dart';
+import '../../../subscription/widgets/subscription_success_dialog.dart';
+import '../../../subscription/widgets/vietqr_payment_sheet.dart';
 import 'profile_update_screen.dart';
+import '../../../streak/streak_chip.dart';
+import '../../../streak/streak_model.dart';
+import '../../../streak/streak_service.dart';
+import '../../../streak/streak_sheet.dart';
 import '../../../../core/theme/app_palette.dart';
-import '../../../../core/localization/app_language.dart';
-import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/theme_manager.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -38,6 +46,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final ProfileRepository _repository;
   UserProfileModel _profile = const UserProfileModel();
   SubscriptionStatus? _membershipStatus;
+  Streak _streak = const Streak();
   List<UserVideoModel> _videos = [];
   List<UserVideoModel> _likedVideos = [];
   List<UserVideoModel> _savedVideos = [];
@@ -59,6 +68,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (AuthSession.instance.isAuthenticated || widget.repository != null) {
       _loadProfile();
     }
+  }
+
+  /// Chuỗi ngày học cho chip trên đầu trang; lỗi thì giữ số cũ.
+  Future<void> _loadStreak() async {
+    if (!AuthSession.instance.isAuthenticated) return;
+    try {
+      final streak = await StreakService().getMine();
+      if (mounted) setState(() => _streak = streak);
+    } catch (_) {}
+  }
+
+  void _openStreakSheet() {
+    showStreakSheet(
+      context,
+      streak: _streak,
+      onLoaded: (fresh) {
+        if (mounted) setState(() => _streak = fresh);
+      },
+    );
   }
 
   Future<void> _checkRole() async {
@@ -98,9 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadMembershipStatus() async {
     try {
-      final status = await SubscriptionService.instance.getMySubscriptionStatus(
-        _profile.id,
-      );
+      final status = await SubscriptionService.instance.getMyStatus();
       if (mounted) {
         setState(() {
           _membershipStatus = status;
@@ -114,6 +140,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// cũng không làm mất các phần còn lại.
   Future<void> _loadProfile() async {
     final videoLists = _loadVideoLists();
+    _loadStreak();
     try {
       final profile = await _repository.getProfile();
       if (!mounted) return;
@@ -166,6 +193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .then((_) => _loadProfile());
   }
 
+
   void _openMyVideosStatus() {
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const MyVideosStatusScreen()))
@@ -189,33 +217,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .then((_) => _loadProfile());
   }
 
-  void _showFeatureComingSoon(String featureName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.info_outline_rounded,
-              color: AppColors.softSkyBlue,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '$featureName: Tính năng sẽ được hoàn thiện trong thời gian tới',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: AppPalette.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.surfaceContainerHigh,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+  void _openNotifications() {
+    if (!mounted) return;
+    showNotificationsSheet(context);
   }
 
   /// Đỏ cho nút đăng xuất.
@@ -260,18 +264,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       ),
       _SettingsRowData(
-        icon: Icons.notifications_none_rounded,
-        title: 'Thông báo',
+        icon: Icons.key_outlined,
+        title: 'Đổi mật khẩu',
         onTap: () {
           Navigator.of(sheetContext).pop();
-          _showFeatureComingSoon('Thông báo');
+          Navigator.of(context).pushNamed(AppRoutes.changePassword);
         },
-      ),
-      _SettingsRowData(
-        icon: Icons.language_rounded,
-        title: 'Ngôn ngữ',
-        value: localeManager.currentLanguage.name,
-        onTap: () => _showLanguagePicker(sheetContext),
       ),
       _SettingsRowData(
         icon: Icons.brightness_6_outlined,
@@ -280,19 +278,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onTap: () => _showThemePicker(sheetContext),
       ),
       _SettingsRowData(
-        icon: Icons.lock_outline_rounded,
-        title: 'Quyền riêng tư',
+        icon: Icons.block_rounded,
+        title: 'Người đã chặn',
         onTap: () {
           Navigator.of(sheetContext).pop();
-          _showFeatureComingSoon('Quyền riêng tư');
-        },
-      ),
-      _SettingsRowData(
-        icon: Icons.help_outline_rounded,
-        title: 'Trợ giúp và phản hồi',
-        onTap: () {
-          Navigator.of(sheetContext).pop();
-          _showFeatureComingSoon('Trợ giúp và phản hồi');
+          Navigator.of(context).pushNamed(AppRoutes.blockedUsers);
         },
       ),
     ];
@@ -431,15 +421,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   static String _themeModeLabel(ThemeMode mode) => switch (mode) {
-    ThemeMode.system => 'Theo hệ thống',
     ThemeMode.light => 'Sáng',
-    ThemeMode.dark => 'Tối',
+    _ => 'Tối',
   };
 
-  /// Chọn giao diện sáng / tối / theo hệ thống; đổi xong đóng cả hai bảng.
+  /// Chọn giao diện sáng / tối; đổi xong đóng cả hai bảng.
   void _showThemePicker(BuildContext settingsSheetContext) {
     const options = [
-      (ThemeMode.system, Icons.brightness_auto_outlined),
       (ThemeMode.light, Icons.light_mode_outlined),
       (ThemeMode.dark, Icons.dark_mode_outlined),
     ];
@@ -488,78 +476,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         themeManager.setMode(mode);
                         Navigator.of(pickerContext).pop();
                         Navigator.of(settingsSheetContext).pop();
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Chọn ngôn ngữ giao diện; chọn xong đóng cả hai bảng.
-  void _showLanguagePicker(BuildContext settingsSheetContext) {
-    showModalBottomSheet(
-      context: settingsSheetContext,
-      backgroundColor: Colors.transparent,
-      builder: (pickerContext) {
-        return Material(
-          color: AppPalette.navBar,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          clipBehavior: Clip.antiAlias,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      'Ngôn ngữ',
-                      style: TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  for (final language in AppLanguage.values)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Text(
-                        language.flag,
-                        style: const TextStyle(fontSize: 22),
-                      ),
-                      title: Text(
-                        language.name,
-                        style: TextStyle(
-                          color: AppPalette.textPrimary,
-                          fontSize: 16,
-                        ),
-                      ),
-                      trailing: language == localeManager.currentLanguage
-                          ? Icon(
-                              Icons.check_rounded,
-                              color: AppPalette.accent,
-                            )
-                          : null,
-                      onTap: () {
-                        localeManager.changeLanguage(language);
-                        Navigator.of(pickerContext).pop();
-                        Navigator.of(settingsSheetContext).pop();
-                        ScaffoldMessenger.of(context)
-                          ..hideCurrentSnackBar()
-                          ..showSnackBar(
-                            SnackBar(
-                              content: Text(appStrings.languageChanged),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
                       },
                     ),
                 ],
@@ -665,85 +581,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final username = _profile.username.isNotEmpty
         ? '@${_profile.username}'
         : '@learner';
-    final handle = _profile.currentLevel.isNotEmpty
-        ? '$username · ${_profile.currentLevel}'
-        : username;
+    final cleanLevel = _profile.currentLevel.replaceAll('JLPT', '').trim();
+    final levelText = cleanLevel.isNotEmpty ? ' · $cleanLevel' : '';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 20),
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top row: avatar + name/handle + menu icon
+          // Hàng trên cùng: các icon thao tác bên phải
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _buildAvatar(displayName),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              StreakChip(
+                key: const ValueKey('profile-streak-chip'),
+                days: _streak.currentStreak,
+                onTap: _openStreakSheet,
+              ),
+              const SizedBox(width: 4),
+              ValueListenableBuilder<int>(
+                valueListenable: NotificationHub.instance.unreadCount,
+                builder: (context, unread, _) => Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
+                    IconButton(
+                      onPressed: _openNotifications,
+                      icon: Icon(
+                        Icons.notifications_none_rounded,
+                        size: 24,
+                        color: AppPalette.textPrimary,
+                      ),
+                      tooltip: 'Thông báo',
+                    ),
+                    if (unread > 0)
+                      Positioned(
+                        top: 6,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          constraints: const BoxConstraints(minWidth: 16),
+                          decoration: BoxDecoration(
+                            color: AppPalette.error,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppPalette.background, width: 1.5),
+                          ),
                           child: Text(
-                            displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            unread > 99 ? '99+' : '$unread',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: AppPalette.textPrimary,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
+                              color: AppPalette.onAccent,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                        if (_profile.isModerator) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppPalette.accentSoft,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              _profile.isAdmin ? 'ADMIN' : 'MOD',
-                              style: TextStyle(
-                                color: AppPalette.accent,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(width: 8),
-                        _buildPlanTag(),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      handle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 13,
                       ),
-                    ),
                   ],
                 ),
-              ),
-              IconButton(
-                onPressed: _openFollowManage,
-                icon: Icon(
-                  Icons.people_alt_outlined,
-                  size: 26,
-                  color: AppPalette.textPrimary,
-                ),
-                tooltip: 'Quản lý theo dõi',
               ),
               // Menu icon at top right
               Stack(
@@ -753,7 +647,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: _showMoreMenu,
                     icon: Icon(
                       Icons.menu_rounded,
-                      size: 26,
+                      size: 24,
                       color: AppPalette.textPrimary,
                     ),
                     tooltip: 'Tùy chọn & Cài đặt',
@@ -779,10 +673,85 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          // Avatar + tên + trình độ JLPT và gói
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildAvatar(displayName),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppPalette.textPrimary,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          if (_profile.isModerator) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppPalette.accentSoft,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                _profile.isAdmin ? 'ADMIN' : 'MOD',
+                                style: TextStyle(
+                                  color: AppPalette.accent,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '$username$levelText',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppPalette.textSecondary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildPlanTag(),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 18),
           // Stats row
           Padding(
-            padding: const EdgeInsets.only(left: 8),
+            padding: const EdgeInsets.only(left: 4),
             child: Wrap(
               spacing: 20,
               runSpacing: 6,
@@ -806,7 +775,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (_profile.bio.isNotEmpty) ...[
             const SizedBox(height: 14),
             Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: 4),
               child: Text(
                 _profile.bio,
                 style: TextStyle(
@@ -867,8 +836,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await _loadMembershipStatus();
   }
 
-  /// Bảng mô tả gói hiện tại; gói Free có thêm nút nâng cấp.
+  Future<void> _openPlanCheckout(
+    SubscriptionPlan plan, {
+    VoidCallback? beforeOpen,
+  }) async {
+    PaymentOrder order;
+    try {
+      order = await SubscriptionService.instance.createOrder(planId: plan.id);
+    } on ApiException catch (error) {
+      if (mounted) AppToast.showError(error.message, context: context);
+      return;
+    } catch (_) {
+      if (mounted) {
+        AppToast.showError(
+          'Không tạo được đơn thanh toán. Vui lòng thử lại.',
+          context: context,
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    beforeOpen?.call();
+    final paid = await Navigator.of(context).push<bool>(
+      PageRouteBuilder<bool>(
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        pageBuilder: (_, animation, secondaryAnimation) =>
+            VietQrPaymentSheet(order: order, plan: plan),
+      ),
+    );
+    if (!mounted) return;
+    if (paid == true) {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => SubscriptionSuccessDialog(
+          order: order,
+          plan: plan,
+          onDismiss: () {},
+        ),
+      );
+    }
+    await _loadMembershipStatus();
+  }
+
   void _showPlanSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _ProfilePlanSheet(
+        initiallyPremium: _isPremium,
+        onUpgrade: (plan) {
+          final sheetRoute = ModalRoute.of(sheetContext);
+          _openPlanCheckout(
+            plan,
+            beforeOpen: () {
+              if (sheetRoute != null) {
+                Navigator.of(sheetContext).removeRoute(sheetRoute);
+              }
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  /// Bảng mô tả gói cũ, giữ lại để tham chiếu trong lúc chuyển giao diện.
+  void _showPlanSheetLegacy() {
     final isPremium = _isPremium;
     final status = _membershipStatus;
     final color = isPremium ? AppPalette.gold : AppPalette.info;
@@ -1380,6 +1416,337 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfilePlanSheet extends StatefulWidget {
+  final bool initiallyPremium;
+  final ValueChanged<SubscriptionPlan> onUpgrade;
+
+  const _ProfilePlanSheet({
+    required this.initiallyPremium,
+    required this.onUpgrade,
+  });
+
+  @override
+  State<_ProfilePlanSheet> createState() => _ProfilePlanSheetState();
+}
+
+class _ProfilePlanSheetState extends State<_ProfilePlanSheet> {
+  late bool _showPremium;
+  late final Future<List<SubscriptionPlan>> _plansFuture = _loadPlans();
+  List<SubscriptionPlan> _availablePlans = const [];
+  int _selectedPlan = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _showPremium = widget.initiallyPremium;
+  }
+
+  Future<List<SubscriptionPlan>> _loadPlans() async {
+    final plans = await SubscriptionService.instance.getPlans();
+    plans.sort((a, b) => b.durationDays.compareTo(a.durationDays));
+    _availablePlans = plans;
+    return plans;
+  }
+
+  void _upgrade() {
+    if (_availablePlans.isEmpty) {
+      AppToast.showError(
+        'Hiện chưa có gói Premium khả dụng.',
+        context: context,
+      );
+      return;
+    }
+    final index = _selectedPlan < _availablePlans.length ? _selectedPlan : 0;
+    widget.onUpgrade(_availablePlans[index]);
+  }
+
+  static const _freeFeatures = <String>[
+    'Hạn mức 50 token AI mỗi ngày',
+    'Xem video bài học cơ bản',
+    'Flashcard từ vựng N5',
+  ];
+
+  static const _premiumFeatures = <String>[
+    'Tạo bộ thẻ không giới hạn',
+    'Học và ôn tập không quảng cáo',
+    'Luyện nghe, tự luận không giới hạn',
+    'Đồng bộ trên mọi thiết bị',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final availableHeight = MediaQuery.sizeOf(context).height * 0.94;
+    const preferredHeight = 540.0;
+    final sheetHeight = availableHeight > preferredHeight
+        ? preferredHeight
+        : availableHeight;
+    return Material(
+      color: AppPalette.navBar,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      clipBehavior: Clip.antiAlias,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          height: sheetHeight,
+          child: Column(
+            children: [
+              _buildHandle(),
+              _buildHeader(),
+              _buildTabs(),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                  child: _showPremium
+                      ? _buildPremiumContent()
+                      : _buildFreeContent(),
+                ),
+              ),
+              if (_showPremium)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: _upgrade,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppPalette.accent,
+                        foregroundColor: AppPalette.onAccent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Nâng cấp Premium',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHandle() {
+    return Center(
+      child: Container(
+        width: 38,
+        height: 4,
+        margin: const EdgeInsets.only(top: 10, bottom: 8),
+        decoration: BoxDecoration(
+          color: AppPalette.textSecondary.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 12, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Gói của bạn',
+              style: TextStyle(
+                color: AppPalette.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: Icon(Icons.close_rounded, color: AppPalette.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabs() {
+    return Container(
+      height: 50,
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppPalette.background,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          _planTab('Miễn phí', !_showPremium),
+          _planTab('Premium', _showPremium),
+        ],
+      ),
+    );
+  }
+
+  Widget _planTab(String label, bool selected) {
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => setState(() => _showPremium = label == 'Premium'),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? AppPalette.surfaceHighest : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected
+                  ? AppPalette.textPrimary
+                  : AppPalette.textSecondary,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFreeContent() {
+    return Column(
+      children: [
+        ..._freeFeatures.map(_featureRow),
+      ],
+    );
+  }
+
+  Widget _buildPremiumContent() {
+    return Column(
+      children: [
+        ..._premiumFeatures.map(_featureRow),
+        const SizedBox(height: 8),
+        FutureBuilder<List<SubscriptionPlan>>(
+          future: _plansFuture,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              );
+            }
+            final plans = snapshot.data!;
+            if (plans.isEmpty) {
+              return Text(
+                'Chưa có gói Premium khả dụng.',
+                style: TextStyle(color: AppPalette.textSecondary),
+              );
+            }
+            if (_selectedPlan >= plans.length) _selectedPlan = 0;
+            return Column(
+              children: [
+                for (var i = 0; i < plans.length; i++)
+                  _planOption(plans[i], i, i == _selectedPlan),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _featureRow(String feature) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Icon(Icons.check_rounded, color: AppPalette.info, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              feature,
+              style: TextStyle(
+                color: AppPalette.textPrimary,
+                fontSize: 15.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _planOption(SubscriptionPlan plan, int index, bool selected) {
+    final discount = plan.discountPercent;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: () => setState(() => _selectedPlan = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppPalette.accent.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: selected ? AppPalette.accent : AppPalette.border,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                color: selected ? AppPalette.accent : AppPalette.textSecondary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      plan.durationLabel.toLowerCase(),
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (discount != null && discount > 0)
+                      Text(
+                        'Tiết kiệm $discount%',
+                        style: TextStyle(
+                          color: AppPalette.info,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Text(
+                plan.formattedPrice.replaceAll(' ', ''),
+                style: TextStyle(
+                  color: AppPalette.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

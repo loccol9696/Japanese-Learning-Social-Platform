@@ -1,7 +1,8 @@
 package com.jlsp.backend.googlestt.service;
 
-import com.jlsp.backend.googlestt.service.SubtitleSplitter.Piece;
-import com.jlsp.backend.googlestt.service.SubtitleSplitter.TimedWord;
+import com.jlsp.backend.ai.service.SubtitleSplitter;
+import com.jlsp.backend.ai.service.SubtitleSplitter.Piece;
+import com.jlsp.backend.ai.service.SubtitleSplitter.TimedWord;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

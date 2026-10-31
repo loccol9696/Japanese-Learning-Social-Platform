@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/adaptive_video_theme.dart';
@@ -46,6 +47,9 @@ class RubySubtitleWidget extends StatefulWidget {
   /// Phát tín hiệu để mọi bảng tra từ đang mở tự đóng (vd. khi rời tab Home).
   static final ValueNotifier<int> _dismissSignal = ValueNotifier<int>(0);
   static void dismissLookups() => _dismissSignal.value++;
+
+  /// Để các nơi khác cũng dùng bảng tra từ (vd. màn Kịch bản) tự đóng theo cùng tín hiệu.
+  static ValueListenable<int> get dismissSignal => _dismissSignal;
 
   @override
   State<RubySubtitleWidget> createState() => _RubySubtitleWidgetState();

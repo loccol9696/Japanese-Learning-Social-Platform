@@ -42,8 +42,15 @@ public class UserResponse {
     @Builder.Default
     private Long videosCount = 0L;
 
+    /** Sở thích (chủ đề đang hiển thị) của người dùng; chỉ có ở hồ sơ cá nhân. */
+    @Builder.Default
+    private java.util.List<com.jlsp.backend.topic.dto.TopicResponse> topics = new java.util.ArrayList<>();
+
     private LocalDateTime vipExpiresAt;
     private String subscriptionPlanName;
+
+    /** App cần mở câu hỏi chào mừng (trình độ + sở thích) hay không. */
+    private boolean needsOnboarding;
 
     public JLPTLevel getCurrentLevel() {
         return this.jlptLevel;

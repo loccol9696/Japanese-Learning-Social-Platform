@@ -15,7 +15,20 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
-
+// Một số plugin (vd. file_picker) khai báo compileSdk thấp hơn mức mà androidx lifecycle yêu cầu (36), làm
+// checkReleaseAarMetadata thất bại. Nâng compileSdk của mọi module lên tối thiểu 36 (chỉ ảnh hưởng biên dịch,
+// không đổi targetSdk hay minSdk). Phải đăng ký trước evaluationDependsOn bên dưới.
+subprojects {
+    afterEvaluate {
+        val android = extensions.findByName("android")
+        if (android is com.android.build.gradle.BaseExtension) {
+            val current = android.compileSdkVersion?.removePrefix("android-")?.toIntOrNull() ?: 0
+            if (current < 36) {
+                android.compileSdkVersion(36)
+            }
+        }
+    }
+}
 subprojects {
     project.evaluationDependsOn(":app")
 }

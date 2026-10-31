@@ -5,54 +5,74 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../data/models/chat_models.dart';
 import '../../data/services/chat_service.dart';
-import '../chat_format.dart';
 import 'chat_avatar.dart';
 
-/// Mở bảng chia sẻ video cho bạn bè (chỉ những người follow lẫn nhau).
-///
-/// [startMs] là mốc thời gian gợi ý (câu phụ đề đang xem): người nhận bấm vào
-/// sẽ mở video đúng đoạn đó.
+/// Hàm gửi: chia sẻ nội dung (video, bộ thẻ...) cho [recipientIds] kèm lời nhắn [note].
+typedef ShareSender = Future<void> Function(
+  ChatService service,
+  List<int> recipientIds,
+  String note,
+);
+
+/// Mở bảng chia sẻ video cho bạn bè (chỉ những người follow lẫn nhau). Chia sẻ cả video, người nhận mở từ đầu.
 Future<void> showShareVideoSheet(
   BuildContext context, {
   required String videoId,
-  required String title,
-  required String thumbnailUrl,
-  int startMs = 0,
+}) {
+  return showShareSheet(
+    context,
+    send: (service, recipientIds, note) async {
+      final id = int.tryParse(videoId);
+      if (id == null) {
+        throw ApiException(
+          statusCode: 400,
+          message: 'Video này chưa thể chia sẻ',
+        );
+      }
+      await service.shareVideo(id, recipientIds: recipientIds, note: note);
+    },
+  );
+}
+
+/// Mở bảng chia sẻ bộ thẻ cho bạn bè (chỉ những người follow lẫn nhau; bộ thẻ phải công khai).
+Future<void> showShareDeckSheet(BuildContext context, {required int deckId}) {
+  return showShareSheet(
+    context,
+    send: (service, recipientIds, note) =>
+        service.shareDeck(deckId, recipientIds: recipientIds, note: note),
+  );
+}
+
+/// Bảng chọn bạn bè để chia sẻ một nội dung bất kỳ; việc gửi do [send] thực hiện.
+Future<void> showShareSheet(
+  BuildContext context, {
+  required ShareSender send,
+  ChatService? service,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _ShareVideoSheet(
-      videoId: videoId,
-      title: title,
-      thumbnailUrl: thumbnailUrl,
-      startMs: startMs,
-    ),
+    builder: (_) => ShareFriendsSheet(send: send, service: service),
   );
 }
 
-class _ShareVideoSheet extends StatefulWidget {
-  final String videoId;
-  final String title;
-  final String thumbnailUrl;
-  final int startMs;
+class ShareFriendsSheet extends StatefulWidget {
+  final ShareSender send;
 
-  const _ShareVideoSheet({
-    required this.videoId,
-    required this.title,
-    required this.thumbnailUrl,
-    required this.startMs,
-  });
+  /// Cho phép test thay dịch vụ chat.
+  final ChatService? service;
+
+  const ShareFriendsSheet({super.key, required this.send, this.service});
 
   @override
-  State<_ShareVideoSheet> createState() => _ShareVideoSheetState();
+  State<ShareFriendsSheet> createState() => _ShareFriendsSheetState();
 }
 
-class _ShareVideoSheetState extends State<_ShareVideoSheet> {
+class _ShareFriendsSheetState extends State<ShareFriendsSheet> {
   static const int _maxRecipients = 20;
 
-  final _service = ChatService();
+  late final ChatService _service = widget.service ?? ChatService();
   final _searchController = TextEditingController();
   final _noteController = TextEditingController();
   final Set<int> _selected = {};
@@ -61,7 +81,6 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
   bool _loading = true;
   bool _sending = false;
   String? _error;
-  late bool _useTimestamp = widget.startMs >= 1000;
 
   @override
   void initState() {
@@ -119,16 +138,10 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
   }
 
   Future<void> _send() async {
-    final videoId = int.tryParse(widget.videoId);
-    if (videoId == null || _selected.isEmpty || _sending) return;
+    if (_selected.isEmpty || _sending) return;
     setState(() => _sending = true);
     try {
-      await _service.shareVideo(
-        videoId,
-        recipientIds: _selected.toList(),
-        note: _noteController.text,
-        startMs: _useTimestamp ? widget.startMs : null,
-      );
+      await widget.send(_service, _selected.toList(), _noteController.text);
       if (!mounted) return;
       final count = _selected.length;
       Navigator.of(context).pop();
@@ -146,29 +159,30 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(bottom: bottomInset),
-        child: Container(
+        // Material (không phải Container tô màu) để hiệu ứng chạm của các dòng bạn bè hiển thị.
+        child: SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.78,
-          decoration: BoxDecoration(
+          child: Material(
             color: AppPalette.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppPalette.textPrimary.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(4),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppPalette.textPrimary.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-              ),
-              _buildHeader(),
-              _buildVideoCard(),
-              _buildSearch(),
-              Expanded(child: _buildContacts()),
-              _buildFooter(),
-            ],
+                _buildHeader(),
+                _buildSearch(),
+                Expanded(child: _buildContacts()),
+                _buildFooter(),
+              ],
+            ),
           ),
         ),
       ),
@@ -194,80 +208,6 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
             onPressed: () => Navigator.of(context).pop(),
             icon: Icon(Icons.close, color: AppPalette.textSecondary),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVideoCard() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: AppPalette.surfaceHigh,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 44,
-                  height: 58,
-                  child: widget.thumbnailUrl.isEmpty
-                      ? ColoredBox(color: AppPalette.background)
-                      : Image.network(
-                          widget.thumbnailUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              ColoredBox(color: AppPalette.background),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  widget.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (widget.startMs >= 1000)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    size: 16,
-                    color: AppPalette.textSecondary,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Bắt đầu từ ${formatMillis(widget.startMs)}',
-                      style: TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  Switch(
-                    value: _useTimestamp,
-                    activeThumbColor: AppPalette.accent,
-                    onChanged: (value) => setState(() => _useTimestamp = value),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );
@@ -308,10 +248,7 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              _error!,
-              style: TextStyle(color: AppPalette.textSecondary),
-            ),
+            Text(_error!, style: TextStyle(color: AppPalette.textSecondary)),
             TextButton(onPressed: _load, child: const Text('Thử lại')),
           ],
         ),
@@ -356,10 +293,7 @@ class _ShareVideoSheetState extends State<_ShareVideoSheet> {
           ),
           subtitle: Text(
             '@${user.username}',
-            style: TextStyle(
-              color: AppPalette.textSecondary,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: AppPalette.textSecondary, fontSize: 12),
           ),
           trailing: Icon(
             selected

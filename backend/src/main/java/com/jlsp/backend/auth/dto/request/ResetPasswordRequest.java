@@ -1,9 +1,9 @@
 package com.jlsp.backend.auth.dto.request;
 
 import jakarta.validation.constraints.Email;
+import com.jlsp.backend.auth.validation.StrongPassword;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,6 +22,6 @@ public class ResetPasswordRequest {
     private String otp;
 
     @NotBlank(message = "Vui lòng nhập mật khẩu mới")
-    @Size(min = 6, max = 72, message = "Mật khẩu mới phải từ 6 đến 72 ký tự")
+    @StrongPassword(message = "Mật khẩu mới phải từ 8 đến 72 ký tự, gồm cả chữ và số")
     private String newPassword;
 }

@@ -46,6 +46,10 @@ public class VideoDetailResponse {
      */
     private JLPTLevel jlptLevel;
 
+    /** Chủ đề của video (null nếu chưa gắn). */
+    private Long topicId;
+    private String topicName;
+
     /**
      * Đường dẫn phát video
      */

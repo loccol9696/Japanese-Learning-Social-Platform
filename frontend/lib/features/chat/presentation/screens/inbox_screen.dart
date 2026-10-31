@@ -16,7 +16,7 @@ import '../chat_format.dart';
 import '../widgets/chat_avatar.dart';
 import '../widgets/chat_dialogs.dart';
 import 'chat_detail_screen.dart';
-import 'new_chat_screen.dart';
+import 'new_chat_sheet.dart';
 
 /// Hộp thư: danh sách hội thoại, mới nhất trước, cập nhật realtime qua Socket.IO.
 ///
@@ -171,9 +171,13 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   Future<void> _newChat() async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const NewChatScreen()));
-    if (mounted) unawaited(_load(silent: true));
+    final conversation = await showNewChatSheet(context);
+    if (!mounted) return;
+    if (conversation != null) {
+      await _openConversation(conversation);
+    } else {
+      unawaited(_load(silent: true));
+    }
   }
 
   void _markRead(Conversation conversation) {

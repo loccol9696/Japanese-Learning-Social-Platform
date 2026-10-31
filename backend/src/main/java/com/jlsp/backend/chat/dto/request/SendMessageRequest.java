@@ -32,6 +32,9 @@ public class SendMessageRequest {
     /** Bắt buộc khi type = VIDEO_SHARE */
     private Long videoId;
 
+    /** Bắt buộc khi type = DECK_SHARE */
+    private Long deckId;
+
     @Min(value = 0, message = "Mốc thời gian không hợp lệ")
     private Integer videoStartMs;
 

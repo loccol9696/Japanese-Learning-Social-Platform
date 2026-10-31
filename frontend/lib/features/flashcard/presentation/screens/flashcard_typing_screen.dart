@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
+import '../widgets/answer_streak.dart';
+import '../widgets/fire_celebration.dart';
 import '../widgets/learning_header.dart';
 import '../widgets/simple_empty_state.dart';
 import '../widgets/study_options_bottom_sheet.dart';
@@ -33,6 +35,10 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
   bool _isLoading = true;
   String? _feedbackMessage;
   bool? _isCorrect;
+
+  /// Chuỗi trả lời đúng liên tiếp (đổi màu thanh tiến trình, hiện lửa) và bộ đếm để chơi hiệu ứng lửa lớn.
+  final AnswerStreak _streak = AnswerStreak();
+  int _fireTrigger = 0;
 
   late String _targetLanguage;
   late StudyOptions _options;
@@ -130,7 +136,9 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
       correctAnswerDisplay = card.meaning;
     }
 
+    final reachedFireMilestone = _streak.record(correct: isMatch);
     setState(() {
+      if (reachedFireMilestone) _fireTrigger++;
       _isCorrect = isMatch;
       _feedbackMessage =
           isMatch ? 'Chính xác!' : 'Đáp án đúng: $correctAnswerDisplay';
@@ -138,7 +146,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
 
     _service.submitAnswer(card.cardId, isMatch);
 
-    Future.delayed(const Duration(milliseconds: 1400), () {
+    Future.delayed(Duration(milliseconds: reachedFireMilestone ? 1900 : 1400), () {
       if (!mounted) return;
       if (_currentIndex < _cards.length - 1) {
         setState(() {
@@ -170,6 +178,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
       correctAnswerDisplay = card.meaning;
     }
 
+    _streak.record(correct: false);
     setState(() {
       _isCorrect = false;
       _feedbackMessage = 'Đáp án đúng: $correctAnswerDisplay';
@@ -254,117 +263,171 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     // Nếu mặt trước (câu hỏi) là Định nghĩa -> Yêu cầu nhập Thuật ngữ
     // Nếu mặt trước (câu hỏi) là Thuật ngữ -> Yêu cầu nhập Định nghĩa
     final questionText = isInputTerm ? card.meaning : card.term;
-    final hintLabel = isInputTerm ? 'NHẬP THUẬT NGỮ' : 'NHẬP ĐỊNH NGHĨA';
+    final inputHint = isInputTerm
+        ? 'Nhập thuật ngữ...'
+        : 'Nhập định nghĩa...';
 
     return Scaffold(
       backgroundColor: AppPalette.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top Bar & Continuous Progress Bar
-            LearningHeader(
-              currentIndex: _currentIndex + 1,
-              totalItems: _cards.length,
-              onClose: () => Navigator.pop(context),
-              onSettingsClick: _openSettings,
-            ),
-
-            const SizedBox(height: 12),
-
-            // Question Card: Căn giữa hoàn toàn cả chiều dọc lẫn chiều ngang, ẩn hoàn toàn đáp án
-            Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(minHeight: 190),
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
-              decoration: BoxDecoration(
-                color: AppPalette.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
-              ),
-              alignment: Alignment.center,
-              child: Center(
-                child: Text(
-                  questionText,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: isInputTerm ? 32 : 46,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                    letterSpacing: isInputTerm ? 0.3 : 1.5,
-                  ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                // Top Bar & Continuous Progress Bar
+                LearningHeader(
+                  currentIndex: _currentIndex + 1,
+                  totalItems: _cards.length,
+                  streak: _streak.count,
+                  onClose: () => Navigator.pop(context),
+                  onSettingsClick: _openSettings,
                 ),
-              ),
-            ),
 
-            const Spacer(),
+                const SizedBox(height: 12),
 
-            // Feedback Message
-            if (_feedbackMessage != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                child: Text(
-                  _feedbackMessage!,
-                  style: TextStyle(
-                    color: _isCorrect == true ? AppPalette.success : AppPalette.error,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                // Question Card: Căn giữa hoàn toàn cả chiều dọc lẫn chiều ngang, ẩn hoàn toàn đáp án
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(minHeight: 190),
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: AppPalette.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
                   ),
-                ),
-              ),
-
-            // Text Link: "Không biết"
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _onSkip,
-                  child: Text(
-                    'Không biết',
-                    style: TextStyle(
-                      color: AppPalette.accent,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                  alignment: Alignment.center,
+                  child: Center(
+                    child: Text(
+                      questionText,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
+                        fontSize: isInputTerm ? 32 : 46,
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                        letterSpacing: isInputTerm ? 0.3 : 1.5,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
 
-            // Underline Input Field
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-              child: TextField(
-                controller: _inputController,
-                focusNode: _focusNode,
-                style: TextStyle(
-                  color: AppPalette.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                const Spacer(),
+
+                // Feedback Message
+                if (_feedbackMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Text(
+                      _feedbackMessage!,
+                      style: TextStyle(
+                        color: _isCorrect == true ? AppPalette.success : AppPalette.error,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                // Text Link: "Không biết"
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _onSkip,
+                      child: Text(
+                        'Không biết',
+                        style: TextStyle(
+                          color: AppPalette.accent,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _checkAnswer(),
-                decoration: InputDecoration(
-                  hintText: hintLabel,
-                  hintStyle: TextStyle(
-                    color: AppPalette.textPrimary.withValues(alpha: 0.35),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: AppPalette.accent, width: 2),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: AppPalette.accent, width: 2.5),
+
+                // Answer input
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _inputController,
+                        focusNode: _focusNode,
+                        enabled: _feedbackMessage == null,
+                        minLines: 4,
+                        maxLines: 5,
+                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textInputAction: TextInputAction.newline,
+                        decoration: InputDecoration(
+                          hintText: inputHint,
+                          hintStyle: TextStyle(
+                            color: AppPalette.textSecondary,
+                            fontSize: 16,
+                          ),
+                          filled: true,
+                          fillColor: AppPalette.background,
+                          contentPadding: const EdgeInsets.all(16),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: AppPalette.border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: AppPalette.accent,
+                              width: 1.5,
+                            ),
+                          ),
+                          disabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: AppPalette.border),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: FilledButton(
+                          onPressed: _inputController.text.trim().isEmpty ||
+                                  _feedbackMessage != null
+                              ? null
+                              : _checkAnswer,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppPalette.accent,
+                            foregroundColor: AppPalette.onAccent,
+                            disabledBackgroundColor: AppPalette.surfaceHigh,
+                            disabledForegroundColor: AppPalette.textSecondary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text(
+                            'Kiểm tra đáp án',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+          // Hiệu ứng lửa lớn khi đúng 5 câu liên tiếp
+          FireCelebration(trigger: _fireTrigger),
+        ],
       ),
     );
   }

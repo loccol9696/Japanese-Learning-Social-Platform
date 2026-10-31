@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/services/tts_service.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/swipe_back_detector.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/models/study_session_model.dart';
 import '../../data/services/flashcard_service.dart';
@@ -37,6 +38,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   /// Vị trí kéo thẻ hiện tại; kéo đủ xa theo hướng nào sẽ chọn mức đánh giá đó.
   Offset _drag = Offset.zero;
+  final ValueNotifier<Offset> _dragNotifier = ValueNotifier(Offset.zero);
   bool _isDragging = false;
   bool _isSettling = false;
 
@@ -67,19 +69,24 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       vsync: this,
       duration: const Duration(milliseconds: 320),
     );
-    _settleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-    )..addListener(() {
-        final anim = _settleAnimation;
-        if (anim != null) setState(() => _drag = anim.value);
-      });
+    _settleController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 220),
+        )..addListener(() {
+          final anim = _settleAnimation;
+          if (anim != null) {
+            _drag = anim.value;
+            _dragNotifier.value = _drag;
+          }
+        });
     _loadSession();
   }
 
   @override
   void dispose() {
     _settleController.dispose();
+    _dragNotifier.dispose();
     _stopAudio();
     _controller?.removeListener(_onControllerChanged);
     _flipController.dispose();
@@ -158,6 +165,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
     if (_finishHandled) return;
     _finishHandled = true;
     if (_practice) return;
+    await _controller?.flushUnsent();
     FlashcardStore.instance.invalidateAll();
     try {
       final summary = await _service.getDueSummary();
@@ -233,7 +241,9 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
     final card = study.card;
     final starred = !card.isStarred;
     _service.updateStar(card.cardId, starred);
-    controller.replaceCurrent(study.withCard(card.copyWith(isStarred: starred)));
+    controller.replaceCurrent(
+      study.withCard(card.copyWith(isStarred: starred)),
+    );
   }
 
   void _openSettings() {
@@ -264,9 +274,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       backgroundColor: AppPalette.background,
       body: SafeArea(
         child: _isLoading
-            ? Center(
-                child: CircularProgressIndicator(color: AppPalette.accent),
-              )
+            ? Center(child: CircularProgressIndicator(color: AppPalette.accent))
             : _error != null
             ? _buildError()
             : controller == null || controller.isFinished
@@ -281,10 +289,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            _error!,
-            style: TextStyle(color: AppPalette.textSecondary),
-          ),
+          Text(_error!, style: TextStyle(color: AppPalette.textSecondary)),
           const SizedBox(height: 12),
           TextButton(onPressed: _loadSession, child: const Text('Thử lại')),
         ],
@@ -343,12 +348,13 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
   void _onPanStart(DragStartDetails d) {
     if (_isSettling) return;
     _settleController.stop();
-    setState(() => _isDragging = true);
+    _isDragging = true;
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
     if (!_isDragging) return;
-    setState(() => _drag += d.delta);
+    _drag = Offset(_drag.dx + d.delta.dx, 0);
+    _dragNotifier.value = _drag;
   }
 
   void _onPanEnd(DragEndDetails d) {
@@ -362,9 +368,15 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
     }
   }
 
+  void _onPanCancel() {
+    if (!_isDragging) return;
+    _isDragging = false;
+    _animateDragTo(Offset.zero);
+  }
+
   void _animateDragTo(Offset target, {VoidCallback? onDone}) {
     _settleAnimation = Tween<Offset>(begin: _drag, end: target).animate(
-      CurvedAnimation(parent: _settleController, curve: Curves.easeOut),
+      CurvedAnimation(parent: _settleController, curve: Curves.easeOutCubic),
     );
     _settleController.forward(from: 0).then((_) {
       if (!mounted) return;
@@ -378,56 +390,73 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
       _committedRating = rating;
     });
     final dir = _drag / _drag.distance;
-    _animateDragTo(dir * 700, onDone: () async {
-      setState(() {
-        _drag = Offset.zero;
-        _isSettling = false;
-        _committedRating = null;
-      });
-      await _rate(rating);
-    });
+    _animateDragTo(
+      dir * 700,
+      onDone: () async {
+        setState(() {
+          _drag = Offset.zero;
+          _dragNotifier.value = Offset.zero;
+          _isSettling = false;
+          _committedRating = null;
+        });
+        await _rate(rating);
+      },
+    );
   }
 
   Widget _buildDraggableCard(StudyCard study) {
-    final rating = _committedRating ?? _ratingForDrag(_drag);
-    final angle = (_drag.dx / 300).clamp(-1.0, 1.0) * (15 * pi / 180);
-    final overlayOpacity = rating == null
-        ? 0.0
-        : _committedRating != null
-        ? 1.0
-        : ((_drag.dx.abs() - _showThreshold) / 30).clamp(0.0, 1.0);
-
-    return GestureDetector(
-      onTap: _flip,
-      onPanStart: _onPanStart,
-      onPanUpdate: _onPanUpdate,
-      onPanEnd: _onPanEnd,
-      behavior: HitTestBehavior.opaque,
-      child: Transform.translate(
-        offset: _drag,
-        child: Transform.rotate(
-          angle: angle,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Opacity(
-                  opacity: 1 - overlayOpacity,
-                  child: _buildFlipCard(study),
+    // Vuốt bắt đầu trên thẻ chỉ là chấm điểm, không bao giờ là vuốt-quay-lại toàn app.
+    return SwipeBackBlocker(
+      child: GestureDetector(
+        onTap: _flip,
+        onPanStart: _onPanStart,
+        onPanUpdate: _onPanUpdate,
+        onPanEnd: _onPanEnd,
+        onPanCancel: _onPanCancel,
+        behavior: HitTestBehavior.opaque,
+        child: ValueListenableBuilder<Offset>(
+          valueListenable: _dragNotifier,
+          child: RepaintBoundary(child: _buildFlipCard(study)),
+          builder: (context, drag, card) {
+            final rating = _committedRating ?? _ratingForDrag(drag);
+            final angle = (drag.dx / 300).clamp(-1.0, 1.0) * (15 * pi / 180);
+            final overlayOpacity = rating == null
+                ? 0.0
+                : _committedRating != null
+                ? 1.0
+                : ((drag.dx.abs() - _showThreshold) / 30).clamp(0.0, 1.0);
+            return Transform.translate(
+              offset: drag,
+              child: Transform.rotate(
+                angle: angle,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Opacity(
+                        opacity: 1 - overlayOpacity,
+                        child: card!,
+                      ),
+                    ),
+                    if (rating != null)
+                      Positioned.fill(
+                        child: Opacity(
+                          opacity: overlayOpacity,
+                          child: _buildRatingOverlay(study, rating),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (rating != null)
-                Positioned.fill(
-                  child: Opacity(
-                    opacity: overlayOpacity,
-                    child: _buildRatingOverlay(study, rating),
-                  ),
-                ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
+
+  /// Mức "Xem lại / Khó / Ổn" ghi số thẻ xen giữa đúng như hàng đợi trong phiên; "Dễ" ghi số ngày từ server.
+  String _labelFor(StudyCard study, ReviewRating rating) =>
+      _controller?.repeatLabel(rating) ?? study.labelFor(rating);
 
   Widget _buildRatingOverlay(StudyCard study, ReviewRating rating) {
     final color = _ratingColor(rating);
@@ -437,7 +466,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
               : 'Học lại trong lượt này')
         : rating == ReviewRating.easy
         ? 'Quay lại sau ${study.labelFor(rating)}'
-        : 'Quay lại sau tối đa ${study.labelFor(rating)}';
+        : 'Quay lại ${_labelFor(study, rating).toLowerCase()}';
     return Container(
       decoration: BoxDecoration(
         color: AppPalette.surface,
@@ -628,10 +657,7 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
             Text(
               card.meaning,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppPalette.textPrimary,
-                fontSize: 24,
-              ),
+              style: TextStyle(color: AppPalette.textPrimary, fontSize: 24),
             ),
           ],
           if (card.example != null && card.example!.isNotEmpty) ...[
@@ -655,56 +681,61 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
 
   Widget _buildRatingBar(StudyCard study) {
     const ratings = ReviewRating.values;
-    final pending = _committedRating ?? _ratingForDrag(_drag);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          for (var i = 0; i < ratings.length; i++) ...[
-            if (i > 0) const SizedBox(width: 8),
-            Expanded(
-              child: Material(
-                color: pending == ratings[i]
-                    ? _ratingColor(ratings[i])
-                    : AppPalette.surface,
-                borderRadius: BorderRadius.circular(16),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => _rate(ratings[i]),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          ratings[i].label,
-                          style: TextStyle(
-                            color: pending == ratings[i]
-                                ? AppPalette.background
-                                : AppPalette.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
+    return ValueListenableBuilder<Offset>(
+      valueListenable: _dragNotifier,
+      builder: (context, drag, _) {
+        final pending = _committedRating ?? _ratingForDrag(drag);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              for (var i = 0; i < ratings.length; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Expanded(
+                  child: Material(
+                    color: pending == ratings[i]
+                        ? _ratingColor(ratings[i])
+                        : AppPalette.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => _rate(ratings[i]),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              ratings[i].label,
+                              style: TextStyle(
+                                color: pending == ratings[i]
+                                    ? AppPalette.background
+                                    : AppPalette.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _labelFor(study, ratings[i]),
+                              style: TextStyle(
+                                color: pending == ratings[i]
+                                    ? AppPalette.background
+                                    : AppPalette.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          study.labelFor(ratings[i]),
-                          style: TextStyle(
-                            color: pending == ratings[i]
-                                ? AppPalette.background
-                                : AppPalette.textSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ],
-        ],
-      ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
