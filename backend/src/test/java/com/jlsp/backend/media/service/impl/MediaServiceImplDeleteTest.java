@@ -50,7 +50,7 @@ class MediaServiceImplDeleteTest {
         when(cloudinary.uploader()).thenReturn(uploader);
         when(uploader.destroy(anyString(), any())).thenReturn(Map.of("result", "ok"));
 
-        new MediaServiceImpl(cloudinary, mock(SpeechToTextServiceIntf.class))
+        new MediaServiceImpl(cloudinary, mock(SpeechToTextServiceIntf.class), mock(YoutubeDownloadClient.class))
                 .deleteByUrl("https://res.cloudinary.com/demo/video/upload/v1/a.mp4");
 
         verify(uploader).destroy(eq("a"), eq(Map.of("resource_type", "video", "invalidate", true)));
@@ -63,7 +63,8 @@ class MediaServiceImplDeleteTest {
         when(cloudinary.uploader()).thenReturn(uploader);
         when(uploader.destroy(anyString(), any())).thenThrow(new java.io.IOException("mạng lỗi"));
 
-        assertThatCode(() -> new MediaServiceImpl(cloudinary, mock(SpeechToTextServiceIntf.class))
+        assertThatCode(() -> new MediaServiceImpl(
+                cloudinary, mock(SpeechToTextServiceIntf.class), mock(YoutubeDownloadClient.class))
                 .deleteByUrl("https://res.cloudinary.com/demo/video/upload/v1/a.mp4"))
                 .doesNotThrowAnyException();
     }
@@ -72,7 +73,8 @@ class MediaServiceImplDeleteTest {
     void nonCloudinaryUrlTouchesNothing() {
         Cloudinary cloudinary = mock(Cloudinary.class);
 
-        new MediaServiceImpl(cloudinary, mock(SpeechToTextServiceIntf.class)).deleteByUrl("https://example.com/a.mp4");
+        new MediaServiceImpl(cloudinary, mock(SpeechToTextServiceIntf.class), mock(YoutubeDownloadClient.class))
+                .deleteByUrl("https://example.com/a.mp4");
 
         verifyNoInteractions(cloudinary);
     }

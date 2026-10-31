@@ -260,7 +260,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     setIsLoadingUserTrend(true);
     try {
       const period = mode === 'month_year' ? 'days_in_month' : 'range';
-      const data = await getMetricTrend('user', period, y, m, start, end);
+      const data = await getMetricTrend('user', period, y, m, mode === 'range' ? start : undefined, mode === 'range' ? end : undefined);
       setUserTrendData(data);
     } catch (err) {
       console.error('Lỗi tải xu hướng học viên:', err);
@@ -281,7 +281,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     setIsLoadingTokenTrend(true);
     try {
       const period = mode === 'month_year' ? 'days_in_month' : 'range';
-      const data = await getMetricTrend('token', period, y, m, start, end);
+      const data = await getMetricTrend('token', period, y, m, mode === 'range' ? start : undefined, mode === 'range' ? end : undefined);
       setTokenTrendData(data);
     } catch (err) {
       console.error('Lỗi tải xu hướng token:', err);
@@ -302,7 +302,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     setIsLoadingRevTrend(true);
     try {
       const period = mode === 'month_year' ? 'days_in_month' : 'range';
-      const data = await getMetricTrend('revenue', period, y, m, start, end);
+      const data = await getMetricTrend('revenue', period, y, m, mode === 'range' ? start : undefined, mode === 'range' ? end : undefined);
       setRevTrendData(data);
     } catch (err) {
       console.error('Lỗi tải xu hướng doanh thu:', err);
@@ -662,7 +662,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                     </span>
                   )}
                 </div>
-                <span className="chart-col-label">{showLabel ? t.dateLabel : ''}</span>
+                <span className="chart-col-label">{showLabel ? t.dateLabel : '\u00A0'}</span>
               </div>
             );
           })}
@@ -1406,97 +1406,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                     </span>
                     <span>• {analyticsData?.pendingOrdersCount ?? 0} đơn đang chờ</span>
                   </div>
-                </div>
-              </div>
-
-              {/* Quick Sync & Preset Toolbar */}
-              <div className="analytics-filter-bar">
-                <div className="analytics-filter-group">
-                  <span className="filter-label">⚡ Lọc dữ liệu:</span>
-                  <div className="segmented-pill-wrap">
-                    <button
-                      type="button"
-                      className={`pill-btn ${globalFilterMode === 'month_year' ? 'active' : ''}`}
-                      onClick={() => setGlobalFilterMode('month_year')}
-                    >
-                      📅 Chọn Tháng & Năm
-                    </button>
-                    <button
-                      type="button"
-                      className={`pill-btn ${globalFilterMode === 'range' ? 'active' : ''}`}
-                      onClick={() => setGlobalFilterMode('range')}
-                    >
-                      🗓️ Tùy Chỉnh Khoảng Ngày
-                    </button>
-                  </div>
-
-                  {globalFilterMode === 'month_year' ? (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                      <select
-                        className="chart-mini-select"
-                        value={globalMonth}
-                        onChange={(e) => {
-                          const m = Number(e.target.value);
-                          setGlobalMonth(m);
-                          applyGlobalMonthYear(m, globalYear);
-                        }}
-                        title="Chọn tháng"
-                      >
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                          <option key={m} value={m}>Tháng {m}</option>
-                        ))}
-                      </select>
-                      <select
-                        className="chart-mini-select"
-                        value={globalYear}
-                        onChange={(e) => {
-                          const y = Number(e.target.value);
-                          setGlobalYear(y);
-                          applyGlobalMonthYear(globalMonth, y);
-                        }}
-                        title="Chọn năm"
-                      >
-                        {[2027, 2026, 2025, 2024, 2023, 2022].map(y => (
-                          <option key={y} value={y}>Năm {y}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.76rem', color: 'var(--admin-text-dim)' }}>Từ:</span>
-                      <div className="chart-date-range-group">
-                        <input
-                          type="date"
-                          className="chart-date-input"
-                          value={globalStartDate}
-                          onChange={(e) => setGlobalStartDate(e.target.value)}
-                        />
-                      </div>
-                      <span style={{ fontSize: '0.76rem', color: 'var(--admin-text-dim)' }}>Đến:</span>
-                      <div className="chart-date-range-group">
-                        <input
-                          type="date"
-                          className="chart-date-input"
-                          value={globalEndDate}
-                          onChange={(e) => setGlobalEndDate(e.target.value)}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        className="btn-solid-primary"
-                        style={{ padding: '0.28rem 0.75rem', fontSize: '0.78rem' }}
-                        onClick={() => applyGlobalRange(globalStartDate, globalEndDate)}
-                      >
-                        Áp dụng tất cả
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="analytics-filter-group" style={{ marginLeft: 'auto' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--admin-text-dim)' }}>
-                    💡 Dữ liệu được tính toán và đồng bộ trực tiếp từ cơ sở dữ liệu
-                  </span>
                 </div>
               </div>
 

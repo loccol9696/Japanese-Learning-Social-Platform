@@ -59,7 +59,7 @@ public class AdminAnalyticsController {
 
         List<DailyMetricDto> trend = new ArrayList<>();
 
-        if ("range".equalsIgnoreCase(period) || (startDate != null && endDate != null)) {
+        if ("range".equalsIgnoreCase(period)) {
             LocalDate start = (startDate != null && !startDate.isBlank()) ? LocalDate.parse(startDate) : today.minusDays(30);
             LocalDate end = (endDate != null && !endDate.isBlank()) ? LocalDate.parse(endDate) : today;
             if (end.isBefore(start)) {

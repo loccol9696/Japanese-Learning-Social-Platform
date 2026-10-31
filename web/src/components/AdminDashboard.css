@@ -1609,6 +1609,10 @@
 }
 
 .chart-col-label {
+  height: 1rem;
+  line-height: 1rem;
+  white-space: nowrap;
+  flex-shrink: 0;
   margin-top: 0.5rem;
   font-size: 0.72rem;
   font-family: var(--font-mono);

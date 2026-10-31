@@ -204,7 +204,7 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
                   </td>
                   <td>
                     {status === 'PENDING' ? (
-                      <span className={`status-pill ${(r.pendingCountForTarget ?? 0) > 1 ? 'warning' : 'info'}`}>
+                      <span className={`status-pill ${(r.pendingCountForTarget ?? 0) > 1 ? 'warning' : 'info'}`} style={{ marginTop: '20px' }}>
                         {r.pendingCountForTarget ?? 1}
                       </span>
                     ) : (
