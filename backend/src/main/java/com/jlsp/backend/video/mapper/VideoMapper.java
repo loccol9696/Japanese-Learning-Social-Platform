@@ -41,9 +41,11 @@ public class VideoMapper {
                 .subtitles(request.getSubtitles())
                 .grammarAnalysis(request.getGrammarAnalysis())
                 .status(request.getStatus() != null ? request.getStatus() : VideoStatus.PUBLIC)
-                .modStatus((request.getStatus() == VideoStatus.PRIVATE) 
-                        ? com.jlsp.backend.video.entity.VideoModStatus.APPROVED 
-                        : com.jlsp.backend.video.entity.VideoModStatus.PENDING)
+                .modStatus(request.getStatus() == VideoStatus.DRAFT
+                        ? com.jlsp.backend.video.entity.VideoModStatus.DRAFT
+                        : (request.getStatus() == VideoStatus.PRIVATE
+                                ? com.jlsp.backend.video.entity.VideoModStatus.APPROVED
+                                : com.jlsp.backend.video.entity.VideoModStatus.PENDING))
                 .viewCount(0L)
                 .likeCount(0)
                 .saveCount(0)

@@ -14,6 +14,7 @@ import '../../../follow/presentation/screens/follow_manage_screen.dart';
 import '../../../video/domain/models/user_video_model.dart';
 import '../../../video/presentation/screens/moderation_queue_screen.dart';
 import '../../../video/presentation/screens/my_videos_status_screen.dart';
+import '../../../video/presentation/screens/upload_video_screen.dart';
 import '../../data/datasources/profile_remote_datasource.dart';
 import '../../data/repositories/profile_repository_impl.dart';
 import '../../domain/models/user_profile_model.dart';
@@ -200,8 +201,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .then((_) => _loadProfile());
   }
 
-  /// Mở thẳng video được bấm (cùng màn hình dùng khi mở video chia sẻ trong chat).
+  /// Mở thẳng video được bấm; nếu là bản nháp thì mở màn Chỉnh sửa bản nháp.
   void _openVideo(UserVideoModel video) {
+    if (video.isDraft) {
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute(
+              builder: (_) => PublishVideoScreen(
+                editingVideoId: video.id,
+                videoUrl: video.videoUrl,
+                thumbnailUrl: video.thumbnailUrl ?? '',
+                duration: video.duration < 1 ? 1 : video.duration,
+                fileName: video.title,
+              ),
+            ),
+          )
+          .then((_) => _loadProfile());
+      return;
+    }
     Navigator.of(context)
         .push(
           MaterialPageRoute(
@@ -1305,7 +1322,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Color? badgeColor;
     String? badgeText;
 
-    if (video.isPending) {
+    if (video.isDraft) {
+      badgeColor = AppPalette.info;
+      badgeText = 'Bản nháp';
+    } else if (video.isPending) {
       badgeColor = AppPalette.warning;
       badgeText = 'Chờ duyệt';
     } else if (video.isRejected) {

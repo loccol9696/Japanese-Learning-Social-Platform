@@ -9,6 +9,7 @@ import com.jlsp.backend.ai.service.SpeechToTextServiceIntf;
 import com.jlsp.backend.ai.service.GrammarAnalysisServiceIntf;
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.security.CurrentUser;
+import com.jlsp.backend.media.service.MediaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -26,16 +28,19 @@ public class SpeechToTextController {
     private final com.jlsp.backend.subscription.service.SubscriptionService subscriptionService;
     private final com.jlsp.backend.subscription.service.SystemSettingService systemSettingService;
     private final GrammarAnalysisServiceIntf grammarAnalysisService;
+    private final MediaService mediaService;
 
     public SpeechToTextController(
             SpeechToTextServiceIntf speechToTextService,
             com.jlsp.backend.subscription.service.SubscriptionService subscriptionService,
             com.jlsp.backend.subscription.service.SystemSettingService systemSettingService,
-            GrammarAnalysisServiceIntf grammarAnalysisService) {
+            GrammarAnalysisServiceIntf grammarAnalysisService,
+            MediaService mediaService) {
         this.speechToTextService = speechToTextService;
         this.subscriptionService = subscriptionService;
         this.systemSettingService = systemSettingService;
         this.grammarAnalysisService = grammarAnalysisService;
+        this.mediaService = mediaService;
     }
 
     @PostMapping("/transcribe")
@@ -69,11 +74,37 @@ public class SpeechToTextController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
+    /**
+     * Khởi động lại AI tạo phụ đề từ URL video trên Cloudinary (dùng khi chỉnh sửa bản nháp).
+     */
+    @PostMapping("/transcribe-url")
+    public ResponseEntity<TranscriptionSubmitResponse> submitTranscriptionFromUrl(
+            @RequestBody Map<String, Object> body) {
+        Object rawUrl = body != null ? body.get("videoUrl") : null;
+        String videoUrl = rawUrl != null ? rawUrl.toString().trim() : "";
+        if (videoUrl.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        byte[] videoBytes = mediaService.downloadFromCloudinary(videoUrl);
+        String taskId = UUID.randomUUID().toString();
+        speechToTextService.processAudioAsync(taskId, videoBytes, "draft-video.mp4");
+
+        TranscriptionSubmitResponse response = TranscriptionSubmitResponse.builder()
+                .taskId(taskId)
+                .status("PROCESSING")
+                .checkUrl("/api/speech/status/" + taskId)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
     @PostMapping("/analyze-grammar")
     public ResponseEntity<ApiResponse<List<SegmentGrammarAnalysis>>> analyzeGrammar(
             @RequestBody AnalyzeGrammarRequest request) throws Exception {
-                List<SegmentGrammarAnalysis> analyzedSegments = grammarAnalysisService.analyze(request.getSegments());
-                return ResponseEntity.ok(ApiResponse.success(analyzedSegments));
+        List<SegmentGrammarAnalysis> analyzedSegments = grammarAnalysisService.analyze(request.getSegments());
+        return ResponseEntity.ok(ApiResponse.success(analyzedSegments));
     }
 
     @GetMapping("/status/{taskId}")

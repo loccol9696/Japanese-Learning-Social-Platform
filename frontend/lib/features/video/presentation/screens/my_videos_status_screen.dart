@@ -7,6 +7,7 @@ import '../../../profile/data/datasources/profile_remote_datasource.dart';
 import '../../../profile/data/repositories/profile_repository_impl.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../domain/models/user_video_model.dart';
+import 'upload_video_screen.dart';
 import '../../../../core/theme/app_palette.dart';
 
 class MyVideosStatusScreen extends StatefulWidget {
@@ -23,7 +24,7 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
   final VideoManageService _manage = VideoManageService();
   bool _isLoading = true;
   List<UserVideoModel> _allVideos = [];
-  String _selectedFilter = 'ALL'; // ALL, PENDING, APPROVED, REJECTED
+  String _selectedFilter = 'ALL'; // ALL, DRAFT, PENDING, APPROVED, REJECTED
 
   @override
   void initState() {
@@ -51,6 +52,23 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
   static const _levels = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
   Future<void> _editVideo(UserVideoModel video) async {
+    if (video.isDraft) {
+      final updated = await Navigator.of(context).push<dynamic>(
+        MaterialPageRoute(
+          builder: (_) => PublishVideoScreen(
+            editingVideoId: video.id,
+            videoUrl: video.videoUrl,
+            thumbnailUrl: video.thumbnailUrl ?? '',
+            duration: video.duration < 1 ? 1 : video.duration,
+            fileName: video.title,
+          ),
+        ),
+      );
+      if (updated == true && mounted) {
+        await _loadVideos();
+      }
+      return;
+    }
     final titleCtrl = TextEditingController(text: video.title);
     final descCtrl = TextEditingController(text: video.description ?? '');
     var level = _levels.contains(video.jlptLevel) ? video.jlptLevel : 'N5';
@@ -176,16 +194,31 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
     }
   }
 
+  bool _matchesFilter(UserVideoModel v, String filter) {
+    switch (filter) {
+      case 'ALL':
+        return true;
+      case 'DRAFT':
+        return v.isDraft;
+      case 'PENDING':
+        return v.isPending;
+      case 'APPROVED':
+        return v.isApproved;
+      case 'REJECTED':
+        return v.isRejected;
+      default:
+        return v.modStatus.toUpperCase() == filter;
+    }
+  }
+
   List<UserVideoModel> get _filteredVideos {
     if (_selectedFilter == 'ALL') return _allVideos;
-    return _allVideos
-        .where((v) => v.modStatus.toUpperCase() == _selectedFilter)
-        .toList();
+    return _allVideos.where((v) => _matchesFilter(v, _selectedFilter)).toList();
   }
 
   int _countByStatus(String status) {
     if (status == 'ALL') return _allVideos.length;
-    return _allVideos.where((v) => v.modStatus.toUpperCase() == status).length;
+    return _allVideos.where((v) => _matchesFilter(v, status)).length;
   }
 
   @override
@@ -246,6 +279,7 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
   Widget _buildFilterBar() {
     const filters = [
       ('ALL', 'Tất cả'),
+      ('DRAFT', 'Nháp'),
       ('PENDING', 'Chờ duyệt'),
       ('APPROVED', 'Đã duyệt'),
       ('REJECTED', 'Từ chối'),
@@ -318,7 +352,10 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
   Widget _buildVideoRow(UserVideoModel video) {
     final Color statusColor;
     final String statusText;
-    if (video.isApproved) {
+    if (video.isDraft) {
+      statusColor = AppPalette.info;
+      statusText = 'Bản nháp';
+    } else if (video.isApproved) {
       statusColor = AppPalette.success;
       statusText = 'Đã duyệt';
     } else if (video.isRejected) {
@@ -332,97 +369,100 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
     final date = formatVideoDate(video.createdAt, DateTime.now());
     final reason = video.rejectionReason?.trim() ?? '';
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: 56,
-              height: 76,
-              color: AppPalette.surface,
-              child: video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
-                  ? Image.network(
-                      video.thumbnailUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                    )
-                  : null,
+    return InkWell(
+      onTap: video.isDraft ? () => _editVideo(video) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 56,
+                height: 76,
+                color: AppPalette.surface,
+                child: video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty
+                    ? Image.network(
+                        video.thumbnailUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      )
+                    : null,
+              ),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    video.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppPalette.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      video.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          date.isEmpty ? statusText : '$statusText  ·  $date',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: mutedText, fontSize: 12.5),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
                         ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            date.isEmpty ? statusText : '$statusText  ·  $date',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: mutedText, fontSize: 12.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (video.isRejected && reason.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        reason,
+                        key: const ValueKey('rejection-reason'),
+                        style: TextStyle(color: AppPalette.error, fontSize: 12.5, height: 1.3),
                       ),
                     ],
-                  ),
-                  if (video.isRejected && reason.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      reason,
-                      key: const ValueKey('rejection-reason'),
-                      style: TextStyle(color: AppPalette.error, fontSize: 12.5, height: 1.3),
-                    ),
                   ],
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                color: AppPalette.surface,
+                tooltip: 'Tùy chọn',
+                icon: Icon(Icons.more_vert_rounded, color: mutedText, size: 18),
+                onSelected: (v) => v == 'edit' ? _editVideo(video) : _deleteVideo(video),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Text('Sửa', style: TextStyle(color: AppPalette.textPrimary)),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Xoá', style: TextStyle(color: AppPalette.error)),
+                  ),
                 ],
               ),
             ),
-          ),
-          SizedBox(
-            width: 28,
-            height: 28,
-            child: PopupMenuButton<String>(
-              padding: EdgeInsets.zero,
-              color: AppPalette.surface,
-              tooltip: 'Tùy chọn',
-              icon: Icon(Icons.more_vert_rounded, color: mutedText, size: 18),
-              onSelected: (v) => v == 'edit' ? _editVideo(video) : _deleteVideo(video),
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: 'edit',
-                  child: Text('Sửa', style: TextStyle(color: AppPalette.textPrimary)),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Text('Xoá', style: TextStyle(color: AppPalette.error)),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

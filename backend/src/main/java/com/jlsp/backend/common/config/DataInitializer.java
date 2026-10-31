@@ -229,6 +229,8 @@ public class DataInitializer implements CommandLineRunner {
             jdbcTemplate.execute("ALTER TABLE videos ADD COLUMN IF NOT EXISTS moderated_by VARCHAR(50)");
             jdbcTemplate.execute("ALTER TABLE videos ADD COLUMN IF NOT EXISTS moderated_at TIMESTAMP");
             jdbcTemplate.execute("UPDATE videos SET mod_status = 'APPROVED' WHERE mod_status IS NULL");
+            jdbcTemplate.execute("ALTER TABLE videos DROP CONSTRAINT IF EXISTS videos_status_check");
+            jdbcTemplate.execute("ALTER TABLE videos DROP CONSTRAINT IF EXISTS videos_mod_status_check");
 
             // Cột cho bảng users (VIP & Subscriptions)
             jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS vip_expires_at TIMESTAMP");

@@ -28,6 +28,15 @@ public interface MediaService {
     CloudinaryUploadResponse uploadMedia(MultipartFile file, String folder);
 
     /**
+     * Tải video từ link YouTube, upload lên Cloudinary và khởi động AI tạo phụ đề
+     * (giống như upload file video).
+     *
+     * @param youtubeUrl link YouTube (youtube.com / youtu.be)
+     * @return CloudinaryUploadResponse kèm tiêu đề gốc của video
+     */
+    CloudinaryUploadResponse importFromYoutube(String youtubeUrl);
+
+    /**
      * Tải file đã lưu trên Cloudinary về backend để chạy xử lý AI.
      *
      * @param secureUrl URL HTTPS do Cloudinary trả về

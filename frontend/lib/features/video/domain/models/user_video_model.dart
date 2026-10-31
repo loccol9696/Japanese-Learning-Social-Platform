@@ -43,9 +43,10 @@ class UserVideoModel {
     this.userAvatarUrl,
   });
 
-  bool get isPending => modStatus.toUpperCase() == 'PENDING';
-  bool get isApproved => modStatus.toUpperCase() == 'APPROVED';
-  bool get isRejected => modStatus.toUpperCase() == 'REJECTED';
+  bool get isDraft => status.toUpperCase() == 'DRAFT' || modStatus.toUpperCase() == 'DRAFT';
+  bool get isPending => !isDraft && modStatus.toUpperCase() == 'PENDING';
+  bool get isApproved => !isDraft && modStatus.toUpperCase() == 'APPROVED';
+  bool get isRejected => !isDraft && modStatus.toUpperCase() == 'REJECTED';
   bool get isPublic => status.toUpperCase() == 'PUBLIC';
 
   factory UserVideoModel.fromJson(Map<String, dynamic> json) {

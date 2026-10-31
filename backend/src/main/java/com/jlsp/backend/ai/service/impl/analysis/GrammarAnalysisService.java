@@ -15,6 +15,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -33,7 +34,7 @@ import java.util.Map;
 public class GrammarAnalysisService implements GrammarAnalysisServiceIntf {
 
     private static final Logger log = LoggerFactory.getLogger(GrammarAnalysisService.class);
-    private static final int BATCH_SIZE = 40;
+    private static final int BATCH_SIZE = 25;
 
     private static final String PROMPT_TEMPLATE = """
             Bạn là giáo viên tiếng Nhật. Với MỖI câu trong input (JSON array {"i", "text"}),
@@ -48,7 +49,7 @@ public class GrammarAnalysisService implements GrammarAnalysisServiceIntf {
             %s
             """;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
@@ -59,10 +60,14 @@ public class GrammarAnalysisService implements GrammarAnalysisServiceIntf {
     public GrammarAnalysisService(
             @Value("${ai-analysis.api-key}") String apiKey,
             @Value("${ai-analysis.base-url}") String baseUrl,
-            @Value("${ai-analysis.model}") String model) {
+            @Value("${ai-analysis.model:gemini-3.8-flash}") String model) {
         this.apiKey = apiKey;
         this.baseUrl = baseUrl;
         this.model = model;
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(15_000);
+        factory.setReadTimeout(120_000);
+        this.restTemplate = new RestTemplate(factory);
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("ai-analysis.api-key (GEMINI_API_KEY) chưa được cấu hình. Grammar analysis sẽ thất bại.");
         }
@@ -98,7 +103,7 @@ public class GrammarAnalysisService implements GrammarAnalysisServiceIntf {
             if (input.isEmpty()) continue;
 
             String prompt = String.format(PROMPT_TEMPLATE, objectMapper.writeValueAsString(input));
-            String json = callGemini(prompt);
+            String json = stripMarkdownFence(callGemini(prompt));
 
             List<AiSegmentResult> aiResults = objectMapper.readValue(json, new TypeReference<>() {});
             for (AiSegmentResult r : aiResults) {
@@ -143,10 +148,23 @@ public class GrammarAnalysisService implements GrammarAnalysisServiceIntf {
         return text.toString();
     }
 
+    private static String stripMarkdownFence(String raw) {
+        String trimmed = raw == null ? "" : raw.trim();
+        if (trimmed.startsWith("```")) {
+            int firstNewline = trimmed.indexOf('\n');
+            if (firstNewline > 0) {
+                trimmed = trimmed.substring(firstNewline + 1);
+            }
+            if (trimmed.endsWith("```")) {
+                trimmed = trimmed.substring(0, trimmed.length() - 3);
+            }
+        }
+        return trimmed.trim();
+    }
+
     /** Cấu trúc JSON mà Gemini trả về cho mỗi câu. */
     private static class AiSegmentResult {
         public int i;
         public List<GrammarPoint> grammarPoints;
     }
 }
-
