@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/localization/locale_manager.dart';
+import '../core/navigation/app_route_observer.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_manager.dart';
 import '../core/widgets/app_toast.dart';
@@ -97,6 +98,7 @@ class _AppState extends State<App> {
           title: AppConstants.appName,
           debugShowCheckedModeBanner: false,
           navigatorKey: AppToast.navigatorKey,
+          navigatorObservers: [appRouteObserver],
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeManager.mode,
