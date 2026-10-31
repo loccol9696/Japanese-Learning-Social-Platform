@@ -7,6 +7,7 @@ import '../subtitle_split.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:http_parser/http_parser.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
@@ -66,6 +67,18 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
       return;
     }
 
+    final extension = (file.extension ?? file.name.split('.').last)
+        .toLowerCase();
+    final contentType = switch (extension) {
+      'mp4' => MediaType('video', 'mp4'),
+      'mov' => MediaType('video', 'quicktime'),
+      _ => null,
+    };
+    if (contentType == null) {
+      _showMessage('Chỉ hỗ trợ video MP4 hoặc MOV.');
+      return;
+    }
+
     setState(() => _isUploading = true);
     try {
       // Tải video lớn nên không đặt giới hạn thời gian; ApiClient tự gắn token.
@@ -78,7 +91,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
               'file',
               bytes,
               filename: file.name,
-              contentType: MediaType('video', (file.extension?.toLowerCase() == 'mov') ? 'quicktime' : 'mp4'),
+              contentType: contentType,
             ),
           ),
       );

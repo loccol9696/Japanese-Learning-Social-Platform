@@ -4,6 +4,7 @@ import '../widgets/ruby_subtitle_widget.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/localization/locale_manager.dart';
+import '../../../../core/navigation/app_route_observer.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -22,6 +23,7 @@ import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/auth/auth_guard.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../chat/data/services/chat_hub.dart';
 import '../../../chat/presentation/screens/messages_tab.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -33,7 +35,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with RouteAware {
   late final HomeRepository _repository;
   late final PageController _tabPageController;
   late final PageController _homeTabController;
@@ -61,6 +63,8 @@ class _HomeScreenState extends State<HomeScreen> {
   /// giật khi chuyển tab / chuyển trang.
   final ValueNotifier<bool> _feedPlaybackAllowed = ValueNotifier<bool>(true);
   int _pagesAboveFeed = 0;
+  bool _routeCovered = false;
+  ModalRoute<dynamic>? _subscribedRoute;
 
   @override
   void initState() {
@@ -78,7 +82,34 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _syncFeedPlayback() {
-    _feedPlaybackAllowed.value = _currentNavIndex == 0 && _pagesAboveFeed == 0;
+    _feedPlaybackAllowed.value =
+        _currentNavIndex == 0 && _pagesAboveFeed == 0 && !_routeCovered;
+    ChatHub.instance.messagesTabVisible.value =
+        _currentNavIndex == BottomNavDock.messagesIndex;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route == null || route == _subscribedRoute) return;
+    if (_subscribedRoute != null) {
+      appRouteObserver.unsubscribe(this);
+    }
+    _subscribedRoute = route;
+    appRouteObserver.subscribe(this, route);
+  }
+
+  @override
+  void didPushNext() {
+    _routeCovered = true;
+    _syncFeedPlayback();
+  }
+
+  @override
+  void didPopNext() {
+    _routeCovered = false;
+    _syncFeedPlayback();
   }
 
   /// Mở một màn đè lên feed: video tạm dừng trong lúc màn đó mở.
@@ -103,6 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     AuthSession.instance.removeListener(_onAuthChanged);
     _tabPageController.dispose();
     _homeTabController.dispose();
@@ -516,6 +548,10 @@ class _HomeScreenState extends State<HomeScreen> {
         return VideoPlayerItem(
           key: ValueKey(post.id),
           post: post,
+          isActive: index ==
+              (tab == FeedTab.following
+                  ? _followingPostIndex
+                  : _forYouPostIndex),
           onLikeToggle: () => _handleLikeToggle(post),
           onSaveToggle: () => _handleSaveToggle(post),
           onFollowToggle: () => _handleFollowToggle(post),

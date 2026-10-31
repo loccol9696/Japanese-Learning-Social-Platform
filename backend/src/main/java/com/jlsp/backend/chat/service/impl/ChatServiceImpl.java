@@ -12,14 +12,22 @@ import com.jlsp.backend.chat.dto.response.SharedDeckResponse;
 import com.jlsp.backend.chat.entity.Conversation;
 import com.jlsp.backend.chat.entity.ConversationParticipant;
 import com.jlsp.backend.chat.entity.ConversationParticipantId;
+import com.jlsp.backend.chat.entity.DeviceToken;
 import com.jlsp.backend.chat.entity.Message;
 import com.jlsp.backend.chat.entity.MessageType;
+import com.jlsp.backend.block.entity.UserBlock;
+import com.jlsp.backend.block.entity.UserBlockId;
+import com.jlsp.backend.chat.event.ConversationClearedEvent;
 import com.jlsp.backend.chat.event.ConversationReadEvent;
 import com.jlsp.backend.chat.event.MessageCreatedEvent;
+import com.jlsp.backend.chat.event.MessageRecalledEvent;
 import com.jlsp.backend.chat.mapper.ChatMapper;
 import com.jlsp.backend.chat.repository.ConversationParticipantRepository;
 import com.jlsp.backend.chat.repository.ConversationRepository;
+import com.jlsp.backend.chat.repository.DeviceTokenRepository;
 import com.jlsp.backend.chat.repository.MessageRepository;
+import com.jlsp.backend.block.repository.UserBlockRepository;
+import com.jlsp.backend.chat.service.ChatImageValidator;
 import com.jlsp.backend.chat.service.ChatRateLimiter;
 import com.jlsp.backend.chat.service.ChatService;
 import com.jlsp.backend.common.exception.AppException;
@@ -43,10 +51,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,22 +72,29 @@ import java.util.stream.Collectors;
 public class ChatServiceImpl implements ChatService {
 
     private static final int MAX_PAGE_SIZE = 50;
+    private static final Duration RECALL_WINDOW = Duration.ofHours(24);
 
     private final ConversationRepository conversationRepository;
     private final ConversationParticipantRepository participantRepository;
     private final MessageRepository messageRepository;
+    private final UserBlockRepository userBlockRepository;
+    private final com.jlsp.backend.block.service.BlockService blockService;
+    private final DeviceTokenRepository deviceTokenRepository;
     private final UserRepository userRepository;
     private final VideoRepository videoRepository;
     private final FollowService followService;
     private final ChatMapper chatMapper;
     private final ChatRateLimiter rateLimiter;
+    private final ChatImageValidator imageValidator;
     private final ApplicationEventPublisher eventPublisher;
     private final FlashcardSetRepository flashcardSetRepository;
     private final FlashcardRepository flashcardRepository;
 
     @Override
     public List<ChatUserResponse> getContacts(Long userId) {
+        Set<Long> blocked = new HashSet<>(userBlockRepository.findRelatedUserIds(userId));
         return followService.getMutualFollows(userId).stream()
+                .filter(user -> !blocked.contains(user.getId()))
                 .map(chatMapper::toUserResponse)
                 .toList();
     }
@@ -109,15 +127,14 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public MessagePageResponse getMessages(Long userId, Long conversationId, Long beforeId, int size) {
         requireConversation(userId, conversationId);
+        long floorId = clearedMessageId(conversationId, userId);
         int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         // Lấy dư 1 bản ghi để biết còn tin cũ hơn hay không
         Pageable limit = PageRequest.of(0, pageSize + 1);
-        long clearedBefore = clearedBefore(userId, conversationId);
         List<Message> messages = beforeId == null
-                ? messageRepository.findByConversationIdAndIdGreaterThanOrderByIdDesc(
-                        conversationId, clearedBefore, limit)
-                : messageRepository.findByConversationIdAndIdLessThanAndIdGreaterThanOrderByIdDesc(
-                        conversationId, beforeId, clearedBefore, limit);
+                ? messageRepository.findByConversationIdAndIdGreaterThanOrderByIdDesc(conversationId, floorId, limit)
+                : messageRepository.findByConversationIdAndIdGreaterThanAndIdLessThanOrderByIdDesc(
+                        conversationId, floorId, beforeId, limit);
 
         boolean hasMore = messages.size() > pageSize;
         if (hasMore) {
@@ -134,11 +151,10 @@ public class ChatServiceImpl implements ChatService {
     public MessagePageResponse getMessagesAfter(Long userId, Long conversationId, Long afterId, int size) {
         requireConversation(userId, conversationId);
         int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
+        long floorId = Math.max(afterId == null ? 0L : afterId, clearedMessageId(conversationId, userId));
         // Lấy dư 1 bản ghi để biết còn tin mới hơn nữa hay không
-        // Không bao giờ trả tin đã xoá phía người xem, kể cả khi client hỏi từ mốc cũ hơn.
-        long from = Math.max(afterId == null ? 0L : afterId, clearedBefore(userId, conversationId));
         List<Message> messages = messageRepository.findByConversationIdAndIdGreaterThanOrderByIdAsc(
-                conversationId, from, PageRequest.of(0, pageSize + 1));
+                conversationId, floorId, PageRequest.of(0, pageSize + 1));
 
         boolean hasMore = messages.size() > pageSize;
         if (hasMore) {
@@ -269,32 +285,98 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional
-    public void clearConversation(Long userId, Long conversationId) {
-        Conversation conversation = requireConversation(userId, conversationId);
-        Long latestId = messageRepository.findLatestId(conversationId);
-        if (latestId == null) {
-            return; // chưa có tin nào để xoá
-        }
-        ConversationParticipant participant = getOrCreateParticipant(conversation, userId);
-        participant.setClearedBeforeMessageId(latestId);
-        // Tin đã xoá không còn được tính là chưa đọc.
-        Long lastRead = participant.getLastReadMessageId();
-        if (lastRead == null || lastRead < latestId) {
-            participant.setLastReadMessageId(latestId);
-        }
-        participantRepository.save(participant);
-        log.info("User {} đã xoá cuộc trò chuyện {} (tới tin {})", userId, conversationId, latestId);
-    }
-
-    @Override
     public long getUnreadCount(Long userId) {
         return participantRepository.countUnreadMessages(userId);
     }
 
     @Override
-    public Long getOtherParticipantId(Long userId, Long conversationId) {
-        return requireConversation(userId, conversationId).getOtherUser(userId).getId();
+    @Transactional
+    public void clearConversation(Long userId, Long conversationId) {
+        Conversation conversation = requireConversation(userId, conversationId);
+        Long latestId = messageRepository.findLatestId(conversationId);
+        if (latestId == null) {
+            return;
+        }
+        // Không đổi mốc đã đọc: xoá mà chưa đọc thì người kia không thấy "Đã xem".
+        ConversationParticipant participant = getOrCreateParticipant(conversation, userId);
+        participant.setClearedMessageId(latestId);
+        participantRepository.save(participant);
+        eventPublisher.publishEvent(new ConversationClearedEvent(conversationId, userId));
+    }
+
+    @Override
+    @Transactional
+    public MessageResponse recallMessage(Long userId, Long messageId) {
+        Message message = requireMessage(messageId);
+        Conversation conversation = requireConversation(userId, message.getConversation().getId());
+        if (!message.getSender().getId().equals(userId)) {
+            throw new AppException(403, "Bạn chỉ có thể thu hồi tin nhắn của mình");
+        }
+        if (message.getRecalledAt() != null) {
+            return chatMapper.toMessageResponse(message, Map.of());
+        }
+        if (message.getCreatedAt().plus(RECALL_WINDOW).isBefore(LocalDateTime.now())) {
+            throw new AppException(400, "Tin nhắn đã quá 24 giờ nên không thể thu hồi");
+        }
+
+        message.setRecalledAt(LocalDateTime.now());
+        message.setContent(null);
+        message.setVideoId(null);
+        message.setVideoStartMs(null);
+        message.setImageUrl(null);
+        message.setReplyTo(null);
+        messageRepository.save(message);
+
+        MessageResponse response = chatMapper.toMessageResponse(message, Map.of());
+        eventPublisher.publishEvent(new MessageRecalledEvent(response, userId,
+                conversation.getOtherUser(userId).getId()));
+        return response;
+    }
+
+    @Override
+    public String getTranslatableContent(Long userId, Long messageId) {
+        Message message = requireMessage(messageId);
+        requireConversation(userId, message.getConversation().getId());
+        if (message.getContent() == null || message.getContent().isBlank()) {
+            throw new AppException(400, "Tin nhắn này không có nội dung để dịch");
+        }
+        return message.getContent();
+    }
+
+    @Override
+    @Transactional
+    public void blockUser(Long userId, Long targetId) {
+        // Dùng chung một luồng chặn với trang cá nhân: cùng bảng, đồng thời gỡ theo dõi hai chiều.
+        blockService.block(userId, targetId);
+    }
+
+    @Override
+    @Transactional
+    public void unblockUser(Long userId, Long targetId) {
+        blockService.unblock(userId, targetId);
+    }
+
+    @Override
+    public Long findTypingRecipientId(Long userId, Long conversationId) {
+        Long otherId = requireConversation(userId, conversationId).getOtherUser(userId).getId();
+        return userBlockRepository.existsBetween(userId, otherId) ? null : otherId;
+    }
+
+    @Override
+    @Transactional
+    public void registerDevice(Long userId, String token, String platform) {
+        User user = userRepository.getReferenceById(userId);
+        DeviceToken device = deviceTokenRepository.findByToken(token)
+                .orElseGet(() -> DeviceToken.builder().token(token).build());
+        device.setUser(user);
+        device.setPlatform(platform);
+        deviceTokenRepository.save(device);
+    }
+
+    @Override
+    @Transactional
+    public void unregisterDevice(Long userId, String token) {
+        deviceTokenRepository.deleteByUserIdAndToken(userId, token);
     }
 
     // -------------------------------------------------------------------------
@@ -306,6 +388,7 @@ public class ChatServiceImpl implements ChatService {
         String content = request.getContent() == null ? null : request.getContent().strip();
         Video video = null;
         FlashcardSet deck = null;
+        String imageUrl = null;
 
         if (request.getType() == MessageType.TEXT) {
             if (content == null || content.isEmpty()) {
@@ -335,9 +418,19 @@ public class ChatServiceImpl implements ChatService {
             if (content != null && content.isEmpty()) {
                 content = null;
             }
+        } else if (request.getType() == MessageType.IMAGE) {
+            if (!imageValidator.isValid(request.getImageUrl())) {
+                throw new AppException(400, "Ảnh không hợp lệ");
+            }
+            imageUrl = request.getImageUrl();
+            if (content != null && content.isEmpty()) {
+                content = null;
+            }
         } else {
             throw new AppException(400, "Loại tin nhắn không hợp lệ");
         }
+
+        Message replyTo = resolveReplyTarget(conversation, request.getReplyToId());
 
         Message message = messageRepository.save(Message.builder()
                 .conversation(conversation)
@@ -347,6 +440,8 @@ public class ChatServiceImpl implements ChatService {
                 .videoId(video != null ? video.getId() : null)
                 .videoStartMs(video != null ? request.getVideoStartMs() : null)
                 .deckId(deck != null ? deck.getSetId() : null)
+                .imageUrl(imageUrl)
+                .replyTo(replyTo)
                 .clientMsgId(request.getClientMsgId() == null || request.getClientMsgId().isBlank()
                         ? null : request.getClientMsgId())
                 .build());
@@ -374,11 +469,18 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /**
-     * Người nhận phải tồn tại, đang hoạt động và hai bên follow lẫn nhau.
+     * Cả hai tài khoản phải đang hoạt động, follow lẫn nhau và không ai chặn ai. Kiểm tra cả
+     * người gửi vì socket chỉ xác thực lúc kết nối, tài khoản bị khoá sau đó vẫn còn kết nối.
      */
     private User ensureCanMessage(Long userId, Long recipientId) {
         if (userId.equals(recipientId)) {
             throw new AppException(400, "Không thể nhắn tin cho chính mình");
+        }
+        boolean senderActive = userRepository.findById(userId)
+                .map(user -> Boolean.TRUE.equals(user.getIsActive()))
+                .orElse(false);
+        if (!senderActive) {
+            throw new AppException(403, "Tài khoản của bạn đã bị khóa");
         }
         User recipient = userRepository.findById(recipientId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", recipientId));
@@ -387,6 +489,9 @@ public class ChatServiceImpl implements ChatService {
         }
         if (!followService.isMutual(userId, recipientId)) {
             throw new AppException(403, "Hai bạn cần theo dõi lẫn nhau để nhắn tin");
+        }
+        if (userBlockRepository.existsBetween(userId, recipientId)) {
+            throw new AppException(403, "Không thể nhắn tin cho người này");
         }
         return recipient;
     }
@@ -418,10 +523,9 @@ public class ChatServiceImpl implements ChatService {
                         .build()));
     }
 
-    /** Mốc xoá của người dùng trong hội thoại; 0 nếu chưa từng xoá (mọi tin đều id > 0). */
-    private long clearedBefore(Long userId, Long conversationId) {
+    private long clearedMessageId(Long conversationId, Long userId) {
         return participantRepository.findById(new ConversationParticipantId(conversationId, userId))
-                .map(ConversationParticipant::getClearedBeforeMessageId)
+                .map(ConversationParticipant::getClearedMessageId)
                 .orElse(0L);
     }
 
@@ -432,6 +536,25 @@ public class ChatServiceImpl implements ChatService {
             throw new AppException(403, "Bạn không thuộc hội thoại này");
         }
         return conversation;
+    }
+
+    private Message resolveReplyTarget(Conversation conversation, Long replyToId) {
+        if (replyToId == null) {
+            return null;
+        }
+        Message target = requireMessage(replyToId);
+        if (!target.getConversation().getId().equals(conversation.getId())) {
+            throw new AppException(400, "Tin nhắn được trả lời không thuộc hội thoại này");
+        }
+        if (target.getRecalledAt() != null) {
+            throw new AppException(400, "Tin nhắn này đã được thu hồi");
+        }
+        return target;
+    }
+
+    private Message requireMessage(Long messageId) {
+        return messageRepository.findById(messageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Message", "id", messageId));
     }
 
     private ConversationResponse toConversationResponse(Conversation conversation, Long userId,
@@ -445,10 +568,9 @@ public class ChatServiceImpl implements ChatService {
         User other = conversation.getOtherUser(userId);
         Long otherLastRead = state.lastReadIds()
                 .get(new ConversationParticipantId(conversation.getId(), other.getId()));
-        // Tin cuối đã bị người này xoá thì coi như hội thoại chưa có tin (mở lại để nhắn tiếp).
         Message last = conversation.getLastMessage();
-        Long cleared = state.clearedBefore().get(conversation.getId());
-        boolean lastCleared = last != null && cleared != null && cleared >= last.getId();
+        boolean lastCleared = last != null
+                && last.getId() <= state.clearedIds().getOrDefault(conversation.getId(), 0L);
 
         return ConversationResponse.builder()
                 .id(conversation.getId())
@@ -457,29 +579,31 @@ public class ChatServiceImpl implements ChatService {
                         : chatMapper.toMessageResponse(last, attachments.videos(), attachments.decks()))
                 .unreadCount(state.unreadCounts().getOrDefault(conversation.getId(), 0L))
                 .otherLastReadMessageId(otherLastRead)
-                .canMessage(Boolean.TRUE.equals(other.getIsActive()) && state.mutualIds().contains(other.getId()))
+                .canMessage(Boolean.TRUE.equals(other.getIsActive())
+                        && state.mutualIds().contains(other.getId())
+                        && !state.blockedIds().contains(other.getId()))
+                .blockedByMe(state.blockedByMeIds().contains(other.getId()))
                 .lastMessageAt(conversation.getLastMessageAt())
                 .build();
     }
 
     /**
-     * Mốc đã đọc, số tin chưa đọc và quyền nhắn tin của cả trang hội thoại: 3 truy vấn gộp
-     * thay vì 4 truy vấn cho MỖI hội thoại.
+     * Mốc đã đọc, số tin chưa đọc, quyền nhắn tin và trạng thái chặn của cả trang hội thoại:
+     * 4 truy vấn gộp thay vì nhiều truy vấn cho MỖI hội thoại.
      */
     private InboxState loadInboxState(Long userId, List<Conversation> conversations) {
         if (conversations.isEmpty()) {
-            return new InboxState(Map.of(), Map.of(), Set.of(), Map.of());
+            return new InboxState(Map.of(), Map.of(), Map.of(), Set.of(), Set.of(), Set.of());
         }
         List<Long> conversationIds = conversations.stream().map(Conversation::getId).toList();
         Map<ConversationParticipantId, Long> lastReadIds = new HashMap<>();
-        Map<Long, Long> clearedBefore = new HashMap<>();
+        Map<Long, Long> clearedIds = new HashMap<>();
         for (ConversationParticipant participant : participantRepository.findByIdConversationIdIn(conversationIds)) {
             if (participant.getLastReadMessageId() != null) {
                 lastReadIds.put(participant.getId(), participant.getLastReadMessageId());
             }
-            if (participant.getClearedBeforeMessageId() != null
-                    && participant.getId().getUserId().equals(userId)) {
-                clearedBefore.put(participant.getId().getConversationId(), participant.getClearedBeforeMessageId());
+            if (participant.getClearedMessageId() != null && participant.getId().getUserId().equals(userId)) {
+                clearedIds.put(participant.getId().getConversationId(), participant.getClearedMessageId());
             }
         }
         Map<Long, Long> unreadCounts = IdCount.toMap(
@@ -488,15 +612,26 @@ public class ChatServiceImpl implements ChatService {
                 .map(c -> c.getOtherUser(userId).getId())
                 .distinct()
                 .toList();
-        return new InboxState(lastReadIds, unreadCounts, followService.findMutualIdsAmong(userId, otherIds),
-                clearedBefore);
+        Set<Long> blockedIds = new HashSet<>();
+        Set<Long> blockedByMeIds = new HashSet<>();
+        for (UserBlock block : userBlockRepository.findBetween(userId, otherIds)) {
+            boolean byMe = block.getId().getBlockerId().equals(userId);
+            blockedIds.add(byMe ? block.getId().getBlockedId() : block.getId().getBlockerId());
+            if (byMe) {
+                blockedByMeIds.add(block.getId().getBlockedId());
+            }
+        }
+        return new InboxState(lastReadIds, clearedIds, unreadCounts,
+                followService.findMutualIdsAmong(userId, otherIds),
+                blockedIds, blockedByMeIds);
     }
 
     private record InboxState(Map<ConversationParticipantId, Long> lastReadIds,
+                              Map<Long, Long> clearedIds,
                               Map<Long, Long> unreadCounts,
                               Set<Long> mutualIds,
-                              /** conversationId -> mốc xoá của chính người xem. */
-                              Map<Long, Long> clearedBefore) {
+                              Set<Long> blockedIds,
+                              Set<Long> blockedByMeIds) {
     }
 
     private List<MessageResponse> toMessageResponses(List<Message> messages) {

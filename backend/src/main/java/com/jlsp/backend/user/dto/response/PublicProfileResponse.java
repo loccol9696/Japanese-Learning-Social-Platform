@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
  * thái tài khoản,
  * và có quan hệ theo dõi với người đang xem.
  */
-
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,6 +23,7 @@ public class PublicProfileResponse {
     private String avatarUrl;
     private JLPTLevel jlptLevel;
     private String bio;
+
     private Long followersCount;
     private Long followingCount;
     private Long likesCount;

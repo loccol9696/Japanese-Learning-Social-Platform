@@ -16,9 +16,11 @@ spring:
   application:
     name: backend
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE}
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   datasource:
     url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -101,6 +103,13 @@ socketio:
   enabled: ${SOCKETIO_ENABLED:true}
   host: ${SOCKETIO_HOST:0.0.0.0}
   port: ${SOCKETIO_PORT:9092}
+  # Số luồng xử lý event; mỗi user luôn vào cùng một luồng để giữ thứ tự tin nhắn
+  worker-threads: ${SOCKETIO_WORKER_THREADS:4}
+
+# Thông báo đẩy chat qua Firebase Cloud Messaging. Để trống thì tự tắt.
+fcm:
+  project-id: ${FCM_PROJECT_ID:}
+  credentials-path: ${FCM_CREDENTIALS_PATH:}
 
 jwt:
   # Bắt buộc khai báo, tối thiểu 32 byte (256 bit). Server sẽ không khởi động nếu thiếu.
@@ -124,13 +133,13 @@ app:
   security:
     enabled: true
 
+# Dev dùng phân tích ngữ pháp giả lập (không gọi Gemini, không tốn quota).
 ai-analysis:
   mock:
     delay-ms: 1500
     enabled: true
   api-key: "fake-key"
   base-url: "https://fake-api.com"
-  
 
 ---
 # Cấu hình riêng cho môi trường Production

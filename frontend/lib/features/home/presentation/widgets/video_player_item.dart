@@ -19,6 +19,7 @@ import 'ruby_subtitle_widget.dart';
 import 'subtitle_mode.dart';
 import 'video_info_overlay.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/video/app_video_playback.dart';
 
 class VideoPlayerItem extends StatefulWidget {
   final VideoPost post;
@@ -31,6 +32,9 @@ class VideoPlayerItem extends StatefulWidget {
   final ValueChanged<bool>? onCreatorFollowChanged;
   final VoidCallback? onCommentTap;
   final bool allowAccountActions;
+
+  /// Chỉ video đang hiển thị trong PageView mới được phát và phát âm thanh.
+  final bool isActive;
 
   /// Mở video tại mốc này (vd. khi mở video được bạn bè chia sẻ kèm câu phụ đề).
   final Duration? initialPosition;
@@ -54,6 +58,7 @@ class VideoPlayerItem extends StatefulWidget {
     this.onCreatorFollowChanged,
     this.onCommentTap,
     this.allowAccountActions = true,
+    this.isActive = true,
     this.initialPosition,
     this.playbackAllowed,
     this.reserveBottomBar = true,
@@ -76,6 +81,7 @@ class _FloatingHeartEffect {
 class _VideoPlayerItemState extends State<VideoPlayerItem>
     with TickerProviderStateMixin {
   bool _isPlaying = true;
+  bool _isMutedForWebAutoplay = false;
   SubtitleMode _subtitleMode = SubtitleMode.bilingual;
   bool? _doubleTapLikedOverride;
   int? _doubleTapLikeCountOverride;
@@ -262,12 +268,14 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   void initState() {
     super.initState();
     widget.playbackAllowed?.addListener(_onPlaybackAllowedChanged);
+    appVideoPlaybackAllowed.addListener(_onPlaybackAllowedChanged);
     _initializeVideo();
   }
 
   @override
   void dispose() {
     widget.playbackAllowed?.removeListener(_onPlaybackAllowedChanged);
+    appVideoPlaybackAllowed.removeListener(_onPlaybackAllowedChanged);
     for (final effect in _floatingHearts) {
       effect.controller.dispose();
     }
@@ -276,6 +284,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   }
 
   bool get _playbackAllowed => widget.playbackAllowed?.value ?? true;
+  bool get _canAutoPlay =>
+      _playbackAllowed && appVideoPlaybackAllowed.value && widget.isActive;
 
   /// Video bị dừng vì không còn hiện trên màn hình (không phải người dùng bấm dừng).
   bool _pausedForHidden = false;
@@ -285,16 +295,19 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   void _onPlaybackAllowedChanged() {
     final controller = _videoController;
     if (controller == null || !controller.value.isInitialized) return;
-    if (!_playbackAllowed) {
+    if (!_canAutoPlay) {
       if (controller.value.isPlaying) {
         _pausedForHidden = true;
         controller.pause();
       }
     } else if (_pausedForHidden) {
       _pausedForHidden = false;
-      controller.play().catchError((error) {
-        debugPrint('Video playback failed: $error');
-      });
+      _isMutedForWebAutoplay = false;
+      controller.setVolume(1).then((_) => controller.play()).catchError(
+        (error) {
+          debugPrint('Video playback failed: $error');
+        },
+      );
     }
   }
 
@@ -304,6 +317,9 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     if (oldWidget.playbackAllowed != widget.playbackAllowed) {
       oldWidget.playbackAllowed?.removeListener(_onPlaybackAllowedChanged);
       widget.playbackAllowed?.addListener(_onPlaybackAllowedChanged);
+    }
+    if (oldWidget.isActive != widget.isActive) {
+      _onPlaybackAllowedChanged();
     }
     if (oldWidget.post.id != widget.post.id ||
         oldWidget.post.isLiked != widget.post.isLiked ||
@@ -331,7 +347,12 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     try {
       await controller.initialize();
       await controller.setLooping(true);
-      await controller.setVolume(0);
+      // Trình duyệt chặn autoplay có tiếng. Video đầu tiên cần chạy mute;
+      // lần chạm đầu tiên hoặc thao tác vuốt sẽ mở tiếng trở lại.
+      _isMutedForWebAutoplay = kIsWeb && widget.isActive;
+      await controller.setVolume(
+        widget.isActive && !kIsWeb ? 1 : 0,
+      );
       final startAt = widget.initialPosition;
       if (startAt != null && startAt < controller.value.duration) {
         await controller.seekTo(startAt);
@@ -342,7 +363,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       _updateActiveSubtitle();
 
       // Tải xong khi feed đang bị che: chờ hiện lại mới phát.
-      if (!_playbackAllowed) {
+      if (!_canAutoPlay) {
         _pausedForHidden = true;
         return;
       }
@@ -435,7 +456,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
     } else if (_pausedForLookup) {
       _pausedForLookup = false;
-      if (_isPlaying && mounted && _playbackAllowed) {
+      if (_isPlaying && mounted && _canAutoPlay) {
         controller.play().catchError((error) {
           debugPrint('Video playback failed: $error');
         });
@@ -446,6 +467,14 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   void _handleTapToPlayPause() {
     final controller = _videoController;
     if (controller == null || !controller.value.isInitialized) {
+      return;
+    }
+
+    if (controller.value.isPlaying && _isMutedForWebAutoplay) {
+      _isMutedForWebAutoplay = false;
+      controller.setVolume(1).catchError((error) {
+        debugPrint('Video unmute failed: $error');
+      });
       return;
     }
 

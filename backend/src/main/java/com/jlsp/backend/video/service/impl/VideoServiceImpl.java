@@ -59,7 +59,6 @@ public class VideoServiceImpl implements VideoService {
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
     private final VideoMapper videoMapper;
-    private final ApplicationEventPublisher eventPublisher;
     private final com.jlsp.backend.topic.service.TopicService topicService;
     private final com.jlsp.backend.notification.service.NotificationService notificationService;
     private final com.jlsp.backend.block.service.BlockService blockService;
@@ -67,6 +66,7 @@ public class VideoServiceImpl implements VideoService {
 
     /** Một người xem chỉ được tính một lượt xem cho mỗi video trong khoảng này. */
     static final java.time.Duration VIEW_DEDUP_WINDOW = java.time.Duration.ofMinutes(30);
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Đăng tải bài học video mới.

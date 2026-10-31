@@ -17,15 +17,15 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     Optional<Conversation> findByUserLowIdAndUserHighId(Long userLowId, Long userHighId);
 
     /**
-     * Danh sách hội thoại đã có tin nhắn của một người dùng, mới nhất trước, trừ hội thoại người này đã xoá.
+     * Danh sách hội thoại đã có tin nhắn của một người dùng, mới nhất trước. Hội thoại người
+     * này đã xoá sẽ ẩn cho đến khi có tin mới.
      */
     @EntityGraph(attributePaths = {"userLow", "userHigh", "lastMessage"})
     @Query("SELECT c FROM Conversation c WHERE (c.userLow.id = :userId OR c.userHigh.id = :userId) " +
             "AND c.lastMessage IS NOT NULL " +
-            // Ẩn hội thoại mà người này đã xoá và chưa có tin mới hơn mốc xoá.
-            "AND NOT EXISTS (SELECT 1 FROM ConversationParticipant p WHERE p.id.conversationId = c.id " +
-            "AND p.id.userId = :userId AND p.clearedBeforeMessageId IS NOT NULL " +
-            "AND p.clearedBeforeMessageId >= c.lastMessage.id) " +
+            "AND NOT EXISTS (SELECT 1 FROM ConversationParticipant p " +
+            "WHERE p.id.conversationId = c.id AND p.id.userId = :userId " +
+            "AND p.clearedMessageId >= c.lastMessage.id) " +
             "ORDER BY c.lastMessageAt DESC, c.id DESC")
     Page<Conversation> findActiveByUserId(@Param("userId") Long userId, Pageable pageable);
 

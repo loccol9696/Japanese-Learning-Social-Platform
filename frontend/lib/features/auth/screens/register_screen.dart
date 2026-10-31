@@ -14,7 +14,6 @@ import 'auth_layout.dart';
 import 'login_screen.dart';
 import 'otp_verification_screen.dart';
 import '../../../core/theme/app_palette.dart';
-import '../widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
