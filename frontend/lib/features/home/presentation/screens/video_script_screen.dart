@@ -479,6 +479,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                       children: [
                         LookupSentenceText(
                           sentence: cue.text,
+                          grammarPoints: cue.grammarPoints,
                           // Tra từ thì tạm dừng video để đọc bảng nghĩa, giống phụ đề ở trang chủ.
                           onLookupActiveChanged: (active) {
                             if (active) widget.controller?.pause();

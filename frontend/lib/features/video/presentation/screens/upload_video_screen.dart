@@ -647,6 +647,18 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   bool _isTranscribing = false;
   bool _isManualSubtitleMode = false;
   bool _isAnalyzingGrammar = false;
+  bool _allowPop = false;
+  String? _lastAnalyzedSignature;
+
+  String _currentJapaneseSignature() => _subtitles
+      .map((s) => s.japanese.text.trim())
+      .where((t) => t.isNotEmpty)
+      .join('\n');
+
+  bool get _isGrammarUpToDate {
+    final sig = _currentJapaneseSignature();
+    return sig.isNotEmpty && _lastAnalyzedSignature == sig;
+  }
 
   @override
   void initState() {
@@ -724,6 +736,9 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         _subtitles
           ..clear()
           ..addAll(parsedSubtitles);
+        if (grammarRaw != null && grammarRaw.trim().isNotEmpty) {
+          _lastAnalyzedSignature = _currentJapaneseSignature();
+        }
       });
     } catch (_) {}
   }
@@ -754,9 +769,11 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
 
     try {
       for (var attempt = 0; attempt < 200; attempt++) {
+        if (!mounted) return;
         final result = await ApiClient.instance.get(
           ApiConstants.speechStatusUrl(taskId),
         );
+        if (!mounted) return;
         if (result is! Map<String, dynamic>) {
           throw Exception('Không thể kiểm tra kết quả AI.');
         }
@@ -782,6 +799,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                 _subtitles
                   ..clear()
                   ..addAll(drafts);
+                _lastAnalyzedSignature = null;
                 _isTranscribing = false;
                 _isManualSubtitleMode = false;
               });
@@ -959,6 +977,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               validSubtitles[i].grammarPoints = points;
             }
           }
+          _lastAnalyzedSignature = _currentJapaneseSignature();
         });
         final totalPoints = validSubtitles.fold<int>(0, (sum, s) => sum + s.grammarPoints.length);
         _showMessage('Phân tích ngữ pháp thành công! Tìm thấy $totalPoints điểm ngữ pháp.');
@@ -999,8 +1018,12 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
       return;
     }
 
-    if (_isTranscribing) {
-      _showMessage('AI đang tạo phụ đề, vui lòng đợi xong rồi đăng.');
+    if (_isTranscribing || _isAnalyzingGrammar) {
+      _showMessage(
+        _isAnalyzingGrammar
+            ? 'AI đang phân tích ngữ pháp, vui lòng đợi xong rồi thực hiện.'
+            : 'AI đang tạo phụ đề, vui lòng đợi xong rồi thực hiện.',
+      );
       return;
     }
 
@@ -1040,6 +1063,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
       }
 
       if (!mounted) return;
+      _allowPop = true;
       _showMessage(asDraft ? 'Đã lưu vào bản nháp.' : 'Đăng video bài học thành công.');
       Navigator.of(context).pop(true);
       if (widget.editingVideoId == null && Navigator.of(context).canPop()) {
@@ -1075,15 +1099,76 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
     AppToast.show(message, context: context);
   }
 
+  Future<void> _confirmExit([int? navIndex]) async {
+    if (_isSubmitting) return;
+    final aiRunning = _isTranscribing || _isAnalyzingGrammar;
+    final canSaveDraft = !aiRunning &&
+        _titleController.text.trim().isNotEmpty &&
+        _thumbnailController.text.trim().isNotEmpty;
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppPalette.surface,
+        title: Text(
+          aiRunning ? 'AI đang xử lý' : 'Thoát màn hình đăng bài?',
+          style: TextStyle(color: AppPalette.textPrimary, fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          aiRunning
+              ? 'AI đang chạy dở. Nếu thoát bây giờ, tiến trình đang xử lý sẽ bị huỷ và thay đổi chưa lưu sẽ mất.'
+              : 'Các thay đổi chưa lưu sẽ bị mất. Bạn có thể lưu vào bản nháp để chỉnh sửa tiếp sau.',
+          style: TextStyle(color: AppPalette.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'stay'),
+            child: const Text('Ở lại'),
+          ),
+          if (canSaveDraft)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'draft'),
+              child: Text('Lưu nháp', style: TextStyle(color: AppPalette.info)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'exit'),
+            child: Text('Thoát', style: TextStyle(color: AppPalette.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (action == 'draft') {
+      await _publish(asDraft: true);
+    } else if (action == 'exit') {
+      setState(() => _allowPop = true);
+      if (navIndex != null && navIndex != 2 && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(navIndex);
+      } else if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
   void _handleNavigation(int index) {
     if (index != 2 && Navigator.of(context).canPop()) {
-      Navigator.of(context).pop(index);
+      _confirmExit(index);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final busy = _isSubmitting || _isTranscribing || _isAnalyzingGrammar;
+    final grammarDone = _isGrammarUpToDate;
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _confirmExit();
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppPalette.background,
       appBar: AppBar(
         title: Text(
@@ -1092,10 +1177,14 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: _isSubmitting ? null : () => _publish(asDraft: true),
+            onPressed: busy ? null : () => _publish(asDraft: true),
             child: Text(
               'Lưu nháp',
-              style: TextStyle(color: AppPalette.textSecondary),
+              style: TextStyle(
+                color: busy
+                    ? AppPalette.textSecondary.withValues(alpha: 0.4)
+                    : AppPalette.textSecondary,
+              ),
             ),
           ),
         ],
@@ -1133,7 +1222,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               _buildSectionTitle('Phụ đề & Lời thoại'),
               if (_subtitles.isNotEmpty && !_isTranscribing)
                 TextButton.icon(
-                  onPressed: _isAnalyzingGrammar ? null : _analyzeGrammar,
+                  onPressed: (_isAnalyzingGrammar || grammarDone) ? null : _analyzeGrammar,
                   icon: _isAnalyzingGrammar
                       ? SizedBox(
                           width: 14,
@@ -1143,11 +1232,19 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                             color: AppPalette.accent,
                           ),
                         )
-                      : Icon(Icons.psychology_outlined, size: 18, color: AppPalette.accent),
+                      : Icon(
+                          grammarDone
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.psychology_outlined,
+                          size: 18,
+                          color: grammarDone ? AppPalette.success : AppPalette.accent,
+                        ),
                   label: Text(
-                    _isAnalyzingGrammar ? 'Đang phân tích...' : 'Phân tích ngữ pháp',
+                    _isAnalyzingGrammar
+                        ? 'Đang phân tích...'
+                        : (grammarDone ? 'Đã phân tích ngữ pháp' : 'Phân tích ngữ pháp'),
                     style: TextStyle(
-                      color: AppPalette.accent,
+                      color: grammarDone ? AppPalette.success : AppPalette.accent,
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
                     ),
@@ -1156,8 +1253,10 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          _buildSubtitleModeSelector(),
-          const SizedBox(height: 12),
+          if (_subtitles.isEmpty) ...[
+            _buildSubtitleModeSelector(),
+            const SizedBox(height: 12),
+          ],
           if (_isTranscribing || _isAnalyzingGrammar)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -1192,11 +1291,11 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
               child: _buildSubtitleCard(entry.key, entry.value),
             ),
           ),
-          if (_isManualSubtitleMode && !_isTranscribing)
+          if ((_isManualSubtitleMode || _subtitles.isNotEmpty) && !_isTranscribing)
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: _addManualSubtitle,
+                onPressed: _isAnalyzingGrammar ? null : _addManualSubtitle,
                 icon: const Icon(Icons.add),
                 label: const Text('Thêm đoạn phụ đề'),
               ),
@@ -1207,7 +1306,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
           _buildPrivacyCard(),
           const SizedBox(height: 28),
           FilledButton.icon(
-            onPressed: _isSubmitting ? null : _publish,
+            onPressed: busy ? null : _publish,
             icon: _isSubmitting
                 ? const SizedBox.shrink()
                 : const Icon(Icons.arrow_forward_rounded),
@@ -1226,7 +1325,8 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
       ),
       bottomNavigationBar: BottomNavDock(
         selectedIndex: 2,
-        onTabSelected: _isSubmitting ? (_) {} : _handleNavigation,
+        onTabSelected: busy ? (_) {} : _handleNavigation,
+      ),
       ),
     );
   }
@@ -1508,6 +1608,23 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                     setState(() => subtitle.editing = !subtitle.editing),
                 icon: Icon(Icons.edit, size: 17, color: AppPalette.textSecondary),
               ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Xoá đoạn này',
+                onPressed: _isAnalyzingGrammar
+                    ? null
+                    : () {
+                        setState(() {
+                          final removed = _subtitles.removeAt(index);
+                          removed.dispose();
+                          if (_subtitles.isEmpty) {
+                            _isManualSubtitleMode = false;
+                            _lastAnalyzedSignature = null;
+                          }
+                        });
+                      },
+                icon: Icon(Icons.delete_outline, size: 17, color: AppPalette.textSecondary),
+              ),
             ],
           ),
           if (subtitle.editing) ...[
@@ -1605,6 +1722,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
       padding: const EdgeInsets.only(top: 8),
       child: TextField(
         controller: controller,
+        onChanged: (_) => setState(() {}),
         style: TextStyle(color: AppPalette.textPrimary),
         decoration: InputDecoration(
           hintText: hint,

@@ -112,6 +112,11 @@ public class VideoResponse {
     private String subtitles;
 
     /**
+     * Kết quả phân tích ngữ pháp của AI (JSON)
+     */
+    private String grammarAnalysis;
+
+    /**
      * Thời điểm đăng tải
      */
     private LocalDateTime createdAt;

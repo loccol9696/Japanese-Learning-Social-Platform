@@ -136,7 +136,7 @@ app:
 # Dev dùng phân tích ngữ pháp giả lập (không gọi Gemini, không tốn quota).
 ai-analysis:
   mock:
-    delay-ms: 1500
+    delay-ms: 15000
     enabled: true
   api-key: "fake-key"
   base-url: "https://fake-api.com"

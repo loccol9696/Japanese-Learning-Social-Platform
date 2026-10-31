@@ -88,12 +88,6 @@ public class VideoServiceImpl implements VideoService {
         Video video = videoMapper.toEntity(request, creator, topic);
         Video savedVideo = videoRepository.save(video);
 
-        // Có subtitles và chưa có kết quả phân tích ngữ pháp trước đó -> phân tích ngữ pháp bằng AI sau khi commit
-        if (savedVideo.getSubtitles() != null && !savedVideo.getSubtitles().isBlank()
-                && (savedVideo.getGrammarAnalysis() == null || savedVideo.getGrammarAnalysis().isBlank())) {
-            eventPublisher.publishEvent(new SubtitlesUpdatedEvent(savedVideo.getId()));
-        }
-
         log.info("Tạo video thành công với ID: {}", savedVideo.getId());
         return videoMapper.toVideoDetailResponse(savedVideo, false, false);
     }
@@ -203,10 +197,6 @@ public class VideoServiceImpl implements VideoService {
         }
 
         Video updated = videoRepository.save(video);
-        if (updated.getSubtitles() != null && !updated.getSubtitles().isBlank()
-                && (updated.getGrammarAnalysis() == null || updated.getGrammarAnalysis().isBlank())) {
-            eventPublisher.publishEvent(new SubtitlesUpdatedEvent(updated.getId()));
-        }
         boolean isLiked = videoLikeRepository.existsByIdUserIdAndIdVideoId(currentUserId, id);
         boolean isSaved = videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, id);
 
@@ -531,7 +521,6 @@ public class VideoServiceImpl implements VideoService {
         boolean isSaved = videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, videoId);
 
         log.info("Cập nhật phụ đề thành công cho video ID: {}", videoId);
-        eventPublisher.publishEvent(new SubtitlesUpdatedEvent(videoId));
         return videoMapper.toVideoDetailResponse(updated, isLiked, isSaved);
     }
 

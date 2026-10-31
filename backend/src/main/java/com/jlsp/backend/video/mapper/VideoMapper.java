@@ -92,6 +92,7 @@ public class VideoMapper {
                 .rejectionReason(video.getRejectionReason())
                 .moderatedAt(video.getModeratedAt())
                 .subtitles(video.getSubtitles())
+                .grammarAnalysis(video.getGrammarAnalysis())
                 .createdAt(video.getCreatedAt())
                 .build();
     }

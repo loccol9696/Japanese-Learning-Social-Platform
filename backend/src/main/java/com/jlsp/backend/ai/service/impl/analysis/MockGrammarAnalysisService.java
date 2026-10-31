@@ -60,8 +60,8 @@ public class MockGrammarAnalysisService implements GrammarAnalysisServiceIntf {
             new Rule("ですか", "〜ですか", "N5", "... phải không?",
                     "Thêm か vào cuối câu để tạo câu hỏi."));
 
-    /** Giả lập độ trễ của AI để test luồng async (mặc định 1.5 giây). */
-    @Value("${ai-analysis.mock.delay-ms}")
+    /** Giả lập độ trễ của AI để test luồng async / interrupt (mặc định 15 giây). */
+    @Value("${ai-analysis.mock.delay-ms:15000}")
     private long delayMs;
 
     @Override

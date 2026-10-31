@@ -1,38 +1,45 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/adaptive_video_theme.dart';
+import '../../../../core/theme/app_palette.dart';
 import '../../data/services/dictionary_service.dart';
 import '../../domain/models/ruby_segment.dart';
-import '../../../../core/theme/app_palette.dart';
+import 'grammar_lookup_card.dart';
 import 'word_lookup_card.dart';
 
 TextStyle get _subtitleTextStyle => TextStyle(
   fontFamilyFallback: const ['NotoSansJP'],
-  fontSize: 15.5,
-  fontWeight: FontWeight.bold,
+  fontSize: 18.0,
+  fontWeight: FontWeight.w800,
   color: AppPalette.onVideo,
-  height: 1.45,
+  height: 1.48,
   letterSpacing: 0.2,
   shadows: [
-    Shadow(color: AppPalette.shadow, offset: const Offset(0, 1), blurRadius: 4.0),
+    Shadow(
+      color: AppPalette.shadow,
+      offset: const Offset(0, 1),
+      blurRadius: 4.0,
+    ),
   ],
 );
 
-Color get _accent => AppPalette.accent;
-
-/// Phụ đề video. Khi có [sentence] (câu phụ đề thật), câu được tách thành
-/// từng từ: rê chuột (hoặc chạm) vào từ để xem cách đọc, nghĩa và lưu vào
-/// Flashcard.
+/// Phụ đề video ở Trang chủ:
+/// - Từ vựng tra được gạch chân màu xanh dương ([kVocabUnderlineColor]) -> chạm mở [WordLookupCard].
+/// - Mẫu ngữ pháp gạch chân màu cam ([kGrammarUnderlineColor]) -> chạm mở [GrammarLookupCard].
 class RubySubtitleWidget extends StatefulWidget {
   final List<RubySegment> rubySegments;
   final String translation;
   final AdaptiveVideoTheme? theme;
 
-  /// Câu tiếng Nhật đang hiển thị, dùng để tách từ và tra từ.
+  /// Câu tiếng Nhật đang hiển thị, dùng để tách từ và tra từ/ngữ pháp.
   final String? sentence;
 
-  /// Báo cho trình phát biết đang tra từ (để tạm dừng video).
+  /// Các mẫu ngữ pháp của câu phụ đề hiện tại.
+  final List<GrammarPointInfo> grammarPoints;
+
+  /// Báo cho trình phát biết đang tra từ / ngữ pháp (để tạm dừng video).
   final ValueChanged<bool>? onLookupActiveChanged;
 
   const RubySubtitleWidget({
@@ -41,10 +48,11 @@ class RubySubtitleWidget extends StatefulWidget {
     required this.translation,
     this.theme,
     this.sentence,
+    this.grammarPoints = const [],
     this.onLookupActiveChanged,
   });
 
-  /// Phát tín hiệu để mọi bảng tra từ đang mở tự đóng (vd. khi rời tab Home).
+  /// Phát tín hiệu để mọi bảng tra từ/ngữ pháp đang mở tự đóng (vd. khi rời tab Home).
   static final ValueNotifier<int> _dismissSignal = ValueNotifier<int>(0);
   static void dismissLookups() => _dismissSignal.value++;
 
@@ -56,25 +64,49 @@ class RubySubtitleWidget extends StatefulWidget {
 }
 
 class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
-  Future<List<SubtitleToken>>? _tokensFuture;
-  SubtitleToken? _selected;
+  static const double _cardWidth = 288.0;
+  static const double _maxCardHeight = 280.0;
+  static const double _edgePadding = 8.0;
+  static const double _subtitleGap = 18.0;
+
+  List<SubtitleToken> _tokens = const [];
+  List<InteractiveSentenceSegment> _segments = const [];
+  List<TapGestureRecognizer?> _recognizers = const [];
   int? _selectedIndex;
-  final GlobalKey _selectedWordKey = GlobalKey();
   OverlayEntry? _lookupOverlay;
+
+  String get _effectiveSentence {
+    final s = widget.sentence?.trim() ?? '';
+    if (s.isNotEmpty) return s;
+    return widget.rubySegments.map((e) => e.kanji).join().trim();
+  }
 
   @override
   void initState() {
     super.initState();
     RubySubtitleWidget._dismissSignal.addListener(_clearSelection);
+    _rebuildSegments();
     _loadTokens();
   }
 
   @override
   void didUpdateWidget(covariant RubySubtitleWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.sentence != widget.sentence) {
+    final oldSentence = (oldWidget.sentence?.trim().isNotEmpty == true)
+        ? oldWidget.sentence!.trim()
+        : oldWidget.rubySegments.map((e) => e.kanji).join().trim();
+    final newSentence = _effectiveSentence;
+    if (oldSentence != newSentence ||
+        oldWidget.grammarPoints != widget.grammarPoints) {
       _clearSelection();
-      _loadTokens();
+      _disposeRecognizers();
+      if (oldSentence != newSentence) {
+        _tokens = const [];
+        _rebuildSegments();
+        _loadTokens();
+      } else {
+        _rebuildSegments();
+      }
     }
   }
 
@@ -82,70 +114,97 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
   void dispose() {
     RubySubtitleWidget._dismissSignal.removeListener(_clearSelection);
     _removeLookupOverlay();
-    if (_selected != null) widget.onLookupActiveChanged?.call(false);
+    if (_selectedIndex != null) widget.onLookupActiveChanged?.call(false);
+    _disposeRecognizers();
     super.dispose();
   }
 
-  void _loadTokens() {
-    final sentence = widget.sentence?.trim() ?? '';
-    _tokensFuture = sentence.isEmpty
-        ? null
-        : DictionaryService.instance.tokenize(sentence);
+  void _disposeRecognizers() {
+    for (final r in _recognizers) {
+      r?.dispose();
+    }
+    _recognizers = const [];
   }
 
-  void _select(SubtitleToken token, int index) {
-    if (_selectedIndex == index) return;
-    final wasActive = _selected != null;
-    _removeLookupOverlay();
-    setState(() {
-      _selected = token;
-      _selectedIndex = index;
-    });
-    if (!wasActive) widget.onLookupActiveChanged?.call(true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _selected != null) _showLookupOverlay();
-    });
+  void _rebuildSegments() {
+    _disposeRecognizers();
+    final sentence = _effectiveSentence;
+    if (sentence.isEmpty) {
+      _segments = const [];
+      return;
+    }
+    final segs = buildInteractiveSegments(
+      sentence: sentence,
+      tokens: _tokens,
+      grammarPoints: widget.grammarPoints,
+    );
+    _segments = segs;
+    _recognizers = [
+      for (var i = 0; i < segs.length; i++)
+        segs[i].isInteractive
+            ? (TapGestureRecognizer()
+                ..onTapUp = (details) => _toggle(i, details.globalPosition))
+            : null,
+    ];
   }
 
-  void _toggle(SubtitleToken token, int index) {
+  Future<void> _loadTokens() async {
+    final sentence = _effectiveSentence;
+    if (sentence.isEmpty) return;
+    try {
+      final tokens = await DictionaryService.instance.tokenize(sentence);
+      if (!mounted || sentence != _effectiveSentence) return;
+      setState(() {
+        _tokens = tokens;
+        _rebuildSegments();
+      });
+    } catch (_) {}
+  }
+
+  void _toggle(int index, Offset anchor) {
     if (_selectedIndex == index) {
       _clearSelection();
-    } else {
-      _select(token, index);
+      return;
     }
+    final wasActive = _selectedIndex != null;
+    _removeLookupOverlay();
+    setState(() => _selectedIndex = index);
+    if (!wasActive) widget.onLookupActiveChanged?.call(true);
+    _showLookupOverlay(_segments[index], anchor);
   }
 
   void _clearSelection() {
-    if (_selected == null) return;
+    if (_selectedIndex == null) return;
     _removeLookupOverlay();
-    setState(() {
-      _selected = null;
-      _selectedIndex = null;
-    });
+    setState(() => _selectedIndex = null);
     widget.onLookupActiveChanged?.call(false);
   }
 
-  void _showLookupOverlay() {
+  void _showLookupOverlay(InteractiveSentenceSegment segment, Offset anchor) {
     _removeLookupOverlay();
-    final selected = _selected;
-    if (selected == null) return;
-
-    final renderObject = _selectedWordKey.currentContext?.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.hasSize) return;
-    final targetOffset = renderObject.localToGlobal(Offset.zero);
-    final targetSize = renderObject.size;
     final screenSize = MediaQuery.sizeOf(context);
-    const cardWidth = 280.0;
-    const maxCardHeight = 260.0;
-    const edgePadding = 8.0;
-    const subtitleGap = 14.0;
-    final left = (targetOffset.dx + (targetSize.width - cardWidth) / 2).clamp(
-      edgePadding,
-      screenSize.width - cardWidth - edgePadding,
+    final left = (anchor.dx - _cardWidth / 2).clamp(
+      _edgePadding,
+      screenSize.width - _cardWidth - _edgePadding,
     );
-    final availableHeight = targetOffset.dy - subtitleGap - edgePadding;
-    final cardMaxHeight = availableHeight.clamp(0.0, maxCardHeight).toDouble();
-    final bottom = screenSize.height - targetOffset.dy + subtitleGap;
+    final availableHeight = anchor.dy - _subtitleGap - _edgePadding;
+    final cardMaxHeight = availableHeight.clamp(0.0, _maxCardHeight).toDouble();
+    final bottom = screenSize.height - anchor.dy + _subtitleGap;
+
+    final sentence = _effectiveSentence;
+    final Widget card = segment.isGrammar
+        ? GrammarLookupCard(
+            key: ValueKey('grammar-${segment.grammar!.pattern}-${segment.text}'),
+            grammar: segment.grammar!,
+            sentence: sentence,
+            onClose: _clearSelection,
+          )
+        : WordLookupCard(
+            key: ValueKey('vocab-${segment.token!.baseForm}'),
+            token: segment.token!,
+            sentence: sentence,
+            onClose: _clearSelection,
+          );
 
     final overlay = Overlay.of(context, rootOverlay: true);
     _lookupOverlay = OverlayEntry(
@@ -153,7 +212,7 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
         return Positioned(
           left: left,
           bottom: bottom,
-          width: cardWidth,
+          width: _cardWidth,
           child: Material(
             color: Colors.transparent,
             child: ConstrainedBox(
@@ -176,12 +235,7 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () {},
-                    child: WordLookupCard(
-                      key: ValueKey(selected.baseForm),
-                      token: selected,
-                      sentence: widget.sentence ?? '',
-                      onClose: _clearSelection,
-                    ),
+                    child: card,
                   ),
                 ),
               ),
@@ -201,11 +255,10 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme ?? const AdaptiveVideoTheme(isLight: false);
+    final sentence = _effectiveSentence;
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Giữ nguyên kích thước subtitle zone; bảng tra từ không được tham
-        // gia vào layout để không đẩy video, progress bar hoặc navigation.
         ConstrainedBox(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.sizeOf(context).height * 0.35,
@@ -214,17 +267,18 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _tokensFuture == null
-                  ? Wrap(
-                      alignment: WrapAlignment.start,
-                      crossAxisAlignment: WrapCrossAlignment.end,
-                      spacing: 6.0,
-                      runSpacing: 4.0,
-                      children: widget.rubySegments
-                          .map((segment) => _buildRubySegment(segment, theme))
-                          .toList(),
-                    )
-                  : _buildTokenizedSentence(),
+              if (sentence.isEmpty)
+                Wrap(
+                  alignment: WrapAlignment.start,
+                  crossAxisAlignment: WrapCrossAlignment.end,
+                  spacing: 6.0,
+                  runSpacing: 4.0,
+                  children: widget.rubySegments
+                      .map((segment) => _buildRubySegment(segment, theme))
+                      .toList(),
+                )
+              else
+                _buildSegmentedSentence(sentence),
               if (widget.translation.trim().isNotEmpty) ...[
                 const SizedBox(height: 8.0),
                 Text(
@@ -232,15 +286,15 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 13.0,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w500,
-                    color: AppPalette.onVideo.withValues(alpha: 0.85),
+                    color: AppPalette.onVideo.withValues(alpha: 0.88),
                     height: 1.4,
                     letterSpacing: 0.1,
                     shadows: [
                       Shadow(
                         color: AppPalette.videoScrim.withValues(alpha: 0.50),
-                        offset: Offset(0, 1),
+                        offset: const Offset(0, 1),
                         blurRadius: 3.0,
                       ),
                     ],
@@ -254,49 +308,39 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
     );
   }
 
-  Widget _buildTokenizedSentence() {
-    return FutureBuilder<List<SubtitleToken>>(
-      future: _tokensFuture,
-      builder: (context, snapshot) {
-        final tokens = snapshot.data;
-        // Đang tải hoặc lỗi: hiển thị câu nguyên văn như cũ.
-        if (tokens == null || tokens.isEmpty) {
-          return Text(widget.sentence ?? '', style: _subtitleTextStyle);
-        }
-
-        return Wrap(
-          crossAxisAlignment: WrapCrossAlignment.end,
-          spacing: 1.0,
-          runSpacing: 4.0,
-          children: [
-            for (var i = 0; i < tokens.length; i++)
-              tokens[i].lookupable
-                  ? _buildWord(tokens[i], i)
-                  : Text(tokens[i].surface, style: _subtitleTextStyle),
-          ],
-        );
-      },
+  Widget _buildSegmentedSentence(String sentence) {
+    if (_segments.isEmpty) {
+      return Text(sentence, style: _subtitleTextStyle);
+    }
+    return Text.rich(
+      TextSpan(
+        style: _subtitleTextStyle,
+        children: [
+          for (var i = 0; i < _segments.length; i++)
+            _buildSpan(_segments[i], i),
+        ],
+      ),
     );
   }
 
-  Widget _buildWord(SubtitleToken token, int index) {
+  TextSpan _buildSpan(InteractiveSentenceSegment seg, int index) {
+    if (!seg.isInteractive) {
+      return TextSpan(text: seg.text);
+    }
+    final underlineColor = seg.isGrammar
+        ? kGrammarUnderlineColor
+        : kVocabUnderlineColor;
     final isSelected = _selectedIndex == index;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _toggle(token, index),
-        child: Container(
-          key: isSelected ? _selectedWordKey : null,
-          padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 1.0),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? _accent.withValues(alpha: 0.35)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(4.0),
-          ),
-          child: Text(token.surface, style: _subtitleTextStyle),
-        ),
+    return TextSpan(
+      text: seg.text,
+      recognizer: _recognizers[index],
+      style: TextStyle(
+        decoration: TextDecoration.underline,
+        decorationColor: underlineColor,
+        decorationThickness: 2.3,
+        backgroundColor: isSelected
+            ? underlineColor.withValues(alpha: 0.28)
+            : null,
       ),
     );
   }
@@ -306,7 +350,6 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Ruby pronunciation (Furigana)
         if (segment.furigana.isNotEmpty) ...[
           Text(
             segment.furigana,
@@ -318,7 +361,7 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
               shadows: [
                 Shadow(
                   color: AppPalette.videoScrim.withValues(alpha: 0.50),
-                  offset: Offset(0, 1),
+                  offset: const Offset(0, 1),
                   blurRadius: 3.0,
                 ),
               ],
@@ -326,7 +369,6 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
           ),
           const SizedBox(height: 2.0),
         ],
-        // Kanji / Kana Text
         Text(
           segment.kanji,
           maxLines: 3,
