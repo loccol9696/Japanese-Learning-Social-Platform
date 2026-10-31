@@ -93,39 +93,47 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return 0;
   }
 
-  List<SubscriptionPlan> get _visiblePlans => _plans;
+  SubscriptionPlan _applyDiscountToPlan(SubscriptionPlan basePlan) {
+    if (_appliedPromoCode == null || _appliedPromoCode!.isEmpty) {
+      return basePlan;
+    }
+    double discountedPrice = basePlan.price;
+    if (_discountPercent > 0) {
+      discountedPrice = (basePlan.price * (1.0 - _discountPercent / 100.0)).roundToDouble();
+    } else if (_discountAmount > 0) {
+      discountedPrice = (basePlan.price - _discountAmount);
+      if (discountedPrice < 10000) discountedPrice = 10000;
+    }
+    return SubscriptionPlan(
+      id: basePlan.id,
+      name: basePlan.name,
+      code: basePlan.code,
+      description: basePlan.description,
+      price: discountedPrice,
+      dailyTokenLimit: basePlan.dailyTokenLimit,
+      originalPrice: basePlan.originalPrice ?? basePlan.price,
+      durationDays: basePlan.durationDays,
+      features: basePlan.features,
+      isActive: basePlan.isActive,
+      displayOrder: basePlan.displayOrder,
+      badgeLabel: _discountPercent > 0 ? '-$_discountPercent%' : (basePlan.badgeLabel ?? '-Ưu đãi'),
+      discountPercent: _discountPercent > 0 ? _discountPercent : basePlan.discountPercent,
+    );
+  }
+
+  List<SubscriptionPlan> get _visiblePlans {
+    if (_appliedPromoCode != null && _appliedPromoCode!.isNotEmpty) {
+      return _plans.map(_applyDiscountToPlan).toList();
+    }
+    return _plans;
+  }
 
   SubscriptionPlan? get _currentSelectedPlan {
     final visible = _visiblePlans;
     if (visible.isEmpty) return null;
-    final basePlan = (_selectedPlanIndex >= 0 && _selectedPlanIndex < visible.length)
+    return (_selectedPlanIndex >= 0 && _selectedPlanIndex < visible.length)
         ? visible[_selectedPlanIndex]
         : visible.first;
-    if (_appliedPromoCode != null && _appliedPromoCode!.isNotEmpty) {
-      double discountedPrice = basePlan.price;
-      if (_discountPercent > 0) {
-        discountedPrice = (basePlan.price * (1.0 - _discountPercent / 100.0)).roundToDouble();
-      } else if (_discountAmount > 0) {
-        discountedPrice = (basePlan.price - _discountAmount);
-        if (discountedPrice < 10000) discountedPrice = 10000;
-      }
-      return SubscriptionPlan(
-        id: basePlan.id,
-        name: basePlan.name,
-        code: basePlan.code,
-        description: basePlan.description,
-        price: discountedPrice,
-        dailyTokenLimit: basePlan.dailyTokenLimit,
-        originalPrice: basePlan.originalPrice ?? basePlan.price,
-        durationDays: basePlan.durationDays,
-        features: basePlan.features,
-        isActive: basePlan.isActive,
-        displayOrder: basePlan.displayOrder,
-        badgeLabel: basePlan.badgeLabel,
-        discountPercent: _discountPercent > 0 ? _discountPercent : basePlan.discountPercent,
-      );
-    }
-    return basePlan;
   }
 
   /// Mở trực tiếp màn hình quét mã VietQR Napas 24/7 (1 chạm)
@@ -1106,7 +1114,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   Row(
                     children: [
                       Text(
-                        _appliedPromoCode != null ? 'Đã áp dụng: $_appliedPromoCode' : 'Nhập mã ưu đãi',
+                        _appliedPromoCode != null
+                            ? '$_appliedPromoCode (${_discountPercent > 0 ? '-$_discountPercent%' : '-50k'})'
+                            : 'Nhập mã ưu đãi',
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -1114,7 +1124,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF94A3B8)),
+                      if (_appliedPromoCode != null)
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _appliedPromoCode = null;
+                              _discountPercent = 0;
+                              _discountAmount = 0.0;
+                            });
+                          },
+                          child: const Icon(Icons.cancel_rounded, size: 16, color: Color(0xFFF87171)),
+                        )
+                      else
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF94A3B8)),
                     ],
                   ),
                 ],

@@ -327,8 +327,9 @@ class SubscriptionService {
     ).timeout(const Duration(seconds: 8));
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode == 200 && json['success'] == true) {
-      return json['data'] as Map<String, dynamic>;
+    final status = (json['status'] as num?)?.toInt() ?? response.statusCode;
+    if ((response.statusCode == 200 || response.statusCode == 201) && (status == 200 || json['success'] == true)) {
+      return (json['data'] as Map<String, dynamic>?) ?? {};
     } else {
       final msg = json['message'] as String? ?? 'Mã khuyến mãi không hợp lệ hoặc đã hết hạn';
       throw Exception(msg);
