@@ -16,14 +16,15 @@ import java.util.Optional;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
-    /** Trang tin nhắn mới nhất (mới nhất trước). */
+    /** Trang tin nhắn mới nhất (mới nhất trước), chỉ lấy tin mới hơn mốc xoá floorId. */
     @EntityGraph(attributePaths = "sender")
-    List<Message> findByConversationIdOrderByIdDesc(Long conversationId, Pageable pageable);
+    List<Message> findByConversationIdAndIdGreaterThanOrderByIdDesc(Long conversationId, Long floorId,
+                                                                   Pageable pageable);
 
-    /** Tin nhắn cũ hơn cursor beforeId (kéo lên để xem thêm). */
+    /** Tin nhắn cũ hơn cursor beforeId (kéo lên để xem thêm), chỉ lấy tin mới hơn mốc xoá floorId. */
     @EntityGraph(attributePaths = "sender")
-    List<Message> findByConversationIdAndIdLessThanOrderByIdDesc(Long conversationId, Long beforeId,
-                                                                Pageable pageable);
+    List<Message> findByConversationIdAndIdGreaterThanAndIdLessThanOrderByIdDesc(
+            Long conversationId, Long floorId, Long beforeId, Pageable pageable);
 
     /** Tin mới hơn cursor afterId, cũ nhất trước (đồng bộ phần đã lỡ sau khi mất kết nối). */
     @EntityGraph(attributePaths = "sender")
@@ -34,7 +35,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     Optional<Message> findBySenderIdAndClientMsgId(Long senderId, String clientMsgId);
 
     /**
-     * Số tin chưa đọc (tin của người kia, mới hơn mốc đã đọc) của userId trong nhiều hội thoại
+     * Số tin chưa đọc (tin của người kia, mới hơn mốc đã đọc và mốc xoá) của userId trong nhiều hội thoại
      * bằng một truy vấn cho cả trang Inbox. Hội thoại không còn tin chưa đọc sẽ không có dòng.
      */
     @Query("SELECT m.conversation.id AS id, COUNT(m) AS total FROM Message m " +
@@ -42,6 +43,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
             "ON p.id.conversationId = m.conversation.id AND p.id.userId = :userId " +
             "WHERE m.conversation.id IN :conversationIds AND m.sender.id <> :userId " +
             "AND m.id > COALESCE(p.lastReadMessageId, 0) " +
+            "AND m.id > COALESCE(p.clearedMessageId, 0) " +
             "GROUP BY m.conversation.id")
     List<IdCount> countUnreadByConversation(@Param("userId") Long userId,
                                             @Param("conversationIds") Collection<Long> conversationIds);

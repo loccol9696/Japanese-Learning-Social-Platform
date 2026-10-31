@@ -14,6 +14,18 @@ class MessagesTab extends StatefulWidget {
   State<MessagesTab> createState() => _MessagesTabState();
 }
 
+/// Đánh dấu các màn nằm trong tab Tin nhắn: tab được giữ sống khi chuyển sang tab
+/// khác, nên những màn này còn phải xét tab có đang hiển thị hay không.
+class MessagesTabScope extends InheritedWidget {
+  const MessagesTabScope({super.key, required super.child});
+
+  static bool isInside(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<MessagesTabScope>() != null;
+
+  @override
+  bool updateShouldNotify(MessagesTabScope oldWidget) => false;
+}
+
 class _MessagesTabState extends State<MessagesTab> {
   final _navigatorKey = GlobalKey<NavigatorState>();
 
@@ -28,10 +40,12 @@ class _MessagesTabState extends State<MessagesTab> {
         // Nút Back của hệ thống quay lại trong tab trước, hết màn con mới thoát ra ngoài.
         child: NavigatorPopHandler(
           onPopWithResult: (_) => _navigatorKey.currentState?.maybePop(),
-          child: Navigator(
-            key: _navigatorKey,
-            onGenerateRoute: (_) =>
-                MaterialPageRoute(builder: (_) => const InboxScreen()),
+          child: MessagesTabScope(
+            child: Navigator(
+              key: _navigatorKey,
+              onGenerateRoute: (_) =>
+                  MaterialPageRoute(builder: (_) => const InboxScreen()),
+            ),
           ),
         ),
       ),

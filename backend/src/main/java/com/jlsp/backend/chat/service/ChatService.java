@@ -43,6 +43,31 @@ public interface ChatService {
 
     long getUnreadCount(Long userId);
 
-    /** ID người còn lại trong hội thoại; ném lỗi nếu userId không thuộc hội thoại. */
-    Long getOtherParticipantId(Long userId, Long conversationId);
+    /**
+     * Xoá đoạn chat ở phía người này: toàn bộ tin hiện có bị ẩn với riêng họ, người kia vẫn
+     * thấy đủ. Có tin mới thì hội thoại hiện lại, chỉ gồm các tin mới.
+     */
+    void clearConversation(Long userId, Long conversationId);
+
+    /** Thu hồi tin của chính mình trong 24 giờ sau khi gửi; gọi lại trên tin đã thu hồi không có tác dụng. */
+    MessageResponse recallMessage(Long userId, Long messageId);
+
+    /** Nội dung cần dịch của một tin; ném lỗi nếu userId không thuộc hội thoại hoặc tin không có chữ. */
+    String getTranslatableContent(Long userId, Long messageId);
+
+    /** Chặn trong phạm vi chat: hai bên không nhắn tin được nữa, lịch sử vẫn còn. */
+    void blockUser(Long userId, Long targetId);
+
+    void unblockUser(Long userId, Long targetId);
+
+    /**
+     * ID người nhận sự kiện "đang nhập"; null nếu một trong hai bên đã chặn bên kia.
+     * Ném lỗi nếu userId không thuộc hội thoại.
+     */
+    Long findTypingRecipientId(Long userId, Long conversationId);
+
+    /** Lưu token nhận thông báo đẩy của thiết bị; token đã có thì gán lại cho người đang đăng nhập. */
+    void registerDevice(Long userId, String token, String platform);
+
+    void unregisterDevice(Long userId, String token);
 }

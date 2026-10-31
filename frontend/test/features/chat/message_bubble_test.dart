@@ -66,8 +66,13 @@ void main() {
             message: _text('Xin chào'),
             isMine: true,
             showSeen: true,
+            showDetails: true,
           ),
-          MessageBubble(message: _text('Chào bạn ' * 30), isMine: false),
+          MessageBubble(
+            message: _text('Chào bạn ' * 30),
+            isMine: false,
+            showDetails: true,
+          ),
         ],
       ),
     );
@@ -127,5 +132,167 @@ void main() {
     expect(find.text('Video không còn khả dụng'), findsOneWidget);
     await tester.tap(find.text('Video không còn khả dụng'));
     expect(opened, 0);
+  });
+
+  testWidgets('tin đã thu hồi không hiện nội dung cũ', (tester) async {
+    await _pump(
+      tester,
+      MessageBubble(
+        message: ChatMessage(
+          id: 1,
+          conversationId: 1,
+          senderId: 3,
+          type: MessageType.text,
+          content: 'nội dung cũ',
+          recalled: true,
+          clientMsgId: 'c',
+          createdAt: DateTime(2026, 10, 24, 9, 5),
+        ),
+        isMine: false,
+      ),
+    );
+
+    expect(find.text('Tin nhắn đã được thu hồi'), findsOneWidget);
+    expect(find.text('nội dung cũ'), findsNothing);
+  });
+
+  testWidgets('tin có chữ Nhật mới có nút tra từ và dịch', (tester) async {
+    var studied = 0;
+    var translated = 0;
+    await _pump(
+      tester,
+      MessageBubble(
+        message: _text('こんにちは'),
+        isMine: false,
+        showDetails: true,
+        onStudy: () => studied++,
+        onTranslate: () => translated++,
+      ),
+    );
+
+    await tester.tap(find.text('Tra từ'));
+    await tester.tap(find.text('Dịch'));
+    expect(studied, 1);
+    expect(translated, 1);
+
+    await _pump(
+      tester,
+      MessageBubble(
+        message: _text('Xin chào'),
+        isMine: false,
+        showDetails: true,
+      ),
+    );
+    expect(find.text('Tra từ'), findsNothing);
+  });
+
+  testWidgets('tin đang gửi chưa có id thì chưa dịch được', (tester) async {
+    await _pump(
+      tester,
+      MessageBubble(
+        message: _text('こんにちは', status: MessageStatus.sending),
+        isMine: true,
+        showDetails: true,
+      ),
+    );
+
+    expect(find.text('Dịch'), findsNothing);
+  });
+
+  testWidgets('hiện bản dịch và đổi nút thành ẩn', (tester) async {
+    await _pump(
+      tester,
+      MessageBubble(
+        message: _text('こんにちは'),
+        isMine: false,
+        translation: 'Xin chào',
+      ),
+    );
+
+    expect(find.text('Xin chào'), findsOneWidget);
+    expect(find.text('Ẩn bản dịch'), findsOneWidget);
+  });
+
+  testWidgets('bong bóng mặc định chỉ có nội dung, chạm báo về màn chat', (
+    tester,
+  ) async {
+    var tapped = 0;
+    await _pump(
+      tester,
+      MessageBubble(
+        message: _text('こんにちは'),
+        isMine: false,
+        onTap: () => tapped++,
+      ),
+    );
+
+    expect(find.text('09:05'), findsNothing);
+    expect(find.text('Tra từ'), findsNothing);
+    await tester.tap(find.text('こんにちは'));
+    expect(tapped, 1);
+  });
+
+  testWidgets('tin gửi lỗi chạm vào bong bóng là gửi lại', (tester) async {
+    var retried = 0;
+    await _pump(
+      tester,
+      MessageBubble(
+        message: _text('lỗi', status: MessageStatus.failed),
+        isMine: true,
+        onRetry: () => retried++,
+      ),
+    );
+
+    await tester.tap(find.text('lỗi'));
+    expect(retried, 1);
+  });
+
+  testWidgets('giữ lâu để mở thao tác trên tin', (tester) async {
+    var pressed = 0;
+    await _pump(
+      tester,
+      MessageBubble(
+        message: _text('Xin chào'),
+        isMine: true,
+        onLongPress: () => pressed++,
+      ),
+    );
+
+    await tester.longPress(find.text('Xin chào'));
+    expect(pressed, 1);
+  });
+
+  testWidgets('tin trả lời hiện trích dẫn, chạm để tới tin gốc', (
+    tester,
+  ) async {
+    var opened = 0;
+    await _pump(
+      tester,
+      MessageBubble(
+        message: ChatMessage(
+          id: 2,
+          conversationId: 1,
+          senderId: 3,
+          type: MessageType.text,
+          content: 'ok',
+          replyTo: const MessageReply(
+            id: 1,
+            senderId: 4,
+            type: MessageType.text,
+            content: 'Tin gốc',
+          ),
+          clientMsgId: 'c',
+          createdAt: DateTime(2026, 10, 24, 9, 5),
+        ),
+        isMine: true,
+        replyAuthor: 'Hana',
+        onOpenReply: () => opened++,
+      ),
+    );
+
+    expect(find.text('Hana'), findsOneWidget);
+    await tester.tap(find.text('Tin gốc'));
+    expect(opened, 1);
+    expect(tester.takeException(), isNull);
   });
 }

@@ -7,7 +7,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * Trạng thái riêng của từng người trong một hội thoại (đã đọc tới đâu).
+ * Trạng thái riêng của từng người trong một hội thoại (đã đọc tới đâu, đã xoá tới đâu).
  */
 @Entity
 @Table(name = "conversation_participants")
@@ -37,6 +37,13 @@ public class ConversationParticipant {
      */
     @Column(name = "last_read_message_id")
     private Long lastReadMessageId;
+
+    /**
+     * Mốc xoá đoạn chat: tin có id không lớn hơn giá trị này bị ẩn với riêng người này,
+     * người kia vẫn thấy đủ (null = chưa xoá lần nào).
+     */
+    @Column(name = "cleared_message_id")
+    private Long clearedMessageId;
 
     @Column(name = "joined_at", nullable = false, updatable = false)
     private LocalDateTime joinedAt;

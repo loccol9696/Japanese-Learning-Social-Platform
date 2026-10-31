@@ -122,6 +122,14 @@ class ApiConstants {
       '$baseUrl/chat/conversations/$id/messages';
   static String chatReadUrl(int id) => '$baseUrl/chat/conversations/$id/read';
   static String get chatUnreadCountUrl => '$baseUrl/chat/unread-count';
+  static String chatRecallUrl(int messageId) =>
+      '$baseUrl/chat/messages/$messageId/recall';
+  static String chatTranslationUrl(int messageId) =>
+      '$baseUrl/chat/messages/$messageId/translation';
+  static String chatBlockUrl(int userId) => '$baseUrl/chat/blocks/$userId';
+  static String get chatDevicesUrl => '$baseUrl/chat/devices';
+  static String get chatImageUploadUrl =>
+      '$baseUrl/media/upload?folder=jlsp/chat';
   static String shareVideoUrl(int videoId) => '$baseUrl/videos/$videoId/share';
   static String videoDetailUrl(String videoId) => '$baseUrl/videos/$videoId';
 
