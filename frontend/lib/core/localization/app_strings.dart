@@ -22,6 +22,9 @@ abstract class AppStrings {
   String get followingStatus;
   String get share;
   String get comments;
+  String get commentHelpful;
+  String get commentSortHelpful;
+  String get commentSortNewest;
   String get subtitle;
 
   // Language
@@ -94,6 +97,12 @@ class ViStrings implements AppStrings {
   String get share => 'Chia sẻ';
   @override
   String get comments => 'Bình luận';
+  @override
+  String get commentHelpful => 'Hữu ích';
+  @override
+  String get commentSortHelpful => 'Hữu ích nhất';
+  @override
+  String get commentSortNewest => 'Mới nhất';
   @override
   String get subtitle => 'Phụ đề';
 
@@ -192,6 +201,12 @@ class EnStrings implements AppStrings {
   @override
   String get comments => 'Comments';
   @override
+  String get commentHelpful => 'Helpful';
+  @override
+  String get commentSortHelpful => 'Most helpful';
+  @override
+  String get commentSortNewest => 'Newest';
+  @override
   String get subtitle => 'Subtitles';
 
   @override
@@ -288,6 +303,12 @@ class JaStrings implements AppStrings {
   String get share => '共有';
   @override
   String get comments => 'コメント';
+  @override
+  String get commentHelpful => '役に立った';
+  @override
+  String get commentSortHelpful => '役に立つ順';
+  @override
+  String get commentSortNewest => '新しい順';
   @override
   String get subtitle => '字幕';
 

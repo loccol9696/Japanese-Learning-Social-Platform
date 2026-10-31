@@ -17,6 +17,8 @@ public class VideoCommentResponse {
     private String displayName;
     private String avatarUrl;
     private String content;
+    private Integer likeCount;
+    private Boolean isLiked;
     private LocalDateTime createdAt;
     private List<VideoCommentResponse> replies;
 }

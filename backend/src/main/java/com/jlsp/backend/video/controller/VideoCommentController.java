@@ -2,7 +2,9 @@ package com.jlsp.backend.video.controller;
 
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.security.CurrentUser;
+import com.jlsp.backend.video.dto.request.CommentSort;
 import com.jlsp.backend.video.dto.request.CreateCommentRequest;
+import com.jlsp.backend.video.dto.response.CommentLikeResponse;
 import com.jlsp.backend.video.dto.response.VideoCommentResponse;
 import com.jlsp.backend.video.service.CommentService;
 import jakarta.validation.Valid;
@@ -20,8 +22,24 @@ public class VideoCommentController {
     private final CommentService commentService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<VideoCommentResponse>>> list(@PathVariable Long videoId) {
-        return ResponseEntity.ok(ApiResponse.success(commentService.list(videoId)));
+    public ResponseEntity<ApiResponse<List<VideoCommentResponse>>> list(
+            @PathVariable Long videoId,
+            @RequestParam(defaultValue = "HELPFUL") CommentSort sort) {
+        return ResponseEntity.ok(ApiResponse.success(commentService.list(videoId, CurrentUser.idOrNull(), sort)));
+    }
+
+    @PostMapping("/{commentId}/likes")
+    public ResponseEntity<ApiResponse<CommentLikeResponse>> like(
+            @PathVariable Long videoId,
+            @PathVariable Long commentId) {
+        return ResponseEntity.ok(ApiResponse.success(commentService.like(videoId, commentId, CurrentUser.requireId())));
+    }
+
+    @DeleteMapping("/{commentId}/likes")
+    public ResponseEntity<ApiResponse<CommentLikeResponse>> unlike(
+            @PathVariable Long videoId,
+            @PathVariable Long commentId) {
+        return ResponseEntity.ok(ApiResponse.success(commentService.unlike(videoId, commentId, CurrentUser.requireId())));
     }
 
     @PostMapping
