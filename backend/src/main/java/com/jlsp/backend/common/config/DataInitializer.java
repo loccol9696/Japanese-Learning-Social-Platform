@@ -33,6 +33,7 @@ public class DataInitializer implements CommandLineRunner {
         migrateDatabaseColumns();
         seedSubscriptionPlans();
         ensureAdminAccount();
+        ensureModeratorAccount();
 
         if (userRepository.count() > 0) {
             log.info("Dữ liệu người dùng đã tồn tại trong database (tổng cộng {} users), bỏ qua bước khởi tạo.",
@@ -223,6 +224,24 @@ public class DataInitializer implements CommandLineRunner {
                     "VALUES ('SECONDS_PER_TOKEN', '60', 'Thời lượng video cho 1 Token AI tính bằng giây', NOW()) " +
                     "ON CONFLICT (setting_key) DO NOTHING");
 
+            // Bảng reports (Báo cáo vi phạm nội dung)
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS reports (" +
+                    "id BIGSERIAL PRIMARY KEY, " +
+                    "reporter_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE, " +
+                    "target_type VARCHAR(20) NOT NULL, " +
+                    "target_id BIGINT NOT NULL, " +
+                    "reason VARCHAR(30) NOT NULL, " +
+                    "detail VARCHAR(500), " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'PENDING', " +
+                    "action VARCHAR(20), " +
+                    "resolved_by BIGINT, " +
+                    "resolved_at TIMESTAMP, " +
+                    "resolution_note VARCHAR(500), " +
+                    "created_at TIMESTAMP NOT NULL)");
+
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_reports_status_created ON reports (status, created_at)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_reports_target ON reports (target_type, target_id)");
+
             log.info("Migration cột database thành công hoàn tất!");
         } catch (Exception e) {
             log.warn("Lưu ý trong quá trình migration cột database: {}", e.getMessage());
@@ -263,6 +282,43 @@ public class DataInitializer implements CommandLineRunner {
             }
         } catch (Exception e) {
             log.error("Lỗi khi đồng bộ tài khoản admin: {}", e.getMessage(), e);
+        }
+    }
+
+    private void ensureModeratorAccount() {
+        try {
+            User mod = userRepository.findByUsername("moderator")
+                    .orElseGet(() -> userRepository.findByEmail("moderator@jlsp.com").orElse(null));
+
+            String encodedPassword = passwordEncoder.encode("ModeratorPassword123@");
+
+            if (mod != null) {
+                mod.setUsername("moderator");
+                mod.setEmail("moderator@jlsp.com");
+                mod.setPasswordHash(encodedPassword);
+                mod.setRole(UserRole.MODERATOR);
+                mod.setIsActive(true);
+                userRepository.save(mod);
+                log.info("==> [SUCCESS] Đã đồng bộ tài khoản moderator: username='moderator', role=MODERATOR, password=ModeratorPassword123@");
+            } else {
+                mod = User.builder()
+                        .username("moderator")
+                        .email("moderator@jlsp.com")
+                        .passwordHash(encodedPassword)
+                        .displayName("Kiểm Duyệt Viên (Moderator)")
+                        .avatarUrl("https://picsum.photos/seed/mod99/200/200")
+                        .role(UserRole.MODERATOR)
+                        .jlptLevel(JLPTLevel.N2)
+                        .bio("Tài khoản kiểm duyệt nội dung & xử lý khiếu nại báo cáo JLSP")
+                        .isActive(true)
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+                userRepository.save(mod);
+                log.info("==> [SUCCESS] Đã tạo mới tài khoản moderator: username='moderator', role=MODERATOR, password=ModeratorPassword123@");
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi đồng bộ tài khoản moderator: {}", e.getMessage(), e);
         }
     }
 }

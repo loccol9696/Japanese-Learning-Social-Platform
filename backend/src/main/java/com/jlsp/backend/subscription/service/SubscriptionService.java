@@ -30,6 +30,8 @@ public interface SubscriptionService {
 
     SubscriptionOrderResponse confirmPayment(ConfirmPaymentRequest request);
 
+    SubscriptionOrderResponse processBankWebhook(com.jlsp.backend.subscription.dto.request.BankWebhookRequest webhookRequest);
+
     SubscriptionOrderResponse getOrderStatus(String orderCode);
 
     PageResponse<SubscriptionOrderResponse> getSubscriptionHistory(SubscriptionOrder.OrderStatus status, Pageable pageable);

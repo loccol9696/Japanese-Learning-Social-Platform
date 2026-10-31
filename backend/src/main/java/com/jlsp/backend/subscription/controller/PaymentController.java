@@ -41,6 +41,13 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success(200, "Xác nhận thanh toán thành công! Gói VIP đã được kích hoạt.", response));
     }
 
+    @PostMapping({"/webhook", "/bank-webhook"})
+    public ResponseEntity<ApiResponse<SubscriptionOrderResponse>> handleBankWebhook(
+            @RequestBody com.jlsp.backend.subscription.dto.request.BankWebhookRequest request) {
+        SubscriptionOrderResponse response = subscriptionService.processBankWebhook(request);
+        return ResponseEntity.ok(ApiResponse.success(200, "Xác nhận chuyển khoản ngân hàng thành công! Gói VIP đã được kích hoạt tự động.", response));
+    }
+
     @GetMapping("/order-status/{orderCode}")
     public ResponseEntity<ApiResponse<SubscriptionOrderResponse>> getOrderStatus(
             @PathVariable String orderCode) {

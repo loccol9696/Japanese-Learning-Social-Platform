@@ -30,7 +30,9 @@ import {
   Coins,
   Save,
   Eye,
-  Play
+  Play,
+  Trash2,
+  Check
 } from 'lucide-react';
 import {
   getModerationVideos,
@@ -47,6 +49,11 @@ import {
   createQrOrder,
   confirmPayment,
   getAdminAnalytics,
+  getReports,
+  resolveReport,
+  dismissReport,
+  getPendingReportCount,
+  type ReportItem,
   updateAdminProfile,
   getMetricTrend,
   getTokenRate,
@@ -79,7 +86,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
   // Enforce role separation on tab changes
   useEffect(() => {
-    if (isAdmin && activeTab === 'videos') {
+    if (isAdmin && (activeTab === 'videos' || activeTab === 'reports')) {
       setActiveTab('analytics');
     }
     if (isModerator && (activeTab === 'users' || activeTab === 'subscriptions' || activeTab === 'pricing' || activeTab === 'analytics')) {
@@ -334,25 +341,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   ) => {
     if (isLoading) {
       return (
-        <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
-          <span className="live-pulse-dot" style={{ display: 'inline-block', marginRight: 8 }} />
-          Đang tải dữ liệu biểu đồ...
+        <div className="chart-scroll-wrapper">
+          <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
+            <span className="live-pulse-dot" style={{ display: 'inline-block', marginRight: 8 }} />
+            Đang tải dữ liệu biểu đồ từ máy chủ Backend...
+          </div>
         </div>
       );
     }
 
     if (!metrics || metrics.length === 0) {
       return (
-        <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
-          Chưa có dữ liệu thống kê (0)
+        <div className="chart-scroll-wrapper">
+          <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
+            Chưa có dữ liệu thống kê từ máy chủ (0)
+          </div>
         </div>
       );
     }
 
-    const width = 640;
-    const height = 210;
     const isDense = metrics.length > 14;
-    const padX = isDense ? 22 : 40;
+    const width = isDense ? Math.max(640, metrics.length * 36) : 640;
+    const height = 210;
+    const padX = isDense ? 24 : 40;
     const padY = 32;
     const chartW = width - 2 * padX;
     const chartH = height - 2 * padY;
@@ -388,102 +399,112 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     const areaPath = `${curvePath} L ${points[points.length - 1].x.toFixed(1)} ${(height - padY).toFixed(1)} L ${points[0].x.toFixed(1)} ${(height - padY).toFixed(1)} Z`;
 
     return (
-      <div className="curved-chart-container">
-        <svg viewBox={`0 0 ${width} ${height}`} className="curved-chart-svg">
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.4" />
-              <stop offset="100%" stopColor={color} stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
+      <div className="chart-scroll-wrapper">
+        <div className="curved-chart-container" style={{ width: `${width}px`, minWidth: '100%' }}>
+          <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="curved-chart-svg">
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.4" />
+                <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
 
-          {/* Guide grid lines */}
-          <line x1={padX} y1={padY} x2={width - padX} y2={padY} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
-          <line x1={padX} y1={height / 2} x2={width - padX} y2={height / 2} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
-          <line x1={padX} y1={height - padY} x2={width - padX} y2={height - padY} stroke="var(--admin-border)" strokeWidth="1.5" />
+            {/* Guide grid lines */}
+            <line x1={padX} y1={padY} x2={width - padX} y2={padY} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
+            <line x1={padX} y1={height / 2} x2={width - padX} y2={height / 2} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
+            <line x1={padX} y1={height - padY} x2={width - padX} y2={height - padY} stroke="var(--admin-border)" strokeWidth="1.5" />
 
-          {/* Area Fill under curve */}
-          <path d={areaPath} fill={`url(#${gradientId})`} />
+            {/* Area Fill under curve */}
+            <path d={areaPath} fill={`url(#${gradientId})`} />
 
-          {/* Parabolic Curved Spline Line */}
-          <path d={curvePath} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Parabolic Curved Spline Line */}
+            <path d={curvePath} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
-          {/* Nodes with Badges and Labels */}
-          {points.map((pt, i) => {
-            const valStr = formatVal(pt.value);
-            const badgeW = Math.max(26, valStr.length * 7 + 10);
-            const showLabel = !isDense || (i % 3 === 0) || (i === points.length - 1) || (pt.value > 0);
-            const showBadge = !isDense || (pt.value > 0);
+            {/* Nodes with Badges and Labels */}
+            {points.map((pt, i) => {
+              const valStr = formatVal(pt.value);
+              const badgeW = Math.max(26, valStr.length * 7 + 10);
+              const step = Math.ceil(points.length / 22);
+              const showLabel = !isDense || (i % step === 0) || (i === points.length - 1) || (pt.value > 0);
+              const showBadge = !isDense || (pt.value > 0);
 
-            return (
-              <g key={i} className="chart-svg-node">
-                <title>{`${pt.label}: ${valStr}`}</title>
+              return (
+                <g key={i} className="chart-svg-node">
+                  <title>{`${pt.label}: ${valStr}`}</title>
 
-                {/* Vertical hint line */}
-                {pt.value > 0 && (
-                  <line
-                    x1={pt.x}
-                    y1={pt.y}
-                    x2={pt.x}
-                    y2={height - padY}
-                    stroke={color}
-                    strokeWidth="1"
-                    strokeDasharray="2 2"
-                    opacity="0.45"
-                  />
-                )}
-
-                {/* Point circle */}
-                <circle
-                  cx={pt.x}
-                  cy={pt.y}
-                  r={pt.value > 0 ? (isDense ? 4.5 : 5.5) : (isDense ? 2.5 : 3.5)}
-                  fill="#ffffff"
-                  stroke={pt.value > 0 ? color : '#94a3b8'}
-                  strokeWidth="2.5"
-                />
-
-                {/* Badge Container */}
-                {showBadge && (
-                  <>
-                    <rect
-                      x={pt.x - badgeW / 2}
-                      y={Math.min(height - padY - 26, Math.max(6, pt.y - 25))}
-                      width={badgeW}
-                      height={18}
-                      rx={3}
-                      fill="#ffffff"
-                      stroke={pt.value > 0 ? color : '#cbd5e1'}
-                      strokeWidth="1.2"
-                      className="chart-svg-badge-rect"
+                  {/* Vertical hint line */}
+                  {pt.value > 0 && (
+                    <line
+                      x1={pt.x}
+                      y1={pt.y}
+                      x2={pt.x}
+                      y2={height - padY}
+                      stroke="var(--admin-border)"
+                      strokeDasharray="2 2"
+                      opacity="0.6"
                     />
+                  )}
+
+                  {/* Data Node Point */}
+                  <circle
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={pt.value > 0 ? (isDense ? 3.5 : 5) : 2.5}
+                    fill={pt.value > 0 ? color : 'var(--admin-border)'}
+                    stroke="var(--admin-bg-surface)"
+                    strokeWidth="2"
+                    className="chart-svg-circle"
+                  />
+
+                  {/* Floating Value Pill Badge */}
+                  {showBadge && (
+                    <g transform={`translate(${pt.x - badgeW / 2}, ${pt.y - 25})`} className="chart-svg-badge-group">
+                      <rect
+                        width={badgeW}
+                        height="18"
+                        rx="3"
+                        fill="var(--admin-bg-surface-elevated)"
+                        stroke="var(--admin-border)"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x={badgeW / 2}
+                        y="12"
+                        textAnchor="middle"
+                        fill="var(--admin-text-main)"
+                        fontSize="10"
+                        fontFamily="var(--font-mono)"
+                        fontWeight="700"
+                      >
+                        {valStr}
+                      </text>
+                    </g>
+                  )}
+
+                  {/* Bottom Horizontal X-Axis Label */}
+                  {showLabel && (
                     <text
                       x={pt.x}
-                      y={Math.min(height - padY - 13, Math.max(19, pt.y - 12))}
+                      y={height - 8}
                       textAnchor="middle"
-                      className="chart-svg-badge-text"
-                      fill={pt.value > 0 ? '#0f172a' : '#94a3b8'}
+                      fill="var(--admin-text-dim)"
+                      fontSize={isDense ? "9.5" : "11"}
+                      fontFamily="var(--font-mono)"
+                      fontWeight="600"
+                      className="chart-svg-label"
                     >
-                      {valStr}
+                      {pt.label}
                     </text>
-                  </>
-                )}
-
-                {/* X Axis Label */}
-                {showLabel && (
-                  <text x={pt.x} y={height - 10} textAnchor="middle" className="chart-svg-label">
-                    {pt.label}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
       </div>
     );
   };
 
-  // Helper render biểu đồ cột trực quan
   const renderBarChart = (
     metrics: { dateLabel: string; value: number }[] | undefined,
     colorClass: string,
@@ -492,51 +513,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   ) => {
     if (isLoading) {
       return (
-        <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210 }}>
-          <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Đang tải dữ liệu biểu đồ...</span>
+        <div className="chart-scroll-wrapper">
+          <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210, width: '100%' }}>
+            <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Đang tải dữ liệu biểu đồ từ máy chủ Backend...</span>
+          </div>
         </div>
       );
     }
 
     if (!metrics || metrics.length === 0) {
       return (
-        <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210 }}>
-          <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Chưa có dữ liệu (0)</span>
+        <div className="chart-scroll-wrapper">
+          <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210, width: '100%' }}>
+            <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Chưa có dữ liệu thống kê từ máy chủ (0)</span>
+          </div>
         </div>
       );
     }
 
     const maxVal = Math.max(1, ...metrics.map(t => t.value));
     const isDense = metrics.length > 14;
+    const computedWidth = isDense ? `${Math.max(640, metrics.length * 36)}px` : '100%';
 
     return (
-      <div className="chart-bars-wrap">
-        {metrics.map((t, idx) => {
-          const heightPct = t.value > 0 ? Math.max(10, (t.value / maxVal) * 85) : 3;
-          const showLabel = !isDense || (idx % 3 === 0) || (idx === metrics.length - 1) || (t.value > 0);
-          return (
-            <div key={idx} className="chart-col-item">
+      <div className="chart-scroll-wrapper">
+        <div
+          className="chart-bars-wrap"
+          style={{
+            width: computedWidth,
+            justifyContent: isDense ? 'flex-start' : 'space-between',
+            gap: isDense ? '0.45rem' : '0.75rem'
+          }}
+        >
+          {metrics.map((t, idx) => {
+            const heightPct = t.value > 0 ? Math.max(10, (t.value / maxVal) * 85) : 3;
+            const step = Math.ceil(metrics.length / 22);
+            const showLabel = !isDense || (idx % step === 0) || (idx === metrics.length - 1) || (t.value > 0);
+            return (
               <div
-                className={`chart-bar-rect ${colorClass} ${t.value === 0 ? 'is-zero' : ''}`}
+                key={idx}
+                className="chart-col-item"
                 style={{
-                  height: `${heightPct}%`,
-                  animationDelay: `${idx * 20}ms`
+                  minWidth: isDense ? 28 : undefined,
+                  flex: isDense ? '0 0 auto' : 1
                 }}
-                title={`${t.dateLabel}: ${formatVal(t.value)}`}
               >
-                <span className="chart-bar-val-badge">
-                  {t.value > 0 ? formatVal(t.value) : (isDense ? '' : '0')}
-                </span>
+                <div
+                  className={`chart-bar-rect ${colorClass} ${t.value === 0 ? 'is-zero' : ''}`}
+                  style={{
+                    height: `${heightPct}%`,
+                    animationDelay: `${Math.min(idx * 15, 600)}ms`
+                  }}
+                  title={`${t.dateLabel}: ${formatVal(t.value)}`}
+                >
+                  <span className="chart-bar-val-badge">
+                    {t.value > 0 ? formatVal(t.value) : (isDense ? '' : '0')}
+                  </span>
+                </div>
+                <span className="chart-col-label">{showLabel ? t.dateLabel : ''}</span>
               </div>
-              <span className="chart-col-label">{showLabel ? t.dateLabel : ''}</span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     );
   };
 
-  // ==================== VIDEO MODERATION (MODERATOR ONLY) ====================
   const [videos, setVideos] = useState<VideoModerationItem[]>([]);
   const [videoModFilter, setVideoModFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [isLoadingVideos, setIsLoadingVideos] = useState(false);
@@ -772,11 +814,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [selectedPlanCode, setSelectedPlanCode] = useState('PRO_MONTHLY');
   const [activeQrOrder, setActiveQrOrder] = useState<{
+    id?: number;
     orderCode: string;
     verificationCode: string;
     planName: string;
     amount: number;
-    qrCodeUrl: string;
+    qrUrl?: string;
+    qrCodeUrl?: string;
     status: string;
   } | null>(null);
   const [verificationInput, setVerificationInput] = useState('');
@@ -944,6 +988,71 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
+  // ==================== CONTENT REPORTS (MODERATOR ONLY) ====================
+  const [reports, setReports] = useState<ReportItem[]>([]);
+  const [reportStatusFilter, setReportStatusFilter] = useState<'PENDING' | 'RESOLVED' | 'DISMISSED' | ''>('PENDING');
+  const [reportTypeFilter, setReportTypeFilter] = useState<'VIDEO' | 'COMMENT' | 'USER' | ''>('');
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [reportsPage, setReportsPage] = useState(0);
+  const [reportsTotalElements, setReportsTotalElements] = useState(0);
+  const [pendingReportsCount, setPendingReportsCount] = useState(0);
+
+  const loadReports = async () => {
+    if (!isModerator) return;
+    setIsLoadingReports(true);
+    try {
+      const data = await getReports(reportStatusFilter || undefined, reportTypeFilter || undefined, reportsPage, 10);
+      setReports(data.content || []);
+      setReportsTotalElements(data.totalElements || 0);
+      const pendingCount = await getPendingReportCount();
+      setPendingReportsCount(pendingCount);
+    } catch (err: any) {
+      console.error('Lỗi tải báo cáo vi phạm:', err);
+    } finally {
+      setIsLoadingReports(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isModerator && activeTab === 'reports') {
+      loadReports();
+    }
+  }, [isModerator, activeTab, reportStatusFilter, reportTypeFilter, reportsPage]);
+
+  useEffect(() => {
+    if (isModerator) {
+      getPendingReportCount().then(c => setPendingReportsCount(c)).catch(() => {});
+    }
+  }, [isModerator]);
+
+  const handleResolveReportAction = async (reportId: number, action: 'REMOVE_CONTENT' | 'WARN_USER' | 'DISMISS') => {
+    const confirmMsg = action === 'REMOVE_CONTENT'
+      ? 'Xác nhận GỠ BỎ NỘI DUNG vi phạm này? (Nếu là video, video sẽ tự động chuyển sang trạng thái REJECTED)'
+      : 'Xác nhận xử lý báo cáo này?';
+    if (!window.confirm(confirmMsg)) return;
+    try {
+      await resolveReport(
+        reportId,
+        action,
+        action === 'REMOVE_CONTENT' ? 'Nội dung vi phạm tiêu chuẩn cộng đồng' : 'Đã cảnh cáo'
+      );
+      showToast('Đã xử lý khiếu nại báo cáo thành công!');
+      loadReports();
+    } catch (err: any) {
+      alert('Lỗi xử lý báo cáo: ' + err.message);
+    }
+  };
+
+  const handleDismissReportAction = async (reportId: number) => {
+    try {
+      await dismissReport(reportId);
+      showToast('Đã bỏ qua báo cáo không vi phạm.');
+      loadReports();
+    } catch (err: any) {
+      alert('Lỗi bỏ qua báo cáo: ' + err.message);
+    }
+  };
+
   return (
     <div className={`admin-viewport ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       {/* Toast Notification */}
@@ -1006,6 +1115,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </button>
           )}
 
+          {/* TAB: XỬ LÝ REPORT - CHỈ HIỆN VỚI MODERATOR (ĐÃ XÓA KHỎI ADMIN) */}
+          {isModerator && (
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`nav-tab-item ${activeTab === 'reports' ? 'active' : ''}`}
+              title="Xử lý khiếu nại & báo cáo vi phạm"
+            >
+              <AlertTriangle size={18} />
+              {!isSidebarCollapsed && <span>Xử lý Report</span>}
+              {!isSidebarCollapsed && (
+                <span className="nav-tab-badge" style={{ background: '#f59e0b', color: '#000', fontWeight: 800 }}>
+                  {pendingReportsCount > 0 ? `${pendingReportsCount} MỚI` : 'BÁO CÁO'}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* TAB: QUẢN LÝ NGƯỜI DÙNG & TẠO TK HÀNG LOẠT (CHỈ ADMIN) */}
           {isAdmin && (
             <button
@@ -1041,16 +1167,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               {!isSidebarCollapsed && <span>Gói & Hạn mức Token</span>}
             </button>
           )}
-
-          {/* TAB: XỬ LÝ BÁO CÁO (CẢ ADMIN VÀ MODERATOR) */}
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`nav-tab-item ${activeTab === 'reports' ? 'active' : ''}`}
-            title="Xử lý báo cáo vi phạm"
-          >
-            <AlertTriangle size={18} />
-            {!isSidebarCollapsed && <span>Xử lý Report</span>}
-          </button>
 
           {/* TAB: TRANG HỒ SƠ CÁ NHÂN (CẢ ADMIN VÀ MODERATOR) */}
           <button
@@ -2150,7 +2266,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                           </td>
                           <td style={{ fontWeight: 600 }}>{o.userDisplayName || o.username}</td>
                           <td>
-                            <span style={{ fontWeight: 700, color: '#0f172a' }}>{o.planName}</span>
+                            <span style={{ fontWeight: 700, color: 'var(--admin-text-main)' }}>{o.planName}</span>
                           </td>
                           <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.9rem' }}>
                             {o.amount?.toLocaleString('vi-VN')} đ
@@ -2391,22 +2507,225 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </>
           )}
 
-          {/* ==================== TAB 5: XỬ LÝ REPORT ==================== */}
-          {activeTab === 'reports' && (
-            <div style={{
-              background: 'var(--admin-bg-surface)',
-              border: '1px solid var(--admin-border)',
-              borderRadius: '2px',
-              padding: '2.5rem',
-              textAlign: 'center',
-              color: 'var(--admin-text-dim)'
-            }}>
-              <AlertTriangle size={36} color="#f59e0b" style={{ margin: '0 auto 1rem' }} />
-              <h3 style={{ color: 'var(--admin-text-main)', marginBottom: '0.5rem' }}>Hệ Thống Khiếu Nại & Báo Cáo Nội Dung</h3>
-              <p style={{ maxWidth: '480px', margin: '0 auto', fontSize: '0.85rem' }}>
-                Hiện tại không có báo cáo vi phạm nào tồn đọng. Hệ thống sẽ tự động cập nhật khi có người dùng gắn cờ báo cáo video hoặc bình luận không lành mạnh.
-              </p>
-            </div>
+          {/* ==================== TAB 5: XỬ LÝ REPORT (CHỈ DÀNH CHO ROLE MODERATOR) ==================== */}
+          {activeTab === 'reports' && isModerator && (
+            <>
+              {/* Toolbar Bộ lọc & Thao tác */}
+              <div className="toolbar-row">
+                <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>Trạng thái:</span>
+                  <button
+                    onClick={() => { setReportStatusFilter('PENDING'); setReportsPage(0); }}
+                    className={`btn-outline ${reportStatusFilter === 'PENDING' ? 'btn-solid-primary' : ''}`}
+                  >
+                    <span>Chờ xử lý</span>
+                    {pendingReportsCount > 0 && (
+                      <span style={{
+                        background: '#f59e0b',
+                        color: '#000',
+                        fontSize: '0.7rem',
+                        fontWeight: 800,
+                        padding: '1px 6px',
+                        borderRadius: '9999px',
+                        marginLeft: 4
+                      }}>
+                        {pendingReportsCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => { setReportStatusFilter('RESOLVED'); setReportsPage(0); }}
+                    className={`btn-outline ${reportStatusFilter === 'RESOLVED' ? 'btn-solid-primary' : ''}`}
+                  >
+                    <span>Đã gỡ / Giải quyết</span>
+                  </button>
+                  <button
+                    onClick={() => { setReportStatusFilter('DISMISSED'); setReportsPage(0); }}
+                    className={`btn-outline ${reportStatusFilter === 'DISMISSED' ? 'btn-solid-primary' : ''}`}
+                  >
+                    <span>Đã bỏ qua</span>
+                  </button>
+                  <button
+                    onClick={() => { setReportStatusFilter(''); setReportsPage(0); }}
+                    className={`btn-outline ${reportStatusFilter === '' ? 'btn-solid-primary' : ''}`}
+                  >
+                    <span>Tất cả</span>
+                  </button>
+
+                  <span style={{ height: 16, width: 1, background: 'var(--admin-border)', margin: '0 4px' }} />
+
+                  <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>Loại mục:</span>
+                  <select
+                    value={reportTypeFilter}
+                    onChange={e => { setReportTypeFilter(e.target.value as any); setReportsPage(0); }}
+                    className="select-sharp"
+                    style={{ padding: '0.25rem 0.65rem', fontSize: '0.8rem' }}
+                  >
+                    <option value="">Tất cả loại (Video / Comment / User)</option>
+                    <option value="VIDEO">Video bài học</option>
+                    <option value="COMMENT">Bình luận</option>
+                    <option value="USER">Tài khoản người dùng</option>
+                  </select>
+                </div>
+
+                <button onClick={loadReports} className="btn-outline">
+                  <RefreshCw size={15} className={isLoadingReports ? 'spin' : ''} />
+                  <span>Làm mới</span>
+                </button>
+              </div>
+
+              {/* Data Table: Danh Sách Báo Cáo Vi Phạm */}
+              <div className="data-table-container">
+                <table className="enterprise-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 80 }}>Mã BC</th>
+                      <th style={{ width: 110 }}>Loại Mục</th>
+                      <th>Mục Bị Báo Cáo</th>
+                      <th style={{ width: 140 }}>Người Khiếu Nại</th>
+                      <th>Lý Do Vi Phạm</th>
+                      <th>Mô Tả Chi Tiết</th>
+                      <th style={{ width: 140 }}>Trạng Thái</th>
+                      <th style={{ width: 130 }}>Thời Gian</th>
+                      <th style={{ width: 180, textAlign: 'center' }}>Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isLoadingReports ? (
+                      <tr>
+                        <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
+                          Đang tải danh sách khiếu nại & báo cáo vi phạm...
+                        </td>
+                      </tr>
+                    ) : reports.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
+                          Không có báo cáo vi phạm nào trong mục này. Hệ thống an toàn và lành mạnh!
+                        </td>
+                      </tr>
+                    ) : (
+                      reports.map(r => (
+                        <tr key={r.id}>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#f59e0b' }}>
+                            #REP-{r.id}
+                          </td>
+                          <td>
+                            <span style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              fontFamily: 'var(--font-mono)',
+                              padding: '2px 6px',
+                              borderRadius: '2px',
+                              background: r.targetType === 'VIDEO' ? 'rgba(56, 189, 248, 0.15)' : r.targetType === 'COMMENT' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                              color: r.targetType === 'VIDEO' ? '#38bdf8' : r.targetType === 'COMMENT' ? '#c084fc' : '#facc15',
+                              border: `1px solid ${r.targetType === 'VIDEO' ? 'rgba(56, 189, 248, 0.3)' : r.targetType === 'COMMENT' ? 'rgba(168, 85, 247, 0.3)' : 'rgba(234, 179, 8, 0.3)'}`
+                            }}>
+                              {r.targetType}
+                            </span>
+                          </td>
+                          <td>
+                            <strong style={{ color: 'var(--admin-text-main)', display: 'block', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {r.targetTitle}
+                            </strong>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--admin-text-dim)' }}>ID: #{r.targetId}</span>
+                          </td>
+                          <td style={{ fontWeight: 600, color: 'var(--admin-text-muted)' }}>
+                            @{r.reporterUsername}
+                          </td>
+                          <td>
+                            <span style={{
+                              fontWeight: 700,
+                              fontSize: '0.8rem',
+                              color: '#ef4444',
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              padding: '2px 8px',
+                              borderRadius: '2px',
+                              border: '1px solid rgba(239, 68, 68, 0.25)'
+                            }}>
+                              {r.reason}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.82rem', color: 'var(--admin-text-muted)', maxWidth: 240 }}>
+                            {r.description || '—'}
+                          </td>
+                          <td>
+                            <span className={`status-pill ${r.status === 'RESOLVED' ? 'success' : r.status === 'PENDING' ? 'pending' : 'default'}`}>
+                              {r.status === 'PENDING' ? 'CHỜ XỬ LÝ' : r.status === 'RESOLVED' ? 'ĐÃ GỠ BỎ' : 'ĐÃ BỎ QUA'}
+                            </span>
+                            {r.resolvedBy && (
+                              <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--admin-text-dim)', marginTop: 2 }}>
+                                Bởi: @{r.resolvedBy}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                            {r.createdAt ? new Date(r.createdAt).toLocaleString('vi-VN') : '—'}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {r.status === 'PENDING' ? (
+                              <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                                <button
+                                  onClick={() => handleResolveReportAction(r.id, 'REMOVE_CONTENT')}
+                                  className="btn-solid-primary"
+                                  style={{ padding: '0.22rem 0.55rem', fontSize: '0.75rem', gap: '0.25rem' }}
+                                  title="Gỡ bỏ nội dung vi phạm này ngay lập tức"
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Gỡ bỏ</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDismissReportAction(r.id)}
+                                  className="btn-outline"
+                                  style={{ padding: '0.22rem 0.55rem', fontSize: '0.75rem', gap: '0.25rem' }}
+                                  title="Bỏ qua báo cáo không có dấu hiệu vi phạm"
+                                >
+                                  <Check size={13} />
+                                  <span>Bỏ qua</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--admin-text-dim)' }}>
+                                {r.actionTaken || 'Đã hoàn tất'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Phân trang Báo cáo vi phạm */}
+              <div className="pagination-bar">
+                <div className="pagination-info">
+                  Hiển thị <strong>{reports.length > 0 ? (reportsPage * 10) + 1 : 0}</strong> - <strong>{Math.min((reportsPage + 1) * 10, reportsTotalElements)}</strong> trên tổng số <strong>{reportsTotalElements}</strong> báo cáo (10/trang)
+                </div>
+                <div className="pagination-actions">
+                  <button
+                    className="pagination-btn"
+                    disabled={reportsPage === 0 || isLoadingReports}
+                    onClick={() => setReportsPage(prev => Math.max(0, prev - 1))}
+                    title="Trang trước"
+                  >
+                    <ChevronLeft size={16} />
+                    <span>Trang trước</span>
+                  </button>
+                  <span className="pagination-page-indicator">
+                    Trang {reportsTotalElements > 0 ? reportsPage + 1 : 0}
+                  </span>
+                  <button
+                    className="pagination-btn"
+                    disabled={reports.length < 10 || (reportsPage + 1) * 10 >= reportsTotalElements || isLoadingReports}
+                    onClick={() => setReportsPage(prev => prev + 1)}
+                    title="Trang sau"
+                  >
+                    <span>Trang sau</span>
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            </>
           )}
           {/* ==================== TAB 6: TRANG HỒ SƠ CÁ NHÂN (ADMIN & MODERATOR) ==================== */}
           {activeTab === 'profile' && (
@@ -3115,38 +3434,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
               {activeQrOrder && (
                 <div className="qr-display-box">
-                  <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>
+                  <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--admin-text-main)' }}>
                     {activeQrOrder.planName} • {activeQrOrder.amount?.toLocaleString('vi-VN')} đ
                   </div>
 
-                  {/* Clean SVG QR Representation */}
+                  {/* Real QR image from Backend */}
                   <div className="qr-code-canvas-wrap">
-                    <svg width="150" height="150" viewBox="0 0 150 150">
-                      <rect width="150" height="150" fill="#ffffff" />
-                      {/* Top-left position marker */}
-                      <rect x="10" y="10" width="35" height="35" fill="#0f172a" />
-                      <rect x="15" y="15" width="25" height="25" fill="#ffffff" />
-                      <rect x="20" y="20" width="15" height="15" fill="#0f172a" />
-                      {/* Top-right position marker */}
-                      <rect x="105" y="10" width="35" height="35" fill="#0f172a" />
-                      <rect x="110" y="15" width="25" height="25" fill="#ffffff" />
-                      <rect x="115" y="20" width="15" height="15" fill="#0f172a" />
-                      {/* Bottom-left position marker */}
-                      <rect x="10" y="105" width="35" height="35" fill="#0f172a" />
-                      <rect x="15" y="110" width="25" height="25" fill="#ffffff" />
-                      <rect x="20" y="115" width="15" height="15" fill="#0f172a" />
-                      {/* Simulated QR data grid */}
-                      <rect x="55" y="15" width="12" height="12" fill="#0284c7" />
-                      <rect x="75" y="15" width="12" height="12" fill="#0f172a" />
-                      <rect x="55" y="35" width="12" height="12" fill="#0f172a" />
-                      <rect x="55" y="60" width="40" height="40" fill="#0284c7" />
-                      <rect x="65" y="70" width="20" height="20" fill="#ffffff" />
-                      <rect x="105" y="60" width="15" height="15" fill="#0f172a" />
-                      <rect x="125" y="80" width="15" height="15" fill="#0f172a" />
-                      <rect x="55" y="115" width="15" height="15" fill="#0f172a" />
-                      <rect x="80" y="115" width="15" height="15" fill="#0284c7" />
-                      <rect x="110" y="115" width="25" height="20" fill="#0f172a" />
-                    </svg>
+                    {activeQrOrder.qrUrl || activeQrOrder.qrCodeUrl ? (
+                      <img
+                        src={activeQrOrder.qrUrl || activeQrOrder.qrCodeUrl}
+                        alt={`Mã QR đơn ${activeQrOrder.orderCode}`}
+                        width="160"
+                        height="160"
+                        style={{ display: 'block', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <QrCode size={120} style={{ color: 'var(--admin-primary)' }} />
+                    )}
                   </div>
 
                   {/* THE PROMINENT VERIFICATION CODE DISPLAYED UNDER THE QR CODE AS REQUESTED */}
@@ -3164,7 +3468,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
                   {/* Payment Confirmation Form */}
                   <div style={{ width: '100%', marginTop: '0.5rem' }}>
-                    <label className="form-label-sharp" style={{ color: '#0f172a', marginBottom: '0.3rem', display: 'block' }}>
+                    <label className="form-label-sharp" style={{ color: 'var(--admin-text-main)', marginBottom: '0.3rem', display: 'block' }}>
                       Nhập mã xác thực để hoàn tất thanh toán:
                     </label>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>

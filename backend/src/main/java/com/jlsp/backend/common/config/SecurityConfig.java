@@ -40,6 +40,8 @@ public class SecurityConfig {
             "/api/v1/auth/logout",
             "/api/v1/auth/forgot-password",
             "/api/v1/auth/reset-password",
+            "/api/v1/payments/webhook",
+            "/api/v1/payments/bank-webhook",
     };
 
     /** Nội dung công khai chỉ đọc. */
@@ -96,6 +98,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_ENDPOINTS).permitAll()
+
+                // Xử lý báo cáo: Admin và Moderator (phải đứng trước rule /admin/** chỉ cho ADMIN)
+                .requestMatchers("/api/v1/admin/reports/**").hasAnyRole("ADMIN", "MODERATOR")
 
                 // Quản trị
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

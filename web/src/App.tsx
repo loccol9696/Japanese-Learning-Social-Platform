@@ -7,11 +7,16 @@ import type { UserProfile } from './types/auth';
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
 
-  // Restore session from localStorage if available
+  // Restore session from localStorage if available (Bỏ qua và xóa sạch token demo cũ)
   useEffect(() => {
     const savedUser = localStorage.getItem('jlsp_user');
     const token = localStorage.getItem('jlsp_token');
     if (savedUser && token) {
+      if (token.startsWith('demo_') || token.startsWith('mock_')) {
+        localStorage.removeItem('jlsp_user');
+        localStorage.removeItem('jlsp_token');
+        return;
+      }
       try {
         setCurrentUser(JSON.parse(savedUser));
       } catch (e) {

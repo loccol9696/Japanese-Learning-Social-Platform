@@ -84,6 +84,7 @@ export interface SubscriptionOrderItem {
   amount: number;
   paymentMethod: string;
   status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+  qrUrl?: string;
   createdAt: string;
   completedAt?: string;
 }
@@ -345,9 +346,11 @@ export async function updateTokenRate(secondsPerToken: number): Promise<TokenRat
 export async function getSubscriptionOrders(
   page = 0,
   size = 15,
-  sort = 'createdAt,desc'
+  sort = 'createdAt,desc',
+  status: 'SUCCESS' | 'PENDING' | '' = 'SUCCESS'
 ): Promise<PageResponse<SubscriptionOrderItem>> {
-  const response = await fetch(`/api/v1/payments/history?page=${page}&size=${size}&sort=${sort}`, {
+  const statusParam = status ? `&status=${status}` : '';
+  const response = await fetch(`/api/v1/payments/history?page=${page}&size=${size}&sort=${sort}${statusParam}`, {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<PageResponse<SubscriptionOrderItem>> = await response.json();
@@ -358,11 +361,13 @@ export async function getSubscriptionOrders(
 }
 
 export async function createQrOrder(planCode: string): Promise<{
+  id?: number;
   orderCode: string;
   verificationCode: string;
   planName: string;
   amount: number;
-  qrCodeUrl: string;
+  qrUrl?: string;
+  qrCodeUrl?: string;
   status: string;
 }> {
   const response = await fetch('/api/v1/payments/create-order', {
@@ -427,29 +432,33 @@ export async function getAdminAnalytics(period: '7days' | 'month' | 'year' = '7d
   });
   const resData: ApiResponse<AdminAnalyticsData> = await response.json();
   if (!response.ok) {
-    throw new Error(resData.message || 'Không thể tải dữ liệu thống kê');
+    throw new Error(resData.message || 'Không thể tải dữ liệu thống kê từ máy chủ Backend');
   }
   return resData.data;
 }
 
 export async function getMetricTrend(
   metric: 'user' | 'token' | 'revenue',
-  period: '7days' | 'days_in_month' | 'month' | 'year',
+  period: 'range' | '7days' | 'month' | 'year' | 'days_in_month',
   year?: number,
-  month?: number
+  month?: number,
+  startDate?: string,
+  endDate?: string
 ): Promise<DailyMetricDto[]> {
   const params = new URLSearchParams({ metric, period });
   if (year) params.append('year', year.toString());
   if (month) params.append('month', month.toString());
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
 
   const response = await fetch(`/api/v1/admin/analytics/trend?${params.toString()}`, {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<DailyMetricDto[]> = await response.json();
   if (!response.ok) {
-    throw new Error(resData.message || 'Không thể tải xu hướng dữ liệu');
+    throw new Error(resData.message || 'Không thể tải dữ liệu xu hướng từ máy chủ Backend');
   }
-  return resData.data;
+  return resData.data || [];
 }
 
 export interface UpdateProfilePayload {
@@ -474,5 +483,82 @@ export async function updateAdminProfile(
     throw new Error(resData.message || 'Không thể cập nhật thông tin hồ sơ');
   }
   return resData.data;
+}
+
+// ==================== CONTENT REPORTS (MODERATOR ONLY) ====================
+export interface ReportItem {
+  id: number;
+  reporterId: number;
+  reporterUsername: string;
+  targetType: 'VIDEO' | 'COMMENT' | 'USER';
+  targetId: number;
+  targetTitle: string;
+  reason: string;
+  description?: string;
+  status: 'PENDING' | 'RESOLVED' | 'DISMISSED';
+  actionTaken?: string;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  createdAt: string;
+}
+
+export async function getReports(
+  status?: string,
+  targetType?: string,
+  page = 0,
+  size = 10
+): Promise<PageResponse<ReportItem>> {
+  const params = new URLSearchParams({ page: page.toString(), size: size.toString() });
+  if (status) params.append('status', status);
+  if (targetType) params.append('targetType', targetType);
+
+  const response = await fetch(`/api/v1/reports?${params.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<PageResponse<ReportItem>> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách báo cáo vi phạm');
+  }
+  return resData.data;
+}
+
+export async function resolveReport(
+  reportId: number,
+  action: 'REMOVE_CONTENT' | 'WARN_USER' | 'DISMISS',
+  actionNote?: string
+): Promise<ReportItem> {
+  const response = await fetch(`/api/v1/reports/${reportId}/resolve`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ action, actionNote }),
+  });
+  const resData: ApiResponse<ReportItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể xử lý báo cáo vi phạm');
+  }
+  return resData.data;
+}
+
+export async function dismissReport(reportId: number): Promise<ReportItem> {
+  const response = await fetch(`/api/v1/reports/${reportId}/dismiss`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<ReportItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể bỏ qua báo cáo');
+  }
+  return resData.data;
+}
+
+export async function getPendingReportCount(): Promise<number> {
+  const response = await fetch('/api/v1/reports/count-pending', {
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<number> = await response.json();
+  if (!response.ok) {
+    return 0;
+  }
+  return resData.data || 0;
 }
 

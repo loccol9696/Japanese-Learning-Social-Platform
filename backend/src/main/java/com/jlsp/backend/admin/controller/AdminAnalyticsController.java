@@ -217,7 +217,9 @@ public class AdminAnalyticsController {
             @RequestParam(defaultValue = "user") String metric,
             @RequestParam(defaultValue = "7days") String period,
             @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
 
         LocalDate today = LocalDate.now();
         int targetYear = (year != null && year >= 2000 && year <= 2100) ? year : today.getYear();
@@ -225,7 +227,65 @@ public class AdminAnalyticsController {
 
         List<DailyMetricDto> trend = new ArrayList<>();
 
-        if ("days_in_month".equalsIgnoreCase(period)) {
+        if ("range".equalsIgnoreCase(period) || (startDate != null && endDate != null)) {
+            LocalDate start = (startDate != null && !startDate.isBlank()) ? LocalDate.parse(startDate) : today.minusDays(30);
+            LocalDate end = (endDate != null && !endDate.isBlank()) ? LocalDate.parse(endDate) : today;
+            if (end.isBefore(start)) {
+                LocalDate temp = start;
+                start = end;
+                end = temp;
+            }
+            final LocalDate finalStart = start;
+            final LocalDate finalEnd = end;
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");
+
+            if ("user".equalsIgnoreCase(metric)) {
+                List<User> allUsers = userRepository.findAll();
+                Map<LocalDate, Long> map = allUsers.stream()
+                        .filter(u -> u.getRole() == UserRole.USER && u.getCreatedAt() != null
+                                && !u.getCreatedAt().toLocalDate().isBefore(finalStart)
+                                && !u.getCreatedAt().toLocalDate().isAfter(finalEnd))
+                        .collect(Collectors.groupingBy(u -> u.getCreatedAt().toLocalDate(), Collectors.counting()));
+
+                LocalDate curr = finalStart;
+                while (!curr.isAfter(finalEnd)) {
+                    trend.add(new DailyMetricDto(curr.format(fmt), map.getOrDefault(curr, 0L)));
+                    curr = curr.plusDays(1);
+                }
+            } else if ("token".equalsIgnoreCase(metric)) {
+                List<UserDailyTokenUsage> usages = tokenUsageRepository.findAll();
+                Map<LocalDate, Long> map = usages.stream()
+                        .filter(u -> u.getUsageDate() != null
+                                && !u.getUsageDate().isBefore(finalStart)
+                                && !u.getUsageDate().isAfter(finalEnd))
+                        .collect(Collectors.groupingBy(
+                                UserDailyTokenUsage::getUsageDate,
+                                Collectors.summingLong(u -> u.getTokensUsed() != null ? u.getTokensUsed() : 0L)
+                        ));
+
+                LocalDate curr = finalStart;
+                while (!curr.isAfter(finalEnd)) {
+                    trend.add(new DailyMetricDto(curr.format(fmt), map.getOrDefault(curr, 0L)));
+                    curr = curr.plusDays(1);
+                }
+            } else if ("revenue".equalsIgnoreCase(metric)) {
+                List<SubscriptionOrder> orders = orderRepository.findByStatus(SubscriptionOrder.OrderStatus.SUCCESS);
+                Map<LocalDate, Long> map = orders.stream()
+                        .filter(o -> o.getCreatedAt() != null
+                                && !o.getCreatedAt().toLocalDate().isBefore(finalStart)
+                                && !o.getCreatedAt().toLocalDate().isAfter(finalEnd))
+                        .collect(Collectors.groupingBy(
+                                o -> o.getCreatedAt().toLocalDate(),
+                                Collectors.summingLong(o -> o.getAmount() != null ? o.getAmount().longValue() : 0L)
+                        ));
+
+                LocalDate curr = finalStart;
+                while (!curr.isAfter(finalEnd)) {
+                    trend.add(new DailyMetricDto(curr.format(fmt), map.getOrDefault(curr, 0L)));
+                    curr = curr.plusDays(1);
+                }
+            }
+        } else if ("days_in_month".equalsIgnoreCase(period)) {
             // Từng ngày trong tháng và năm được chọn (e.g. Tháng 10/2026: 01/10 -> 31/10)
             int daysInMonth = java.time.YearMonth.of(targetYear, targetMonth).lengthOfMonth();
             DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");

@@ -177,8 +177,16 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Transactional
     public SubscriptionOrderResponse confirmPayment(ConfirmPaymentRequest request) {
         String code = request.getVerificationCode() != null ? request.getVerificationCode().trim().toUpperCase() : "";
-        SubscriptionOrder order = orderRepository.findByVerificationCode(code)
-                .orElseThrow(() -> new AppException(400, "Mã xác nhận dưới QR không hợp lệ hoặc không tồn tại: " + code));
+        SubscriptionOrder order = null;
+        if (!code.isBlank()) {
+            order = orderRepository.findByVerificationCode(code).orElse(null);
+        }
+        if (order == null && request.getOrderCode() != null && !request.getOrderCode().isBlank()) {
+            order = orderRepository.findByOrderCode(request.getOrderCode().trim()).orElse(null);
+        }
+        if (order == null) {
+            throw new AppException(400, "Mã xác nhận dưới QR không hợp lệ hoặc không tồn tại: " + code);
+        }
 
         if (order.getStatus() == SubscriptionOrder.OrderStatus.SUCCESS) {
             return toOrderResponse(order);
@@ -198,6 +206,81 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
         log.info("Payment CONFIRMED for order {} via code {}. User {} upgraded to plan {} with limit {} tokens/day!",
                 order.getOrderCode(), code, user.getUsername(), order.getPlan().getName(), order.getPlan().getDailyTokenLimit());
+
+        return toOrderResponse(order);
+    }
+
+    @Override
+    @Transactional
+    public SubscriptionOrderResponse processBankWebhook(com.jlsp.backend.subscription.dto.request.BankWebhookRequest request) {
+        if (request == null) {
+            throw new AppException(400, "Dữ liệu webhook không hợp lệ");
+        }
+
+        String searchTarget = "";
+        if (request.getContent() != null) searchTarget += " " + request.getContent();
+        if (request.getDescription() != null) searchTarget += " " + request.getDescription();
+        if (request.getVerificationCode() != null) searchTarget += " " + request.getVerificationCode();
+        if (request.getOrderCode() != null) searchTarget += " " + request.getOrderCode();
+        searchTarget = searchTarget.toUpperCase();
+
+        SubscriptionOrder order = null;
+
+        // 1. Tìm theo verificationCode trực tiếp hoặc regex JLSP-\d+
+        if (request.getVerificationCode() != null && !request.getVerificationCode().isBlank()) {
+            order = orderRepository.findByVerificationCode(request.getVerificationCode().trim().toUpperCase()).orElse(null);
+        }
+
+        if (order == null) {
+            java.util.regex.Pattern pVerify = java.util.regex.Pattern.compile("JLSP-\\d+");
+            java.util.regex.Matcher mVerify = pVerify.matcher(searchTarget);
+            if (mVerify.find()) {
+                String extractedCode = mVerify.group();
+                order = orderRepository.findByVerificationCode(extractedCode).orElse(null);
+            }
+        }
+
+        // 2. Tìm theo orderCode trực tiếp hoặc regex TX-\d+
+        if (order == null && request.getOrderCode() != null && !request.getOrderCode().isBlank()) {
+            order = orderRepository.findByOrderCode(request.getOrderCode().trim()).orElse(null);
+        }
+
+        if (order == null) {
+            java.util.regex.Pattern pOrder = java.util.regex.Pattern.compile("TX-\\d+");
+            java.util.regex.Matcher mOrder = pOrder.matcher(searchTarget);
+            if (mOrder.find()) {
+                String extractedOrder = mOrder.group();
+                order = orderRepository.findByOrderCode(extractedOrder).orElse(null);
+            }
+        }
+
+        if (order == null) {
+            log.warn("Webhook received but no matching order found for content: '{}'", searchTarget);
+            throw new AppException(404, "Không tìm thấy đơn hàng tương ứng với nội dung chuyển khoản ngân hàng: " + searchTarget);
+        }
+
+        if (order.getStatus() == SubscriptionOrder.OrderStatus.SUCCESS) {
+            log.info("Order {} is already SUCCESS, skipping duplicate webhook", order.getOrderCode());
+            return toOrderResponse(order);
+        }
+
+        order.setStatus(SubscriptionOrder.OrderStatus.SUCCESS);
+        order.setCompletedAt(LocalDateTime.now());
+        if (request.getGateway() != null && !request.getGateway().isBlank()) {
+            order.setPaymentMethod(request.getGateway().trim());
+        }
+        orderRepository.save(order);
+
+        // Kích hoạt VIP cho User
+        User user = order.getUser();
+        user.setSubscriptionPlan(order.getPlan());
+        LocalDateTime currentExpire = user.getVipExpiresAt();
+        LocalDateTime baseTime = (currentExpire != null && currentExpire.isAfter(LocalDateTime.now())) ? currentExpire : LocalDateTime.now();
+        user.setVipExpiresAt(baseTime.plusDays(order.getPlan().getDurationDays()));
+        userRepository.save(user);
+
+        log.info("AUTOMATIC PAYMENT SUCCESS: Order {} confirmed via Webhook. User {} upgraded to VIP plan {} until {}",
+                order.getOrderCode(), user.getUsername(), order.getPlan().getName(), user.getVipExpiresAt());
 
         return toOrderResponse(order);
     }
