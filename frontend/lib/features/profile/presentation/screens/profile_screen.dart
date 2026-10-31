@@ -16,6 +16,7 @@ import '../../domain/models/user_profile_model.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../../../subscription/models/subscription_model.dart';
 import '../../../subscription/services/subscription_service.dart';
+import '../../../subscription/screens/admin_membership_manage_screen.dart';
 import 'profile_update_screen.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/localization/app_language.dart';
@@ -234,18 +235,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final bool isAdmin = _profile.isAdmin;
     final rows = <_SettingsRowData>[
       _SettingsRowData(
-        icon: Icons.workspace_premium_rounded,
+        icon: isAdmin ? Icons.admin_panel_settings_rounded : Icons.workspace_premium_rounded,
         iconColor: AppPalette.gold,
-        title: isAdmin ? 'Đặc quyền Quản trị viên' : 'Gói thành viên Premium',
+        title: isAdmin ? 'Quản lý Gói & Voucher' : 'Gói thành viên Premium',
         value: isAdmin
-            ? 'Toàn quyền VIP (Vô hạn)'
+            ? 'Cấu hình & Tạo mã ưu đãi >'
             : (_isPremium
                 ? (_membershipStatus?.planName ?? 'Đang kích hoạt')
                 : 'Nâng cấp ngay'),
         valueColor: AppPalette.gold,
         onTap: () {
           Navigator.of(sheetContext).pop();
-          _openSubscription();
+          if (isAdmin) {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => AdminMembershipManageScreen()));
+          } else {
+            _openSubscription();
+          }
         },
       ),
       _SettingsRowData(
@@ -872,12 +877,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final accentColor = isPremium ? AppPalette.gold : AppPalette.info;
 
     final String titleText = isAdmin
-        ? 'Đặc quyền Quản trị viên (Admin)'
+        ? 'Quản trị Gói & Mã Ưu Đãi'
         : (isPremium
             ? (status?.planName ?? _profile.subscriptionPlanName ?? 'JLSP Premium')
             : 'Nâng cấp JLSP Premium');
     final String subtitleText = isAdmin
-        ? 'Toàn quyền hệ thống · Không giới hạn Token AI'
+        ? 'Cấu hình biểu phí gói & Cấp mã khuyến mãi'
         : (isPremium
             ? (status == null
                   ? 'Đang kích hoạt đặc quyền VIP'
@@ -885,7 +890,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ? 'Vĩnh viễn · ${status.effectiveTokenLimit} Token AI/ngày'
                         : 'Còn ${status.daysRemaining} ngày · ${status.effectiveTokenLimit} Token AI/ngày'))
             : 'Mở khóa Token AI, Shadowing & Flashcard không giới hạn');
-    final String ctaText = isAdmin ? 'Xem bảng giá' : (isPremium ? 'Đổi / Gia hạn' : 'Mua gói');
+    final String ctaText = isAdmin ? 'Quản lý' : (isPremium ? 'Đổi / Gia hạn' : 'Mua gói');
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -893,7 +898,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: accentColor.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          onTap: _openSubscription,
+          onTap: () {
+            if (isAdmin) {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => AdminMembershipManageScreen()));
+            } else {
+              _openSubscription();
+            }
+          },
           borderRadius: BorderRadius.circular(14),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

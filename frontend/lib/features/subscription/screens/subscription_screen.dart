@@ -453,57 +453,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                 _buildHeroHeader(),
                                 const SizedBox(height: 18),
 
-                                // Current active VIP info or Admin notice
-                                if (_userStatus != null && _userStatus!.isAdmin) ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF132A13),
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: const Color(0xFF10B981),
-                                        width: 1.2,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.verified_user_rounded,
-                                          color: Color(0xFF34D399),
-                                          size: 24,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: const [
-                                              Text(
-                                                'TÀI KHOẢN QUẢN TRỊ VIÊN (ADMIN)',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w900,
-                                                  letterSpacing: 0.5,
-                                                  color: Color(0xFF34D399),
-                                                ),
-                                              ),
-                                              SizedBox(height: 2),
-                                              Text(
-                                                'Bạn có toàn bộ đặc quyền VIP và không giới hạn Token AI. Màn hình này hiển thị bảng giá công khai của học viên.',
-                                                style: TextStyle(
-                                                  fontSize: 12.5,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.white,
-                                                  height: 1.3,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                ] else if (_userStatus != null && _userStatus!.isVip) ...[
+                                // Current active VIP info if applicable
+                                if (_userStatus != null && _userStatus!.isVip && !_userStatus!.isAdmin) ...[
                                   _buildCurrentVipBadge(),
                                   const SizedBox(height: 16),
                                 ],
@@ -1210,13 +1161,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               onPressed: _openVietQrDirect,
               icon: Icon(isSelectedOwned ? Icons.add_circle_outline_rounded : Icons.qr_code_2_rounded, size: 22),
               label: Text(
-                _userStatus != null && _userStatus!.isAdmin
-                    ? 'Thử nghiệm quét VietQR — ${_currentSelectedPlan?.formattedPrice ?? ''}'
-                    : (_userStatus != null && _userStatus!.isVip
-                        ? (isSelectedOwned
-                            ? 'Gia hạn thêm (${_currentSelectedPlan?.durationLabel ?? ''}) — ${_currentSelectedPlan?.formattedPrice ?? ''}'
-                            : 'Nâng cấp / Đổi gói — ${_currentSelectedPlan?.formattedPrice ?? ''}')
-                        : 'Thanh toán VietQR — ${_currentSelectedPlan?.formattedPrice ?? ''}'),
+                _userStatus != null && _userStatus!.isVip
+                    ? (isSelectedOwned
+                        ? 'Gia hạn thêm (${_currentSelectedPlan?.durationLabel ?? ''}) — ${_currentSelectedPlan?.formattedPrice ?? ''}'
+                        : 'Nâng cấp / Đổi gói — ${_currentSelectedPlan?.formattedPrice ?? ''}')
+                    : 'Thanh toán VietQR — ${_currentSelectedPlan?.formattedPrice ?? ''}',
                 style: const TextStyle(
                   fontSize: 15.5,
                   fontWeight: FontWeight.w800,

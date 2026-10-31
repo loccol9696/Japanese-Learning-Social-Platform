@@ -567,4 +567,165 @@ class SubscriptionService {
       ),
     ];
   }
+
+  // ==================== ADMIN METHODS: PLANS & VOUCHERS ====================
+
+  Future<List<SubscriptionPlan>> getAllPlansAdmin() async {
+    try {
+      final token = await TokenStorage.instance.getAccessToken();
+      final url = '${ApiConstants.baseUrl}/subscription-plans/admin-all';
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 12));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final List list = json['data'] as List? ?? [];
+        return list.map((e) => SubscriptionPlan.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return _getFallbackPlans();
+  }
+
+  Future<bool> updatePlanAdmin({
+    required int planId,
+    required String name,
+    required double price,
+    required int durationDays,
+    required int dailyTokenLimit,
+    String? description,
+    String? features,
+    bool? isActive,
+  }) async {
+    try {
+      final token = await TokenStorage.instance.getAccessToken();
+      final url = '${ApiConstants.baseUrl}/subscription-plans/$planId';
+      final response = await _client.put(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'name': name,
+          'price': price,
+          'durationDays': durationDays,
+          'dailyTokenLimit': dailyTokenLimit,
+          'description': description,
+          'features': features,
+          'isActive': isActive ?? true,
+        }),
+      ).timeout(const Duration(seconds: 12));
+
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<PromoCodeItem>> getPromoCodesAdmin() async {
+    try {
+      final token = await TokenStorage.instance.getAccessToken();
+      final url = '${ApiConstants.baseUrl}/admin/promo-codes';
+      final response = await _client.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 12));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final List list = json['data'] as List? ?? [];
+        return list.map((e) => PromoCodeItem.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<PromoCodeItem?> createPromoCodeAdmin({
+    required String code,
+    String? description,
+    int? discountPercent,
+    double? discountAmount,
+    int? maxUses,
+    int? durationDays,
+    bool? isActive,
+  }) async {
+    try {
+      final token = await TokenStorage.instance.getAccessToken();
+      final url = '${ApiConstants.baseUrl}/admin/promo-codes';
+      final now = DateTime.now();
+      final endDate = (durationDays != null && durationDays > 0)
+          ? now.add(Duration(days: durationDays))
+          : now.add(const Duration(days: 365));
+
+      final response = await _client.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'code': code.trim().toUpperCase(),
+          'description': description,
+          'discountPercent': discountPercent ?? 0,
+          'discountAmount': discountAmount ?? 0,
+          'maxUses': maxUses ?? 100,
+          'startDate': now.toIso8601String(),
+          'endDate': endDate.toIso8601String(),
+          'isActive': isActive ?? true,
+        }),
+      ).timeout(const Duration(seconds: 12));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return PromoCodeItem.fromJson(json['data'] as Map<String, dynamic>);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<PromoCodeItem?> togglePromoCodeAdmin(int id) async {
+    try {
+      final token = await TokenStorage.instance.getAccessToken();
+      final url = '${ApiConstants.baseUrl}/admin/promo-codes/$id/toggle';
+      final response = await _client.put(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 12));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return PromoCodeItem.fromJson(json['data'] as Map<String, dynamic>);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<bool> deletePromoCodeAdmin(int id) async {
+    try {
+      final token = await TokenStorage.instance.getAccessToken();
+      final url = '${ApiConstants.baseUrl}/admin/promo-codes/$id';
+      final response = await _client.delete(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 12));
+
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
 }
