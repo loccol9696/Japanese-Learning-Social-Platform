@@ -6,4 +6,5 @@ ALTER TABLE conversation_participants ADD COLUMN IF NOT EXISTS cleared_before_me
 -- ở cả dev lẫn prod, nếu không việc chèn tin DECK_SHARE sẽ bị từ chối.
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS deck_id BIGINT;
 ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_type_check;
-ALTER TABLE messages ADD CONSTRAINT messages_type_check CHECK (type IN ('TEXT', 'VIDEO_SHARE', 'DECK_SHARE'));
+-- Không tạo lại ràng buộc: enum MessageType đã được Java kiểm soát và còn thêm loại mới (IMAGE...); ChatSchemaUpdater
+-- cũng gỡ ràng buộc này mỗi lần khởi động. Giữ danh sách cố định ở đây sẽ chặn các loại tin mới.

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
@@ -96,7 +97,14 @@ class ChatService {
   }
 
   /// Tải ảnh lên Cloudinary qua backend, trả về URL.
+  ///
+  /// Backend chỉ nhận ảnh, video, âm thanh theo loại file khai báo, nên phải gửi kèm loại thật của ảnh
+  /// (không khai báo thì `http` mặc định là application/octet-stream và bị từ chối).
   Future<String> uploadImage(Uint8List bytes, String fileName) async {
+    final (type, extension) = imageTypeOf(bytes);
+    final name = fileName.contains('.')
+        ? '${fileName.substring(0, fileName.lastIndexOf('.'))}.$extension'
+        : '$fileName.$extension';
     final response = await _api.sendMultipart(
       () =>
           http.MultipartRequest(
@@ -104,12 +112,38 @@ class ChatService {
               Uri.parse(ApiConstants.chatImageUploadUrl),
             )
             ..files.add(
-              http.MultipartFile.fromBytes('file', bytes, filename: fileName),
+              http.MultipartFile.fromBytes(
+                'file',
+                bytes,
+                filename: name,
+                contentType: MediaType('image', type),
+              ),
             ),
       timeout: const Duration(seconds: 60),
     );
     final data = _map(ApiClient.decodeResponse(response));
     return (data['secureUrl'] ?? data['url']).toString();
+  }
+
+  /// Nhận dạng định dạng ảnh theo nội dung file; không nhận ra thì coi là JPEG (ảnh chọn từ thư viện đã nén JPEG).
+  /// Trả (subtype của image/*, đuôi file).
+  static (String, String) imageTypeOf(Uint8List bytes) {
+    bool starts(List<int> magic) =>
+        bytes.length >= magic.length &&
+        List.generate(magic.length, (i) => bytes[i] == magic[i]).every((e) => e);
+
+    if (starts(const [0x89, 0x50, 0x4E, 0x47])) return ('png', 'png');
+    if (starts(const [0x47, 0x49, 0x46, 0x38])) return ('gif', 'gif');
+    // WebP: "RIFF" .... "WEBP"
+    if (starts(const [0x52, 0x49, 0x46, 0x46]) &&
+        bytes.length >= 12 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
+      return ('webp', 'webp');
+    }
+    return ('jpeg', 'jpg');
   }
 
   Future<ChatMessage> recallMessage(int messageId) async {

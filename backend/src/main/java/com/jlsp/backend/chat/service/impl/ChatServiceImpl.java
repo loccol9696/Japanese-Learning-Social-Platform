@@ -415,6 +415,9 @@ public class ChatServiceImpl implements ChatService {
             if (!chatMapper.isShareable(deck)) {
                 throw new AppException(400, "Bộ thẻ riêng tư chưa thể chia sẻ. Hãy chuyển sang công khai trước.");
             }
+            if (content != null && content.isEmpty()) {
+                content = null;
+            }
         } else if (request.getType() == MessageType.IMAGE) {
             if (!imageValidator.isValid(request.getImageUrl())) {
                 throw new AppException(400, "Ảnh không hợp lệ");

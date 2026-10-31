@@ -19,6 +19,8 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   datasource:
     url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -131,13 +133,13 @@ app:
   security:
     enabled: true
 
+# Dev dùng phân tích ngữ pháp giả lập (không gọi Gemini, không tốn quota).
 ai-analysis:
   mock:
     delay-ms: 1500
     enabled: true
   api-key: "fake-key"
   base-url: "https://fake-api.com"
-  
 
 ---
 # Cấu hình riêng cho môi trường Production
