@@ -370,7 +370,6 @@ class _WordLookupCardState extends State<_WordLookupCard> {
   static final Map<String, Map<String, String>> _savedDecks = {};
 
   late Future<WordLookup> _lookupFuture;
-  bool _isSaving = false;
 
   @override
   void initState() {
@@ -386,30 +385,31 @@ class _WordLookupCardState extends State<_WordLookupCard> {
 
   /// Mở bảng chọn bộ thẻ, rồi lưu từ vào bộ được chọn.
   Future<void> _chooseAndSave(WordLookup word) async {
-    if (_isSaving) return;
+    final rootContext = Navigator.of(context, rootNavigator: true).context;
+    final sentence = widget.sentence;
+    final savedKeys = (_savedDecks[word.term] ?? const {}).keys.toSet();
+
+    // Thẻ tra từ dùng root overlay nên phải đóng trước khi mở dialog/sheet;
+    // nếu không nó sẽ luôn vẽ đè lên các route modal của Navigator.
+    widget.onClose();
+    await WidgetsBinding.instance.endOfFrame;
+
     if (!await requireAuthentication(
-      context,
+      rootContext,
       message: 'Bạn cần đăng nhập để lưu từ vựng vào bộ thẻ Flashcard và đồng bộ tiến trình học.',
     )) {
       return;
     }
-    if (!mounted) return;
 
     final choice = await showSaveToDeckSheet(
-      context,
-      savedKeys: (_savedDecks[word.term] ?? const {}).keys.toSet(),
+      rootContext,
+      savedKeys: savedKeys,
     );
-    if (choice == null || !mounted) return;
-    await _saveTo(word, choice);
-  }
+    if (choice == null) return;
 
-  Future<void> _saveTo(WordLookup word, DeckChoice choice) async {
-    if (_isSaving) return;
-    setState(() => _isSaving = true);
     try {
-      final example = widget.sentence.isNotEmpty ? widget.sentence : null;
+      final example = sentence.isNotEmpty ? sentence : null;
       if (choice.setId == null) {
-        // Bộ mặc định "Từ vựng đã lưu từ Video": backend tự tạo nếu chưa có.
         await FlashcardService.instance.saveVideoVocab(
           term: word.term,
           reading: word.reading,
@@ -426,26 +426,18 @@ class _WordLookupCardState extends State<_WordLookupCard> {
         );
       }
       (_savedDecks[word.term] ??= {})[choice.key] = choice.title;
-      // Để Thư viện thẻ nạp lại số thuật ngữ của các bộ.
       FlashcardStore.instance.invalidateAll();
-      if (!mounted) return;
-      _showSnackBar('Đã lưu "${word.term}" vào "${choice.title}"');
+      AppToast.showSuccess(
+        'Đã lưu "${word.term}" vào "${choice.title}"',
+        context: rootContext,
+      );
     } on ApiException catch (e) {
-      if (mounted) _showSnackBar(e.message, isError: true);
+      AppToast.showError(e.message, context: rootContext);
     } catch (_) {
-      if (mounted) {
-        _showSnackBar('Không lưu được từ. Vui lòng thử lại.', isError: true);
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
-
-  void _showSnackBar(String message, {bool isError = false}) {
-    if (isError) {
-      AppToast.showError(message, context: context);
-    } else {
-      AppToast.showSuccess(message, context: context);
+      AppToast.showError(
+        'Không lưu được từ. Vui lòng thử lại.',
+        context: rootContext,
+      );
     }
   }
 
@@ -733,21 +725,12 @@ class _WordLookupCardState extends State<_WordLookupCard> {
           ),
         ),
         // Đã lưu vẫn bấm được để lưu thêm vào bộ khác.
-        onPressed: _isSaving ? null : () => _chooseAndSave(word),
-        icon: _isSaving
-            ? SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppPalette.textPrimary,
-                ),
-              )
-            : Icon(
-                isSaved ? Icons.check_rounded : Icons.add_rounded,
-                size: 17,
-                color: isSaved ? AppPalette.textSecondary : AppPalette.textPrimary,
-              ),
+        onPressed: () => _chooseAndSave(word),
+        icon: Icon(
+          isSaved ? Icons.check_rounded : Icons.add_rounded,
+          size: 17,
+          color: isSaved ? AppPalette.textSecondary : AppPalette.textPrimary,
+        ),
         label: Text(
           isSaved ? 'Đã lưu · Lưu vào bộ khác' : 'Lưu vào Flashcard',
           style: TextStyle(
