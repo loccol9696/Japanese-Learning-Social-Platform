@@ -91,7 +91,6 @@ public class MediaServiceImpl implements MediaService {
 
         byte[] fileBytes;
         try {
-            // Đọc file một lần, dùng lại cho cả Cloudinary và nhận dạng giọng nói bên dưới.
             fileBytes = file.getBytes();
         } catch (IOException e) {
             log.error("Lỗi khi đọc file để tải lên Cloudinary", e);
@@ -119,7 +118,10 @@ public class MediaServiceImpl implements MediaService {
         return response;
     }
 
-    /** Upload bytes lên Cloudinary; nếu là video thì chạy AI tạo phụ đề ở nền. */
+    /**
+     * Upload bytes lên Cloudinary. Không tự động chạy AI tạo phụ đề ở đây;
+     * AI chỉ được khởi chạy khi người dùng chủ động nhấn nút "Tạo bằng AI".
+     */
     private CloudinaryUploadResponse uploadBytes(byte[] fileBytes, String filename, String safeFolder) {
         try {
             Map<String, Object> uploadParams = new HashMap<>();
@@ -131,21 +133,6 @@ public class MediaServiceImpl implements MediaService {
             String secureUrl = (String) uploadResult.get("secure_url");
             String aiTaskId = null;
             String aiStatus = "NOT_STARTED";
-
-            if ("video".equals(uploadResult.get("resource_type"))
-                    && secureUrl != null && !secureUrl.isBlank()) {
-                try {
-                    aiTaskId = java.util.UUID.randomUUID().toString();
-                    speechToTextService.processAudioAsync(
-                            aiTaskId,
-                            fileBytes,
-                            filename);
-                    aiStatus = "PROCESSING";
-                } catch (Exception aiException) {
-                    log.error("Không thể khởi động AI cho file Cloudinary {}", secureUrl, aiException);
-                    aiStatus = "FAILED_TO_START";
-                }
-            }
 
             log.info("Upload file lên Cloudinary thành công: public_id={}, url={}",
                     uploadResult.get("public_id"), secureUrl);
@@ -253,8 +240,7 @@ public class MediaServiceImpl implements MediaService {
         if (cloudName == null || cloudName.isBlank()
                 || apiKey == null || apiKey.isBlank()
                 || apiSecret == null || apiSecret.isBlank()) {
-            log.error("Cloudinary chưa được cấu hình đầy đủ (cloudName, apiKey, apiSecret)!");
-            throw new AppException(500, "Cloudinary chưa được cấu hình đầy đủ trên hệ thống");
+            throw new AppException(503, "Chưa cấu hình đầy đủ thông tin Cloudinary");
         }
     }
 }

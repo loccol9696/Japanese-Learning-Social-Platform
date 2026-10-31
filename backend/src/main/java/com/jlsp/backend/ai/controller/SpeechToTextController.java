@@ -75,7 +75,7 @@ public class SpeechToTextController {
     }
 
     /**
-     * Khởi động lại AI tạo phụ đề từ URL video trên Cloudinary (dùng khi chỉnh sửa bản nháp).
+     * Khởi chạy AI tạo phụ đề từ URL video trên Cloudinary khi người dùng nhấn nút "Tạo bằng AI".
      */
     @PostMapping("/transcribe-url")
     public ResponseEntity<TranscriptionSubmitResponse> submitTranscriptionFromUrl(
@@ -84,6 +84,23 @@ public class SpeechToTextController {
         String videoUrl = rawUrl != null ? rawUrl.toString().trim() : "";
         if (videoUrl.isEmpty()) {
             return ResponseEntity.badRequest().build();
+        }
+
+        Long userId = CurrentUser.idOrNull();
+        if (userId != null) {
+            int duration = 60;
+            Object rawDuration = body != null ? body.get("duration") : null;
+            if (rawDuration instanceof Number n && n.intValue() > 0) {
+                duration = n.intValue();
+            } else if (rawDuration != null) {
+                try {
+                    int parsed = Integer.parseInt(rawDuration.toString().trim());
+                    if (parsed > 0) duration = parsed;
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            int tokensRequired = systemSettingService.calculateTokensRequired(duration);
+            subscriptionService.validateAndDeductTokens(userId, tokensRequired);
         }
 
         byte[] videoBytes = mediaService.downloadFromCloudinary(videoUrl);
@@ -103,6 +120,10 @@ public class SpeechToTextController {
     @PostMapping("/analyze-grammar")
     public ResponseEntity<ApiResponse<List<SegmentGrammarAnalysis>>> analyzeGrammar(
             @RequestBody AnalyzeGrammarRequest request) throws Exception {
+        Long userId = CurrentUser.idOrNull();
+        if (userId != null) {
+            subscriptionService.validateAndDeductTokens(userId, 1);
+        }
         List<SegmentGrammarAnalysis> analyzedSegments = grammarAnalysisService.analyze(request.getSegments());
         return ResponseEntity.ok(ApiResponse.success(analyzedSegments));
     }

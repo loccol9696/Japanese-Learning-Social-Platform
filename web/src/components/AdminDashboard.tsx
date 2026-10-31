@@ -182,29 +182,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   const [analyticsData, setAnalyticsData] = useState<AdminAnalyticsData | null>(null);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
+  // Filter types: 'month_year' (chọn tháng & năm) | 'range' (tùy chỉnh khoảng ngày)
+  type ChartFilterMode = 'month_year' | 'range';
+
+  // Global Filter State (đồng bộ cho toàn bộ biểu đồ)
+  const [globalFilterMode, setGlobalFilterMode] = useState<ChartFilterMode>('month_year');
+  const [globalYear, setGlobalYear] = useState<number>(2026);
+  const [globalMonth, setGlobalMonth] = useState<number>(10);
+  const [globalStartDate, setGlobalStartDate] = useState<string>('2026-10-01');
+  const [globalEndDate, setGlobalEndDate] = useState<string>('2026-10-31');
+
   // Chart 1: Học viên đăng ký (Chỉ role USER, loại trừ Admin/Mod)
-  const [userPeriod, setUserPeriod] = useState<'7days' | 'days_in_month' | 'month' | 'year'>('days_in_month');
+  const [userFilterMode, setUserFilterMode] = useState<ChartFilterMode>('month_year');
   const [userYear, setUserYear] = useState<number>(2026);
   const [userMonth, setUserMonth] = useState<number>(10);
+  const [userStartDate, setUserStartDate] = useState<string>('2026-10-01');
+  const [userEndDate, setUserEndDate] = useState<string>('2026-10-31');
   const [userTrendData, setUserTrendData] = useState<DailyMetricDto[] | null>(null);
   const [isLoadingUserTrend, setIsLoadingUserTrend] = useState<boolean>(false);
   const [userChartType, setUserChartType] = useState<'spline' | 'bar'>('spline');
 
   // Chart 2: Tiêu thụ Token AI
-  const [tokenPeriod, setTokenPeriod] = useState<'7days' | 'days_in_month' | 'month' | 'year'>('days_in_month');
+  const [tokenFilterMode, setTokenFilterMode] = useState<ChartFilterMode>('month_year');
   const [tokenYear, setTokenYear] = useState<number>(2026);
   const [tokenMonth, setTokenMonth] = useState<number>(10);
+  const [tokenStartDate, setTokenStartDate] = useState<string>('2026-10-01');
+  const [tokenEndDate, setTokenEndDate] = useState<string>('2026-10-31');
   const [tokenTrendData, setTokenTrendData] = useState<DailyMetricDto[] | null>(null);
   const [isLoadingTokenTrend, setIsLoadingTokenTrend] = useState<boolean>(false);
   const [tokenChartType, setTokenChartType] = useState<'spline' | 'bar'>('spline');
 
   // Chart 3: Doanh thu bán gói VIP
-  const [revPeriod, setRevPeriod] = useState<'7days' | 'days_in_month' | 'month' | 'year'>('days_in_month');
+  const [revFilterMode, setRevFilterMode] = useState<ChartFilterMode>('month_year');
   const [revYear, setRevYear] = useState<number>(2026);
   const [revMonth, setRevMonth] = useState<number>(10);
+  const [revStartDate, setRevStartDate] = useState<string>('2026-10-01');
+  const [revEndDate, setRevEndDate] = useState<string>('2026-10-31');
   const [revTrendData, setRevTrendData] = useState<DailyMetricDto[] | null>(null);
   const [isLoadingRevTrend, setIsLoadingRevTrend] = useState<boolean>(false);
   const [revChartType, setRevChartType] = useState<'spline' | 'bar'>('spline');
+
+  const formatVNDate = (dStr: string) => {
+    if (!dStr) return '';
+    try {
+      const parts = dStr.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      return dStr;
+    } catch {
+      return dStr;
+    }
+  };
 
   const loadAnalytics = async () => {
     if (!isAdmin) return;
@@ -219,11 +248,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
-  const fetchUserTrend = async (period: '7days' | 'days_in_month' | 'month' | 'year', y: number, m: number) => {
+  const fetchUserTrend = async (
+    mode: ChartFilterMode,
+    y: number,
+    m: number,
+    start?: string,
+    end?: string
+  ) => {
     if (!isAdmin) return;
+    if (mode === 'range' && (!start || !end)) return;
     setIsLoadingUserTrend(true);
     try {
-      const data = await getMetricTrend('user', period, y, m);
+      const period = mode === 'month_year' ? 'days_in_month' : 'range';
+      const data = await getMetricTrend('user', period, y, m, mode === 'range' ? start : undefined, mode === 'range' ? end : undefined);
       setUserTrendData(data);
     } catch (err) {
       console.error('Lỗi tải xu hướng học viên:', err);
@@ -232,11 +269,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
-  const fetchTokenTrend = async (period: '7days' | 'days_in_month' | 'month' | 'year', y: number, m: number) => {
+  const fetchTokenTrend = async (
+    mode: ChartFilterMode,
+    y: number,
+    m: number,
+    start?: string,
+    end?: string
+  ) => {
     if (!isAdmin) return;
+    if (mode === 'range' && (!start || !end)) return;
     setIsLoadingTokenTrend(true);
     try {
-      const data = await getMetricTrend('token', period, y, m);
+      const period = mode === 'month_year' ? 'days_in_month' : 'range';
+      const data = await getMetricTrend('token', period, y, m, mode === 'range' ? start : undefined, mode === 'range' ? end : undefined);
       setTokenTrendData(data);
     } catch (err) {
       console.error('Lỗi tải xu hướng token:', err);
@@ -245,11 +290,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
-  const fetchRevTrend = async (period: '7days' | 'days_in_month' | 'month' | 'year', y: number, m: number) => {
+  const fetchRevTrend = async (
+    mode: ChartFilterMode,
+    y: number,
+    m: number,
+    start?: string,
+    end?: string
+  ) => {
     if (!isAdmin) return;
+    if (mode === 'range' && (!start || !end)) return;
     setIsLoadingRevTrend(true);
     try {
-      const data = await getMetricTrend('revenue', period, y, m);
+      const period = mode === 'month_year' ? 'days_in_month' : 'range';
+      const data = await getMetricTrend('revenue', period, y, m, mode === 'range' ? start : undefined, mode === 'range' ? end : undefined);
       setRevTrendData(data);
     } catch (err) {
       console.error('Lỗi tải xu hướng doanh thu:', err);
@@ -266,35 +319,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
   useEffect(() => {
     if (isAdmin && activeTab === 'analytics') {
-      fetchUserTrend(userPeriod, userYear, userMonth);
+      fetchUserTrend(userFilterMode, userYear, userMonth, userStartDate, userEndDate);
     }
-  }, [isAdmin, activeTab, userPeriod, userYear, userMonth]);
+  }, [isAdmin, activeTab, userFilterMode, userYear, userMonth, userStartDate, userEndDate]);
 
   useEffect(() => {
     if (isAdmin && activeTab === 'analytics') {
-      fetchTokenTrend(tokenPeriod, tokenYear, tokenMonth);
+      fetchTokenTrend(tokenFilterMode, tokenYear, tokenMonth, tokenStartDate, tokenEndDate);
     }
-  }, [isAdmin, activeTab, tokenPeriod, tokenYear, tokenMonth]);
+  }, [isAdmin, activeTab, tokenFilterMode, tokenYear, tokenMonth, tokenStartDate, tokenEndDate]);
 
   useEffect(() => {
     if (isAdmin && activeTab === 'analytics') {
-      fetchRevTrend(revPeriod, revYear, revMonth);
+      fetchRevTrend(revFilterMode, revYear, revMonth, revStartDate, revEndDate);
     }
-  }, [isAdmin, activeTab, revPeriod, revYear, revMonth]);
+  }, [isAdmin, activeTab, revFilterMode, revYear, revMonth, revStartDate, revEndDate]);
 
-  // Đồng bộ nhanh thời gian cho tất cả biểu đồ cùng một lúc
-  const applyQuickSync = (period: '7days' | 'days_in_month' | 'month' | 'year', y: number = 2026, m: number = 10) => {
-    setUserPeriod(period);
-    setUserYear(y);
+  // Đồng bộ thời gian cho tất cả biểu đồ
+  const applyGlobalMonthYear = (m: number, y: number) => {
+    setGlobalFilterMode('month_year');
+    setGlobalMonth(m);
+    setGlobalYear(y);
+
+    setUserFilterMode('month_year');
     setUserMonth(m);
+    setUserYear(y);
 
-    setTokenPeriod(period);
-    setTokenYear(y);
+    setTokenFilterMode('month_year');
     setTokenMonth(m);
+    setTokenYear(y);
 
-    setRevPeriod(period);
-    setRevYear(y);
+    setRevFilterMode('month_year');
     setRevMonth(m);
+    setRevYear(y);
+  };
+
+  const applyGlobalRange = (start: string, end: string) => {
+    if (!start || !end) return;
+    setGlobalFilterMode('range');
+    setGlobalStartDate(start);
+    setGlobalEndDate(end);
+
+    setUserFilterMode('range');
+    setUserStartDate(start);
+    setUserEndDate(end);
+
+    setTokenFilterMode('range');
+    setTokenStartDate(start);
+    setTokenEndDate(end);
+
+    setRevFilterMode('range');
+    setRevStartDate(start);
+    setRevEndDate(end);
   };
 
   // Helper render thanh tóm tắt chỉ số đỉnh cao / trung bình / tổng cộng
@@ -356,11 +432,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
 
     const isDense = metrics.length > 14;
-    const width = isDense ? Math.max(640, metrics.length * 36) : 640;
+    const contentWidth = isDense ? Math.max(640, metrics.length * 36) : 640;
     const height = 210;
-    const padX = isDense ? 24 : 40;
+    const padX = isDense ? 28 : 40;
     const padY = 32;
-    const chartW = width - 2 * padX;
+    const chartW = contentWidth - 2 * padX;
     const chartH = height - 2 * padY;
 
     const maxVal = Math.max(1, ...metrics.map(m => m.value));
@@ -395,8 +471,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
     return (
       <div className="chart-scroll-wrapper">
-        <div className="curved-chart-container" style={{ width: `${width}px`, minWidth: '100%' }}>
-          <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="curved-chart-svg">
+        <div
+          className="curved-chart-container"
+          style={{
+            width: isDense ? `${contentWidth}px` : '100%',
+            minWidth: isDense ? `${contentWidth}px` : '100%',
+            height: '220px'
+          }}
+        >
+          <svg
+            viewBox={`0 0 ${contentWidth} ${height}`}
+            style={{
+              width: isDense ? `${contentWidth}px` : '100%',
+              height: `${height}px`,
+              display: 'block'
+            }}
+            className="curved-chart-svg"
+          >
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={color} stopOpacity="0.4" />
@@ -405,9 +496,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </defs>
 
             {/* Guide grid lines */}
-            <line x1={padX} y1={padY} x2={width - padX} y2={padY} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
-            <line x1={padX} y1={height / 2} x2={width - padX} y2={height / 2} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
-            <line x1={padX} y1={height - padY} x2={width - padX} y2={height - padY} stroke="var(--admin-border)" strokeWidth="1.5" />
+            <line x1={padX} y1={padY} x2={contentWidth - padX} y2={padY} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
+            <line x1={padX} y1={height / 2} x2={contentWidth - padX} y2={height / 2} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
+            <line x1={padX} y1={height - padY} x2={contentWidth - padX} y2={height - padY} stroke="var(--admin-border)" strokeWidth="1.5" />
 
             {/* Area Fill under curve */}
             <path d={areaPath} fill={`url(#${gradientId})`} />
@@ -418,10 +509,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             {/* Nodes with Badges and Labels */}
             {points.map((pt, i) => {
               const valStr = formatVal(pt.value);
-              const badgeW = Math.max(26, valStr.length * 7 + 10);
-              const step = Math.ceil(points.length / 22);
-              const showLabel = !isDense || (i % step === 0) || (i === points.length - 1) || (pt.value > 0);
-              const showBadge = !isDense || (pt.value > 0);
+              const badgeW = Math.max(26, valStr.length * 6.8 + 8);
+              const step = Math.ceil(points.length / 20);
+              const showLabel = !isDense || (i % step === 0) || (i === points.length - 1);
+              const showBadge = !isDense ? true : (pt.value === maxVal || (i % step === 0 && pt.value > 0));
 
               return (
                 <g key={i} className="chart-svg-node">
@@ -436,7 +527,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                       y2={height - padY}
                       stroke="var(--admin-border)"
                       strokeDasharray="2 2"
-                      opacity="0.6"
+                      opacity="0.5"
                     />
                   )}
 
@@ -444,7 +535,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                   <circle
                     cx={pt.x}
                     cy={pt.y}
-                    r={pt.value > 0 ? (isDense ? 3.5 : 5) : 2.5}
+                    r={pt.value > 0 ? (isDense ? 3.5 : 4.5) : 2.5}
                     fill={pt.value > 0 ? color : 'var(--admin-border)'}
                     stroke="var(--admin-bg-surface)"
                     strokeWidth="2"
@@ -452,11 +543,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                   />
 
                   {/* Floating Value Pill Badge */}
-                  {showBadge && (
-                    <g transform={`translate(${pt.x - badgeW / 2}, ${pt.y - 25})`} className="chart-svg-badge-group">
+                  {showBadge && pt.value > 0 && (
+                    <g transform={`translate(${pt.x - badgeW / 2}, ${pt.y - 23})`} className="chart-svg-badge-group">
                       <rect
                         width={badgeW}
-                        height="18"
+                        height="17"
                         rx="3"
                         fill="var(--admin-bg-surface-elevated)"
                         stroke="var(--admin-border)"
@@ -467,7 +558,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                         y="12"
                         textAnchor="middle"
                         fill="var(--admin-text-main)"
-                        fontSize="10"
+                        fontSize="9.5"
                         fontFamily="var(--font-mono)"
                         fontWeight="700"
                       >
@@ -483,7 +574,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                       y={height - 8}
                       textAnchor="middle"
                       fill="var(--admin-text-dim)"
-                      fontSize={isDense ? "9.5" : "11"}
+                      fontSize={isDense ? "9" : "10.5"}
                       fontFamily="var(--font-mono)"
                       fontWeight="600"
                       className="chart-svg-label"
@@ -529,6 +620,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     const maxVal = Math.max(1, ...metrics.map(t => t.value));
     const isDense = metrics.length > 14;
     const computedWidth = isDense ? `${Math.max(640, metrics.length * 36)}px` : '100%';
+    const step = Math.ceil(metrics.length / 20);
 
     return (
       <div className="chart-scroll-wrapper">
@@ -536,20 +628,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
           className="chart-bars-wrap"
           style={{
             width: computedWidth,
+            minWidth: computedWidth,
             justifyContent: isDense ? 'flex-start' : 'space-between',
-            gap: isDense ? '0.45rem' : '0.75rem'
+            gap: isDense ? '0.45rem' : '0.75rem',
+            boxSizing: 'border-box'
           }}
         >
           {metrics.map((t, idx) => {
-            const heightPct = t.value > 0 ? Math.max(10, (t.value / maxVal) * 85) : 3;
-            const step = Math.ceil(metrics.length / 22);
-            const showLabel = !isDense || (idx % step === 0) || (idx === metrics.length - 1) || (t.value > 0);
+            const heightPct = t.value > 0 ? Math.max(8, (t.value / maxVal) * 82) : 3;
+            const showLabel = !isDense || (idx % step === 0) || (idx === metrics.length - 1);
+            const showBadge = !isDense ? (t.value > 0) : (t.value === maxVal || (idx % step === 0 && t.value > 0));
+
             return (
               <div
                 key={idx}
                 className="chart-col-item"
                 style={{
-                  minWidth: isDense ? 28 : undefined,
+                  minWidth: isDense ? 26 : undefined,
                   flex: isDense ? '0 0 auto' : 1
                 }}
               >
@@ -557,15 +652,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                   className={`chart-bar-rect ${colorClass} ${t.value === 0 ? 'is-zero' : ''}`}
                   style={{
                     height: `${heightPct}%`,
-                    animationDelay: `${Math.min(idx * 15, 600)}ms`
+                    animationDelay: `${Math.min(idx * 15, 500)}ms`
                   }}
                   title={`${t.dateLabel}: ${formatVal(t.value)}`}
                 >
-                  <span className="chart-bar-val-badge">
-                    {t.value > 0 ? formatVal(t.value) : (isDense ? '' : '0')}
-                  </span>
+                  {showBadge && (
+                    <span className="chart-bar-val-badge">
+                      {formatVal(t.value)}
+                    </span>
+                  )}
                 </div>
-                <span className="chart-col-label">{showLabel ? t.dateLabel : ''}</span>
+                <span className="chart-col-label">{showLabel ? t.dateLabel : '\u00A0'}</span>
               </div>
             );
           })}
@@ -1312,49 +1409,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                 </div>
               </div>
 
-              {/* Quick Sync & Preset Toolbar */}
-              <div className="analytics-filter-bar">
-                <div className="analytics-filter-group">
-                  <span className="filter-label">⚡ Đồng bộ nhanh tất cả biểu đồ:</span>
-                  <div className="segmented-pill-wrap">
-                    <button
-                      type="button"
-                      className="pill-btn"
-                      onClick={() => applyQuickSync('7days')}
-                    >
-                      7 Ngày gần nhất
-                    </button>
-                    <button
-                      type="button"
-                      className="pill-btn"
-                      onClick={() => applyQuickSync('days_in_month', 2026, 10)}
-                    >
-                      Tháng 10/2026
-                    </button>
-                    <button
-                      type="button"
-                      className="pill-btn"
-                      onClick={() => applyQuickSync('month', 2026)}
-                    >
-                      12 Tháng năm 2026
-                    </button>
-                    <button
-                      type="button"
-                      className="pill-btn"
-                      onClick={() => applyQuickSync('year')}
-                    >
-                      5 Năm gần nhất
-                    </button>
-                  </div>
-                </div>
-
-                <div className="analytics-filter-group" style={{ marginLeft: 'auto' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--admin-text-dim)' }}>
-                    💡 Hoặc tùy chỉnh độc lập tháng / năm riêng cho từng biểu đồ bên dưới
-                  </span>
-                </div>
-              </div>
-
               {/* 3 Interactive Visual Charts */}
               <div className="analytics-charts-grid">
                 {/* Biểu đồ 1: Phân tích User Đăng Ký (Chỉ tính Học viên role USER) */}
@@ -1366,54 +1420,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                         <span>Học Viên Đăng Ký (Chỉ tính role USER)</span>
                       </div>
                       <span className="chart-subtitle">
-                        {userPeriod === '7days' && '7 Ngày gần nhất'}
-                        {userPeriod === 'days_in_month' && `Từng ngày trong Tháng ${userMonth}/${userYear}`}
-                        {userPeriod === 'month' && `12 Tháng trong Năm ${userYear}`}
-                        {userPeriod === 'year' && '5 Năm gần nhất (2022 - 2026)'}
+                        {userFilterMode === 'month_year'
+                          ? `Từng ngày trong Tháng ${userMonth}/${userYear}`
+                          : `Từ ${formatVNDate(userStartDate)} đến ${formatVNDate(userEndDate)}`}
                         {' • Loại trừ 100% Admin & Moderator'}
                       </span>
                     </div>
 
                     <div className="chart-card-toolbar">
-                      {/* Period Selector */}
+                      {/* Filter Mode Selector */}
                       <select
                         className="chart-mini-select"
-                        value={userPeriod}
-                        onChange={(e) => setUserPeriod(e.target.value as any)}
-                        title="Chọn kỳ hiển thị"
+                        value={userFilterMode}
+                        onChange={(e) => setUserFilterMode(e.target.value as ChartFilterMode)}
+                        title="Chế độ lọc thời gian"
                       >
-                        <option value="7days">7 Ngày gần nhất</option>
-                        <option value="days_in_month">Từng ngày trong tháng</option>
-                        <option value="month">12 Tháng trong năm</option>
-                        <option value="year">5 Năm gần nhất</option>
+                        <option value="month_year">Theo Tháng / Năm</option>
+                        <option value="range">Khoảng ngày tùy chỉnh</option>
                       </select>
 
-                      {/* Month Selector */}
-                      {userPeriod === 'days_in_month' && (
-                        <select
-                          className="chart-mini-select"
-                          value={userMonth}
-                          onChange={(e) => setUserMonth(Number(e.target.value))}
-                          title="Chọn tháng"
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                            <option key={m} value={m}>Tháng {m}</option>
-                          ))}
-                        </select>
+                      {/* Month & Year Selectors */}
+                      {userFilterMode === 'month_year' && (
+                        <>
+                          <select
+                            className="chart-mini-select"
+                            value={userMonth}
+                            onChange={(e) => setUserMonth(Number(e.target.value))}
+                            title="Chọn tháng"
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                              <option key={m} value={m}>Tháng {m}</option>
+                            ))}
+                          </select>
+                          <select
+                            className="chart-mini-select"
+                            value={userYear}
+                            onChange={(e) => setUserYear(Number(e.target.value))}
+                            title="Chọn năm"
+                          >
+                            {[2027, 2026, 2025, 2024, 2023, 2022].map(y => (
+                              <option key={y} value={y}>Năm {y}</option>
+                            ))}
+                          </select>
+                        </>
                       )}
 
-                      {/* Year Selector */}
-                      {(userPeriod === 'days_in_month' || userPeriod === 'month') && (
-                        <select
-                          className="chart-mini-select"
-                          value={userYear}
-                          onChange={(e) => setUserYear(Number(e.target.value))}
-                          title="Chọn năm"
-                        >
-                          {[2026, 2025, 2024, 2023, 2022].map(y => (
-                            <option key={y} value={y}>Năm {y}</option>
-                          ))}
-                        </select>
+                      {/* Custom Date Range Inputs */}
+                      {userFilterMode === 'range' && (
+                        <div className="chart-date-range-group">
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={userStartDate}
+                            onChange={(e) => setUserStartDate(e.target.value)}
+                            title="Từ ngày"
+                          />
+                          <span className="chart-date-label">→</span>
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={userEndDate}
+                            onChange={(e) => setUserEndDate(e.target.value)}
+                            title="Đến ngày"
+                          />
+                        </div>
                       )}
 
                       {/* View Type Toggle */}
@@ -1468,54 +1538,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                         <span>Tiêu Thụ Token AI (Speech-to-Text)</span>
                       </div>
                       <span className="chart-subtitle">
-                        {tokenPeriod === '7days' && '7 Ngày gần nhất'}
-                        {tokenPeriod === 'days_in_month' && `Từng ngày trong Tháng ${tokenMonth}/${tokenYear}`}
-                        {tokenPeriod === 'month' && `12 Tháng trong Năm ${tokenYear}`}
-                        {tokenPeriod === 'year' && '5 Năm gần nhất (2022 - 2026)'}
+                        {tokenFilterMode === 'month_year'
+                          ? `Từng ngày trong Tháng ${tokenMonth}/${tokenYear}`
+                          : `Từ ${formatVNDate(tokenStartDate)} đến ${formatVNDate(tokenEndDate)}`}
                         {' • Tổng lượng Token tiêu thụ thực tế'}
                       </span>
                     </div>
 
                     <div className="chart-card-toolbar">
-                      {/* Period Selector */}
+                      {/* Filter Mode Selector */}
                       <select
                         className="chart-mini-select"
-                        value={tokenPeriod}
-                        onChange={(e) => setTokenPeriod(e.target.value as any)}
-                        title="Chọn kỳ hiển thị"
+                        value={tokenFilterMode}
+                        onChange={(e) => setTokenFilterMode(e.target.value as ChartFilterMode)}
+                        title="Chế độ lọc thời gian"
                       >
-                        <option value="7days">7 Ngày gần nhất</option>
-                        <option value="days_in_month">Từng ngày trong tháng</option>
-                        <option value="month">12 Tháng trong năm</option>
-                        <option value="year">5 Năm gần nhất</option>
+                        <option value="month_year">Theo Tháng / Năm</option>
+                        <option value="range">Khoảng ngày tùy chỉnh</option>
                       </select>
 
-                      {/* Month Selector */}
-                      {tokenPeriod === 'days_in_month' && (
-                        <select
-                          className="chart-mini-select"
-                          value={tokenMonth}
-                          onChange={(e) => setTokenMonth(Number(e.target.value))}
-                          title="Chọn tháng"
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                            <option key={m} value={m}>Tháng {m}</option>
-                          ))}
-                        </select>
+                      {/* Month & Year Selectors */}
+                      {tokenFilterMode === 'month_year' && (
+                        <>
+                          <select
+                            className="chart-mini-select"
+                            value={tokenMonth}
+                            onChange={(e) => setTokenMonth(Number(e.target.value))}
+                            title="Chọn tháng"
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                              <option key={m} value={m}>Tháng {m}</option>
+                            ))}
+                          </select>
+                          <select
+                            className="chart-mini-select"
+                            value={tokenYear}
+                            onChange={(e) => setTokenYear(Number(e.target.value))}
+                            title="Chọn năm"
+                          >
+                            {[2027, 2026, 2025, 2024, 2023, 2022].map(y => (
+                              <option key={y} value={y}>Năm {y}</option>
+                            ))}
+                          </select>
+                        </>
                       )}
 
-                      {/* Year Selector */}
-                      {(tokenPeriod === 'days_in_month' || tokenPeriod === 'month') && (
-                        <select
-                          className="chart-mini-select"
-                          value={tokenYear}
-                          onChange={(e) => setTokenYear(Number(e.target.value))}
-                          title="Chọn năm"
-                        >
-                          {[2026, 2025, 2024, 2023, 2022].map(y => (
-                            <option key={y} value={y}>Năm {y}</option>
-                          ))}
-                        </select>
+                      {/* Custom Date Range Inputs */}
+                      {tokenFilterMode === 'range' && (
+                        <div className="chart-date-range-group">
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={tokenStartDate}
+                            onChange={(e) => setTokenStartDate(e.target.value)}
+                            title="Từ ngày"
+                          />
+                          <span className="chart-date-label">→</span>
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={tokenEndDate}
+                            onChange={(e) => setTokenEndDate(e.target.value)}
+                            title="Đến ngày"
+                          />
+                        </div>
                       )}
 
                       {/* View Type Toggle */}
@@ -1573,54 +1659,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                         <span>Doanh Thu Gói VIP (Đường Cong Parabol)</span>
                       </div>
                       <span className="chart-subtitle">
-                        {revPeriod === '7days' && '7 Ngày gần nhất'}
-                        {revPeriod === 'days_in_month' && `Từng ngày trong Tháng ${revMonth}/${revYear}`}
-                        {revPeriod === 'month' && `12 Tháng trong Năm ${revYear}`}
-                        {revPeriod === 'year' && '5 Năm gần nhất (2022 - 2026)'}
+                        {revFilterMode === 'month_year'
+                          ? `Từng ngày trong Tháng ${revMonth}/${revYear}`
+                          : `Từ ${formatVNDate(revStartDate)} đến ${formatVNDate(revEndDate)}`}
                         {' • Đơn hàng thanh toán thành công thực tế (VND)'}
                       </span>
                     </div>
 
                     <div className="chart-card-toolbar">
-                      {/* Period Selector */}
+                      {/* Filter Mode Selector */}
                       <select
                         className="chart-mini-select"
-                        value={revPeriod}
-                        onChange={(e) => setRevPeriod(e.target.value as any)}
-                        title="Chọn kỳ hiển thị"
+                        value={revFilterMode}
+                        onChange={(e) => setRevFilterMode(e.target.value as ChartFilterMode)}
+                        title="Chế độ lọc thời gian"
                       >
-                        <option value="7days">7 Ngày gần nhất</option>
-                        <option value="days_in_month">Từng ngày trong tháng</option>
-                        <option value="month">12 Tháng trong năm</option>
-                        <option value="year">5 Năm gần nhất</option>
+                        <option value="month_year">Theo Tháng / Năm</option>
+                        <option value="range">Khoảng ngày tùy chỉnh</option>
                       </select>
 
-                      {/* Month Selector */}
-                      {revPeriod === 'days_in_month' && (
-                        <select
-                          className="chart-mini-select"
-                          value={revMonth}
-                          onChange={(e) => setRevMonth(Number(e.target.value))}
-                          title="Chọn tháng"
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                            <option key={m} value={m}>Tháng {m}</option>
-                          ))}
-                        </select>
+                      {/* Month & Year Selectors */}
+                      {revFilterMode === 'month_year' && (
+                        <>
+                          <select
+                            className="chart-mini-select"
+                            value={revMonth}
+                            onChange={(e) => setRevMonth(Number(e.target.value))}
+                            title="Chọn tháng"
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                              <option key={m} value={m}>Tháng {m}</option>
+                            ))}
+                          </select>
+                          <select
+                            className="chart-mini-select"
+                            value={revYear}
+                            onChange={(e) => setRevYear(Number(e.target.value))}
+                            title="Chọn năm"
+                          >
+                            {[2027, 2026, 2025, 2024, 2023, 2022].map(y => (
+                              <option key={y} value={y}>Năm {y}</option>
+                            ))}
+                          </select>
+                        </>
                       )}
 
-                      {/* Year Selector */}
-                      {(revPeriod === 'days_in_month' || revPeriod === 'month') && (
-                        <select
-                          className="chart-mini-select"
-                          value={revYear}
-                          onChange={(e) => setRevYear(Number(e.target.value))}
-                          title="Chọn năm"
-                        >
-                          {[2026, 2025, 2024, 2023, 2022].map(y => (
-                            <option key={y} value={y}>Năm {y}</option>
-                          ))}
-                        </select>
+                      {/* Custom Date Range Inputs */}
+                      {revFilterMode === 'range' && (
+                        <div className="chart-date-range-group">
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={revStartDate}
+                            onChange={(e) => setRevStartDate(e.target.value)}
+                            title="Từ ngày"
+                          />
+                          <span className="chart-date-label">→</span>
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={revEndDate}
+                            onChange={(e) => setRevEndDate(e.target.value)}
+                            title="Đến ngày"
+                          />
+                        </div>
                       )}
 
                       {/* View Type Toggle */}
