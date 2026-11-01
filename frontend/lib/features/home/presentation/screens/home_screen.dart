@@ -565,6 +565,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           onCommentTap: () => showCommentsSheet(
             context,
             videoId: post.id,
+            videoOwnerId: post.creatorId,
             initialCount: post.commentCount,
           ),
           allowAccountActions: AuthSession.instance.isAuthenticated,

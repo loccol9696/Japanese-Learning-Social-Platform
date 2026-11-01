@@ -65,6 +65,25 @@ class CommentService {
     );
   }
 
+  /// Chủ video ghim bình luận gốc lên đầu; bình luận đang ghim trước đó tự bỏ ghim.
+  Future<CommentFlags> pinComment(String videoId, int commentId) async =>
+      _parseFlags(await _apiClient.post(_commentUrl(videoId, commentId, 'pin')));
+
+  Future<CommentFlags> unpinComment(String videoId, int commentId) async =>
+      _parseFlags(
+        await _apiClient.delete(_commentUrl(videoId, commentId, 'pin')),
+      );
+
+  String _commentUrl(String videoId, int commentId, String action) =>
+      '${ApiConstants.baseUrl}/videos/$videoId/comments/$commentId/$action';
+
+  CommentFlags _parseFlags(dynamic response) {
+    if (response is! Map<String, dynamic>) {
+      throw const FormatException('Backend trả về trạng thái bình luận không hợp lệ.');
+    }
+    return CommentFlags.fromJson(response);
+  }
+
   String _likesUrl(String videoId, int commentId) =>
       '${ApiConstants.baseUrl}/videos/$videoId/comments/$commentId/likes';
 

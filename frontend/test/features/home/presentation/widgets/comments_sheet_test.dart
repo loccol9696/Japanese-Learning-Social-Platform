@@ -95,9 +95,9 @@ void main() {
     expect(find.text('Vừa xong'), findsOneWidget);
     expect(find.text('test'), findsOneWidget);
     expect(find.text('trả lời'), findsOneWidget);
-    // Mỗi bình luận có "Trả lời" và "Báo cáo" (chưa đăng nhập nên không có "Xóa").
+    // Dưới mỗi bình luận chỉ còn "Trả lời"; Báo cáo / Xóa nằm trong menu nhấn giữ.
     expect(find.text('Trả lời'), findsNWidgets(3));
-    expect(find.text('Báo cáo'), findsNWidgets(3));
+    expect(find.text('Báo cáo'), findsNothing);
     expect(find.text('Xóa'), findsNothing);
     expect(find.text('Thêm bình luận...'), findsOneWidget);
   });
