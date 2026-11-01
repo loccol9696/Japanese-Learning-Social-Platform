@@ -147,7 +147,8 @@ class _SrsStudyScreenState extends State<SrsStudyScreen>
         _isLoading = false;
       });
       if (controller.isFinished) _handleFinished();
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('Không tải được phiên học: $e\n$st');
       if (!mounted) return;
       setState(() {
         _error = 'Không tải được phiên học. Vui lòng thử lại.';

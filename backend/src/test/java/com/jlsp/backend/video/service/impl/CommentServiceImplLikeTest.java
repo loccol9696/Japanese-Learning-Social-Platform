@@ -30,6 +30,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.jlsp.backend.block.service.BlockService;
+import com.jlsp.backend.notification.service.NotificationService;
 
 class CommentServiceImplLikeTest {
 
@@ -50,7 +52,7 @@ class CommentServiceImplLikeTest {
         commentLikeRepository = mock(CommentLikeRepository.class);
         VideoRepository videoRepository = mock(VideoRepository.class);
         service = new CommentServiceImpl(commentRepository, commentLikeRepository, videoRepository,
-                mock(UserRepository.class));
+                mock(UserRepository.class), mock(BlockService.class), mock(NotificationService.class));
 
         video = Video.builder().id(VIDEO).build();
         author = User.builder().id(AUTHOR).username("hana").build();

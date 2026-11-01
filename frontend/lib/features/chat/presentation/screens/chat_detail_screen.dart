@@ -867,7 +867,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       final set = await FlashcardService.instance.getSetById(deck.id);
       if (!mounted) return;
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => DeckOverviewScreen(deck: set)),
+        MaterialPageRoute(
+          builder: (_) => DeckOverviewScreen(
+            deck: set,
+            // Tin do người kia gửi thì ghi "Chia sẻ bởi" họ; tin của chính mình thì dùng tác giả bộ thẻ.
+            sharedByName: message.senderId == _myId ? null : _conversation.otherUser.name,
+            sharedByAvatarUrl: message.senderId == _myId ? null : _conversation.otherUser.avatarUrl,
+          ),
+        ),
       );
     } on ApiException catch (error) {
       if (mounted) AppToast.showError(error.message, context: context);

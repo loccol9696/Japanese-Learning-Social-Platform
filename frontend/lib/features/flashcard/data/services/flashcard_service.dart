@@ -47,6 +47,13 @@ class FlashcardService {
     throw Exception('Không thể tải thông tin bộ thẻ ID: $setId');
   }
 
+  /// Lưu bộ thẻ của người khác về thư viện của mình (tạo bản sao riêng tư). Đã lưu rồi thì trả lại bản sao cũ.
+  Future<FlashcardSetModel> copySet(int setId) async {
+    final res = await _api.post(ApiConstants.flashcardSetCopyUrl(setId));
+    if (res is Map<String, dynamic>) return FlashcardSetModel.fromJson(res);
+    throw Exception('Không thể lưu bộ thẻ ID: $setId');
+  }
+
   /// Tạo bộ thẻ mới
   Future<FlashcardSetModel> createSet({
     required String title,
