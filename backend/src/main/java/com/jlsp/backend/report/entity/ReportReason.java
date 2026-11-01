@@ -6,5 +6,7 @@ public enum ReportReason {
     HARASSMENT,
     MISINFORMATION,
     COPYRIGHT,
+    /** Bản dịch hoặc lời giải thích ngữ pháp bị sai. */
+    INACCURATE,
     OTHER
 }

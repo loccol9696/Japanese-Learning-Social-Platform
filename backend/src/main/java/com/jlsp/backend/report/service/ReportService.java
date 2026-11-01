@@ -3,6 +3,7 @@ package com.jlsp.backend.report.service;
 import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.report.dto.CreateReportRequest;
 import com.jlsp.backend.report.dto.ReportResponse;
+import com.jlsp.backend.report.dto.ReportResultResponse;
 import com.jlsp.backend.report.dto.ResolveReportRequest;
 import com.jlsp.backend.report.entity.ReportStatus;
 import com.jlsp.backend.report.entity.ReportTargetType;
@@ -24,4 +25,10 @@ public interface ReportService {
 
     /** Bác bỏ báo cáo (không vi phạm); áp dụng cho mọi báo cáo đang chờ của cùng đối tượng. */
     ReportResponse dismiss(Long reportId, Long actorId, String note);
+
+    /**
+     * Kết quả báo cáo cho người đã báo cáo hoặc chủ nội dung đã nhận thông báo về nó; người khác
+     * nhận lỗi không tìm thấy, như báo cáo không tồn tại.
+     */
+    ReportResultResponse getResult(Long userId, Long reportId);
 }
