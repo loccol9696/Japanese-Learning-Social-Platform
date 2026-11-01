@@ -247,6 +247,8 @@ erDiagram
         datetime vipExpiresAt
         datetime onboardingCompletedAt
         int onboardingSkipCount
+        datetime lockedAt
+        int violationCount
         datetime createdAt
         datetime updatedAt
     }
@@ -498,6 +500,7 @@ erDiagram
         string imageUrl
         int replyToId FK
         datetime recalledAt
+        boolean removedByModeration
         string clientMsgId
         datetime createdAt
     }
@@ -597,6 +600,9 @@ erDiagram
         int reporterId FK
         enum targetType
         int targetId
+        string targetKey
+        string targetSnapshot
+        string snapshotImageUrl
         enum reason
         string detail
         enum status
@@ -613,6 +619,7 @@ erDiagram
         enum type
         int videoId FK "tham chiếu"
         int commentId FK "tham chiếu"
+        int reportId "tham chiếu"
         string message
         bool isRead
         datetime createdAt
@@ -716,6 +723,8 @@ erDiagram
         timestamp vip_expires_at
         timestamp onboarding_completed_at
         integer onboarding_skip_count "NN"
+        timestamp locked_at
+        integer violation_count "NN, mặc định 0"
         timestamp created_at "NN"
         timestamp updated_at
     }
@@ -967,6 +976,7 @@ erDiagram
         varchar(500) image_url
         bigint reply_to_id FK
         timestamp recalled_at
+        boolean removed_by_moderation "NN, mặc định false"
         varchar(64) client_msg_id
         timestamp created_at "NN"
     }
@@ -1066,6 +1076,9 @@ erDiagram
         bigint reporter_id FK "NN"
         varchar(20) target_type "NN"
         bigint target_id "NN"
+        varchar(255) target_key "NN, mặc định rỗng"
+        text target_snapshot
+        varchar(500) snapshot_image_url
         varchar(30) reason "NN"
         varchar(500) detail
         varchar(20) status "NN"
@@ -1082,6 +1095,7 @@ erDiagram
         varchar(30) type "NN"
         bigint video_id "→ videos (không FK)"
         bigint comment_id "→ video_comments (không FK)"
+        bigint report_id "→ reports (không FK)"
         varchar(500) message
         boolean is_read "NN"
         timestamp created_at "NN"
@@ -1101,7 +1115,7 @@ erDiagram
 - **Enum:** Lưu dạng chuỗi (varchar), danh sách giá trị ở bảng bên dưới; DB không có ràng buộc CHECK cho các cột này.
 - **Chống trùng:** conversations (user_low_id, user_high_id) là duy nhất với id nhỏ đứng trước; messages (sender_id, client_msg_id) chống gửi trùng khi mạng chập chờn; payment_transactions (gateway, external_id) chống xử lý lại cùng một webhook.
 - **Khóa lạc quan:** subscription_orders.version dùng để tránh hai luồng cùng cập nhật một đơn.
-- **Báo cáo đa hình:** reports.target_type kết hợp target_id trỏ tới videos, video_comments hoặc users tùy loại, nên không có khóa ngoại.
+- **Báo cáo đa hình:** reports.target_type kết hợp target_id trỏ tới videos, video_comments, users hoặc messages tùy loại, nên không có khóa ngoại. Bản dịch và ngữ pháp nằm trong JSON của video nên target_id là video, còn target_key ghi vị trí câu ("12") hoặc câu kèm mẫu ("12:〜ている"). target_snapshot giữ nguyên văn lúc báo cáo để còn bằng chứng khi nội dung bị sửa hoặc thu hồi.
 - **Chủ đề và hashtag:** video_topics, hashtags và video_hashtags đến từ nhánh dev (chưa gộp vào nhánh hiện tại). Cột cũ videos.topic_id vẫn còn trong DB để các nhánh chưa cập nhật chạy được và sẽ bị bỏ sau.
 - **Bảng không dùng:** Bảng roles còn trong code nhưng không có quan hệ; phân quyền dùng cột users.role (enum).
 
@@ -1141,11 +1155,11 @@ erDiagram
 | `videos.status` | PUBLIC, PRIVATE, UNLISTED, DRAFT |
 | `videos.mod_status` | PENDING, APPROVED, REJECTED, DRAFT |
 | `messages.type` | TEXT, VIDEO_SHARE, IMAGE, DECK_SHARE |
-| `notifications.type` | LIKE, COMMENT, REPLY, FOLLOW, VIDEO_APPROVED, VIDEO_REJECTED, REPORT_UPDATE, CONTENT_REMOVED |
-| `reports.target_type` | VIDEO, COMMENT, USER |
-| `reports.reason` | SPAM, INAPPROPRIATE, HARASSMENT, MISINFORMATION, COPYRIGHT, OTHER |
+| `notifications.type` | LIKE, COMMENT, REPLY, FOLLOW, VIDEO_APPROVED, VIDEO_REJECTED, REPORT_UPDATE, CONTENT_REMOVED, CONTENT_EDITED, VIOLATION_WARNING |
+| `reports.target_type` | VIDEO, COMMENT, USER, MESSAGE, TRANSLATION, GRAMMAR |
+| `reports.reason` | SPAM, INAPPROPRIATE, HARASSMENT, MISINFORMATION, COPYRIGHT, INACCURATE, OTHER |
 | `reports.status` | PENDING, RESOLVED, DISMISSED |
-| `reports.action` | NONE, HIDE_VIDEO, DELETE_COMMENT, LOCK_USER |
+| `reports.action` | NONE, WARN_USER, HIDE_VIDEO, DELETE_COMMENT, HIDE_MESSAGE, EDIT_TRANSLATION, REMOVE_TRANSLATION, EDIT_GRAMMAR, REMOVE_GRAMMAR, LOCK_USER |
 | `subscription_orders.status` | PENDING, SUCCESS, FAILED, EXPIRED, CANCELLED, NEEDS_REVIEW |
 | `payment_transactions.status` | UNMATCHED, MATCHED, UNDERPAID, LATE, EXTRA_PAYMENT |
 | `flashcard_progress.srs_state` | NEW, LEARNING, REVIEW |
