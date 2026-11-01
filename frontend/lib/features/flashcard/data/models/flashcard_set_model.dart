@@ -11,6 +11,12 @@ class FlashcardSetModel {
   final String authorName;
   final String? authorAvatarUrl;
   final bool isAuthorPro;
+
+  /// Server cho biết người xem có phải chủ bộ thẻ không (chỉ có ở API chi tiết); null thì tự suy ra.
+  final bool? isOwner;
+
+  /// Id bản sao người xem đã lưu về thư viện từ bộ này (null nếu chưa lưu).
+  final int? savedSetId;
   final int totalCards;
   final int learnedCards;
   final double progressPercentage;
@@ -26,6 +32,8 @@ class FlashcardSetModel {
     this.authorName = 'Loccol9696',
     this.authorAvatarUrl,
     this.isAuthorPro = true,
+    this.isOwner,
+    this.savedSetId,
     this.totalCards = 0,
     this.learnedCards = 0,
     this.progressPercentage = 0.0,
@@ -48,6 +56,8 @@ class FlashcardSetModel {
       authorName: json['authorName'] as String? ?? 'Loccol9696',
       authorAvatarUrl: json['authorAvatarUrl'] as String?,
       isAuthorPro: json['isAuthorPro'] as bool? ?? true,
+      isOwner: json['isOwner'] as bool?,
+      savedSetId: json['savedSetId'] as int?,
       totalCards: json['totalCards'] as int? ?? 0,
       learnedCards: json['learnedCards'] as int? ?? 0,
       progressPercentage: (json['progressPercentage'] as num?)?.toDouble() ?? 0.0,
@@ -65,6 +75,8 @@ class FlashcardSetModel {
         'authorName': authorName,
         'authorAvatarUrl': authorAvatarUrl,
         'isAuthorPro': isAuthorPro,
+        'isOwner': isOwner,
+        'savedSetId': savedSetId,
         'totalCards': totalCards,
         'learnedCards': learnedCards,
         'progressPercentage': progressPercentage,
@@ -81,6 +93,8 @@ class FlashcardSetModel {
     String? authorName,
     String? authorAvatarUrl,
     bool? isAuthorPro,
+    bool? isOwner,
+    int? savedSetId,
     int? totalCards,
     int learnedCards = -1,
     double? progressPercentage,
@@ -96,6 +110,8 @@ class FlashcardSetModel {
       authorName: authorName ?? this.authorName,
       authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
       isAuthorPro: isAuthorPro ?? this.isAuthorPro,
+      isOwner: isOwner ?? this.isOwner,
+      savedSetId: savedSetId ?? this.savedSetId,
       totalCards: totalCards ?? this.totalCards,
       learnedCards: learnedCards >= 0 ? learnedCards : this.learnedCards,
       progressPercentage: progressPercentage ?? this.progressPercentage,

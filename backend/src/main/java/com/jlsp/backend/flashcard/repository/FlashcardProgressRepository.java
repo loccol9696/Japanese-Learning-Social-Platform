@@ -16,6 +16,15 @@ public interface FlashcardProgressRepository extends JpaRepository<FlashcardProg
 
     Optional<FlashcardProgress> findByIdUserIdAndIdCardId(Long userId, Long cardId);
 
+    /**
+     * Tạo dòng tiến độ rỗng nếu chưa có. Dùng ON CONFLICT để nhiều yêu cầu đồng thời (bấm liên tiếp) cho cùng một thẻ
+     * không cùng INSERT rồi vi phạm khóa chính.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query(value = "INSERT INTO flashcard_progress (user_id, card_id, box_level, is_starred, correct_count, incorrect_count) " +
+           "VALUES (:userId, :cardId, 0, false, 0, 0) ON CONFLICT (card_id, user_id) DO NOTHING", nativeQuery = true)
+    void insertIfAbsent(@Param("userId") Long userId, @Param("cardId") Long cardId);
+
     @Query("SELECT p FROM FlashcardProgress p WHERE p.user.id = :userId AND p.flashcard.flashcardSet.setId = :setId")
     List<FlashcardProgress> findByUserIdAndSetId(@Param("userId") Long userId, @Param("setId") Long setId);
 

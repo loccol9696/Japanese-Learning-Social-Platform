@@ -47,6 +47,7 @@ class ApiConstants {
   // Flashcard endpoints
   static String get flashcardSetsUrl => '$baseUrl/flashcards/sets';
   static String flashcardSetDetailUrl(int id) => '$baseUrl/flashcards/sets/$id';
+  static String flashcardSetCopyUrl(int id) => '$baseUrl/flashcards/sets/$id/copy';
   static String get flashcardSetsOrderUrl => '$baseUrl/flashcards/sets/order';
   static String flashcardCardsOrderUrl(int setId) =>
       '$baseUrl/flashcards/sets/$setId/cards/order';
@@ -100,6 +101,9 @@ class ApiConstants {
 
   /// Quota của người đang đăng nhập (server xác định qua access token).
   static String get myQuotaUrl => '$baseUrl/payments/my-quota';
+
+  /// Token AI đã dùng theo ngày và theo tính năng; [range] là "week" hoặc "month".
+  static String tokenUsageUrl(String range) => '$baseUrl/payments/token-usage?range=$range';
 
   /// Câu hỏi chào mừng (trình độ + sở thích): đọc / lưu (GET, PUT) và bỏ qua (POST).
   static String get onboardingUrl => '$baseUrl/onboarding';

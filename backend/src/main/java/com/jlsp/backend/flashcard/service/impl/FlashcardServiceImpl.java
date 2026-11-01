@@ -165,8 +165,64 @@ public class FlashcardServiceImpl implements FlashcardService {
                 .getContent().stream()
                 .map(c -> mapToCardResponse(c, null))
                 .collect(Collectors.toList());
-        return mapToSetResponse(set, cardRepository.countByFlashcardSetSetId(setId),
+        FlashcardSetResponse response = mapToSetResponse(set, cardRepository.countByFlashcardSetSetId(setId),
                 progressRepository.countMasteredCards(userId, setId), preview);
+        boolean mine = isOwner(set, userId);
+        response.setIsOwner(mine);
+        response.setSavedSetId(mine ? null
+                : setRepository.findFirstByUserIdAndSourceSetIdOrderByCreatedAtDesc(userId, setId)
+                        .map(FlashcardSet::getSetId).orElse(null));
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public FlashcardSetResponse copySet(Long userId, Long setId) {
+        FlashcardSet source = requireReadableSet(userId, setId);
+        if (isOwner(source, userId)) {
+            throw new AppException(400, "Đây đã là bộ thẻ của bạn");
+        }
+        // Bấm lưu nhiều lần (hoặc hai thiết bị) không tạo thêm bản sao.
+        var existing = setRepository.findFirstByUserIdAndSourceSetIdOrderByCreatedAtDesc(userId, setId);
+        if (existing.isPresent()) {
+            return getSetById(userId, existing.get().getSetId());
+        }
+
+        User user = getUserOrThrow(userId);
+        FlashcardSet copy = FlashcardSet.builder()
+                .user(user)
+                .title(source.getTitle())
+                .description(source.getDescription())
+                .isPublic(false)
+                .isVideoSaved(false)
+                .sourceSetId(source.getSetId())
+                .build();
+
+        List<Flashcard> sourceCards = cardRepository.findOrderedBySetId(setId);
+        List<Flashcard> copiedCards = new ArrayList<>(sourceCards.size());
+        for (int i = 0; i < sourceCards.size(); i++) {
+            Flashcard card = sourceCards.get(i);
+            copiedCards.add(Flashcard.builder()
+                    .flashcardSet(copy)
+                    .term(card.getTerm())
+                    .reading(card.getReading())
+                    .sinoVietnamese(card.getSinoVietnamese())
+                    .meaning(card.getMeaning())
+                    .example(card.getExample())
+                    .audioUrl(card.getAudioUrl())
+                    .sortOrder(i)
+                    .build());
+        }
+        copy.setFlashcards(copiedCards);
+
+        FlashcardSet saved = setRepository.save(copy);
+        List<FlashcardResponse> preview = copiedCards.stream()
+                .limit(CREATE_PREVIEW_CARDS)
+                .map(c -> mapToCardResponse(c, null))
+                .collect(Collectors.toList());
+        FlashcardSetResponse response = mapToSetResponse(saved, copiedCards.size(), 0, preview);
+        response.setIsOwner(true);
+        return response;
     }
 
     @Override
@@ -282,20 +338,30 @@ public class FlashcardServiceImpl implements FlashcardService {
         return mapToCardResponse(saved, null);
     }
 
+    /**
+     * Lấy dòng tiến độ, tạo mới nếu chưa có. Bước tạo dùng INSERT ... ON CONFLICT DO NOTHING để hai yêu cầu đồng thời
+     * (người học bấm liên tiếp) không cùng INSERT một khóa chính.
+     */
+    private FlashcardProgress loadOrCreateProgress(Long userId, Long cardId, User user, Flashcard card) {
+        return progressRepository.findByIdUserIdAndIdCardId(userId, cardId)
+                .or(() -> {
+                    progressRepository.insertIfAbsent(userId, cardId);
+                    return progressRepository.findByIdUserIdAndIdCardId(userId, cardId);
+                })
+                .orElseGet(() -> FlashcardProgress.builder()
+                        .id(new FlashcardProgressId(userId, cardId))
+                        .user(user)
+                        .flashcard(card)
+                        .build());
+    }
+
     @Override
     @Transactional
     public FlashcardResponse updateCardStar(Long userId, Long cardId, Boolean isStarred) {
         User user = getUserOrThrow(userId);
         Flashcard card = requireReadableCard(userId, cardId);
 
-        FlashcardProgress progress = progressRepository.findByIdUserIdAndIdCardId(userId, cardId)
-                .orElseGet(() -> FlashcardProgress.builder()
-                        .id(new FlashcardProgressId(userId, cardId))
-                        .user(user)
-                        .flashcard(card)
-                        .correctCount(0)
-                        .incorrectCount(0)
-                        .build());
+        FlashcardProgress progress = loadOrCreateProgress(userId, cardId, user, card);
 
         progress.setIsStarred(Boolean.TRUE.equals(isStarred));
         FlashcardProgress saved = progressRepository.save(progress);
@@ -308,15 +374,7 @@ public class FlashcardServiceImpl implements FlashcardService {
         User user = getUserOrThrow(userId);
         Flashcard card = requireReadableCard(userId, request.getCardId());
 
-        FlashcardProgress progress = progressRepository.findByIdUserIdAndIdCardId(userId, request.getCardId())
-                .orElseGet(() -> FlashcardProgress.builder()
-                        .id(new FlashcardProgressId(userId, request.getCardId()))
-                        .user(user)
-                        .flashcard(card)
-                        .correctCount(0)
-                        .incorrectCount(0)
-                        .isStarred(false)
-                        .build());
+        FlashcardProgress progress = loadOrCreateProgress(userId, request.getCardId(), user, card);
 
         // Các chế độ luyện tập (trắc nghiệm, gõ, nghe, ghép cặp) chỉ ghi thống kê đúng/sai. Lịch ôn (nextReviewAt,
         // ease, khoảng cách) chỉ do học ngắt quãng (reviewCard) quyết định, tránh hai thuật toán ghi đè lên nhau.
@@ -509,12 +567,7 @@ public class FlashcardServiceImpl implements FlashcardService {
         User user = getUserOrThrow(userId);
         Flashcard card = requireOwnedCard(userId, request.getCardId(), "Bạn không có quyền học thẻ này");
 
-        FlashcardProgress progress = progressRepository.findByIdUserIdAndIdCardId(userId, request.getCardId())
-                .orElseGet(() -> FlashcardProgress.builder()
-                        .id(new FlashcardProgressId(userId, request.getCardId()))
-                        .user(user)
-                        .flashcard(card)
-                        .build());
+        FlashcardProgress progress = loadOrCreateProgress(userId, request.getCardId(), user, card);
 
         CardState state = progress.getSrsState() == null ? CardState.NEW : progress.getSrsState();
         double ease = progress.getEaseFactor() == null ? SrsScheduler.DEFAULT_EASE : progress.getEaseFactor();

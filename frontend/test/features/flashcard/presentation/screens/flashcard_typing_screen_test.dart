@@ -7,6 +7,7 @@ import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/token_storage.dart';
 import 'package:frontend/features/flashcard/data/models/flashcard_set_model.dart';
 import 'package:frontend/features/flashcard/presentation/screens/flashcard_typing_screen.dart';
+import 'package:frontend/features/flashcard/presentation/widgets/streak_progress_bar.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -55,7 +56,9 @@ void main() {
   /// Mặc định hỏi định nghĩa (M$n) và yêu cầu gõ thuật ngữ (T$n).
   Future<void> submit(WidgetTester tester, String text) async {
     await tester.enterText(find.byType(TextField), text);
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    // Ô nhập cho xuống dòng nên gửi bằng nút "Kiểm tra đáp án".
+    await tester.tap(find.text('Kiểm tra đáp án'));
     await tester.pump();
   }
 
@@ -63,6 +66,60 @@ void main() {
     await submit(tester, correct ? 'T$question' : 'sai');
     await tester.pump(const Duration(milliseconds: 2100)); // đủ cho tự chuyển câu, kể cả sau khi chơi lửa
   }
+
+  testWidgets('thanh tiến trình bắt đầu từ 0 và chỉ tăng khi trả lời đúng', (tester) async {
+    await pumpTyping(tester);
+    expect(tester.widget<StreakProgressBar>(find.byType(StreakProgressBar)).progress, 0);
+
+    await submit(tester, 'sai');
+    expect(tester.widget<StreakProgressBar>(find.byType(StreakProgressBar)).progress, 0);
+    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pump();
+    expect(tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus, isTrue);
+
+    await submit(tester, 'T2');
+    expect(tester.widget<StreakProgressBar>(find.byType(StreakProgressBar)).progress, 1 / _cardCount);
+    await tester.pump(const Duration(milliseconds: 1500));
+  });
+
+  testWidgets('câu trả lời sai xuất hiện lại và phải trả lời đúng mới hoàn thành', (tester) async {
+    await pumpTyping(tester);
+    await answer(tester, 1, correct: false);
+
+    for (var question = 2; question <= _cardCount; question++) {
+      await answer(tester, question, correct: true);
+    }
+
+    expect(find.text('M1'), findsOneWidget);
+    expect(find.text('$_cardCount / $_cardCount'), findsOneWidget);
+    expect(find.text('Hoàn thành bài tự luận!'), findsNothing);
+
+    await answer(tester, 1, correct: true);
+    expect(find.text('Hoàn thành bài tự luận!'), findsOneWidget);
+    expect(find.byKey(const ValueKey('completion-fireworks')), findsOneWidget);
+    expect(find.byKey(const ValueKey('typing-restart')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('typing-restart')));
+    await tester.pumpAndSettle();
+    expect(find.text('Hoàn thành bài tự luận!'), findsNothing);
+    expect(find.text('M1'), findsOneWidget);
+    expect(find.text('1 / $_cardCount'), findsOneWidget);
+    expect(tester.widget<StreakProgressBar>(find.byType(StreakProgressBar)).progress, 0);
+  });
+
+  testWidgets('câu bấm Không biết cũng xuất hiện lại ở cuối', (tester) async {
+    await pumpTyping(tester);
+    await tester.tap(find.text('Không biết'));
+    await tester.pump(const Duration(milliseconds: 1500));
+
+    for (var question = 2; question <= _cardCount; question++) {
+      await answer(tester, question, correct: true);
+    }
+
+    expect(find.text('M1'), findsOneWidget);
+    expect(find.text('$_cardCount / $_cardCount'), findsOneWidget);
+    expect(find.text('Hoàn thành bài tự luận!'), findsNothing);
+  });
 
   testWidgets('đúng liên tiếp 2 câu: thanh tiến trình cam kèm ngọn lửa; sai thì mất chuỗi', (tester) async {
     await pumpTyping(tester);

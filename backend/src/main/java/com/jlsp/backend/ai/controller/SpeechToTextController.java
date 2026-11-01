@@ -59,7 +59,8 @@ public class SpeechToTextController {
         int tokensRequired = systemSettingService.calculateTokensRequired(duration);
 
         // Kiểm tra và trừ Token hạn mức theo ngày
-        subscriptionService.validateAndDeductTokens(userId, tokensRequired);
+        subscriptionService.validateAndDeductTokens(userId, tokensRequired,
+                com.jlsp.backend.subscription.entity.TokenFeature.VIDEO_SUBTITLE);
 
         String taskId = UUID.randomUUID().toString();
         speechToTextService.processAudioAsync(taskId, file);
@@ -100,7 +101,8 @@ public class SpeechToTextController {
                 }
             }
             int tokensRequired = systemSettingService.calculateTokensRequired(duration);
-            subscriptionService.validateAndDeductTokens(userId, tokensRequired);
+            subscriptionService.validateAndDeductTokens(userId, tokensRequired,
+                    com.jlsp.backend.subscription.entity.TokenFeature.VIDEO_SUBTITLE);
         }
 
         byte[] videoBytes = mediaService.downloadFromCloudinary(videoUrl);
@@ -122,7 +124,8 @@ public class SpeechToTextController {
             @RequestBody AnalyzeGrammarRequest request) throws Exception {
         Long userId = CurrentUser.idOrNull();
         if (userId != null) {
-            subscriptionService.validateAndDeductTokens(userId, 1);
+            subscriptionService.validateAndDeductTokens(userId, 1,
+                    com.jlsp.backend.subscription.entity.TokenFeature.GRAMMAR_ANALYSIS);
         }
         List<SegmentGrammarAnalysis> analyzedSegments = grammarAnalysisService.analyze(request.getSegments());
         return ResponseEntity.ok(ApiResponse.success(analyzedSegments));
