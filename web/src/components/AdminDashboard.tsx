@@ -30,7 +30,8 @@ import {
   Coins,
   Save,
   Eye,
-  Play
+  Play,
+  Ticket
 } from 'lucide-react';
 import {
   getModerationVideos,
@@ -47,6 +48,13 @@ import {
   createQrOrder,
   confirmPayment,
   getAdminAnalytics,
+  getAdminPromoCodes,
+  createAdminPromoCode,
+  updateAdminPromoCode,
+  toggleAdminPromoCode,
+  deleteAdminPromoCode,
+  type PromoCodeItem,
+  type PromoCodePayload,
   getPendingReportCount,
   updateAdminProfile,
   getMetricTrend,
@@ -71,7 +79,7 @@ interface AdminDashboardProps {
   onUpdateUser?: (updated: UserProfile) => void;
 }
 
-type TabType = 'analytics' | 'videos' | 'users' | 'subscriptions' | 'pricing' | 'reports' | 'profile';
+type TabType = 'analytics' | 'videos' | 'users' | 'subscriptions' | 'pricing' | 'vouchers' | 'reports' | 'profile';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onUpdateUser }) => {
   const isModerator = user.role === 'MODERATOR';
@@ -86,7 +94,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     if (isAdmin && activeTab === 'videos') {
       setActiveTab('analytics');
     }
-    if (isModerator && (activeTab === 'users' || activeTab === 'subscriptions' || activeTab === 'pricing' || activeTab === 'analytics')) {
+    if (isModerator && (activeTab === 'users' || activeTab === 'subscriptions' || activeTab === 'pricing' || activeTab === 'vouchers' || activeTab === 'analytics')) {
       setActiveTab('videos');
     }
   }, [isAdmin, isModerator, activeTab]);
@@ -1051,6 +1059,134 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   }, [isAdmin, activeTab]);
 
+  // ==================== VOUCHER / PROMO CODE MANAGEMENT STATE ====================
+  const [vouchers, setVouchers] = useState<PromoCodeItem[]>([]);
+  const [isLoadingVouchers, setIsLoadingVouchers] = useState(false);
+  const [voucherSearch, setVoucherSearch] = useState('');
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
+  const [editingVoucher, setEditingVoucher] = useState<PromoCodeItem | null>(null);
+
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherDescription, setVoucherDescription] = useState('');
+  const [voucherDiscountType, setVoucherDiscountType] = useState<'percent' | 'amount'>('percent');
+  const [voucherDiscountValue, setVoucherDiscountValue] = useState<number>(10);
+  const [voucherMaxUses, setVoucherMaxUses] = useState<number>(100);
+  const [voucherStartDate, setVoucherStartDate] = useState('');
+  const [voucherEndDate, setVoucherEndDate] = useState('');
+  const [voucherIsActive, setVoucherIsActive] = useState(true);
+  const [isSavingVoucher, setIsSavingVoucher] = useState(false);
+
+  const loadVouchers = async () => {
+    try {
+      setIsLoadingVouchers(true);
+      const data = await getAdminPromoCodes();
+      setVouchers(data);
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi khi tải danh sách voucher');
+    } finally {
+      setIsLoadingVouchers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'vouchers') {
+      loadVouchers();
+    }
+  }, [isAdmin, activeTab]);
+
+  const handleOpenCreateVoucher = () => {
+    setEditingVoucher(null);
+    setVoucherCode('');
+    setVoucherDescription('');
+    setVoucherDiscountType('percent');
+    setVoucherDiscountValue(10);
+    setVoucherMaxUses(100);
+    setVoucherStartDate(new Date().toISOString().slice(0, 16));
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    setVoucherEndDate(nextYear.toISOString().slice(0, 16));
+    setVoucherIsActive(true);
+    setIsVoucherModalOpen(true);
+  };
+
+  const handleOpenEditVoucher = (v: PromoCodeItem) => {
+    setEditingVoucher(v);
+    setVoucherCode(v.code);
+    setVoucherDescription(v.description || '');
+    if (v.discountPercent && v.discountPercent > 0) {
+      setVoucherDiscountType('percent');
+      setVoucherDiscountValue(v.discountPercent);
+    } else {
+      setVoucherDiscountType('amount');
+      setVoucherDiscountValue(v.discountAmount || 50000);
+    }
+    setVoucherMaxUses(v.maxUses);
+    setVoucherStartDate(v.startDate ? v.startDate.slice(0, 16) : '');
+    setVoucherEndDate(v.endDate ? v.endDate.slice(0, 16) : '');
+    setVoucherIsActive(v.isActive);
+    setIsVoucherModalOpen(true);
+  };
+
+  const handleSaveVoucher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!voucherCode.trim()) {
+      showToast('Vui lòng nhập mã khuyến mãi');
+      return;
+    }
+
+    const payload: PromoCodePayload = {
+      code: voucherCode.trim().toUpperCase(),
+      description: voucherDescription.trim(),
+      discountPercent: voucherDiscountType === 'percent' ? Number(voucherDiscountValue) : 0,
+      discountAmount: voucherDiscountType === 'amount' ? Number(voucherDiscountValue) : 0,
+      maxUses: Number(voucherMaxUses) || 100,
+      startDate: voucherStartDate ? new Date(voucherStartDate).toISOString() : undefined,
+      endDate: voucherEndDate ? new Date(voucherEndDate).toISOString() : undefined,
+      isActive: voucherIsActive,
+    };
+
+    try {
+      setIsSavingVoucher(true);
+      if (editingVoucher) {
+        await updateAdminPromoCode(editingVoucher.id, payload);
+        showToast(`Cập nhật voucher "${payload.code}" thành công!`);
+      } else {
+        await createAdminPromoCode(payload);
+        showToast(`Tạo mã voucher mới "${payload.code}" thành công!`);
+      }
+      setIsVoucherModalOpen(false);
+      loadVouchers();
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi khi lưu voucher');
+    } finally {
+      setIsSavingVoucher(false);
+    }
+  };
+
+  const handleToggleVoucher = async (id: number) => {
+    try {
+      const updated = await toggleAdminPromoCode(id);
+      showToast(`${updated.isActive ? 'Đã kích hoạt' : 'Đã tạm dừng'} mã "${updated.code}"`);
+      setVouchers(prev => prev.map(v => v.id === id ? updated : v));
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi khi đổi trạng thái voucher');
+    }
+  };
+
+  const handleDeleteVoucher = async (v: PromoCodeItem) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa mã voucher "${v.code}" không? Hành động này không thể hoàn tác.`)) {
+      return;
+    }
+    try {
+      await deleteAdminPromoCode(v.id);
+      showToast(`Đã xóa mã voucher "${v.code}" thành công!`);
+      setVouchers(prev => prev.filter(item => item.id !== v.id));
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi khi xóa voucher');
+    }
+  };
+
+
   const handleOpenEditPlan = (plan: SubscriptionPlanItem) => {
     setEditingPlan(plan);
     setEditName(plan.name);
@@ -1208,6 +1344,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </button>
           )}
 
+          {/* TAB: QUẢN LÝ VOUCHER & MÃ KHUYẾN MÃI (CHỈ ADMIN) */}
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('vouchers')}
+              className={`nav-tab-item ${activeTab === 'vouchers' ? 'active' : ''}`}
+              title="Quản lý Voucher & Mã Khuyến Mãi"
+            >
+              <Ticket size={18} />
+              {!isSidebarCollapsed && <span>Mã Voucher</span>}
+            </button>
+          )}
+
           {/* TAB: TRANG HỒ SƠ CÁ NHÂN (CẢ ADMIN VÀ MODERATOR) */}
           <button
             onClick={() => setActiveTab('profile')}
@@ -1295,6 +1443,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               {activeTab === 'users' && 'Quản Lý Người Dùng & Phân Quyền Hệ Thống'}
               {activeTab === 'subscriptions' && 'Lịch Sử Giao Dịch & Giả Lập Thanh Toán QR'}
               {activeTab === 'pricing' && 'Cấu Hình Gói VIP & Hạn Mức Token Trích Xuất AI'}
+                {activeTab === 'vouchers' && 'Quản Lý Voucher & Mã Khuyến Mãi'}
               {activeTab === 'reports' && 'Xử Lý Khiếu Nại & Báo Cáo Vi Phạm'}
               {activeTab === 'profile' && 'Hồ Sơ Cá Nhân & Quản Trị Hệ Thống'}
             </h1>

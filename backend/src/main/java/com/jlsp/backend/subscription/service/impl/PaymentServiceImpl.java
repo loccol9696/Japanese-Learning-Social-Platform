@@ -14,7 +14,9 @@ import com.jlsp.backend.subscription.payment.PaymentMemo;
 import com.jlsp.backend.subscription.payment.PaymentProperties;
 import com.jlsp.backend.subscription.payment.VietQrUrlBuilder;
 import com.jlsp.backend.subscription.payment.WebhookResult;
+import com.jlsp.backend.subscription.entity.PromoCode;
 import com.jlsp.backend.subscription.repository.PaymentTransactionRepository;
+import com.jlsp.backend.subscription.repository.PromoCodeRepository;
 import com.jlsp.backend.subscription.repository.SubscriptionOrderRepository;
 import com.jlsp.backend.subscription.repository.SubscriptionPlanRepository;
 import com.jlsp.backend.subscription.service.PaymentService;
@@ -51,14 +53,16 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserRepository userRepository;
     private final PaymentProperties props;
     private final Clock clock;
+    private final PromoCodeRepository promoCodeRepository;
 
     @Autowired
     public PaymentServiceImpl(SubscriptionPlanRepository planRepository,
                               SubscriptionOrderRepository orderRepository,
                               PaymentTransactionRepository transactionRepository,
                               UserRepository userRepository,
-                              PaymentProperties props) {
-        this(planRepository, orderRepository, transactionRepository, userRepository, props, Clock.systemDefaultZone());
+                              PaymentProperties props,
+                              PromoCodeRepository promoCodeRepository) {
+        this(planRepository, orderRepository, transactionRepository, userRepository, props, Clock.systemDefaultZone(), promoCodeRepository);
     }
 
     PaymentServiceImpl(SubscriptionPlanRepository planRepository,
@@ -67,12 +71,23 @@ public class PaymentServiceImpl implements PaymentService {
                        UserRepository userRepository,
                        PaymentProperties props,
                        Clock clock) {
+        this(planRepository, orderRepository, transactionRepository, userRepository, props, clock, null);
+    }
+
+    PaymentServiceImpl(SubscriptionPlanRepository planRepository,
+                       SubscriptionOrderRepository orderRepository,
+                       PaymentTransactionRepository transactionRepository,
+                       UserRepository userRepository,
+                       PaymentProperties props,
+                       Clock clock,
+                       PromoCodeRepository promoCodeRepository) {
         this.planRepository = planRepository;
         this.orderRepository = orderRepository;
         this.transactionRepository = transactionRepository;
         this.userRepository = userRepository;
         this.props = props;
         this.clock = clock;
+        this.promoCodeRepository = promoCodeRepository;
     }
 
     private LocalDateTime now() {
@@ -94,12 +109,56 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new AppException(404, "Không tìm thấy tài khoản"));
 
         LocalDateTime now = now();
-        // Bấm mua nhiều lần cho cùng một gói thì dùng lại đơn đang chờ, không đẻ thêm đơn và mã QR.
+
+        boolean alreadyLifetime = user.getSubscriptionPlan() != null
+                && user.getSubscriptionPlan().getPrice() != null
+                && user.getSubscriptionPlan().getPrice().signum() > 0
+                && user.getVipExpiresAt() == null;
+        if (alreadyLifetime) {
+            throw new AppException(400, "Bạn đang sở hữu gói Trọn Đời cao cấp nhất, không cần mua thêm");
+        }
+
+        BigDecimal originalPrice = plan.getPrice();
+        BigDecimal finalAmount = originalPrice;
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        String appliedPromo = null;
+
+        if (request != null && request.getPromoCode() != null && !request.getPromoCode().isBlank() && promoCodeRepository != null) {
+            String code = request.getPromoCode().trim().toUpperCase(Locale.ROOT);
+            com.jlsp.backend.subscription.entity.PromoCode promo = promoCodeRepository.findByCodeIgnoreCase(code).orElse(null);
+            if (promo != null && Boolean.TRUE.equals(promo.getIsActive())) {
+                boolean validDates = (promo.getStartDate() == null || !now.isBefore(promo.getStartDate()))
+                        && (promo.getEndDate() == null || !now.isAfter(promo.getEndDate()));
+                boolean validUses = promo.getMaxUses() == null || promo.getUsedCount() == null || promo.getUsedCount() < promo.getMaxUses();
+                if (validDates && validUses) {
+                    appliedPromo = promo.getCode();
+                    int percent = promo.getDiscountPercent() != null ? promo.getDiscountPercent() : 0;
+                    BigDecimal fixed = promo.getDiscountAmount() != null ? promo.getDiscountAmount() : BigDecimal.ZERO;
+                    if (percent > 0) {
+                        discountAmount = originalPrice.multiply(BigDecimal.valueOf(percent)).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+                    } else if (fixed.signum() > 0) {
+                        discountAmount = fixed;
+                    }
+                    finalAmount = originalPrice.subtract(discountAmount);
+                    if (finalAmount.compareTo(BigDecimal.valueOf(1000)) < 0) {
+                        finalAmount = BigDecimal.valueOf(1000); // Tối thiểu 1.000 VND
+                    }
+                }
+            }
+        }
+
+        // Bấm mua nhiều lần cho cùng một gói thì dùng lại đơn đang chờ (nếu cùng mã giảm giá)
         Optional<SubscriptionOrder> open = orderRepository
                 .findFirstByUserIdAndPlanIdAndStatusAndExpiresAtAfterOrderByCreatedAtDesc(
                         userId, plan.getId(), OrderStatus.PENDING, now);
         if (open.isPresent()) {
-            return toResponse(open.get(), now);
+            SubscriptionOrder existing = open.get();
+            if (java.util.Objects.equals(existing.getPromoCode(), appliedPromo) && existing.getAmount().compareTo(finalAmount) == 0) {
+                return toResponse(existing, now);
+            } else {
+                existing.setStatus(OrderStatus.EXPIRED);
+                orderRepository.save(existing);
+            }
         }
         if (orderRepository.countByUserIdAndCreatedAtAfter(userId, now.minusHours(1)) >= props.maxOrdersPerHour()) {
             throw new AppException(429, "Bạn tạo quá nhiều đơn trong một giờ. Vui lòng thử lại sau");
@@ -111,14 +170,16 @@ public class PaymentServiceImpl implements PaymentService {
                 .transferMemo(memo)
                 .user(user)
                 .plan(plan)
-                .amount(plan.getPrice())
+                .amount(finalAmount)
+                .promoCode(appliedPromo)
+                .discountAmount(discountAmount)
                 .paymentMethod("VIETQR_NAPAS")
                 .status(OrderStatus.PENDING)
-                .qrUrl(VietQrUrlBuilder.build(props, plan.getPrice(), memo))
+                .qrUrl(VietQrUrlBuilder.build(props, finalAmount, memo))
                 .expiresAt(now.plusMinutes(props.orderTtlMinutes()))
                 .build();
         SubscriptionOrder saved = orderRepository.save(order);
-        log.info("Tạo đơn thanh toán {} cho user {} gói {} ({} VND)", memo, userId, plan.getCode(), plan.getPrice());
+        log.info("Tạo đơn thanh toán {} cho user {} gói {} ({} VND) [voucher={}]", memo, userId, plan.getCode(), finalAmount, appliedPromo);
         return toResponse(saved, now);
     }
 
@@ -307,21 +368,50 @@ public class PaymentServiceImpl implements PaymentService {
     private void activate(SubscriptionOrder order, String bankTransactionId, LocalDateTime now) {
         User user = userRepository.findByIdForUpdate(order.getUser().getId())
                 .orElseThrow(() -> new AppException(404, "Không tìm thấy tài khoản của đơn " + order.getOrderCode()));
-        SubscriptionPlan plan = order.getPlan();
+        SubscriptionPlan newPlan = order.getPlan();
+        SubscriptionPlan currentPlan = user.getSubscriptionPlan();
+        LocalDateTime currentExpiresAt = user.getVipExpiresAt();
 
-        boolean alreadyLifetime = user.getSubscriptionPlan() != null
-                && user.getSubscriptionPlan().getPrice() != null
-                && user.getSubscriptionPlan().getPrice().signum() > 0
-                && user.getVipExpiresAt() == null;
-        if (isLifetime(plan)) {
-            user.setSubscriptionPlan(plan);
+        boolean isCurrentlyVip = currentPlan != null
+                && currentPlan.getPrice() != null
+                && currentPlan.getPrice().signum() > 0
+                && (currentExpiresAt == null || currentExpiresAt.isAfter(now));
+
+        boolean alreadyLifetime = isCurrentlyVip && currentExpiresAt == null;
+
+        if (isLifetime(newPlan)) {
+            user.setSubscriptionPlan(newPlan);
             user.setVipExpiresAt(null);
         } else if (!alreadyLifetime) {
-            LocalDateTime current = user.getVipExpiresAt();
-            LocalDateTime base = current != null && current.isAfter(now) ? current : now;
-            user.setSubscriptionPlan(plan);
-            user.setVipExpiresAt(base.plusDays(plan.getDurationDays()));
-        } // đang trọn đời mà mua gói có hạn: giữ nguyên trọn đời, đơn vẫn ghi nhận thành công
+            if (!isCurrentlyVip) {
+                // 1. Chưa có VIP hoặc VIP cũ đã hết hạn: kích hoạt mới từ thời điểm hiện tại
+                user.setSubscriptionPlan(newPlan);
+                user.setVipExpiresAt(now.plusDays(newPlan.getDurationDays()));
+            } else {
+                // 2. Đang có VIP còn hạn:
+                boolean isSamePlan = currentPlan.getId().equals(newPlan.getId());
+                boolean isHigherTier = isPlanHigherTier(newPlan, currentPlan);
+
+                if (isSamePlan) {
+                    // Gia hạn cùng gói: giữ nguyên gói, cộng dồn ngày vào mốc hết hạn hiện tại
+                    LocalDateTime base = currentExpiresAt.isAfter(now) ? currentExpiresAt : now;
+                    user.setVipExpiresAt(base.plusDays(newPlan.getDurationDays()));
+                } else if (isHigherTier) {
+                    // Nâng cấp lên gói cao hơn: chuyển sang gói mới cao cấp hơn
+                    user.setSubscriptionPlan(newPlan);
+                    LocalDateTime base = currentExpiresAt.isAfter(now) ? currentExpiresAt : now;
+                    user.setVipExpiresAt(base.plusDays(newPlan.getDurationDays()));
+                } else {
+                    // Mua gói thấp hơn (hoặc gói test) khi đang có gói cao hơn còn hạn:
+                    // Giữ nguyên gói cao hơn (không hạ cấp quyền lợi / token của user!)
+                    // Thời hạn cộng dồn thêm vào đuôi
+                    LocalDateTime base = currentExpiresAt.isAfter(now) ? currentExpiresAt : now;
+                    user.setVipExpiresAt(base.plusDays(newPlan.getDurationDays()));
+                    log.info("User {} mua gói thấp hơn ({}) trong khi đang có gói cao hơn ({}), giữ nguyên gói cao hơn và cộng thêm {} ngày",
+                            user.getId(), newPlan.getCode(), currentPlan.getCode(), newPlan.getDurationDays());
+                }
+            }
+        }
         userRepository.save(user);
 
         order.setStatus(OrderStatus.SUCCESS);
@@ -331,7 +421,27 @@ public class PaymentServiceImpl implements PaymentService {
             order.setPaidAmount(order.getAmount());
         }
         orderRepository.save(order);
-        log.info("Đơn {} thành công: user {} lên gói {}", order.getOrderCode(), user.getId(), plan.getCode());
+
+        if (order.getPromoCode() != null && !order.getPromoCode().isBlank() && promoCodeRepository != null) {
+            promoCodeRepository.findByCodeIgnoreCase(order.getPromoCode()).ifPresent(promo -> {
+                promo.setUsedCount((promo.getUsedCount() != null ? promo.getUsedCount() : 0) + 1);
+                promoCodeRepository.save(promo);
+            });
+        }
+
+        log.info("Đơn {} thành công: user {} hiện có gói {}", order.getOrderCode(), user.getId(), user.getSubscriptionPlan().getCode());
+    }
+
+    private boolean isPlanHigherTier(SubscriptionPlan newPlan, SubscriptionPlan currentPlan) {
+        if (newPlan == null || currentPlan == null) return false;
+        if (isLifetime(newPlan)) return true;
+        if (isLifetime(currentPlan)) return false;
+        if (newPlan.getPrice() != null && currentPlan.getPrice() != null) {
+            int cmp = newPlan.getPrice().compareTo(currentPlan.getPrice());
+            if (cmp != 0) return cmp > 0;
+        }
+        return (newPlan.getDurationDays() != null ? newPlan.getDurationDays() : 0)
+                > (currentPlan.getDurationDays() != null ? currentPlan.getDurationDays() : 0);
     }
 
     static boolean isLifetime(SubscriptionPlan plan) {
@@ -367,6 +477,8 @@ public class PaymentServiceImpl implements PaymentService {
                 .dailyTokenLimit(plan != null ? plan.getDailyTokenLimit() : null)
                 .amount(order.getAmount())
                 .paidAmount(order.getPaidAmount())
+                .promoCode(order.getPromoCode())
+                .discountAmount(order.getDiscountAmount())
                 .paymentMethod(order.getPaymentMethod())
                 .status(status)
                 .qrUrl(qrUrlFor(order))

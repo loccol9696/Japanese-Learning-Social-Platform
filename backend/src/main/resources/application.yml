@@ -22,6 +22,12 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 30000
+      max-lifetime: 60000
+      connection-timeout: 20000
   jpa:
     hibernate:
       ddl-auto: update
@@ -70,10 +76,10 @@ cloudinary:
 # Thanh toán mua gói bằng chuyển khoản VietQR. Thiếu thông tin tài khoản nhận thì không tạo được đơn.
 payment:
   enabled: ${PAYMENT_ENABLED:true}
-  bank-bin: ${PAYMENT_BANK_BIN:}
-  bank-name: ${PAYMENT_BANK_NAME:}
-  account-no: ${PAYMENT_ACCOUNT_NO:}
-  account-name: ${PAYMENT_ACCOUNT_NAME:}
+  bank-bin: ${PAYMENT_BANK_BIN:970416}
+  bank-name: ${PAYMENT_BANK_NAME:ACB}
+  account-no: ${PAYMENT_ACCOUNT_NO:28442991}
+  account-name: ${PAYMENT_ACCOUNT_NAME:PHAM CONG NGUYEN}
   order-ttl-minutes: ${PAYMENT_ORDER_TTL_MINUTES:15}
   late-grace-hours: ${PAYMENT_LATE_GRACE_HOURS:24}
   max-orders-per-hour: ${PAYMENT_MAX_ORDERS_PER_HOUR:10}

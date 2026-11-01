@@ -6,6 +6,7 @@ import com.jlsp.backend.subscription.entity.SubscriptionPlan;
 import com.jlsp.backend.subscription.entity.TokenFeature;
 import com.jlsp.backend.subscription.entity.TokenUsageEvent;
 import com.jlsp.backend.subscription.entity.UserDailyTokenUsage;
+import com.jlsp.backend.subscription.repository.PromoCodeRepository;
 import com.jlsp.backend.subscription.repository.SubscriptionPlanRepository;
 import com.jlsp.backend.subscription.repository.TokenUsageEventRepository;
 import com.jlsp.backend.subscription.repository.UserDailyTokenUsageRepository;
@@ -49,7 +50,7 @@ class SubscriptionServiceImplTokenTest {
         usageRepository = mock(UserDailyTokenUsageRepository.class);
         userRepository = mock(UserRepository.class);
         eventRepository = mock(TokenUsageEventRepository.class);
-        service = new SubscriptionServiceImpl(planRepository, usageRepository, userRepository, eventRepository);
+        service = new SubscriptionServiceImpl(planRepository, usageRepository, userRepository, mock(PromoCodeRepository.class), eventRepository);
 
         user = User.builder().id(USER_ID).username("hana").build();
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
