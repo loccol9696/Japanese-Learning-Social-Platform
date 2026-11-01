@@ -7,6 +7,10 @@ import com.jlsp.backend.subscription.dto.response.SubscriptionPlanResponse;
 import com.jlsp.backend.subscription.dto.response.SubscriptionStatusResponse;
 import com.jlsp.backend.subscription.dto.response.TokenQuotaResponse;
 import com.jlsp.backend.subscription.entity.SubscriptionPlan;
+import com.jlsp.backend.subscription.dto.response.TokenUsageResponse;
+import com.jlsp.backend.subscription.entity.TokenFeature;
+import com.jlsp.backend.subscription.entity.TokenUsageEvent;
+import com.jlsp.backend.subscription.repository.TokenUsageEventRepository;
 import com.jlsp.backend.subscription.entity.UserDailyTokenUsage;
 import com.jlsp.backend.subscription.repository.SubscriptionPlanRepository;
 import com.jlsp.backend.subscription.repository.UserDailyTokenUsageRepository;
@@ -32,6 +36,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final SubscriptionPlanRepository planRepository;
     private final UserDailyTokenUsageRepository tokenUsageRepository;
     private final UserRepository userRepository;
+    private final TokenUsageEventRepository tokenUsageEventRepository;
 
     @Override
     public List<SubscriptionPlanResponse> getAllActivePlans() {
@@ -195,7 +200,8 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
     @Override
     @Transactional
-    public void validateAndDeductTokens(Long userId, int tokensRequired) {
+    public void validateAndDeductTokens(Long userId, int tokensRequired, TokenFeature feature) {
+        java.util.Objects.requireNonNull(feature, "feature");
         User user = userRepository.findById(userId).orElse(null);
 
         // Truy vấn động gói FREE từ database làm chuẩn
@@ -235,9 +241,61 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         if (usage != null) {
             usage.setTokensUsed(currentUsed + tokensRequired);
             tokenUsageRepository.save(usage);
+            tokenUsageEventRepository.save(TokenUsageEvent.builder()
+                    .user(user)
+                    .feature(feature)
+                    .tokens(tokensRequired)
+                    .usageDate(today)
+                    .build());
             log.info("Deducted {} tokens from user ID {}. New usage today: {}/{} tokens",
                     tokensRequired, userId, usage.getTokensUsed(), limit);
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TokenUsageResponse getTokenUsage(Long userId, String range) {
+        String normalized = range == null ? "week" : range.trim().toLowerCase(java.util.Locale.ROOT);
+        LocalDate today = LocalDate.now();
+        LocalDate from;
+        LocalDate to;
+        switch (normalized) {
+            case "week" -> {
+                from = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+                to = from.plusDays(6);
+            }
+            case "month" -> {
+                java.time.YearMonth month = java.time.YearMonth.from(today);
+                from = month.atDay(1);
+                to = month.atEndOfMonth();
+            }
+            default -> throw new AppException(400, "Khoảng thời gian không hợp lệ, chỉ nhận week hoặc month");
+        }
+
+        java.util.Map<LocalDate, Integer> perDay = new java.util.HashMap<>();
+        for (TokenUsageEventRepository.DayTotal row : tokenUsageEventRepository.sumByDay(userId, from, to)) {
+            perDay.put(row.getUsageDay(), row.getTotal() == null ? 0 : row.getTotal().intValue());
+        }
+        java.util.Map<TokenFeature, Integer> perFeature = new java.util.EnumMap<>(TokenFeature.class);
+        for (TokenUsageEventRepository.FeatureTotal row : tokenUsageEventRepository.sumByFeature(userId, from, to)) {
+            perFeature.put(row.getFeature(), row.getTotal() == null ? 0 : row.getTotal().intValue());
+        }
+
+        List<TokenUsageResponse.DayUsage> days = from.datesUntil(to.plusDays(1))
+                .map(date -> new TokenUsageResponse.DayUsage(date, perDay.getOrDefault(date, 0)))
+                .collect(Collectors.toList());
+        List<TokenUsageResponse.FeatureUsage> features = java.util.Arrays.stream(TokenFeature.values())
+                .map(f -> new TokenUsageResponse.FeatureUsage(f.name(), perFeature.getOrDefault(f, 0)))
+                .collect(Collectors.toList());
+
+        return TokenUsageResponse.builder()
+                .range(normalized)
+                .from(from)
+                .to(to)
+                .totalTokens(days.stream().mapToInt(TokenUsageResponse.DayUsage::getTokens).sum())
+                .days(days)
+                .features(features)
+                .build();
     }
 
     private SubscriptionPlanResponse toPlanResponse(SubscriptionPlan plan) {

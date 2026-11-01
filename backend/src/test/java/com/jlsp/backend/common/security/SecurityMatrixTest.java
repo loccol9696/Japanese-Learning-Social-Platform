@@ -157,6 +157,7 @@ class SecurityMatrixTest {
             "GET /api/v1/payments/orders/JLSPABCD2345",
             "GET /api/v1/payments/my-subscription",
             "GET /api/v1/payments/my-quota",
+            "GET /api/v1/payments/token-usage",
             "POST /api/speech/transcribe",
     };
 
