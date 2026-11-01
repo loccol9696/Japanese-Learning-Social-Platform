@@ -402,7 +402,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                 const SizedBox(height: 8),
                 Text(
                   file == null
-                      ? 'MP4, MOV · Tối đa 500MB'
+                      ? 'MP4, MOV · Tối đa 100MB'
                       : 'Chạm để chọn lại video',
                   textAlign: TextAlign.center,
                   style: TextStyle(
