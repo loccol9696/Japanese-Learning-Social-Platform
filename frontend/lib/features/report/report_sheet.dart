@@ -6,6 +6,34 @@ import '../../core/theme/app_palette.dart';
 import '../../core/widgets/app_toast.dart';
 import 'report_service.dart';
 
+/// Báo cáo bản dịch của câu phụ đề [segmentIndex] trong video [videoId].
+Future<void> showTranslationReportSheet(
+  BuildContext context, {
+  required int videoId,
+  required int segmentIndex,
+}) => showReportSheet(
+  context,
+  target: ReportTarget.translation,
+  targetId: videoId,
+  segmentIndex: segmentIndex,
+  subject: 'bản dịch này',
+);
+
+/// Báo cáo mẫu ngữ pháp [grammarPattern] của câu phụ đề [segmentIndex] trong video [videoId].
+Future<void> showGrammarReportSheet(
+  BuildContext context, {
+  required int videoId,
+  required int segmentIndex,
+  required String grammarPattern,
+}) => showReportSheet(
+  context,
+  target: ReportTarget.grammar,
+  targetId: videoId,
+  segmentIndex: segmentIndex,
+  grammarPattern: grammarPattern,
+  subject: 'mẫu ngữ pháp này',
+);
+
 /// Mở bảng chọn lý do báo cáo; yêu cầu đăng nhập trước. [subject] là mô tả ngắn
 /// đối tượng bị báo cáo (ví dụ "video này", "bình luận này").
 Future<void> showReportSheet(
@@ -13,6 +41,8 @@ Future<void> showReportSheet(
   required ReportTarget target,
   required int targetId,
   required String subject,
+  int? segmentIndex,
+  String? grammarPattern,
   ReportService? service,
 }) async {
   if (!await requireAuthentication(
@@ -30,6 +60,8 @@ Future<void> showReportSheet(
       target: target,
       targetId: targetId,
       subject: subject,
+      segmentIndex: segmentIndex,
+      grammarPattern: grammarPattern,
       service: service ?? ReportService(),
     ),
   );
@@ -40,6 +72,8 @@ class ReportSheet extends StatefulWidget {
   final ReportTarget target;
   final int targetId;
   final String subject;
+  final int? segmentIndex;
+  final String? grammarPattern;
   final ReportService service;
 
   const ReportSheet({
@@ -47,6 +81,8 @@ class ReportSheet extends StatefulWidget {
     required this.target,
     required this.targetId,
     required this.subject,
+    this.segmentIndex,
+    this.grammarPattern,
     required this.service,
   });
 
@@ -78,6 +114,8 @@ class _ReportSheetState extends State<ReportSheet> {
         targetId: widget.targetId,
         reason: reason,
         detail: _detailController.text,
+        segmentIndex: widget.segmentIndex,
+        grammarPattern: widget.grammarPattern,
       );
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -146,7 +184,7 @@ class _ReportSheetState extends State<ReportSheet> {
                         style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
                       ),
                       const SizedBox(height: 8),
-                      for (final reason in ReportReason.values)
+                      for (final reason in widget.target.reasons)
                         _ReasonTile(
                           reason: reason,
                           selected: reason == _reason,

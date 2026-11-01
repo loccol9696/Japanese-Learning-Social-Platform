@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../report/report_sheet.dart';
 import '../../data/services/shadowing_service.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../widgets/lookup_sentence_text.dart';
@@ -33,12 +34,16 @@ class VideoScriptScreen extends StatefulWidget {
   /// Id video (số) để chấm điểm luyện nói; null thì ẩn nút micro.
   final String? videoId;
 
+  /// Cho báo cáo bản dịch và ngữ pháp từng câu; tắt với video của chính mình.
+  final bool canReport;
+
   const VideoScriptScreen({
     super.key,
     required this.cues,
     required this.controller,
     this.initialBilingual = true,
     this.videoId,
+    this.canReport = false,
   });
 
   @override
@@ -64,6 +69,28 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
 
   bool get _canPractice =>
       widget.videoId != null && int.tryParse(widget.videoId!) != null;
+
+  /// Vị trí câu để báo cáo; null nếu không báo cáo được.
+  int? _reportableLine(SubtitleCue cue) =>
+      widget.canReport && _canPractice ? cue.sourceIndex : null;
+
+  void _reportTranslation(int segmentIndex) {
+    widget.controller?.pause();
+    showTranslationReportSheet(
+      context,
+      videoId: int.parse(widget.videoId!),
+      segmentIndex: segmentIndex,
+    );
+  }
+
+  void _reportGrammar(int segmentIndex, GrammarPointInfo grammar) {
+    showGrammarReportSheet(
+      context,
+      videoId: int.parse(widget.videoId!),
+      segmentIndex: segmentIndex,
+      grammarPattern: grammar.reportKey,
+    );
+  }
 
   @override
   void initState() {
@@ -441,6 +468,7 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
         itemBuilder: (context, i) {
           final cue = widget.cues[i];
           final isActive = i == activeIndex;
+          final reportableLine = _reportableLine(cue);
           return InkWell(
             key: _itemKeys[i],
             onTap: () => _seekTo(cue.start),
@@ -484,6 +512,9 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                           onLookupActiveChanged: (active) {
                             if (active) widget.controller?.pause();
                           },
+                          onReportGrammar: reportableLine == null
+                              ? null
+                              : (grammar) => _reportGrammar(reportableLine, grammar),
                           style: TextStyle(
                             fontSize: 17,
                             height: 1.35,
@@ -497,18 +528,44 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                         ),
                         if (_bilingual && cue.translation.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          Text(
-                            cue.translation,
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              height: 1.3,
-                              fontWeight: isActive
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: isActive
-                                  ? AppPalette.textPrimary
-                                  : _inactiveTranslation,
-                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  cue.translation,
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    height: 1.3,
+                                    fontWeight: isActive
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                    color: isActive
+                                        ? AppPalette.textPrimary
+                                        : _inactiveTranslation,
+                                  ),
+                                ),
+                              ),
+                              if (reportableLine != null)
+                                Semantics(
+                                  button: true,
+                                  label: 'Báo cáo bản dịch',
+                                  excludeSemantics: true,
+                                  child: InkWell(
+                                    key: ValueKey('report-translation-$i'),
+                                    onTap: () => _reportTranslation(reportableLine),
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.flag_outlined,
+                                        size: 16,
+                                        color: AppPalette.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ],

@@ -35,4 +35,22 @@ public class EmailService {
             return false;
         }
     }
+
+    /** Báo tài khoản đã bị khóa kèm lý do. Trả về false (không ném lỗi) nếu gửi thất bại: việc khóa vẫn có hiệu lực. */
+    public boolean sendAccountLockedEmail(String toEmail, String name, String reason) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toEmail);
+        message.setSubject("Tài khoản của bạn đã bị khóa");
+        message.setText("Xin chào " + name + ",\n\n"
+                + "Tài khoản của bạn đã bị khóa do vi phạm tiêu chuẩn cộng đồng.\n"
+                + "Lý do: " + reason + "\n\n"
+                + "Bạn sẽ không thể đăng nhập cho đến khi tài khoản được mở khóa.");
+        try {
+            javaMailSender.send(message);
+            return true;
+        } catch (MailException e) {
+            log.error("Gửi email khóa tài khoản tới {} thất bại: {}", toEmail, e.getMessage());
+            return false;
+        }
+    }
 }

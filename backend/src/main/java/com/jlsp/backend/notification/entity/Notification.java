@@ -46,6 +46,10 @@ public class Notification {
     @Column(name = "comment_id")
     private Long commentId;
 
+    /** Báo cáo liên quan, để người nhận mở xem kết quả. */
+    @Column(name = "report_id")
+    private Long reportId;
+
     /** Nội dung kèm theo: đoạn bình luận, lý do từ chối, kết quả xử lý báo cáo... */
     @Column(length = 500)
     private String message;

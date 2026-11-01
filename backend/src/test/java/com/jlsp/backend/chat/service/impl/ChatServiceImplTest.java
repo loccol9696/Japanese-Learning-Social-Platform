@@ -195,11 +195,30 @@ class ChatServiceImplTest {
         MessageResponse response = service.recallMessage(ME, 6L);
 
         assertThat(response.getRecalled()).isTrue();
+        assertThat(response.getRemovedByModeration()).isFalse();
         assertThat(response.getContent()).isNull();
         assertThat(message.getContent()).isNull();
         ArgumentCaptor<MessageRecalledEvent> event = ArgumentCaptor.forClass(MessageRecalledEvent.class);
         verify(eventPublisher).publishEvent(event.capture());
         assertThat(event.getValue().recipientId()).isEqualTo(OTHER);
+    }
+
+    @Test
+    void moderationRemovesAMessageOutsideTheRecallWindowAndUpdatesBothSides() {
+        Message message = message(6L);
+        message.setSender(other);
+        message.setCreatedAt(LocalDateTime.now().minusDays(30));
+        when(messageRepository.findById(6L)).thenReturn(Optional.of(message));
+
+        service.removeMessageByModeration(6L);
+
+        assertThat(message.getRemovedByModeration()).isTrue();
+        assertThat(message.getContent()).isNull();
+        assertThat(message.getRecalledAt()).isNotNull();
+        ArgumentCaptor<MessageRecalledEvent> event = ArgumentCaptor.forClass(MessageRecalledEvent.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        assertThat(event.getValue().senderId()).isEqualTo(OTHER);
+        assertThat(event.getValue().recipientId()).isEqualTo(ME);
     }
 
     @Test

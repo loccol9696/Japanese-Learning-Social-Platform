@@ -80,6 +80,13 @@ public class Message {
     private LocalDateTime recalledAt;
 
     /**
+     * Tin bị kiểm duyệt viên gỡ, không phải người gửi tự thu hồi (recalledAt vẫn được đặt như khi thu hồi).
+     */
+    @Column(name = "removed_by_moderation", nullable = false, columnDefinition = "boolean default false not null")
+    @Builder.Default
+    private Boolean removedByModeration = false;
+
+    /**
      * ID do client sinh ra để chống gửi trùng khi mạng chập chờn / gửi lại
      */
     @Column(name = "client_msg_id", length = 64)

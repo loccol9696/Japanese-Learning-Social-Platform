@@ -11,6 +11,7 @@ import 'package:frontend/features/notification/notification_hub.dart';
 import 'package:frontend/features/notification/notification_model.dart';
 import 'package:frontend/features/notification/notification_sheet.dart';
 import 'package:frontend/features/notification/notification_service.dart';
+import 'package:frontend/features/report/report_result_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -28,6 +29,7 @@ Map<String, dynamic> _raw({
   int? actorId,
   String actor = '',
   int? videoId,
+  int? reportId,
   String videoTitle = '',
   String message = '',
 }) =>
@@ -40,6 +42,7 @@ Map<String, dynamic> _raw({
       'actorUsername': actor,
       'actorDisplayName': actor,
       'videoId': videoId,
+      'reportId': reportId,
       'videoTitle': videoTitle,
       'message': message,
     };
@@ -273,6 +276,84 @@ void main() {
       await tester.tap(find.text('Chào'));
       await tester.pumpAndSettle();
       expect(tester.widget<SharedVideoScreen>(find.byType(SharedVideoScreen)).openComments, isFalse);
+    });
+
+    testWidgets('nội dung được sửa: có tiêu đề riêng và mở video đó', (tester) async {
+      final edited = AppNotification.fromJson(_raw(
+        id: 4,
+        type: 'CONTENT_EDITED',
+        videoId: 12,
+        isRead: true,
+        message: 'Một bản dịch đã được sửa lại',
+      ));
+      expect(edited.title, 'Nội dung của bạn đã được chỉnh sửa');
+
+      await openSheet(tester, _FakeService([edited]));
+      await tester.tap(find.text('Một bản dịch đã được sửa lại'));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<SharedVideoScreen>(find.byType(SharedVideoScreen)).videoId, 12);
+    });
+
+    testWidgets('nhắc nhở vi phạm: hiện lý do và mở video liên quan', (tester) async {
+      final warning = AppNotification.fromJson(_raw(
+        id: 5,
+        type: 'VIOLATION_WARNING',
+        videoId: 12,
+        isRead: true,
+        message: 'Video của bạn đã vi phạm. Lý do: spam',
+      ));
+      expect(warning.title, 'Bạn nhận được nhắc nhở vi phạm');
+
+      await openSheet(tester, _FakeService([warning]));
+      await tester.tap(find.text('Video của bạn đã vi phạm. Lý do: spam'));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<SharedVideoScreen>(find.byType(SharedVideoScreen)).videoId, 12);
+    });
+
+    testWidgets('thông báo kiểm duyệt hiện đủ lý do, thông báo thường vẫn gọn hai dòng', (tester) async {
+      await openSheet(tester, _FakeService([
+        AppNotification.fromJson(_raw(id: 6, type: 'VIOLATION_WARNING', isRead: true, message: 'Lý do dài')),
+        AppNotification.fromJson(_raw(id: 7, type: 'REPORT_UPDATE', isRead: true, message: 'Tin thường')),
+      ]));
+
+      expect(tester.widget<Text>(find.text('Lý do dài')).maxLines, isNull);
+      expect(tester.widget<Text>(find.text('Tin thường')).maxLines, 2);
+    });
+
+    for (final type in ['REPORT_UPDATE', 'CONTENT_REMOVED', 'CONTENT_EDITED', 'VIOLATION_WARNING']) {
+      testWidgets('$type gắn báo cáo thì mở màn kết quả báo cáo', (tester) async {
+        await openSheet(tester, _FakeService([
+          AppNotification.fromJson(_raw(
+            id: 8,
+            type: type,
+            videoId: 12,
+            reportId: 30,
+            isRead: true,
+            message: 'Mở kết quả',
+          )),
+        ]));
+
+        await tester.tap(find.text('Mở kết quả'));
+        await tester.pumpAndSettle();
+
+        final screen = tester.widget<ReportResultScreen>(find.byType(ReportResultScreen));
+        expect(screen.reportId, 30);
+        expect(screen.videoId, 12);
+      });
+    }
+
+    testWidgets('thông báo báo cáo cũ không gắn báo cáo vẫn mở video như trước', (tester) async {
+      await openSheet(tester, _FakeService([
+        AppNotification.fromJson(_raw(id: 9, type: 'REPORT_UPDATE', videoId: 12, isRead: true, message: 'Cũ')),
+      ]));
+
+      await tester.tap(find.text('Cũ'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReportResultScreen), findsNothing);
+      expect(tester.widget<SharedVideoScreen>(find.byType(SharedVideoScreen)).videoId, 12);
     });
 
     testWidgets('thông báo không có đích đến thì giữ nguyên bảng', (tester) async {
