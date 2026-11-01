@@ -44,6 +44,23 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public void notify(Long recipientId, Long actorId, NotificationType type,
                        Long videoId, Long commentId, String message) {
+        create(recipientId, actorId, type, videoId, commentId, null, message);
+    }
+
+    @Override
+    @Transactional
+    public void notifyReportResult(Long recipientId, NotificationType type, Long videoId, Long reportId,
+                                   String message) {
+        create(recipientId, null, type, videoId, null, reportId, message);
+    }
+
+    @Override
+    public boolean wasNotifiedAboutReport(Long recipientId, Long reportId) {
+        return notificationRepository.existsByRecipientIdAndReportId(recipientId, reportId);
+    }
+
+    private void create(Long recipientId, Long actorId, NotificationType type, Long videoId, Long commentId,
+                        Long reportId, String message) {
         try {
             if (recipientId == null || recipientId.equals(actorId)) {
                 return;
@@ -63,6 +80,7 @@ public class NotificationServiceImpl implements NotificationService {
                     .type(type)
                     .videoId(videoId)
                     .commentId(commentId)
+                    .reportId(reportId)
                     .message(truncate(message))
                     .build());
 
@@ -164,6 +182,7 @@ public class NotificationServiceImpl implements NotificationService {
                 .videoId(n.getVideoId())
                 .videoTitle(videoTitle)
                 .commentId(n.getCommentId())
+                .reportId(n.getReportId())
                 .message(n.getMessage())
                 .build();
     }
