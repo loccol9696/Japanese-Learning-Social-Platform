@@ -691,4 +691,89 @@ class FlashcardServiceImplTest {
         verify(progressRepository).resetStarredByUserIdAndSetId(OWNER_ID, SET_ID);
         verify(progressRepository, never()).deleteByUserIdAndSetId(anyLong(), anyLong());
     }
+
+    // ================================================================== lưu bộ thẻ của người khác về thư viện
+
+    private FlashcardSet existingCopy() {
+        return FlashcardSet.builder().setId(55L).user(stranger).title("Bộ riêng").isPublic(false)
+                .sourceSetId(SET_ID).build();
+    }
+
+    @Test
+    void copyingAPublicSetCreatesAPrivateCopyWithAllCardsInOrder() {
+        privateSet.setIsPublic(true);
+        privateSet.setDescription("mô tả");
+        when(cardRepository.findOrderedBySetId(SET_ID)).thenReturn(cards(3));
+        when(setRepository.findFirstByUserIdAndSourceSetIdOrderByCreatedAtDesc(STRANGER_ID, SET_ID))
+                .thenReturn(Optional.empty());
+
+        FlashcardSetResponse response = service.copySet(STRANGER_ID, SET_ID);
+
+        ArgumentCaptor<FlashcardSet> saved = ArgumentCaptor.forClass(FlashcardSet.class);
+        verify(setRepository).save(saved.capture());
+        FlashcardSet copy = saved.getValue();
+        assertThat(copy.getUser()).isSameAs(stranger);
+        assertThat(copy.getIsPublic()).isFalse();
+        assertThat(copy.getSourceSetId()).isEqualTo(SET_ID);
+        assertThat(copy.getTitle()).isEqualTo("Bộ riêng");
+        assertThat(copy.getDescription()).isEqualTo("mô tả");
+        assertThat(copy.getFlashcards()).extracting(Flashcard::getTerm).containsExactly("term1", "term2", "term3");
+        assertThat(copy.getFlashcards()).extracting(Flashcard::getSortOrder).containsExactly(0, 1, 2);
+        assertThat(copy.getFlashcards()).allSatisfy(c -> assertThat(c.getFlashcardSet()).isSameAs(copy));
+        assertThat(response.getTotalCards()).isEqualTo(3);
+        assertThat(response.getIsOwner()).isTrue();
+    }
+
+    @Test
+    void aPrivateSetCannotBeCopiedByAStranger() {
+        assertThatThrownBy(() -> service.copySet(STRANGER_ID, SET_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(setRepository, never()).save(any(FlashcardSet.class));
+    }
+
+    @Test
+    void youCannotCopyYourOwnSet() {
+        privateSet.setIsPublic(true);
+
+        assertThatThrownBy(() -> service.copySet(OWNER_ID, SET_ID))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(400));
+
+        verify(setRepository, never()).save(any(FlashcardSet.class));
+    }
+
+    @Test
+    void copyingTwiceReturnsTheExistingCopyAndCreatesNothingNew() {
+        privateSet.setIsPublic(true);
+        FlashcardSet copy = existingCopy();
+        when(setRepository.findFirstByUserIdAndSourceSetIdOrderByCreatedAtDesc(STRANGER_ID, SET_ID))
+                .thenReturn(Optional.of(copy));
+        when(setRepository.findById(55L)).thenReturn(Optional.of(copy));
+        when(cardRepository.countByFlashcardSetSetId(55L)).thenReturn(3L);
+        when(cardRepository.findByFlashcardSetSetId(eq(55L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(cards(3)));
+
+        FlashcardSetResponse response = service.copySet(STRANGER_ID, SET_ID);
+
+        assertThat(response.getSetId()).isEqualTo(55L);
+        verify(setRepository, never()).save(any(FlashcardSet.class));
+    }
+
+    @Test
+    void detailTellsTheViewerWhetherTheyOwnTheSetAndWhichCopyTheySaved() {
+        privateSet.setIsPublic(true);
+        when(cardRepository.countByFlashcardSetSetId(SET_ID)).thenReturn(3L);
+        when(cardRepository.findByFlashcardSetSetId(eq(SET_ID), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(cards(3)));
+        when(setRepository.findFirstByUserIdAndSourceSetIdOrderByCreatedAtDesc(STRANGER_ID, SET_ID))
+                .thenReturn(Optional.of(existingCopy()));
+
+        FlashcardSetResponse mine = service.getSetById(OWNER_ID, SET_ID);
+        FlashcardSetResponse theirs = service.getSetById(STRANGER_ID, SET_ID);
+
+        assertThat(mine.getIsOwner()).isTrue();
+        assertThat(mine.getSavedSetId()).isNull();
+        assertThat(theirs.getIsOwner()).isFalse();
+        assertThat(theirs.getSavedSetId()).isEqualTo(55L);
+    }
 }

@@ -47,6 +47,13 @@ class FlashcardService {
     throw Exception('Không thể tải thông tin bộ thẻ ID: $setId');
   }
 
+  /// Lưu bộ thẻ của người khác về thư viện của mình (tạo bản sao riêng tư). Đã lưu rồi thì trả lại bản sao cũ.
+  Future<FlashcardSetModel> copySet(int setId) async {
+    final res = await _api.post(ApiConstants.flashcardSetCopyUrl(setId));
+    if (res is Map<String, dynamic>) return FlashcardSetModel.fromJson(res);
+    throw Exception('Không thể lưu bộ thẻ ID: $setId');
+  }
+
   /// Tạo bộ thẻ mới
   Future<FlashcardSetModel> createSet({
     required String title,
@@ -256,9 +263,9 @@ class FlashcardService {
   }
 
   /// Lấy dữ liệu trò chơi Ghép thẻ (Matching game) từ Backend API
-  Future<MatchingGameModel> getMatchingGame(int setId) async {
+  Future<MatchingGameModel> getMatchingGame(int setId, {int pairCount = 5}) async {
     final res = await _api.get(
-      ApiConstants.flashcardMatchingUrl(setId),
+      '${ApiConstants.flashcardMatchingUrl(setId)}?pairCount=$pairCount',
       withAuth: true,
     );
     if (res is Map<String, dynamic>) {
