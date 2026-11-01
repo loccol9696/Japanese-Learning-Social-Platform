@@ -15,6 +15,7 @@ import 'flashcard_matching_screen.dart';
 import 'flashcard_quiz_screen.dart';
 import 'flashcard_typing_screen.dart';
 import '../../../chat/presentation/widgets/share_video_sheet.dart';
+import '../../../follow/presentation/screens/user_profile_screen.dart';
 import '../widgets/carousel_card_frame.dart';
 import '../widgets/study_options_bottom_sheet.dart';
 import '../../../../core/theme/app_palette.dart';
@@ -26,12 +27,14 @@ class DeckOverviewScreen extends StatefulWidget {
   /// Người đã chia sẻ bộ thẻ này cho mình (mở từ khung chat). Để trống thì hiện theo tác giả.
   final String? sharedByName;
   final String? sharedByAvatarUrl;
+  final int? sharedByUserId;
 
   const DeckOverviewScreen({
     super.key,
     required this.deck,
     this.sharedByName,
     this.sharedByAvatarUrl,
+    this.sharedByUserId,
   });
 
   @override
@@ -510,6 +513,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     final sharer = widget.sharedByName?.trim() ?? '';
     final author = widget.deck.authorName;
     final name = sharer.isNotEmpty ? sharer : author;
+    final profileUserId = sharer.isNotEmpty ? widget.sharedByUserId : widget.deck.authorId;
     final label = sharer.isNotEmpty ? 'Chia sẻ bởi' : 'Tác giả';
     final style = TextStyle(color: AppPalette.textSecondary, fontSize: 13, fontWeight: FontWeight.w500);
 
@@ -519,20 +523,31 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
       children: [
         Row(
           children: [
-            Expanded(
-              child: Text.rich(
-                TextSpan(
-                  style: style,
-                  children: [
-                    TextSpan(text: '$count thuật ngữ · $label '),
-                    TextSpan(
-                      text: name,
-                      style: TextStyle(color: AppPalette.textPrimary, fontWeight: FontWeight.w700),
-                    ),
-                  ],
+            Text('$count thuật ngữ · $label ', style: style, maxLines: 1),
+            Flexible(
+              child: GestureDetector(
+                key: const ValueKey('deck-sharer-profile-link'),
+                behavior: HitTestBehavior.opaque,
+                onTap: profileUserId == null
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => UserProfileScreen(
+                              userId: profileUserId,
+                              initialName: name,
+                            ),
+                          ),
+                        ),
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -571,8 +586,10 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(saved ? Icons.check_rounded : Icons.add_rounded, size: 20),
-                  const SizedBox(width: 8),
+                  if (saved) ...[
+                    const Icon(Icons.check_rounded, size: 20),
+                    const SizedBox(width: 8),
+                  ],
                   Flexible(
                     child: Text(
                       saved ? 'Đã lưu trong thư viện' : 'Lưu về thư viện của tôi',

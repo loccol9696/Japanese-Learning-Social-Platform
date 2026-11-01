@@ -6,7 +6,7 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../../core/widgets/flame_icon.dart';
 import 'answer_streak.dart';
 
-/// Mức "nhiệt" của ngọn lửa theo chuỗi đúng liên tiếp: càng dài lửa càng to, càng rực, đến 10 câu chuyển sang lửa xanh.
+/// Mức "nhiệt" của ngọn lửa theo chuỗi đúng liên tiếp: càng dài lửa càng to và càng rực, luôn giữ tông cam.
 class StreakHeat {
   const StreakHeat._({
     required this.tip,
@@ -59,18 +59,18 @@ class StreakHeat {
   );
 
   static const StreakHeat blaze = StreakHeat._(
-    tip: Color(0xFFCFF1FF),
-    base: Color(0xFF2D8CFF),
-    core: Color(0xFFFFFFFF),
-    glow: Color(0xFF3AA0FF),
-    barStart: Color(0xFF7DD3FC),
-    barEnd: Color(0xFF2D8CFF),
-    text: Color(0xFF0B1B3A),
+    tip: Color(0xFFFFC857),
+    base: Color(0xFFFF4D1F),
+    core: Color(0xFFFFE9A8),
+    glow: Color(0xFFFF6A1F),
+    barStart: Color(0xFFFFC857),
+    barEnd: Color(0xFFFF5A1F),
+    text: Color(0xFF1A1033),
     size: 42,
     sparks: 16,
   );
 
-  /// Mức nhiệt của một chuỗi: từ [AnswerStreak.highlightFrom] là lửa cam, từ mốc lửa đầu tiên là lửa rực, gấp đôi mốc là lửa xanh.
+  /// Mức nhiệt của một chuỗi: chuỗi càng dài thì lửa càng lớn và nhiều tia hơn, nhưng luôn giữ màu cam.
   static StreakHeat of(int streak) {
     if (streak >= AnswerStreak.fireEvery * 2) return blaze;
     if (streak >= AnswerStreak.fireEvery) return hot;
@@ -82,7 +82,7 @@ class StreakHeat {
 /// ([AnswerStreak.highlightFrom] câu trở lên) thì đổi sang màu lửa và hiện ngọn lửa mang số chuỗi ở đầu thanh.
 ///
 /// Ngọn lửa luôn lập lòe; mỗi câu đúng làm nó nảy lên và bắn tia lửa, lần bắt lửa đầu tiên bùng ra từ không,
-/// còn đứt chuỗi thì lửa tắt kèm khói. Chuỗi càng dài lửa càng to và đổi màu (xem [StreakHeat]).
+/// còn đứt chuỗi thì lửa tắt kèm khói. Chuỗi càng dài lửa càng to và rực hơn (xem [StreakHeat]).
 class StreakProgressBar extends StatefulWidget {
   const StreakProgressBar({
     super.key,

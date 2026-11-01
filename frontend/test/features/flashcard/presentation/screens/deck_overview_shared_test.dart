@@ -7,6 +7,7 @@ import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/token_storage.dart';
 import 'package:frontend/features/flashcard/data/models/flashcard_set_model.dart';
 import 'package:frontend/features/flashcard/presentation/screens/deck_overview_screen.dart';
+import 'package:frontend/features/follow/presentation/screens/user_profile_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -65,12 +66,21 @@ void main() {
     }
   });
 
-  Future<void> open(WidgetTester tester, FlashcardSetModel deck, {String? sharedBy}) async {
+  Future<void> open(
+    WidgetTester tester,
+    FlashcardSetModel deck, {
+    String? sharedBy,
+    int? sharedByUserId,
+  }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.75;
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(MaterialApp(
-      home: DeckOverviewScreen(deck: deck, sharedByName: sharedBy),
+      home: DeckOverviewScreen(
+        deck: deck,
+        sharedByName: sharedBy,
+        sharedByUserId: sharedByUserId,
+      ),
     ));
     await tester.pumpAndSettle();
   }
@@ -79,14 +89,37 @@ void main() {
     await open(tester, FlashcardSetModel.fromJson(_setJson()), sharedBy: 'Loc fake');
 
     expect(find.byKey(const ValueKey('deck-shared-info')), findsOneWidget);
-    expect(find.textContaining('19 thuật ngữ · Chia sẻ bởi'), findsOneWidget);
+    expect(find.text('19 thuật ngữ · Chia sẻ bởi '), findsOneWidget);
     expect(find.text(_saveLabel), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('deck-save-button')),
+        matching: find.byIcon(Icons.add_rounded),
+      ),
+      findsNothing,
+    );
     expect(find.text(_savedLabel), findsNothing);
     // Đúng thiết kế: chỉ có nút quay lại, thẻ không có loa và sao.
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
     expect(find.byIcon(Icons.star_outline_rounded), findsNothing);
     expect(find.byIcon(Icons.volume_up_rounded), findsNothing);
     expect(find.text('Ghép thẻ'), findsOneWidget);
+  });
+
+  testWidgets('bấm tên người chia sẻ thì mở trang cá nhân của họ', (tester) async {
+    await open(
+      tester,
+      FlashcardSetModel.fromJson(_setJson()),
+      sharedBy: 'Loc fake',
+      sharedByUserId: 42,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('deck-sharer-profile-link')));
+    await tester.pump();
+
+    final profile = tester.widget<UserProfileScreen>(find.byType(UserProfileScreen));
+    expect(profile.userId, 42);
+    expect(profile.initialName, 'Loc fake');
   });
 
   testWidgets('không biết ai chia sẻ thì ghi "Tác giả" theo chủ bộ thẻ', (tester) async {

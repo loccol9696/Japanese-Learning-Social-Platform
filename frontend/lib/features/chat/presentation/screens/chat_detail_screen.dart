@@ -873,6 +873,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
             // Tin do người kia gửi thì ghi "Chia sẻ bởi" họ; tin của chính mình thì dùng tác giả bộ thẻ.
             sharedByName: message.senderId == _myId ? null : _conversation.otherUser.name,
             sharedByAvatarUrl: message.senderId == _myId ? null : _conversation.otherUser.avatarUrl,
+            sharedByUserId: message.senderId == _myId ? null : _conversation.otherUser.id,
           ),
         ),
       );

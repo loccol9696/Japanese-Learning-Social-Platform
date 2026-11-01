@@ -263,9 +263,9 @@ class FlashcardService {
   }
 
   /// Lấy dữ liệu trò chơi Ghép thẻ (Matching game) từ Backend API
-  Future<MatchingGameModel> getMatchingGame(int setId) async {
+  Future<MatchingGameModel> getMatchingGame(int setId, {int pairCount = 5}) async {
     final res = await _api.get(
-      ApiConstants.flashcardMatchingUrl(setId),
+      '${ApiConstants.flashcardMatchingUrl(setId)}?pairCount=$pairCount',
       withAuth: true,
     );
     if (res is Map<String, dynamic>) {

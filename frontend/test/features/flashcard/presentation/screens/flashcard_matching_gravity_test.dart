@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/token_storage.dart';
+import 'package:frontend/core/theme/app_palette.dart';
 import 'package:frontend/features/flashcard/data/models/flashcard_set_model.dart';
 import 'package:frontend/features/flashcard/presentation/screens/flashcard_matching_screen.dart';
 import 'package:http/http.dart' as http;
@@ -36,13 +37,29 @@ Map<String, dynamic> _game() => {
       ],
     };
 
+Map<String, dynamic> _largeGame() => {
+      'setId': 7,
+      'totalPairs': 12,
+      'tiles': [
+        for (var i = 0; i < 24; i++)
+          {
+            'tileId': 't$i',
+            'cardId': i ~/ 2,
+            'text': 'thẻ $i',
+            'type': i.isEven ? 'TERM' : 'MEANING',
+          },
+      ],
+    };
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   // FlashcardService giữ ApiClient của lần dùng đầu nên chỉ cài MockClient một lần.
   var installed = false;
+  var gameFactory = _game;
 
   setUp(() async {
+    gameFactory = _game;
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
     await TokenStorage.instance.clear();
@@ -50,7 +67,7 @@ void main() {
     if (!installed) {
       installed = true;
       ApiClient.overrideForTesting(MockClient((request) async {
-        final data = request.url.path.endsWith('/matching') ? _game() : <String, dynamic>{};
+        final data = request.url.path.endsWith('/matching') ? gameFactory() : <String, dynamic>{};
         return http.Response(
           jsonEncode({'status': 200, 'data': data}),
           200,
@@ -79,18 +96,81 @@ void main() {
     await tester.tap(tile(a));
     await tester.pump();
     await tester.tap(tile(b));
-    await tester.pump(const Duration(milliseconds: 250));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 2500));
   }
 
   testWidgets('ban đầu xếp thẻ lần lượt trái, phải theo từng hàng', (tester) async {
     await open(tester);
 
+    expect(find.byIcon(Icons.settings), findsNothing);
+    final firstTileSize = tester.getSize(tile(0));
+    expect(firstTileSize.height, greaterThan(firstTileSize.width * 0.75));
     expect(left(tester, 0), lessThan(left(tester, 1)));
     expect(left(tester, 0), left(tester, 2));
     expect(top(tester, 0), top(tester, 1));
     expect(top(tester, 2), greaterThan(top(tester, 0)));
     expect(top(tester, 8), top(tester, 9));
+  });
+
+  testWidgets('bộ lớn chia thành các lượt 5 cặp và giữ tiến độ toàn bộ', (tester) async {
+    gameFactory = _largeGame;
+    await open(tester);
+
+    expect(find.text('0 / 12'), findsOneWidget);
+    var visible = tester
+        .widgetList<AnimatedPositioned>(find.byType(AnimatedPositioned))
+        .map((widget) => (widget.key! as ValueKey<String>).value)
+        .map((key) => int.parse(key.substring(key.lastIndexOf('t') + 1)))
+        .toList();
+    expect(visible, hasLength(10));
+
+    final byCard = <int, List<int>>{};
+    for (final index in visible) {
+      byCard.putIfAbsent(index ~/ 2, () => []).add(index);
+    }
+    for (final pair in byCard.values) {
+      await match(tester, pair[0], pair[1]);
+    }
+
+    expect(find.text('5 / 12'), findsOneWidget);
+    visible = tester
+        .widgetList<AnimatedPositioned>(find.byType(AnimatedPositioned))
+        .map((widget) => (widget.key! as ValueKey<String>).value)
+        .map((key) => int.parse(key.substring(key.lastIndexOf('t') + 1)))
+        .toList();
+    expect(visible, hasLength(10));
+  });
+
+  testWidgets('thẻ đang chọn có viền màu nhấn như thiết kế', (tester) async {
+    await open(tester);
+    await tester.tap(tile(0));
+    await tester.pump();
+
+    final container = tester.widget<AnimatedContainer>(
+      find.descendant(of: tile(0), matching: find.byType(AnimatedContainer)),
+    );
+    final decoration = container.decoration! as BoxDecoration;
+    final border = decoration.border! as Border;
+    expect(border.top.color, AppPalette.accent);
+  });
+
+  testWidgets('ghép đúng liên tiếp tạo streak, ghép sai làm đứt streak', (tester) async {
+    await open(tester);
+
+    await match(tester, 8, 9);
+    expect(find.byKey(const ValueKey('streak-badge')), findsNothing);
+    await match(tester, 6, 7);
+    expect(find.byKey(const ValueKey('streak-badge')), findsOneWidget);
+    expect(
+      find.descendant(of: find.byKey(const ValueKey('streak-badge')), matching: find.text('2')),
+      findsOneWidget,
+    );
+
+    await tester.tap(tile(0));
+    await tester.pump();
+    await tester.tap(tile(1));
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(find.byKey(const ValueKey('streak-badge')), findsNothing);
   });
 
   testWidgets('ghép cặp ở hàng dưới cùng: mọi thẻ phía trên rơi xuống một hàng', (tester) async {
@@ -174,8 +254,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('Chúc mừng!'), findsNothing);
 
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 2200));
     expect(find.text('Chúc mừng!'), findsOneWidget);
+    expect(find.byKey(const ValueKey('completion-fireworks')), findsOneWidget);
+    expect(find.byKey(const ValueKey('matching-restart')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('matching-restart')));
+    await tester.pumpAndSettle();
+    expect(find.text('0 / 5'), findsOneWidget);
+    expect(find.text('Chúc mừng!'), findsNothing);
   });
 }

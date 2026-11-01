@@ -18,13 +18,15 @@ void main() {
   Finder sparks() => find.byKey(const ValueKey('streak-sparks'));
 
   group('mức nhiệt theo chuỗi', () {
-    test('lửa to và rực dần theo chuỗi, đến 10 câu thì thành lửa xanh', () {
+    test('lửa to và rực dần theo chuỗi, từ 10 câu vẫn giữ tông cam', () {
       expect(StreakHeat.of(2), same(StreakHeat.warm));
       expect(StreakHeat.of(4), same(StreakHeat.warm));
       expect(StreakHeat.of(5), same(StreakHeat.hot));
       expect(StreakHeat.of(9), same(StreakHeat.hot));
       expect(StreakHeat.of(10), same(StreakHeat.blaze));
       expect(StreakHeat.of(37), same(StreakHeat.blaze));
+      expect(StreakHeat.blaze.base, StreakHeat.hot.base);
+      expect(StreakHeat.blaze.barEnd, StreakHeat.hot.barEnd);
       expect(StreakHeat.warm.size, lessThan(StreakHeat.hot.size));
       expect(StreakHeat.hot.size, lessThan(StreakHeat.blaze.size));
       expect(StreakHeat.warm.sparks, lessThan(StreakHeat.blaze.sparks));

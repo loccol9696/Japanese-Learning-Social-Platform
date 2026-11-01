@@ -7,6 +7,7 @@ import '../../data/models/quiz_question_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../widgets/answer_streak.dart';
 import '../widgets/fire_celebration.dart';
+import '../widgets/completion_fireworks.dart';
 import '../widgets/learning_header.dart';
 import '../widgets/simple_empty_state.dart';
 import '../widgets/study_options_bottom_sheet.dart';
@@ -83,6 +84,8 @@ class FlashcardQuizScreen extends StatefulWidget {
 class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
   final FlashcardService _service = FlashcardService.instance;
   List<QuizQuestionModel> _questions = [];
+  int _totalQuestions = 0;
+  final Set<int> _masteredCardIds = {};
   int _currentIndex = 0;
   bool _isLoading = true;
   String? _selectedOption;
@@ -116,6 +119,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
   Future<void> _loadQuiz() async {
     _advanceTimer?.cancel();
     _streak.reset();
+    _masteredCardIds.clear();
     _awaitingContinue = false;
     setState(() => _isLoading = true);
 
@@ -138,6 +142,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
       if (mounted) {
         setState(() {
           _questions = [];
+          _totalQuestions = 0;
           _currentIndex = 0;
           _selectedOption = null;
           _isLoading = false;
@@ -177,6 +182,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
     if (mounted) {
       setState(() {
         _questions = generatedQuestions;
+        _totalQuestions = generatedQuestions.length;
         _currentIndex = 0;
         _selectedOption = null;
         _isLoading = false;
@@ -213,6 +219,7 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
     setState(() {
       _selectedOption = option;
       _awaitingContinue = !isCorrect;
+      if (isCorrect) _masteredCardIds.add(q.cardId);
       if (reachedFireMilestone) _fireTrigger++;
     });
 
@@ -225,10 +232,27 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
     }
   }
 
+  void _onSkip() {
+    if (_selectedOption != null) return;
+    final q = _questions[_currentIndex];
+    _streak.record(correct: false);
+    setState(() {
+      _selectedOption = '';
+      _awaitingContinue = true;
+    });
+    _service.submitAnswer(q.cardId, false);
+    _advanceTimer?.cancel();
+    _advanceTimer = Timer(_autoAdvance, _goNext);
+  }
+
   void _goNext() {
     if (!mounted) return;
-    if (_currentIndex < _questions.length - 1) {
+    final shouldRetry = _awaitingContinue;
+    if (shouldRetry || _currentIndex < _questions.length - 1) {
       setState(() {
+        // Câu trả lời sai được đưa xuống cuối hàng đợi và sẽ tiếp tục
+        // xuất hiện cho đến khi người dùng trả lời đúng.
+        if (shouldRetry) _questions.add(_questions[_currentIndex]);
         _currentIndex++;
         _selectedOption = null;
         _awaitingContinue = false;
@@ -241,19 +265,36 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
   void _showQuizCompleted() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppPalette.background,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Hoàn thành bài trắc nghiệm!', style: TextStyle(color: AppPalette.textPrimary)),
-        content: Text('Bạn đã hoàn tất tất cả câu hỏi.', style: TextStyle(color: AppPalette.textSecondary)),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: Text('Đóng', style: TextStyle(color: AppPalette.onAccent)),
+      builder: (ctx) => Stack(
+        fit: StackFit.expand,
+        alignment: Alignment.center,
+        children: [
+          const IgnorePointer(child: CompletionFireworks()),
+          Center(
+            child: AlertDialog(
+              backgroundColor: AppPalette.background,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text('Hoàn thành bài trắc nghiệm!', style: TextStyle(color: AppPalette.textPrimary)),
+              content: Text('Bạn đã hoàn tất tất cả câu hỏi.', style: TextStyle(color: AppPalette.textSecondary)),
+              actions: [
+                TextButton(
+                  key: const ValueKey('quiz-restart'),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _loadQuiz();
+                  },
+                  child: Text('Học lại', style: TextStyle(color: AppPalette.textPrimary)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                  },
+                  child: Text('Đóng', style: TextStyle(color: AppPalette.onAccent)),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -296,6 +337,10 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
     }
 
     final q = _questions[_currentIndex];
+    final answeredCorrectly = _selectedOption == q.correctAnswer;
+    final displayIndex = _selectedOption == null
+        ? math.min(_masteredCardIds.length + 1, _totalQuestions)
+        : math.min(_masteredCardIds.length + (answeredCorrectly ? 0 : 1), _totalQuestions);
     final bool isOptionsJapanese = _options.displayFrontFace == 'definition';
     // displayFrontFace == 'term': Thẻ câu hỏi hiển thị Thuật ngữ (q.term), Options hiển thị Định nghĩa
     // displayFrontFace == 'definition': Thẻ câu hỏi hiển thị Định nghĩa (q.meaning), Options hiển thị Thuật ngữ
@@ -312,8 +357,9 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
               children: [
                 // Thanh trên cùng + thanh tiến trình (đổi màu cam, hiện lửa khi đúng liên tiếp)
                 LearningHeader(
-                  currentIndex: _currentIndex + 1,
-                  totalItems: _questions.length,
+                  currentIndex: displayIndex,
+                  completedItems: _masteredCardIds.length,
+                  totalItems: _totalQuestions,
                   streak: _streak.count,
                   onClose: () => Navigator.pop(context),
                   onSettingsClick: _openSettings,
@@ -323,56 +369,81 @@ class _FlashcardQuizScreenState extends State<FlashcardQuizScreen> {
 
                 _buildQuestionCard(questionLabel, questionText, isOptionsJapanese),
 
-                const SizedBox(height: 24),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Chọn câu trả lời',
-                      style: TextStyle(
-                        color: AppPalette.textPrimary.withValues(alpha: 0.55),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
                 Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: q.options.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) => _buildOption(index, q.options[index], q.correctAnswer),
-                  ),
-                ),
-
-                // Trả lời sai: nút "Tiếp tục" ở đáy màn hình
-                if (_awaitingContinue)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: FilledButton(
-                        key: const ValueKey('quiz-continue'),
-                        onPressed: _goNext,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppPalette.accent,
-                          foregroundColor: AppPalette.onAccent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    'Chọn câu trả lời',
+                                    style: TextStyle(
+                                      color: AppPalette.textPrimary.withValues(alpha: 0.55),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  TextButton(
+                                    key: const ValueKey('quiz-skip'),
+                                    onPressed: _selectedOption == null ? _onSkip : null,
+                                    child: Text(
+                                      'Không biết',
+                                      style: TextStyle(
+                                        color: _selectedOption == null
+                                            ? AppPalette.accent
+                                            : AppPalette.textSecondary,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ListView.separated(
+                              shrinkWrap: true,
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: q.options.length,
+                              separatorBuilder: (context, index) => const SizedBox(height: 10),
+                              itemBuilder: (context, index) =>
+                                  _buildOption(index, q.options[index], q.correctAnswer),
+                            ),
+                            if (_awaitingContinue && _selectedOption?.isNotEmpty == true)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  height: 54,
+                                  child: FilledButton(
+                                    key: const ValueKey('quiz-continue'),
+                                    onPressed: _goNext,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: AppPalette.accent,
+                                      foregroundColor: AppPalette.onAccent,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                    ),
+                                    child: const Text('Tiếp tục'),
+                                  ),
+                                ),
+                              )
+                            else
+                              const SizedBox(height: 20),
+                          ],
                         ),
-                        child: const Text('Tiếp tục'),
                       ),
                     ),
-                  )
-                else
-                  const SizedBox(height: 20),
+                  ),
+                ),
               ],
             ),
           ),
