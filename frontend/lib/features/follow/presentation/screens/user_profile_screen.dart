@@ -527,7 +527,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  /// Nút theo dõi; thêm nút Nhắn tin khi hai bên đã follow lẫn nhau (mới được nhắn tin).
+  /// Nút theo dõi và nút Nhắn tin (ai cũng nhắn tin được, không cần follow nhau).
   Widget _buildActions(PublicProfile profile) {
     if (profile.isBlocked) {
       return Column(
@@ -556,12 +556,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         ],
       );
     }
-    final canMessage =
-        widget.showMessageButton && profile.isFollowing && profile.isFollowedBy;
     return Row(
       children: [
         Expanded(child: _buildFollowButton(profile)),
-        if (canMessage) ...[
+        if (widget.showMessageButton) ...[
           const SizedBox(width: 10),
           Expanded(child: _buildMessageButton(profile)),
         ],
