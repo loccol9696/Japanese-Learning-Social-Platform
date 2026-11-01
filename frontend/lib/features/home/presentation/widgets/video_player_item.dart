@@ -302,13 +302,23 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
     } else if (_pausedForHidden) {
       _pausedForHidden = false;
-      _isMutedForWebAutoplay = false;
-      controller.setVolume(1).then((_) => controller.play()).catchError(
-        (error) {
-          debugPrint('Video playback failed: $error');
-        },
-      );
+      _startPlayback(controller).catchError((error) {
+        debugPrint('Video playback failed: $error');
+      });
     }
+  }
+
+  /// Trình duyệt chỉ cho phát có tiếng sau khi người dùng đã chạm vào trang ít nhất một lần.
+  /// Cờ này dùng chung cho mọi video: đã mở tiếng một lần thì các video sau đều có tiếng.
+  static bool _webSoundUnlocked = false;
+
+  /// Phát video đang hiện, quyết định âm lượng ngay lúc phát (không dựa vào trạng thái lúc
+  /// khởi tạo, vì video có thể được kích hoạt trong lúc đang tải).
+  Future<void> _startPlayback(VideoPlayerController controller) async {
+    final withSound = !kIsWeb || _webSoundUnlocked;
+    _isMutedForWebAutoplay = !withSound;
+    await controller.setVolume(withSound ? 1 : 0);
+    await controller.play();
   }
 
   @override
@@ -349,10 +359,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       await controller.setLooping(true);
       // Trình duyệt chặn autoplay có tiếng. Video đầu tiên cần chạy mute;
       // lần chạm đầu tiên hoặc thao tác vuốt sẽ mở tiếng trở lại.
-      _isMutedForWebAutoplay = kIsWeb && widget.isActive;
-      await controller.setVolume(
-        widget.isActive && !kIsWeb ? 1 : 0,
-      );
+      await controller.setVolume(0);
       final startAt = widget.initialPosition;
       if (startAt != null && startAt < controller.value.duration) {
         await controller.seekTo(startAt);
@@ -369,7 +376,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
 
       try {
-        await controller.play();
+        await _startPlayback(controller);
       } catch (error) {
         // Browsers may block autoplay even when the video is muted.
         debugPrint('Video autoplay was blocked: $error');
@@ -470,6 +477,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       return;
     }
 
+    // Lần chạm này là thao tác của người dùng: từ giờ trình duyệt cho phát có tiếng.
+    _webSoundUnlocked = true;
     if (controller.value.isPlaying && _isMutedForWebAutoplay) {
       _isMutedForWebAutoplay = false;
       controller.setVolume(1).catchError((error) {
