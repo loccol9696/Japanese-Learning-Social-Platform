@@ -7,6 +7,7 @@ import com.jlsp.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -22,8 +23,11 @@ public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final com.jlsp.backend.subscription.repository.SubscriptionPlanRepository subscriptionPlanRepository;
+    private final com.jlsp.backend.topic.repository.TopicRepository topicRepository;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
-    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final AdminAccountSeeder adminAccountSeeder;
+    private final org.springframework.core.env.Environment environment;
+    private final PasswordEncoder passwordEncoder;
 
     // BCrypt hash của mật khẩu "password123"
     private static final String DEFAULT_PASSWORD_HASH = "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi";
@@ -32,7 +36,15 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) {
         migrateDatabaseColumns();
         seedSubscriptionPlans();
+        seedTopics();
+        adminAccountSeeder.seed();
+
+        // Tài khoản mẫu dùng mật khẩu công khai "password123" nên chỉ được tạo ở môi trường dev.
+        if (!environment.acceptsProfiles(org.springframework.core.env.Profiles.of("dev"))) {
+            return;
+        }
         ensureAdminAccount();
+        ensureModeratorAccount();
 
         if (userRepository.count() > 0) {
             log.info("Dữ liệu người dùng đã tồn tại trong database (tổng cộng {} users), bỏ qua bước khởi tạo.",
@@ -123,6 +135,23 @@ public class DataInitializer implements CommandLineRunner {
         log.info("==================================================================");
     }
 
+    /** Chủ đề mặc định, chỉ tạo khi bảng còn trống (giữ nguyên thứ tự / id 1..9 như danh sách cũ). */
+    private void seedTopics() {
+        if (topicRepository.count() > 0) {
+            return;
+        }
+        List<String> names = List.of(
+                "Anime & Manga", "Giao tiếp hằng ngày", "Luyện thi JLPT", "Văn hóa & Du lịch",
+                "Âm nhạc J-Pop", "Ẩm thực Nhật Bản", "Kanji & Hán tự", "Công việc & IT", "Tin tức thời sự");
+        for (int i = 0; i < names.size(); i++) {
+            topicRepository.save(com.jlsp.backend.topic.entity.Topic.builder()
+                    .name(names.get(i))
+                    .sortOrder(i + 1)
+                    .build());
+        }
+        log.info("Đã khởi tạo {} chủ đề mặc định.", names.size());
+    }
+
     private void seedSubscriptionPlans() {
         if (subscriptionPlanRepository.count() > 0) {
             return;
@@ -204,6 +233,8 @@ public class DataInitializer implements CommandLineRunner {
             jdbcTemplate.execute("ALTER TABLE videos ADD COLUMN IF NOT EXISTS moderated_by VARCHAR(50)");
             jdbcTemplate.execute("ALTER TABLE videos ADD COLUMN IF NOT EXISTS moderated_at TIMESTAMP");
             jdbcTemplate.execute("UPDATE videos SET mod_status = 'APPROVED' WHERE mod_status IS NULL");
+            jdbcTemplate.execute("ALTER TABLE videos DROP CONSTRAINT IF EXISTS videos_status_check");
+            jdbcTemplate.execute("ALTER TABLE videos DROP CONSTRAINT IF EXISTS videos_mod_status_check");
 
             // Cột cho bảng users (VIP & Subscriptions)
             jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS vip_expires_at TIMESTAMP");
@@ -222,6 +253,24 @@ public class DataInitializer implements CommandLineRunner {
             jdbcTemplate.execute("INSERT INTO system_settings (setting_key, setting_value, description, updated_at) " +
                     "VALUES ('SECONDS_PER_TOKEN', '60', 'Thời lượng video cho 1 Token AI tính bằng giây', NOW()) " +
                     "ON CONFLICT (setting_key) DO NOTHING");
+
+            // Bảng reports (Báo cáo vi phạm nội dung)
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS reports (" +
+                    "id BIGSERIAL PRIMARY KEY, " +
+                    "reporter_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE, " +
+                    "target_type VARCHAR(20) NOT NULL, " +
+                    "target_id BIGINT NOT NULL, " +
+                    "reason VARCHAR(30) NOT NULL, " +
+                    "detail VARCHAR(500), " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'PENDING', " +
+                    "action VARCHAR(20), " +
+                    "resolved_by BIGINT, " +
+                    "resolved_at TIMESTAMP, " +
+                    "resolution_note VARCHAR(500), " +
+                    "created_at TIMESTAMP NOT NULL)");
+
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_reports_status_created ON reports (status, created_at)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_reports_target ON reports (target_type, target_id)");
 
             log.info("Migration cột database thành công hoàn tất!");
         } catch (Exception e) {
@@ -263,6 +312,43 @@ public class DataInitializer implements CommandLineRunner {
             }
         } catch (Exception e) {
             log.error("Lỗi khi đồng bộ tài khoản admin: {}", e.getMessage(), e);
+        }
+    }
+
+    private void ensureModeratorAccount() {
+        try {
+            User mod = userRepository.findByUsername("moderator")
+                    .orElseGet(() -> userRepository.findByEmail("moderator@jlsp.com").orElse(null));
+
+            String encodedPassword = passwordEncoder.encode("ModeratorPassword123@");
+
+            if (mod != null) {
+                mod.setUsername("moderator");
+                mod.setEmail("moderator@jlsp.com");
+                mod.setPasswordHash(encodedPassword);
+                mod.setRole(UserRole.MODERATOR);
+                mod.setIsActive(true);
+                userRepository.save(mod);
+                log.info("==> [SUCCESS] Đã đồng bộ tài khoản moderator: username='moderator', role=MODERATOR, password=ModeratorPassword123@");
+            } else {
+                mod = User.builder()
+                        .username("moderator")
+                        .email("moderator@jlsp.com")
+                        .passwordHash(encodedPassword)
+                        .displayName("Kiểm Duyệt Viên (Moderator)")
+                        .avatarUrl("https://picsum.photos/seed/mod99/200/200")
+                        .role(UserRole.MODERATOR)
+                        .jlptLevel(JLPTLevel.N2)
+                        .bio("Tài khoản kiểm duyệt nội dung & xử lý khiếu nại báo cáo JLSP")
+                        .isActive(true)
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+                userRepository.save(mod);
+                log.info("==> [SUCCESS] Đã tạo mới tài khoản moderator: username='moderator', role=MODERATOR, password=ModeratorPassword123@");
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi đồng bộ tài khoản moderator: {}", e.getMessage(), e);
         }
     }
 }

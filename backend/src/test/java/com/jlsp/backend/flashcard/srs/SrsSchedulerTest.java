@@ -79,4 +79,53 @@ class SrsSchedulerTest {
         assertThat(labels.get(ReviewRating.AGAIN)).isEqualTo("1 phút");
         assertThat(labels.get(ReviewRating.EASY)).isEqualTo("4 ngày");
     }
+
+    @Test
+    void easyOnReviewCardRaisesEaseButOnlyForLaterIntervals() {
+        var easy = SrsScheduler.apply(CardState.REVIEW, 2.5, 4, ReviewRating.EASY, NOW);
+
+        assertThat(easy.intervalDays()).isEqualTo(10); // vẫn tính bằng ease cũ
+        assertThat(easy.easeFactor()).isEqualTo(2.65);
+    }
+
+    @Test
+    void firstEasyGraduationKeepsEaseUnchanged() {
+        var easy = SrsScheduler.apply(CardState.LEARNING, 2.3, 0, ReviewRating.EASY, NOW);
+        assertThat(easy.easeFactor()).isEqualTo(2.3);
+    }
+
+    @Test
+    void easeNeverExceedsMaximum() {
+        double ease = 2.5;
+        for (int i = 0; i < 30; i++) {
+            ease = SrsScheduler.apply(CardState.REVIEW, ease, 10, ReviewRating.EASY, NOW).easeFactor();
+        }
+        assertThat(ease).isEqualTo(SrsScheduler.MAX_EASE);
+    }
+
+    @Test
+    void intervalIsCappedAtOneYear() {
+        assertThat(SrsScheduler.nextIntervalDays(300, 2.5)).isEqualTo(SrsScheduler.MAX_INTERVAL_DAYS);
+        assertThat(SrsScheduler.nextIntervalDays(Integer.MAX_VALUE, 3.0)).isEqualTo(SrsScheduler.MAX_INTERVAL_DAYS);
+        assertThat(SrsScheduler.apply(CardState.REVIEW, 2.5, 365, ReviewRating.EASY, NOW).intervalDays())
+                .isEqualTo(SrsScheduler.MAX_INTERVAL_DAYS);
+    }
+
+    @Test
+    void hardOnReviewCardShrinksIntervalSoTheNextEasyGrowsSlower() {
+        var viaEasy = SrsScheduler.apply(CardState.REVIEW, 2.5, 10, ReviewRating.EASY, NOW);
+        var hard = SrsScheduler.apply(CardState.REVIEW, 2.5, 10, ReviewRating.HARD, NOW);
+        var easyAfterHard = SrsScheduler.apply(CardState.LEARNING, hard.easeFactor(), hard.intervalDays(),
+                ReviewRating.EASY, NOW);
+
+        assertThat(hard.intervalDays()).isEqualTo(8);
+        assertThat(hard.lapsed()).isFalse();
+        assertThat(easyAfterHard.intervalDays()).isLessThan(viaEasy.intervalDays());
+    }
+
+    @Test
+    void hardOnLearningCardDoesNotShrinkIntervalAgain() {
+        var hard = SrsScheduler.apply(CardState.LEARNING, 2.35, 8, ReviewRating.HARD, NOW);
+        assertThat(hard.intervalDays()).isEqualTo(8);
+    }
 }

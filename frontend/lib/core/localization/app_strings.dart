@@ -22,6 +22,12 @@ abstract class AppStrings {
   String get followingStatus;
   String get share;
   String get comments;
+  String get commentHelpful;
+  String get commentPinned;
+  String get commentPin;
+  String get commentUnpin;
+  String get commentSortHelpful;
+  String get commentSortNewest;
   String get subtitle;
 
   // Language
@@ -76,7 +82,7 @@ class ViStrings implements AppStrings {
   @override
   String get forYou => 'Dành cho bạn';
   @override
-  String get searchPlaceholder => 'Tìm kiếm bài học / Kanji / Slang...';
+  String get searchPlaceholder => 'Tìm video, người dùng...';
 
   @override
   String get noVideos => 'Không có video nào.';
@@ -94,6 +100,18 @@ class ViStrings implements AppStrings {
   String get share => 'Chia sẻ';
   @override
   String get comments => 'Bình luận';
+  @override
+  String get commentHelpful => 'Hữu ích';
+  @override
+  String get commentPinned => 'Đã ghim';
+  @override
+  String get commentPin => 'Ghim';
+  @override
+  String get commentUnpin => 'Bỏ ghim';
+  @override
+  String get commentSortHelpful => 'Hữu ích nhất';
+  @override
+  String get commentSortNewest => 'Mới nhất';
   @override
   String get subtitle => 'Phụ đề';
 
@@ -173,7 +191,7 @@ class EnStrings implements AppStrings {
   @override
   String get forYou => 'For You';
   @override
-  String get searchPlaceholder => 'Search lessons, Kanji, Slang...';
+  String get searchPlaceholder => 'Search videos, users...';
 
   @override
   String get noVideos => 'No videos available.';
@@ -191,6 +209,18 @@ class EnStrings implements AppStrings {
   String get share => 'Share';
   @override
   String get comments => 'Comments';
+  @override
+  String get commentHelpful => 'Helpful';
+  @override
+  String get commentPinned => 'Pinned';
+  @override
+  String get commentPin => 'Pin';
+  @override
+  String get commentUnpin => 'Unpin';
+  @override
+  String get commentSortHelpful => 'Most helpful';
+  @override
+  String get commentSortNewest => 'Newest';
   @override
   String get subtitle => 'Subtitles';
 
@@ -288,6 +318,18 @@ class JaStrings implements AppStrings {
   String get share => '共有';
   @override
   String get comments => 'コメント';
+  @override
+  String get commentHelpful => '役に立った';
+  @override
+  String get commentPinned => '固定済み';
+  @override
+  String get commentPin => '固定';
+  @override
+  String get commentUnpin => '固定解除';
+  @override
+  String get commentSortHelpful => '役に立つ順';
+  @override
+  String get commentSortNewest => '新しい順';
   @override
   String get subtitle => '字幕';
 

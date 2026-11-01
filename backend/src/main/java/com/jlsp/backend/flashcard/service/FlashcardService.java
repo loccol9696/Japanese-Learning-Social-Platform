@@ -17,7 +17,19 @@ public interface FlashcardService {
 
     FlashcardSetResponse getSetById(Long userId, Long setId);
 
+    /**
+     * Lưu bộ thẻ của người khác (công khai) về thư viện của người gọi: tạo một bản sao riêng tư kèm toàn bộ thẻ
+     * theo đúng thứ tự. Đã lưu rồi thì trả lại bản sao cũ, không tạo thêm.
+     */
+    FlashcardSetResponse copySet(Long userId, Long setId);
+
     void deleteSet(Long userId, Long setId);
+
+    /** Lưu thứ tự bộ thẻ trong thư viện sau khi người dùng kéo thả. */
+    void reorderSets(Long userId, java.util.List<Long> orderedSetIds);
+
+    /** Lưu thứ tự thẻ trong một bộ (chỉ chủ bộ thẻ). */
+    void reorderCards(Long userId, Long setId, java.util.List<Long> orderedCardIds);
 
     List<FlashcardResponse> getCardsInSet(Long userId, Long setId, Boolean starredOnly, Boolean shuffle);
 
@@ -41,7 +53,7 @@ public interface FlashcardService {
 
     List<QuizQuestionResponse> generateQuiz(Long userId, Long setId, Integer limit);
 
-    MatchingGameResponse generateMatchingGame(Long setId, Integer pairCount);
+    MatchingGameResponse generateMatchingGame(Long userId, Long setId, Integer pairCount);
 
     void resetSetProgress(Long userId, Long setId);
 

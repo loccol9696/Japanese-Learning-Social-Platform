@@ -15,4 +15,7 @@ public class CreateCommentRequest {
     private String content;
 
     private Long parentId;
+
+    /** Bình luận đang được trả lời (có thể là một phản hồi). Bỏ trống thì coi như trả lời {@code parentId}. */
+    private Long replyToId;
 }

@@ -4,6 +4,7 @@ import com.jlsp.backend.common.response.PageResponse;
 import com.jlsp.backend.user.entity.JLPTLevel;
 import com.jlsp.backend.video.dto.request.CreateVideoRequest;
 import com.jlsp.backend.video.dto.request.ShadowingSubmissionRequest;
+import com.jlsp.backend.video.dto.request.UpdateVideoClassificationRequest;
 import com.jlsp.backend.video.dto.request.UpdateVideoRequest;
 import com.jlsp.backend.video.dto.response.ShadowingPracticeResponse;
 import com.jlsp.backend.video.dto.response.VideoDetailResponse;
@@ -48,14 +49,6 @@ public interface VideoService {
     VideoDetailResponse updateVideo(Long id, Long currentUserId, UpdateVideoRequest request);
 
     /**
-     * Xóa video (chỉ chủ sở hữu hoặc admin mới có quyền).
-     *
-     * @param id            ID video cần xóa
-     * @param currentUserId ID người dùng thực hiện xóa
-     */
-    void deleteVideo(Long id, Long currentUserId);
-
-    /**
      * Lấy danh sách video đề xuất "Dành cho bạn" (For-You Feed) theo dạng cuộn vô
      * tận TikTok.
      * Có thể lọc theo cấp độ JLPT phù hợp với người học.
@@ -66,6 +59,12 @@ public interface VideoService {
      * @return Danh sách video phân trang
      */
     PageResponse<VideoResponse> getForYouFeed(Long currentUserId, JLPTLevel jlptLevel, Pageable pageable);
+
+    /**
+     * Feed "Dành cho bạn" xếp theo trình độ và sở thích người dùng đã chọn (feed=recommended).
+     * Chưa đăng nhập hoặc chưa có sở thích thì trả feed thường.
+     */
+    PageResponse<VideoResponse> getRecommendedFeed(Long currentUserId, Pageable pageable);
 
     /**
      * Lấy danh sách video từ những Creator mà người dùng đang theo dõi (Following
@@ -110,11 +109,13 @@ public interface VideoService {
     boolean toggleSave(Long videoId, Long currentUserId);
 
     /**
-     * Ghi nhận lượt xem hợp lệ cho video.
+     * Ghi nhận lượt xem hợp lệ cho video. Mỗi người xem (tài khoản, hoặc IP với khách) chỉ được tính một
+     * lượt cho mỗi video trong một khoảng thời gian, để không bơm lượt xem bằng cách gọi lặp.
      *
-     * @param videoId ID của video
+     * @param videoId   ID của video
+     * @param viewerKey định danh người xem (vd. "u12" hoặc "ip203.0.113.9"); null thì luôn tính
      */
-    void incrementViewCount(Long videoId);
+    void incrementViewCount(Long videoId, String viewerKey);
 
     /**
      * Cập nhật dữ liệu phụ đề tương tác JSON (chứa phân đoạn start/end, text,
@@ -159,12 +160,24 @@ public interface VideoService {
      * @param feed          Loại feed ("for-you" hoặc "following")
      * @param jlptLevel     Cấp độ JLPT cần lọc (tuỳ chọn)
      * @param userId        ID Creator cần lọc (tuỳ chọn)
-     * @param search        Từ khoá tìm theo tiêu đề / mô tả (tuỳ chọn)
-     * @param pageable      Phân trang và sắp xếp
+     * @param search        Từ khoá tìm theo tiêu đề, mô tả, chủ đề, hashtag, người đăng; "#abc" chỉ tìm
+     *                      đúng hashtag đó (tuỳ chọn)
+     * @param topicIds      Lọc video thuộc một trong các chủ đề này (tuỳ chọn; kết hợp được với từ khoá và
+     *                      JLPT, bị bỏ qua ở feed following)
+     * @param pageable      Phân trang và sắp xếp; "sort=relevance" xếp theo độ liên quan với từ khoá
      * @return Danh sách video phân trang
      */
     PageResponse<VideoResponse> getAllVideos(Long currentUserId, String feed, JLPTLevel jlptLevel, Long userId,
-            String search, Pageable pageable);
+            String search, List<Long> topicIds, Pageable pageable);
+
+    /**
+     * Kiểm duyệt viên sửa chủ đề / hashtag của video, không đổi trạng thái kiểm duyệt.
+     *
+     * @param videoId ID video
+     * @param request Chủ đề và hashtag mới
+     * @return Chi tiết video sau khi sửa
+     */
+    VideoDetailResponse updateClassification(Long videoId, UpdateVideoClassificationRequest request);
 
     /**
      * Thả tim (Like) video
@@ -172,6 +185,17 @@ public interface VideoService {
      * @param videoId       ID của video
      * @param currentUserId ID người dùng thực hiện
      */
+
+    void deleteVideo(Long videoId, Long currentUserId);
+
+    /**
+     * Xóa video khỏi hệ thống.
+     *
+     * @param videoId       ID của video
+     * @param currentUserId ID người dùng thực hiện
+     */
+
+    
     void likeVideo(Long videoId, Long currentUserId);
 
     /**

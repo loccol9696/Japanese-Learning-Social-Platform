@@ -219,6 +219,37 @@ class FlashcardStore with ChangeNotifier {
     }
   }
 
+  /// Đổi chỗ một bộ thẻ trong thư viện tức thì rồi lưu thứ tự ngầm; lỗi thì trả lại thứ tự cũ.
+  /// [newIndex] là vị trí cuối cùng của bộ thẻ sau khi kéo (đã trừ phần tử bị nhấc ra).
+  Future<bool> optimisticReorderSets(
+    int oldIndex,
+    int newIndex, {
+    required Function(String errorMessage) onError,
+  }) async {
+    final sets = _cachedSets;
+    if (sets == null ||
+        oldIndex < 0 ||
+        oldIndex >= sets.length ||
+        newIndex < 0 ||
+        newIndex >= sets.length ||
+        oldIndex == newIndex) {
+      return false;
+    }
+    final previous = List<FlashcardSetModel>.from(sets);
+    sets.insert(newIndex, sets.removeAt(oldIndex));
+    notifyListeners();
+
+    try {
+      await _service.reorderSets([for (final s in sets) s.setId]);
+      return true;
+    } catch (e) {
+      _cachedSets = previous;
+      notifyListeners();
+      onError(e.toString());
+      return false;
+    }
+  }
+
   /// Cập nhật tên/mô tả bộ thẻ tức thì (0ms)
   Future<bool> optimisticUpdateSet({
     required int setId,

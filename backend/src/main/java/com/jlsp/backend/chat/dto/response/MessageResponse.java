@@ -20,7 +20,11 @@ public class MessageResponse {
     private MessageType type;
     private String content;
     private SharedVideoResponse video;
+    private SharedDeckResponse deck;
     private Integer videoStartMs;
+    private String imageUrl;
+    private ReplyPreviewResponse replyTo;
+    private Boolean recalled;
     private String clientMsgId;
     private LocalDateTime createdAt;
 }

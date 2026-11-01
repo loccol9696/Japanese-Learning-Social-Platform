@@ -3,6 +3,11 @@ library;
 
 String _two(int value) => value.toString().padLeft(2, '0');
 
+final RegExp _japanese = RegExp(r'[\u3040-\u30ff\u3400-\u9fff]');
+
+/// Tin có chữ Nhật (kana hoặc Hán tự) thì mới hiện nút tra từ và dịch.
+bool containsJapanese(String text) => _japanese.hasMatch(text);
+
 String formatClock(DateTime time) => '${_two(time.hour)}:${_two(time.minute)}';
 
 bool isSameDay(DateTime a, DateTime b) =>

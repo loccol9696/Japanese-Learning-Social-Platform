@@ -42,7 +42,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
 
             jwtUtils.parse(authHeader.substring(BEARER_PREFIX.length()))
-                    .filter(claims -> !denylist.isDenied(claims.tokenId()))
+                    .filter(claims -> !denylist.isRevoked(claims))
                     .ifPresent(claims -> {
                         AuthUser principal = new AuthUser(claims.userId(), claims.username(), claims.roles());
                         var authorities = claims.roles().stream().map(SimpleGrantedAuthority::new).toList();

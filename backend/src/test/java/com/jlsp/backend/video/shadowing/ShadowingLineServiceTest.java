@@ -30,6 +30,7 @@ class ShadowingLineServiceTest {
 
     private ShadowingLineAttemptRepository attempts;
     private ShadowingLineService service;
+    private com.jlsp.backend.streak.service.StreakService streakService;
 
     @BeforeEach
     void setUp() {
@@ -45,7 +46,9 @@ class ShadowingLineServiceTest {
         when(users.findById(9L)).thenReturn(Optional.of(User.builder().id(9L).build()));
         when(attempts.summarize(9L, 5L)).thenReturn(List.<Object[]>of(new Object[] { 1, 92, 3L }));
 
-        service = new ShadowingLineService(videos, users, attempts, new KanaNormalizer(new DictionaryService()));
+        streakService = org.mockito.Mockito.mock(com.jlsp.backend.streak.service.StreakService.class);
+        service = new ShadowingLineService(videos, users, attempts, new KanaNormalizer(new DictionaryService()),
+                streakService);
     }
 
     @Test
@@ -59,9 +62,17 @@ class ShadowingLineServiceTest {
     }
 
     @Test
+    void scoringALineRecordsStreakActivity() {
+        service.scoreLine(5L, 9L, 1, "私の名前はロックです");
+
+        verify(streakService).recordActivity(9L);
+    }
+
+    @Test
     void outOfRangeLineIsRejected() {
         assertThatThrownBy(() -> service.scoreLine(5L, 9L, 2, "x")).isInstanceOf(AppException.class);
         assertThatThrownBy(() -> service.scoreLine(5L, 9L, -1, "x")).isInstanceOf(AppException.class);
+        verify(streakService, org.mockito.Mockito.never()).recordActivity(org.mockito.ArgumentMatchers.any());
     }
 
     @Test

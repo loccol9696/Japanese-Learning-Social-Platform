@@ -1,33 +1,36 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_palette.dart';
+import 'streak_progress_bar.dart';
 
 class LearningHeader extends StatelessWidget {
   final int currentIndex;
+  final int? completedItems;
   final int totalItems;
   final VoidCallback onClose;
   final VoidCallback? onSettingsClick;
-  final Color? progressColor;
-  final Color? trackColor;
+  /// Số câu đúng liên tiếp; từ 2 trở lên thanh tiến trình đổi màu và hiện ngọn lửa kèm số.
+  final int streak;
   final double height;
   final EdgeInsetsGeometry progressPadding;
 
   const LearningHeader({
     super.key,
     required this.currentIndex,
+    this.completedItems,
     required this.totalItems,
     required this.onClose,
     this.onSettingsClick,
-    this.progressColor,
-    this.trackColor,
-    this.height = 3.5,
-    this.progressPadding = const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+    this.streak = 0,
+    this.height = 8,
+    this.progressPadding = const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
   });
 
   @override
   Widget build(BuildContext context) {
     final validTotal = totalItems > 0 ? totalItems : 1;
     final clampedIndex = currentIndex.clamp(0, validTotal);
-    final progress = totalItems > 0 ? (clampedIndex / validTotal).clamp(0.0, 1.0) : 0.0;
+    final clampedCompleted = (completedItems ?? currentIndex).clamp(0, validTotal);
+    final progress = totalItems > 0 ? (clampedCompleted / validTotal).clamp(0.0, 1.0) : 0.0;
     final displayIndex = totalItems > 0 ? clampedIndex : 0;
 
     return Column(
@@ -66,25 +69,10 @@ class LearningHeader extends StatelessWidget {
           ),
         ),
 
-        // Continuous Progress Bar
+        // Thanh tiến trình: đổi màu cam + ngọn lửa khi đúng liên tiếp
         Padding(
           padding: progressPadding,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: progress, end: progress),
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, _) {
-                return LinearProgressIndicator(
-                  value: value,
-                  minHeight: height,
-                  backgroundColor: trackColor ?? AppPalette.border,
-                  valueColor: AlwaysStoppedAnimation<Color>(progressColor ?? AppPalette.accent),
-                );
-              },
-            ),
-          ),
+          child: StreakProgressBar(progress: progress, streak: streak, height: height),
         ),
       ],
     );

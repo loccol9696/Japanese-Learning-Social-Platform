@@ -4,6 +4,7 @@ import '../widgets/ruby_subtitle_widget.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/localization/locale_manager.dart';
+import '../../../../core/navigation/app_route_observer.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -22,6 +23,7 @@ import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/auth/auth_guard.dart';
 import '../../../auth/data/auth_session.dart';
+import '../../../chat/data/services/chat_hub.dart';
 import '../../../chat/presentation/screens/messages_tab.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -29,11 +31,15 @@ class HomeScreen extends StatefulWidget {
 
   const HomeScreen({super.key, this.repository});
 
+  /// Màn khác (đang nằm trên Trang chủ) yêu cầu chuyển sang một tab của thanh điều hướng, ví dụ sau khi thanh
+  /// toán xong. Trang chủ nhận yêu cầu rồi đặt lại về null.
+  static final ValueNotifier<int?> tabRequest = ValueNotifier<int?>(null);
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with RouteAware {
   late final HomeRepository _repository;
   late final PageController _tabPageController;
   late final PageController _homeTabController;
@@ -43,6 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
   FeedTab _currentFeedTab = FeedTab.forYou;
   int _homeTabIndex = 1;
   int _currentNavIndex = 0;
+  // true khi tab Tin nhắn đang mở một màn con (khung chat...), lúc đó thanh menu dưới được ẩn.
+  bool _messagesChildOpen = false;
   int _followingPostIndex = 0;
   int _forYouPostIndex = 0;
   Offset? _homeDragStartPosition;
@@ -59,11 +67,14 @@ class _HomeScreenState extends State<HomeScreen> {
   /// giật khi chuyển tab / chuyển trang.
   final ValueNotifier<bool> _feedPlaybackAllowed = ValueNotifier<bool>(true);
   int _pagesAboveFeed = 0;
+  bool _routeCovered = false;
+  ModalRoute<dynamic>? _subscribedRoute;
 
   @override
   void initState() {
     super.initState();
     AuthSession.instance.addListener(_onAuthChanged);
+    HomeScreen.tabRequest.addListener(_onTabRequested);
     _repository =
         widget.repository ??
         HomeRepositoryImpl(remoteDataSource: HomeRemoteDataSourceImpl());
@@ -76,7 +87,34 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _syncFeedPlayback() {
-    _feedPlaybackAllowed.value = _currentNavIndex == 0 && _pagesAboveFeed == 0;
+    _feedPlaybackAllowed.value =
+        _currentNavIndex == 0 && _pagesAboveFeed == 0 && !_routeCovered;
+    ChatHub.instance.messagesTabVisible.value =
+        _currentNavIndex == BottomNavDock.messagesIndex;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route == null || route == _subscribedRoute) return;
+    if (_subscribedRoute != null) {
+      appRouteObserver.unsubscribe(this);
+    }
+    _subscribedRoute = route;
+    appRouteObserver.subscribe(this, route);
+  }
+
+  @override
+  void didPushNext() {
+    _routeCovered = true;
+    _syncFeedPlayback();
+  }
+
+  @override
+  void didPopNext() {
+    _routeCovered = false;
+    _syncFeedPlayback();
   }
 
   /// Mở một màn đè lên feed: video tạm dừng trong lúc màn đó mở.
@@ -99,8 +137,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _onTabRequested() {
+    final tab = HomeScreen.tabRequest.value;
+    if (tab == null) return;
+    HomeScreen.tabRequest.value = null;
+    // Chờ màn đang đóng xong rồi mới đổi tab, để không đổi trang khi cây widget đang dựng lại.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _selectTab(tab);
+    });
+  }
+
   @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
+    HomeScreen.tabRequest.removeListener(_onTabRequested);
     AuthSession.instance.removeListener(_onAuthChanged);
     _tabPageController.dispose();
     _homeTabController.dispose();
@@ -157,6 +207,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _onFeedTabChanged(FeedTab tab) async {
+    RubySubtitleWidget.dismissLookups();
+    FocusManager.instance.primaryFocus?.unfocus();
     if (tab == FeedTab.following && !AuthSession.instance.isAuthenticated) {
       await requireAuthentication(context);
       return;
@@ -172,6 +224,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _onHomeTabPageChanged(int index) async {
+    // onPageChanged cũng được gọi khi chuyển trang bằng thao tác vuốt; đóng
+    // Overlay tra từ để nó không tiếp tục nổi trên feed vừa chuyển tới.
+    RubySubtitleWidget.dismissLookups();
+    FocusManager.instance.primaryFocus?.unfocus();
     _homeTabIndex = index;
     final tab = index == 0 ? FeedTab.following : FeedTab.forYou;
     if (tab == FeedTab.following && !AuthSession.instance.isAuthenticated) {
@@ -236,10 +292,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _onNavTabSelected(int index) async {
-    if (index == BottomNavDock.messagesIndex ||
-        index == 2 ||
-        index == 3 ||
-        index == 4) {
+    // Mọi tab trừ Trang chủ đều cần đăng nhập.
+    if (index >= 1) {
       final authenticated = await _requestAuthenticationAndGetResult();
       if (!mounted || !authenticated) return;
     }
@@ -338,10 +392,11 @@ class _HomeScreenState extends State<HomeScreen> {
       isLight: currentPost?.isLightBackground ?? false,
     );
 
-    // Đang soạn tin nhắn: ẩn thanh menu để bàn phím và ô nhập không bị chồng lên nó.
+    // Đang trong một cuộc trò chuyện (hoặc đang gõ phím): ẩn thanh menu để khung chat được trọn màn hình
+    // và bàn phím, ô nhập không bị chồng lên nó.
     final hideDockForKeyboard =
         _currentNavIndex == BottomNavDock.messagesIndex &&
-        MediaQuery.viewInsetsOf(context).bottom > 0;
+        (_messagesChildOpen || MediaQuery.viewInsetsOf(context).bottom > 0);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundCanvas,
@@ -385,8 +440,11 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             child: PageView(
               controller: _tabPageController,
+              // Đang trong khung chat thì vuốt ngang dành cho việc quay lại hộp thư, không đổi tab.
               physics:
-                  !AuthSession.instance.isAuthenticated || _currentNavIndex == 0
+                  !AuthSession.instance.isAuthenticated ||
+                      _currentNavIndex == 0 ||
+                      (_currentNavIndex == BottomNavDock.messagesIndex && _messagesChildOpen)
                   ? const NeverScrollableScrollPhysics()
                   : null,
               onPageChanged: (index) {
@@ -411,21 +469,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     controller: _homeTabController,
                     physics: const NeverScrollableScrollPhysics(),
                     onPageChanged: _onHomeTabPageChanged,
+                    // Giữ sống cả hai tab: nếu không, tab vừa rời đi bị hủy và vuốt quay lại sẽ về video đầu.
                     children: [
-                      _buildVideoFeed(FeedTab.following),
-                      _buildVideoFeed(FeedTab.forYou),
+                      _KeepAlivePage(child: _buildVideoFeed(FeedTab.following)),
+                      _KeepAlivePage(child: _buildVideoFeed(FeedTab.forYou)),
                     ],
                   ),
                 ),
+                const _KeepAlivePage(child: DeckLibraryScreen()),
                 _KeepAlivePage(
                   child: MessagesTab(
+                    onChildRouteChanged: (open) {
+                      if (open != _messagesChildOpen) {
+                        setState(() => _messagesChildOpen = open);
+                      }
+                    },
                     bottomInset: hideDockForKeyboard
                         ? 0
                         : BottomNavDock.contentHeight +
                               MediaQuery.paddingOf(context).bottom,
                   ),
                 ),
-                const _KeepAlivePage(child: DeckLibraryScreen()),
                 const _KeepAlivePage(child: ProfileScreen()),
               ],
             ),
@@ -507,6 +571,12 @@ class _HomeScreenState extends State<HomeScreen> {
         return VideoPlayerItem(
           key: ValueKey(post.id),
           post: post,
+          // Tab đang ẩn vẫn còn sống nên video của nó phải tạm dừng.
+          isActive: tab == _currentFeedTab &&
+              index ==
+                  (tab == FeedTab.following
+                      ? _followingPostIndex
+                      : _forYouPostIndex),
           onLikeToggle: () => _handleLikeToggle(post),
           onSaveToggle: () => _handleSaveToggle(post),
           onFollowToggle: () => _handleFollowToggle(post),
@@ -520,6 +590,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onCommentTap: () => showCommentsSheet(
             context,
             videoId: post.id,
+            videoOwnerId: post.creatorId,
             initialCount: post.commentCount,
           ),
           allowAccountActions: AuthSession.instance.isAuthenticated,
@@ -540,7 +611,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _updatePostLikeState(post.id, optimisticLiked);
 
     try {
-      final confirmedLiked = await _repository.toggleLike(post.id);
+      final confirmedLiked = await _repository.setLiked(post.id, liked: optimisticLiked);
       if (mounted) {
         _updatePostLikeState(post.id, confirmedLiked);
       }
@@ -561,9 +632,10 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {});
     }
     final previousSaved = post.isSaved;
-    _updatePostSaveState(post.id, !previousSaved);
+    final optimisticSaved = !previousSaved;
+    _updatePostSaveState(post.id, optimisticSaved);
     try {
-      final confirmedSaved = await _repository.toggleSave(post.id);
+      final confirmedSaved = await _repository.setSaved(post.id, saved: optimisticSaved);
       if (mounted) {
         _updatePostSaveState(post.id, confirmedSaved);
         AppToast.showSuccess(

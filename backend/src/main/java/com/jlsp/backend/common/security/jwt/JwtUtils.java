@@ -86,18 +86,23 @@ public class JwtUtils {
                     ? List.of()
                     : rawRoles.stream().map(String::valueOf).toList();
 
+            // Token luôn có iat do generateAccessToken đặt; thiếu thì coi như phát hành từ rất lâu
+            // (bị thu hồi theo người dùng nếu có).
+            Instant issuedAt = claims.getIssuedAt() == null ? Instant.EPOCH : claims.getIssuedAt().toInstant();
+
             return Optional.of(new AccessTokenClaims(
                     uid.longValue(),
                     claims.getSubject(),
                     roles,
                     claims.getId(),
-                    claims.getExpiration().toInstant()));
+                    claims.getExpiration().toInstant(),
+                    issuedAt));
         } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }
     }
 
     public record AccessTokenClaims(Long userId, String username, List<String> roles,
-                                    String tokenId, Instant expiresAt) {
+                                    String tokenId, Instant expiresAt, Instant issuedAt) {
     }
 }

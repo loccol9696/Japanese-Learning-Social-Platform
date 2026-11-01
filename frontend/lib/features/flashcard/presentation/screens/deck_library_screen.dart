@@ -5,11 +5,13 @@ import '../../../auth/data/auth_session.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../../data/services/flashcard_store.dart';
+import '../../../../core/widgets/square_add_button.dart';
 import '../widgets/deck_card_item.dart';
 import 'deck_editor_screen.dart';
 import 'deck_overview_screen.dart';
 import 'srs_study_screen.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 class DeckLibraryScreen extends StatefulWidget {
   const DeckLibraryScreen({super.key});
@@ -118,6 +120,22 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
     }
   }
 
+  /// Chỉ cho kéo đổi chỗ khi đang xem toàn bộ thư viện (kết quả tìm kiếm chỉ là một phần của thứ tự).
+  bool get _canReorder => _searchController.text.trim().isEmpty;
+
+  void _onReorderDecks(int oldIndex, int newIndex) {
+    if (!_canReorder) return;
+    // Bộ ghim từ video luôn nằm trên cùng.
+    if (newIndex == 0 && _decks.isNotEmpty && _decks.first.isVideoSaved) return;
+    _store.optimisticReorderSets(
+      oldIndex,
+      newIndex,
+      onError: (err) {
+        if (mounted) AppToast.showError('Không thể lưu thứ tự bộ thẻ: $err', context: context);
+      },
+    );
+  }
+
   /// Mở màn hình Chỉnh sửa bộ thẻ (Deck Editor)
   void _openDeckEditor(FlashcardSetModel deck) {
     Navigator.push(
@@ -204,24 +222,12 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                 deck.setId,
                 onError: (err) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Không thể xóa bộ thẻ: $err'),
-                        backgroundColor: AppPalette.accent,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
+                    AppToast.showError('Không thể xóa bộ thẻ: $err', context: context);
                   }
                 },
               );
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Đã xóa bộ thẻ thành công'),
-                  backgroundColor: AppPalette.surface,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              AppToast.showSuccess('Đã xóa bộ thẻ thành công', context: context);
             },
             child: Text(
               'Xóa bộ thẻ',
@@ -311,118 +317,75 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header: Title + Plus Button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Thư viện thẻ',
-                    style: TextStyle(
-                      color: AppPalette.textPrimary,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
+            // Tiêu đề căn giữa
+            // Cùng cỡ chữ và chiều cao thanh với tiêu đề "Tin nhắn" (AppBar) để hai tab đồng nhất.
+            SizedBox(
+              height: kToolbarHeight,
+              child: Center(
+                child: Text(
+                  'Thư viện thẻ',
+                  style: TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
                   ),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppPalette.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppPalette.textPrimary.withValues(alpha: 0.08),
-                        width: 1,
-                      ),
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.add,
-                        color: AppPalette.textPrimary,
-                        size: 22,
-                      ),
-                      onPressed: _openCreateDeck,
-                      splashRadius: 20,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
 
-            // Search Bar
+            // Ô tìm kiếm + nút "+" tạo bộ thẻ mới
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppPalette.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.06)),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  style: TextStyle(color: AppPalette.textPrimary, fontSize: 15),
-                  onChanged: (val) => _loadDecks(query: val),
-                  decoration: InputDecoration(
-                    hintText: 'Tìm bộ từ vựng...',
-                    hintStyle: TextStyle(
-                      color: AppPalette.textPrimary.withValues(alpha: 0.35),
-                      fontSize: 15,
-                    ),
-                    prefixIcon: Icon(
-                      Icons.search,
-                      color: AppPalette.textPrimary.withValues(alpha: 0.4),
-                      size: 22,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppPalette.surface,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        style: TextStyle(color: AppPalette.textPrimary, fontSize: 15),
+                        onChanged: (val) => _loadDecks(query: val),
+                        decoration: InputDecoration(
+                          hintText: 'Tìm bộ từ vựng...',
+                          hintStyle: TextStyle(
+                            color: AppPalette.textPrimary.withValues(alpha: 0.35),
+                            fontSize: 15,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: AppPalette.textPrimary.withValues(alpha: 0.4),
+                            size: 22,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 15,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  SquareAddButton(
+                    key: const ValueKey('create-deck-button'),
+                    tooltip: 'Tạo bộ thẻ mới',
+                    onPressed: _openCreateDeck,
+                  ),
+                ],
               ),
             ),
             if (_dueCount > 0) _buildDueBanner(),
             const SizedBox(height: 8),
 
-            // Deck List
+            // Danh sách bộ thẻ
             Expanded(
               child: _isLoading
                   ? Center(
                       child: CircularProgressIndicator(
                         color: AppPalette.accent,
-                      ),
-                    )
-                  : _decks.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.folder_open_outlined,
-                            size: 64,
-                            color: AppPalette.textPrimary.withValues(alpha: 0.3),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Chưa có bộ từ vựng nào',
-                            style: TextStyle(
-                              color: AppPalette.textPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Bấm nút + ở góc phải trên để tạo bộ thẻ đầu tiên',
-                            style: TextStyle(
-                              color: AppPalette.textPrimary.withValues(alpha: 0.5),
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
                       ),
                     )
                   : RefreshIndicator(
@@ -432,29 +395,67 @@ class _DeckLibraryScreenState extends State<DeckLibraryScreen> {
                         query: _searchController.text,
                         forceRefresh: true,
                       ),
-                      child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 90),
-                        itemCount: _decks.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final deck = _decks[index];
-                          return DeckCardItem(
-                            deck: deck,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      DeckOverviewScreen(deck: deck),
+                      child: _decks.isEmpty
+                          ? LayoutBuilder(
+                              builder: (context, constraints) => SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: constraints.maxHeight,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      _searchController.text.trim().isNotEmpty
+                                          ? 'Không tìm thấy bộ thẻ nào'
+                                          : 'Chưa có bộ thẻ nào',
+                                      key: const ValueKey('no-deck-found'),
+                                      style: TextStyle(
+                                        color: AppPalette.textPrimary.withValues(alpha: 0.5),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              );
-                            },
-                            onEdit: () => _openDeckEditor(deck),
-                            onDelete: () => _showDeleteDeckConfirmDialog(deck),
-                          );
-                        },
-                      ),
+                              ),
+                            )
+                          : ReorderableListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 90),
+                              itemCount: _decks.length,
+                              buildDefaultDragHandles: false,
+                              proxyDecorator: (child, index, animation) =>
+                                  Material(color: Colors.transparent, child: child),
+                              onReorderItem: _onReorderDecks,
+                              itemBuilder: (context, index) {
+                                final deck = _decks[index];
+                                final card = DeckCardItem(
+                                  deck: deck,
+                                  dragIndex: _canReorder && !deck.isVideoSaved ? index : null,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            DeckOverviewScreen(deck: deck),
+                                      ),
+                                    );
+                                  },
+                                  onEdit: () => _openDeckEditor(deck),
+                                  onDelete: () => _showDeleteDeckConfirmDialog(deck),
+                                );
+                                return Padding(
+                                  key: ValueKey('deck-${deck.setId}'),
+                                  padding: const EdgeInsets.only(bottom: 14),
+                                  // Nhấn giữ để kéo đổi chỗ; đang tìm kiếm hoặc bộ ghim (từ video) thì không kéo.
+                                  child: _canReorder && !deck.isVideoSaved
+                                      ? ReorderableDelayedDragStartListener(
+                                          index: index,
+                                          child: card,
+                                        )
+                                      : card,
+                                );
+                              },
+                            ),
                     ),
             ),
           ],

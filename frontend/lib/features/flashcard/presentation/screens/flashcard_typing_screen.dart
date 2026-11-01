@@ -1,7 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
+import '../widgets/answer_streak.dart';
+import '../widgets/completion_fireworks.dart';
+import '../widgets/fire_celebration.dart';
 import '../widgets/learning_header.dart';
 import '../widgets/simple_empty_state.dart';
 import '../widgets/study_options_bottom_sheet.dart';
@@ -29,10 +34,16 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
   final FlashcardService _service = FlashcardService.instance;
 
   List<FlashcardItemModel> _cards = [];
+  int _totalCards = 0;
   int _currentIndex = 0;
   bool _isLoading = true;
   String? _feedbackMessage;
   bool? _isCorrect;
+
+  /// Chuỗi trả lời đúng liên tiếp (đổi màu thanh tiến trình, hiện lửa) và bộ đếm để chơi hiệu ứng lửa lớn.
+  final AnswerStreak _streak = AnswerStreak();
+  final Set<int> _masteredCardIds = {};
+  int _fireTrigger = 0;
 
   late String _targetLanguage;
   late StudyOptions _options;
@@ -54,7 +65,15 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     super.dispose();
   }
 
+  void _focusAnswerInput() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _focusNode.canRequestFocus) _focusNode.requestFocus();
+    });
+  }
+
   Future<void> _loadCards() async {
+    _streak.reset();
+    _masteredCardIds.clear();
     setState(() => _isLoading = true);
     final list = await _service.getCardsInSet(
       widget.deck.setId,
@@ -64,13 +83,14 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     if (mounted) {
       setState(() {
         _cards = list;
+        _totalCards = list.length;
         _currentIndex = 0;
         _inputController.clear();
         _isCorrect = null;
         _feedbackMessage = null;
         _isLoading = false;
       });
-      _focusNode.requestFocus();
+      _focusAnswerInput();
     }
   }
 
@@ -130,7 +150,10 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
       correctAnswerDisplay = card.meaning;
     }
 
+    final reachedFireMilestone = _streak.record(correct: isMatch);
     setState(() {
+      if (reachedFireMilestone) _fireTrigger++;
+      if (isMatch) _masteredCardIds.add(card.cardId);
       _isCorrect = isMatch;
       _feedbackMessage =
           isMatch ? 'Chính xác!' : 'Đáp án đúng: $correctAnswerDisplay';
@@ -138,20 +161,10 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
 
     _service.submitAnswer(card.cardId, isMatch);
 
-    Future.delayed(const Duration(milliseconds: 1400), () {
-      if (!mounted) return;
-      if (_currentIndex < _cards.length - 1) {
-        setState(() {
-          _currentIndex++;
-          _inputController.clear();
-          _isCorrect = null;
-          _feedbackMessage = null;
-        });
-        _focusNode.requestFocus();
-      } else {
-        _showCompleted();
-      }
-    });
+    Future.delayed(
+      Duration(milliseconds: reachedFireMilestone ? 1900 : 1400),
+      () => _advanceToNext(retryCard: isMatch ? null : card),
+    );
   }
 
   void _onSkip() {
@@ -170,44 +183,68 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
       correctAnswerDisplay = card.meaning;
     }
 
+    _streak.record(correct: false);
     setState(() {
       _isCorrect = false;
       _feedbackMessage = 'Đáp án đúng: $correctAnswerDisplay';
     });
     _service.submitAnswer(card.cardId, false);
 
-    Future.delayed(const Duration(milliseconds: 1400), () {
-      if (!mounted) return;
-      if (_currentIndex < _cards.length - 1) {
-        setState(() {
-          _currentIndex++;
-          _inputController.clear();
-          _isCorrect = null;
-          _feedbackMessage = null;
-        });
-        _focusNode.requestFocus();
-      } else {
-        _showCompleted();
-      }
-    });
+    Future.delayed(
+      const Duration(milliseconds: 1400),
+      () => _advanceToNext(retryCard: card),
+    );
+  }
+
+  void _advanceToNext({FlashcardItemModel? retryCard}) {
+    if (!mounted) return;
+    if (retryCard != null || _currentIndex < _cards.length - 1) {
+      setState(() {
+        if (retryCard != null) _cards.add(retryCard);
+        _currentIndex++;
+        _inputController.clear();
+        _isCorrect = null;
+        _feedbackMessage = null;
+      });
+      _focusAnswerInput();
+    } else {
+      _showCompleted();
+    }
   }
 
   void _showCompleted() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppPalette.background,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Hoàn thành bài tự luận!', style: TextStyle(color: AppPalette.textPrimary)),
-        content: Text('Bạn đã hoàn tất tất cả câu hỏi tự luận.', style: TextStyle(color: AppPalette.textSecondary)),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: Text('Đóng', style: TextStyle(color: AppPalette.onAccent)),
+      builder: (ctx) => Stack(
+        fit: StackFit.expand,
+        alignment: Alignment.center,
+        children: [
+          const IgnorePointer(child: CompletionFireworks()),
+          Center(
+            child: AlertDialog(
+              backgroundColor: AppPalette.background,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text('Hoàn thành bài tự luận!', style: TextStyle(color: AppPalette.textPrimary)),
+              content: Text('Bạn đã hoàn tất tất cả câu hỏi tự luận.', style: TextStyle(color: AppPalette.textSecondary)),
+              actions: [
+                TextButton(
+                  key: const ValueKey('typing-restart'),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _loadCards();
+                  },
+                  child: Text('Học lại', style: TextStyle(color: AppPalette.textPrimary)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                  },
+                  child: Text('Đóng', style: TextStyle(color: AppPalette.onAccent)),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -250,121 +287,179 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     }
 
     final card = _cards[_currentIndex];
+    final displayIndex = _isCorrect == null
+        ? math.min(_masteredCardIds.length + 1, _totalCards)
+        : math.min(_masteredCardIds.length + (_isCorrect == true ? 0 : 1), _totalCards);
     final isInputTerm = _options.displayFrontFace == 'definition';
     // Nếu mặt trước (câu hỏi) là Định nghĩa -> Yêu cầu nhập Thuật ngữ
     // Nếu mặt trước (câu hỏi) là Thuật ngữ -> Yêu cầu nhập Định nghĩa
     final questionText = isInputTerm ? card.meaning : card.term;
-    final hintLabel = isInputTerm ? 'NHẬP THUẬT NGỮ' : 'NHẬP ĐỊNH NGHĨA';
+    final inputHint = isInputTerm
+        ? 'Nhập thuật ngữ...'
+        : 'Nhập định nghĩa...';
 
     return Scaffold(
       backgroundColor: AppPalette.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top Bar & Continuous Progress Bar
-            LearningHeader(
-              currentIndex: _currentIndex + 1,
-              totalItems: _cards.length,
-              onClose: () => Navigator.pop(context),
-              onSettingsClick: _openSettings,
-            ),
-
-            const SizedBox(height: 12),
-
-            // Question Card: Căn giữa hoàn toàn cả chiều dọc lẫn chiều ngang, ẩn hoàn toàn đáp án
-            Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(minHeight: 190),
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
-              decoration: BoxDecoration(
-                color: AppPalette.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
-              ),
-              alignment: Alignment.center,
-              child: Center(
-                child: Text(
-                  questionText,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: isInputTerm ? 32 : 46,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                    letterSpacing: isInputTerm ? 0.3 : 1.5,
-                  ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                // Top Bar & Continuous Progress Bar
+                LearningHeader(
+                  currentIndex: displayIndex,
+                  completedItems: _masteredCardIds.length,
+                  totalItems: _totalCards,
+                  streak: _streak.count,
+                  onClose: () => Navigator.pop(context),
+                  onSettingsClick: _openSettings,
                 ),
-              ),
-            ),
 
-            const Spacer(),
+                const SizedBox(height: 12),
 
-            // Feedback Message
-            if (_feedbackMessage != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                child: Text(
-                  _feedbackMessage!,
-                  style: TextStyle(
-                    color: _isCorrect == true ? AppPalette.success : AppPalette.error,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                // Question Card: Căn giữa hoàn toàn cả chiều dọc lẫn chiều ngang, ẩn hoàn toàn đáp án
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(minHeight: 190),
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: AppPalette.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: AppPalette.textPrimary.withValues(alpha: 0.08)),
                   ),
-                ),
-              ),
-
-            // Text Link: "Không biết"
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _onSkip,
-                  child: Text(
-                    'Không biết',
-                    style: TextStyle(
-                      color: AppPalette.accent,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                  alignment: Alignment.center,
+                  child: Center(
+                    child: Text(
+                      questionText,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
+                        fontSize: isInputTerm ? 32 : 46,
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                        letterSpacing: isInputTerm ? 0.3 : 1.5,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
 
-            // Underline Input Field
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-              child: TextField(
-                controller: _inputController,
-                focusNode: _focusNode,
-                style: TextStyle(
-                  color: AppPalette.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                const Spacer(),
+
+                // Feedback Message
+                if (_feedbackMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Text(
+                      _feedbackMessage!,
+                      style: TextStyle(
+                        color: _isCorrect == true ? AppPalette.success : AppPalette.error,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                // Text Link: "Không biết"
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _onSkip,
+                      child: Text(
+                        'Không biết',
+                        style: TextStyle(
+                          color: AppPalette.accent,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _checkAnswer(),
-                decoration: InputDecoration(
-                  hintText: hintLabel,
-                  hintStyle: TextStyle(
-                    color: AppPalette.textPrimary.withValues(alpha: 0.35),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: AppPalette.accent, width: 2),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: AppPalette.accent, width: 2.5),
+
+                // Answer input
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _inputController,
+                        focusNode: _focusNode,
+                        enabled: _feedbackMessage == null,
+                        minLines: 4,
+                        maxLines: 5,
+                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(
+                          color: AppPalette.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textInputAction: TextInputAction.newline,
+                        decoration: InputDecoration(
+                          hintText: inputHint,
+                          hintStyle: TextStyle(
+                            color: AppPalette.textSecondary,
+                            fontSize: 16,
+                          ),
+                          filled: true,
+                          fillColor: AppPalette.background,
+                          contentPadding: const EdgeInsets.all(16),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: AppPalette.border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: AppPalette.accent,
+                              width: 1.5,
+                            ),
+                          ),
+                          disabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: AppPalette.border),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: FilledButton(
+                          onPressed: _inputController.text.trim().isEmpty ||
+                                  _feedbackMessage != null
+                              ? null
+                              : _checkAnswer,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppPalette.accent,
+                            foregroundColor: AppPalette.onAccent,
+                            disabledBackgroundColor: AppPalette.surfaceHigh,
+                            disabledForegroundColor: AppPalette.textSecondary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text(
+                            'Kiểm tra đáp án',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+          // Hiệu ứng lửa lớn khi đúng 5 câu liên tiếp
+          FireCelebration(trigger: _fireTrigger, streak: _streak.count),
+        ],
       ),
     );
   }

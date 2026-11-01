@@ -3,32 +3,19 @@ import '../../../core/network/api_client.dart';
 import '../../home/data/datasources/home_remote_datasource.dart';
 import 'explore_video.dart';
 
-/// Bộ lọc của màn Khám phá — mỗi lựa chọn tương ứng 1 tham số thật của
-/// API `GET /videos` (sắp xếp hoặc jlptLevel).
-enum ExploreFilter {
-  trending('Thịnh hành'),
-  newest('Mới nhất'),
-  n5('JLPT N5'),
-  n4('JLPT N4'),
-  n3('JLPT N3'),
-  n2('JLPT N2'),
-  n1('JLPT N1');
+/// Cách sắp xếp danh sách video ở màn Khám phá.
+enum ExploreSort {
+  relevance('Liên quan', 'relevance'),
+  trending('Thịnh hành', 'viewCount,desc'),
+  newest('Mới nhất', 'createdAt,desc');
 
   final String label;
-  const ExploreFilter(this.label);
-
-  String get sort =>
-      this == ExploreFilter.trending ? 'viewCount,desc' : 'createdAt,desc';
-
-  String? get jlptLevel => switch (this) {
-    ExploreFilter.n5 => 'N5',
-    ExploreFilter.n4 => 'N4',
-    ExploreFilter.n3 => 'N3',
-    ExploreFilter.n2 => 'N2',
-    ExploreFilter.n1 => 'N1',
-    _ => null,
-  };
+  final String apiValue;
+  const ExploreSort(this.label, this.apiValue);
 }
+
+/// Các trình độ lọc được, theo thứ tự từ dễ đến khó.
+const List<String> exploreJlptLevels = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
 class ExploreService {
   static ExploreService? _instance;
@@ -41,8 +28,10 @@ class ExploreService {
   final HomeRemoteDataSourceImpl _mapper = HomeRemoteDataSourceImpl();
 
   Future<ExplorePage> fetchVideos({
-    required ExploreFilter filter,
+    required ExploreSort sort,
     String search = '',
+    String? jlptLevel,
+    Set<int> topicIds = const {},
     int page = 0,
   }) async {
     // Người xem (để biết đã lưu chưa) do server lấy từ access token.
@@ -50,9 +39,10 @@ class ExploreService {
       'feed': 'for-you',
       'page': '$page',
       'size': '$pageSize',
-      'sort': filter.sort,
-      if (filter.jlptLevel != null) 'jlptLevel': filter.jlptLevel!,
+      'sort': sort.apiValue,
+      'jlptLevel': ?jlptLevel,
       if (search.trim().isNotEmpty) 'search': search.trim(),
+      if (topicIds.isNotEmpty) 'topicIds': topicIds.join(','),
     };
     final uri = Uri.parse('${ApiConstants.baseUrl}/videos')
         .replace(queryParameters: query);

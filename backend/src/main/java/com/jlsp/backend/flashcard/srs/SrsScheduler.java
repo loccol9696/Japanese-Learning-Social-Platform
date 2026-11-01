@@ -17,7 +17,20 @@ public final class SrsScheduler {
 
     public static final double DEFAULT_EASE = 2.5;
     public static final double MIN_EASE = 1.3;
+    public static final double MAX_EASE = 3.0;
+    /** Bấm "Dễ" trên thẻ đang ở trạng thái ôn lại thì ease tăng chừng này (như SM-2 / Anki), nếu không ease chỉ giảm. */
+    public static final double EASY_EASE_BONUS = 0.15;
+    /** Bấm "Khó" trên thẻ đang ở trạng thái ôn lại thì khoảng cách co lại: lần "Dễ" sau đó tăng chậm hơn. */
+    public static final double HARD_INTERVAL_FACTOR = 0.8;
+    /** Trần khoảng cách ôn lại, để một thẻ không bị hẹn quá xa và không tràn số. */
+    public static final int MAX_INTERVAL_DAYS = 365;
     public static final int FIRST_INTERVAL_DAYS = 4;
+
+    /**
+     * Thẻ coi là "đã thuộc" khi đang ở trạng thái ôn lại và khoảng cách tới lần ôn kế tiếp từ chừng này ngày
+     * (ngưỡng "thẻ trưởng thành" của Anki). Phải khớp con số 21 trong các truy vấn đếm ở FlashcardProgressRepository.
+     */
+    public static final int MASTERED_INTERVAL_DAYS = 21;
 
     private static final Duration AGAIN_DELAY = Duration.ofMinutes(1);
     private static final Duration HARD_DELAY = Duration.ofMinutes(5);
@@ -42,7 +55,7 @@ public final class SrsScheduler {
             case HARD -> new CardSchedule(
                     CardState.LEARNING,
                     round(Math.max(MIN_EASE, ease - 0.15)),
-                    intervalDays,
+                    wasReview ? Math.max(1, (int) Math.round(intervalDays * HARD_INTERVAL_FACTOR)) : intervalDays,
                     now.plus(HARD_DELAY),
                     false,
                     false);
@@ -55,7 +68,9 @@ public final class SrsScheduler {
                     false);
             case EASY -> {
                 int next = nextIntervalDays(intervalDays, ease);
-                yield new CardSchedule(CardState.REVIEW, ease, next, now.plusDays(next), true, false);
+                // Khoảng cách tính bằng ease hiện tại; phần thưởng chỉ ảnh hưởng các lần sau.
+                double nextEase = wasReview ? round(Math.min(MAX_EASE, ease + EASY_EASE_BONUS)) : ease;
+                yield new CardSchedule(CardState.REVIEW, nextEase, next, now.plusDays(next), true, false);
             }
         };
     }
@@ -65,8 +80,9 @@ public final class SrsScheduler {
         if (currentIntervalDays <= 0) {
             return FIRST_INTERVAL_DAYS;
         }
-        int grown = (int) Math.round(currentIntervalDays * easeFactor);
-        return Math.max(currentIntervalDays + 1, grown);
+        long grown = Math.round((double) currentIntervalDays * easeFactor);
+        long next = Math.max((long) currentIntervalDays + 1, grown);
+        return (int) Math.min(MAX_INTERVAL_DAYS, next);
     }
 
     /** Nhãn thời gian hiển thị dưới 4 nút, ví dụ "1 phút", "4 ngày". */

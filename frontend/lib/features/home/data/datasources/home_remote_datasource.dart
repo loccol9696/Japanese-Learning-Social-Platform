@@ -2,14 +2,17 @@ import 'dart:convert';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../profile/domain/models/topic_model.dart';
+import '../../../video/domain/hashtag_rules.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../../domain/models/video_post.dart';
 
 abstract class HomeRemoteDataSource {
   Future<List<VideoPost>> fetchForYouFeed();
   Future<List<VideoPost>> fetchFollowingFeed();
-  Future<bool> toggleLike(String postId);
-  Future<bool> toggleSave(String postId);
+  /// Đặt trạng thái thích / lưu mong muốn (idempotent): gọi lại hay bấm đúp không làm đảo trạng thái.
+  Future<bool> setLiked(String postId, {required bool liked});
+  Future<bool> setSaved(String postId, {required bool saved});
   Future<bool> setFollow(int creatorId, {required bool follow});
 }
 
@@ -21,7 +24,8 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
 
   @override
   Future<List<VideoPost>> fetchForYouFeed() {
-    return _fetchFeed('for-you');
+    // "recommended" = for-you xếp theo trình độ/sở thích; server tự quay về feed thường nếu chưa có.
+    return _fetchFeed('recommended');
   }
 
   @override
@@ -50,19 +54,25 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
   }
 
   @override
-  Future<bool> toggleLike(String postId) async {
-    final response = await _apiClient.post(
-      '${ApiConstants.baseUrl}/videos/$postId/like',
-    );
-    return response is bool ? response : true;
+  Future<bool> setLiked(String postId, {required bool liked}) async {
+    final url = '${ApiConstants.baseUrl}/videos/$postId/likes';
+    if (liked) {
+      await _apiClient.post(url);
+    } else {
+      await _apiClient.delete(url);
+    }
+    return liked;
   }
 
   @override
-  Future<bool> toggleSave(String postId) async {
-    final response = await _apiClient.post(
-      '${ApiConstants.baseUrl}/videos/$postId/save',
-    );
-    return response is bool ? response : true;
+  Future<bool> setSaved(String postId, {required bool saved}) async {
+    final url = '${ApiConstants.baseUrl}/videos/$postId/saves';
+    if (saved) {
+      await _apiClient.post(url);
+    } else {
+      await _apiClient.delete(url);
+    }
+    return saved;
   }
 
   /// Theo dõi / bỏ theo dõi người đăng. Trả về trạng thái follow sau khi server xử lý.
@@ -89,20 +99,25 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     final videoUrl = json['videoUrl']?.toString() ?? '';
     final creatorAvatarUrl = json['creatorAvatarUrl']?.toString() ?? '';
     final jlpt = json['jlptLevel']?.toString() ?? 'N5';
-    final subtitleCues = _parseSubtitles(json['subtitles']);
+    final subtitleCues = _parseSubtitles(
+      json['subtitles'],
+      json['grammarAnalysis'],
+    );
     final likes = _toInt(json['likeCount']);
-    final views = _toInt(json['viewCount']);
 
     return VideoPost(
       id: id,
       backgroundImageUrl: _previewImageUrl(videoUrl, thumbnailUrl),
       videoUrl: videoUrl,
+      creatorId: (json['creatorId'] as num?)?.toInt(),
       creatorName: creatorName,
       creatorTag: creatorTag,
       creatorAvatarUrl: creatorAvatarUrl,
       accentInfo: 'Japanese Learning',
       jlptLevel: jlpt.startsWith('JLPT') ? jlpt : 'JLPT $jlpt',
       topicTag: title,
+      topics: TopicModel.listFromJson(json['topics']),
+      hashtags: parseHashtags(json['hashtags']),
       audioTitle: title,
       audioDiscImageUrl: creatorAvatarUrl.isNotEmpty
           ? creatorAvatarUrl
@@ -116,7 +131,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
           : json['description']?.toString() ?? '',
       likeCount: likes,
       commentCount: _toInt(json['commentCount']),
-      shareCount: views,
+      shareCount: _toInt(json['shareCount']),
       isLiked: json['isLiked'] == true,
       isSaved: json['isSaved'] == true,
       isFollowing: json['isFollowing'] == true,
@@ -127,27 +142,78 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
 
   VideoPost toVideoPost(Map<String, dynamic> json) => _toVideoPost(json);
 
-  List<SubtitleCue> _parseSubtitles(dynamic rawSubtitles) {
+  List<SubtitleCue> _parseSubtitles(
+    dynamic rawSubtitles, [
+    dynamic rawGrammarAnalysis,
+  ]) {
     if (rawSubtitles is! String || rawSubtitles.trim().isEmpty) {
       return const [];
+    }
+
+    final grammarByIndex = <int, List<GrammarPointInfo>>{};
+    final grammarByText = <String, List<GrammarPointInfo>>{};
+    if (rawGrammarAnalysis is String && rawGrammarAnalysis.trim().isNotEmpty) {
+      try {
+        final decodedGa = jsonDecode(rawGrammarAnalysis);
+        if (decodedGa is List) {
+          for (var i = 0; i < decodedGa.length; i++) {
+            final item = decodedGa[i];
+            if (item is Map<String, dynamic> && item['grammarPoints'] is List) {
+              final points = (item['grammarPoints'] as List)
+                  .whereType<Map<String, dynamic>>()
+                  .map(GrammarPointInfo.fromJson)
+                  .where((p) => p.matchedText.isNotEmpty || p.pattern.isNotEmpty)
+                  .toList();
+              final idx = (item['index'] as num?)?.toInt() ?? i;
+              grammarByIndex[idx] = points;
+              final txt = item['text']?.toString().trim() ?? '';
+              if (txt.isNotEmpty) {
+                grammarByText[txt] = points;
+              }
+            }
+          }
+        }
+      } catch (_) {}
     }
 
     try {
       final decoded = jsonDecode(rawSubtitles);
       if (decoded is! List) return const [];
 
-      return decoded
-          .whereType<Map<String, dynamic>>()
-          .map((subtitle) {
-            return SubtitleCue(
-              start: _parseTimestamp(subtitle['start']),
-              end: _parseTimestamp(subtitle['end']),
-              text: subtitle['text']?.toString() ?? '',
-              translation: subtitle['translation']?.toString() ?? '',
-            );
-          })
-          .where((cue) => cue.text.isNotEmpty && cue.end > cue.start)
-          .toList();
+      final cues = <SubtitleCue>[];
+      final rawItems = decoded.whereType<Map<String, dynamic>>().toList();
+      for (var i = 0; i < rawItems.length; i++) {
+        final subtitle = rawItems[i];
+        final text = subtitle['text']?.toString() ?? '';
+        final translation =
+            (subtitle['translation'] ?? subtitle['translatedText'])?.toString() ??
+            '';
+        final start = _parseTimestamp(subtitle['start'] ?? subtitle['startTime']);
+        final end = _parseTimestamp(subtitle['end'] ?? subtitle['endTime']);
+        if (text.isEmpty || end <= start) continue;
+
+        List<GrammarPointInfo> points = const [];
+        if (subtitle['grammarPoints'] is List) {
+          points = (subtitle['grammarPoints'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map(GrammarPointInfo.fromJson)
+              .toList();
+        }
+        if (points.isEmpty) {
+          points = grammarByIndex[i] ?? grammarByText[text.trim()] ?? const [];
+        }
+
+        cues.add(
+          SubtitleCue(
+            start: start,
+            end: end,
+            text: text,
+            translation: translation,
+            grammarPoints: points,
+          ),
+        );
+      }
+      return cues;
     } on FormatException {
       return const [];
     }

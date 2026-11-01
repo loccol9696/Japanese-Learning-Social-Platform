@@ -14,6 +14,16 @@ class TopicModel {
     );
   }
 
+  /// Đọc danh sách chủ đề từ JSON của video.
+  static List<TopicModel> listFromJson(dynamic json) {
+    if (json is! List) return const [];
+    return json
+        .whereType<Map<String, dynamic>>()
+        .map(TopicModel.fromJson)
+        .where((t) => t.id > 0 && t.name.isNotEmpty)
+        .toList();
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

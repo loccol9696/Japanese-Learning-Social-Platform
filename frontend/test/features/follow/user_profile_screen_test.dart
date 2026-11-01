@@ -116,7 +116,8 @@ void main() {
     await pumpScreen(tester);
 
     expect(find.text('Theo dõi'), findsOneWidget);
-    expect(find.text('Nhắn tin'), findsNothing);
+    // Chưa follow nhau vẫn nhắn tin được.
+    expect(find.text('Nhắn tin'), findsOneWidget);
 
     await tester.tap(find.text('Theo dõi'));
     await tester.pumpAndSettle();
@@ -129,8 +130,7 @@ void main() {
     );
     expect(find.text('Đang theo dõi'), findsOneWidget);
     expect(followChanges, [true]);
-    // Một chiều thì chưa nhắn tin được.
-    expect(find.text('Nhắn tin'), findsNothing);
+    expect(find.text('Nhắn tin'), findsOneWidget);
   });
 
   testWidgets('đang theo dõi: bấm lại là bỏ theo dõi và báo lại', (tester) async {
@@ -170,7 +170,7 @@ void main() {
     expect(find.text('Hãy gửi lời chào đến Bob 👋'), findsOneWidget);
   });
 
-  testWidgets('mở từ chính khung chat: ẩn nút Nhắn tin dù đã follow lẫn nhau', (
+  testWidgets('mở từ chính khung chat: ẩn nút Nhắn tin', (
     tester,
   ) async {
     profile = profileJson(isFollowing: true, isFollowedBy: true);

@@ -1,5 +1,6 @@
 package com.jlsp.backend.chat.socket;
 
+import com.corundumstudio.socketio.AckMode;
 import com.corundumstudio.socketio.SocketIOServer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -22,6 +23,9 @@ public class SocketIOConfig {
         config.setHostname(host);
         config.setPort(port);
         config.getSocketConfig().setReuseAddress(true);
+        // Event được xử lý ở ChatSocketExecutor rồi mới ack; chế độ tự động sẽ gửi ack rỗng
+        // ngay khi listener trả về, trước khi có kết quả.
+        config.setAckMode(AckMode.MANUAL);
         return new SocketIOServer(config);
     }
 }

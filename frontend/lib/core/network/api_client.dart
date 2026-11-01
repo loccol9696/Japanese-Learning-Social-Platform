@@ -46,8 +46,12 @@ class ApiClient {
   // JSON API
   // ---------------------------------------------------------------------------
 
-  Future<dynamic> get(String url, {bool withAuth = true}) =>
-      _sendJson('GET', url, withAuth: withAuth);
+  Future<dynamic> get(
+    String url, {
+    bool withAuth = true,
+    Duration? timeout = ApiConstants.connectTimeout,
+  }) =>
+      _sendJson('GET', url, withAuth: withAuth, timeout: timeout);
 
   /// [bearerToken]: gửi đúng token này, không tự làm mới / không xử lý 401
   /// (dùng cho đăng xuất).
@@ -56,6 +60,7 @@ class ApiClient {
     Object? body,
     bool withAuth = true,
     String? bearerToken,
+    Duration? timeout = ApiConstants.connectTimeout,
   }) =>
       _sendJson(
         'POST',
@@ -63,16 +68,31 @@ class ApiClient {
         body: body,
         withAuth: withAuth,
         bearerToken: bearerToken,
+        timeout: timeout,
       );
 
-  Future<dynamic> put(String url, {Object? body, bool withAuth = true}) =>
-      _sendJson('PUT', url, body: body, withAuth: withAuth);
+  Future<dynamic> put(
+    String url, {
+    Object? body,
+    bool withAuth = true,
+    Duration? timeout = ApiConstants.connectTimeout,
+  }) =>
+      _sendJson('PUT', url, body: body, withAuth: withAuth, timeout: timeout);
 
-  Future<dynamic> patch(String url, {Object? body, bool withAuth = true}) =>
-      _sendJson('PATCH', url, body: body, withAuth: withAuth);
+  Future<dynamic> patch(
+    String url, {
+    Object? body,
+    bool withAuth = true,
+    Duration? timeout = ApiConstants.connectTimeout,
+  }) =>
+      _sendJson('PATCH', url, body: body, withAuth: withAuth, timeout: timeout);
 
-  Future<dynamic> delete(String url, {bool withAuth = true}) =>
-      _sendJson('DELETE', url, withAuth: withAuth);
+  Future<dynamic> delete(
+    String url, {
+    bool withAuth = true,
+    Duration? timeout = ApiConstants.connectTimeout,
+  }) =>
+      _sendJson('DELETE', url, withAuth: withAuth, timeout: timeout);
 
   Future<dynamic> _sendJson(
     String method,
@@ -80,6 +100,7 @@ class ApiClient {
     Object? body,
     required bool withAuth,
     String? bearerToken,
+    Duration? timeout = ApiConstants.connectTimeout,
   }) async {
     final uri = Uri.parse(url);
     final encodedBody = body != null ? jsonEncode(body) : null;
@@ -91,6 +112,7 @@ class ApiClient {
       },
       withAuth: withAuth,
       bearerToken: bearerToken,
+      timeout: timeout,
     );
     return decodeResponse(response);
   }

@@ -33,6 +33,15 @@ class StudySessionController extends ChangeNotifier {
   int _reviews = 0;
   final Map<int, int> _againCounts = {};
 
+  /// Đánh giá chưa gửi được (mất mạng...), gửi lại theo đúng thứ tự ở lần gửi kế tiếp hoặc khi [flushUnsent].
+  final List<(int, ReviewRating)> _unsent = [];
+
+  /// Các lần gửi chạy lần lượt, không chồng nhau, để thứ tự đánh giá của cùng một thẻ không bị đảo.
+  Future<void> _tail = Future<void>.value();
+
+  /// Số đánh giá còn chưa gửi lên server.
+  int get unsentCount => _unsent.length;
+
   /// Số thẻ đã bấm "Dễ".
   int get graduated => _graduated;
 
@@ -51,6 +60,16 @@ class StudySessionController extends ChangeNotifier {
     final entries = _againCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     return entries.map((e) => e.key).toList();
+  }
+
+  /// Nhãn dưới nút chấm điểm cho thẻ hiện tại: thẻ "Xem lại / Khó / Ổn" quay lại theo số thẻ xen giữa (không theo
+  /// phút), hoặc "Ngay" nếu hàng đợi không còn đủ thẻ khác. Null với mức "Dễ" (thẻ rời phiên, dùng nhãn ngày của server).
+  String? repeatLabel(ReviewRating rating) {
+    if (rating.graduates) return null;
+    final gap = repeatGap[rating] ?? repeatGap[ReviewRating.good]!;
+    final others = _queue.isEmpty ? 0 : _queue.length - 1;
+    final n = gap < others ? gap : others;
+    return n <= 0 ? 'Ngay' : 'Sau $n thẻ';
   }
 
   /// Cập nhật thẻ hiện tại (vd. gắn sao) mà không đổi vị trí.
@@ -78,11 +97,31 @@ class StudySessionController extends ChangeNotifier {
     }
     notifyListeners();
 
-    try {
-      await _sendReview(card.card.cardId, rating);
-    } catch (e) {
-      // Lỗi mạng không chặn việc học; lần mở sau thẻ sẽ được lên lịch lại.
-      debugPrint('Không gửi được đánh giá thẻ ${card.card.cardId}: $e');
+    await _enqueue(() {
+      _unsent.add((card.card.cardId, rating));
+      return _flush();
+    });
+  }
+
+  /// Gửi lại các đánh giá còn tồn (gọi khi hết phiên hoặc rời màn học).
+  Future<void> flushUnsent() => _enqueue(_flush);
+
+  Future<void> _enqueue(Future<void> Function() job) {
+    _tail = _tail.then((_) => job());
+    return _tail;
+  }
+
+  /// Gửi lần lượt; gặp lỗi thì giữ lại phần còn lại cho lần sau. Lỗi mạng không chặn việc học.
+  Future<void> _flush() async {
+    while (_unsent.isNotEmpty) {
+      final (cardId, rating) = _unsent.first;
+      try {
+        await _sendReview(cardId, rating);
+        _unsent.removeAt(0);
+      } catch (e) {
+        debugPrint('Không gửi được đánh giá thẻ $cardId, sẽ thử lại: $e');
+        return;
+      }
     }
   }
 }

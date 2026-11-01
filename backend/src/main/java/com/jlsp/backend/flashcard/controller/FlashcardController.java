@@ -55,6 +55,15 @@ public class FlashcardController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    // 3a. Lưu bộ thẻ của người khác về thư viện của mình
+    @PostMapping("/sets/{setId}/copy")
+    public ResponseEntity<ApiResponse<FlashcardSetResponse>> copySet(@PathVariable Long setId) {
+        Long userId = CurrentUser.requireId();
+        FlashcardSetResponse response = flashcardService.copySet(userId, setId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED.value(), "Đã lưu bộ thẻ vào thư viện", response));
+    }
+
     // 3b. Cập nhật thông tin bộ thẻ
     @PutMapping("/sets/{setId}")
     public ResponseEntity<ApiResponse<FlashcardSetResponse>> updateSet(
@@ -72,6 +81,22 @@ public class FlashcardController {
         Long userId = CurrentUser.requireId();
         flashcardService.deleteSet(userId, setId);
         return ResponseEntity.ok(ApiResponse.success(200, "Set deleted successfully", null));
+    }
+
+    // 4b. Sắp xếp lại bộ thẻ trong thư viện
+    @PutMapping("/sets/order")
+    public ResponseEntity<ApiResponse<Void>> reorderSets(@Valid @RequestBody ReorderRequest request) {
+        flashcardService.reorderSets(CurrentUser.requireId(), request.getIds());
+        return ResponseEntity.ok(ApiResponse.success(200, "Sets reordered successfully", null));
+    }
+
+    // 4c. Sắp xếp lại thẻ trong một bộ
+    @PutMapping("/sets/{setId}/cards/order")
+    public ResponseEntity<ApiResponse<Void>> reorderCards(
+            @PathVariable Long setId,
+            @Valid @RequestBody ReorderRequest request) {
+        flashcardService.reorderCards(CurrentUser.requireId(), setId, request.getIds());
+        return ResponseEntity.ok(ApiResponse.success(200, "Cards reordered successfully", null));
     }
 
     // 5. Lấy danh sách thẻ để học (Chế độ Thẻ ghi nhớ / Flashcard study)
@@ -181,7 +206,8 @@ public class FlashcardController {
     public ResponseEntity<ApiResponse<MatchingGameResponse>> generateMatchingGame(
             @PathVariable Long setId,
             @RequestParam(required = false, defaultValue = "5") Integer pairCount) {
-        MatchingGameResponse response = flashcardService.generateMatchingGame(setId, pairCount);
+        Long userId = CurrentUser.requireId();
+        MatchingGameResponse response = flashcardService.generateMatchingGame(userId, setId, pairCount);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

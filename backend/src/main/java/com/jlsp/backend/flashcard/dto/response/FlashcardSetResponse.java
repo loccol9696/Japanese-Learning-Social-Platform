@@ -24,6 +24,11 @@ public class FlashcardSetResponse {
     private String authorAvatarUrl;
     private Boolean isAuthorPro;
 
+    /** Người xem chính là chủ bộ thẻ (chỉ có ở API chi tiết). */
+    private Boolean isOwner;
+    /** Id bản sao người xem đã lưu về thư viện từ bộ này; null nếu chưa lưu hoặc là chủ bộ (chỉ có ở API chi tiết). */
+    private Long savedSetId;
+
     // Progress & counts
     private Integer totalCards;
     private Integer learnedCards;

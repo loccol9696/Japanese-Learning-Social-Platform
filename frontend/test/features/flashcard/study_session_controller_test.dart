@@ -92,6 +92,107 @@ void main() {
     expect(c.isFinished, isTrue);
   });
 
+  group('gửi lại đánh giá khi lỗi', () {
+    test(
+      'đánh giá lỗi được giữ lại và gửi lại theo đúng thứ tự ở lần gửi kế tiếp',
+      () async {
+        var offline = true;
+        final delivered = <(int, ReviewRating)>[];
+        final c = StudySessionController(
+          cards: [_card(1), _card(2), _card(3)],
+          sendReview: (id, rating) async {
+            if (offline) throw Exception('offline');
+            delivered.add((id, rating));
+          },
+        );
+
+        await c.rate(ReviewRating.easy); // thẻ 1, lỗi
+        await c.rate(ReviewRating.easy); // thẻ 2, lỗi
+        expect(c.unsentCount, 2);
+        expect(delivered, isEmpty);
+
+        offline = false;
+        await c.rate(
+          ReviewRating.easy,
+        ); // thẻ 3: gửi nốt hai thẻ trước rồi mới tới thẻ này
+
+        expect(c.unsentCount, 0);
+        expect(delivered, [
+          (1, ReviewRating.easy),
+          (2, ReviewRating.easy),
+          (3, ReviewRating.easy),
+        ]);
+      },
+    );
+
+    test(
+      'flushUnsent gửi nốt phần còn lại; vẫn offline thì giữ nguyên',
+      () async {
+        var offline = true;
+        final delivered = <int>[];
+        final c = StudySessionController(
+          cards: [_card(1)],
+          sendReview: (id, rating) async {
+            if (offline) throw Exception('offline');
+            delivered.add(id);
+          },
+        );
+        await c.rate(ReviewRating.easy);
+        await c.flushUnsent();
+        expect(c.unsentCount, 1);
+
+        offline = false;
+        await c.flushUnsent();
+
+        expect(c.unsentCount, 0);
+        expect(delivered, [1]);
+      },
+    );
+
+    test('đánh giá liên tiếp được gửi lần lượt, không chồng nhau', () async {
+      var inFlight = 0;
+      var maxInFlight = 0;
+      final c = StudySessionController(
+        cards: [_card(1), _card(2), _card(3)],
+        sendReview: (id, rating) async {
+          inFlight++;
+          if (inFlight > maxInFlight) maxInFlight = inFlight;
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+          inFlight--;
+        },
+      );
+
+      await Future.wait([
+        c.rate(ReviewRating.easy),
+        c.rate(ReviewRating.easy),
+        c.rate(ReviewRating.easy),
+      ]);
+
+      expect(maxInFlight, 1);
+    });
+  });
+
+  group('nhãn quay lại trong phiên', () {
+    test(
+      'theo số thẻ xen giữa, "Ngay" khi không còn đủ thẻ khác, null với Dễ',
+      () async {
+        final many = build(20);
+        expect(many.repeatLabel(ReviewRating.again), 'Sau 2 thẻ');
+        expect(many.repeatLabel(ReviewRating.hard), 'Sau 5 thẻ');
+        expect(many.repeatLabel(ReviewRating.good), 'Sau 10 thẻ');
+        expect(many.repeatLabel(ReviewRating.easy), isNull);
+
+        final few = build(4); // còn 3 thẻ khác
+        expect(few.repeatLabel(ReviewRating.again), 'Sau 2 thẻ');
+        expect(few.repeatLabel(ReviewRating.good), 'Sau 3 thẻ');
+
+        final last = build(1);
+        expect(last.repeatLabel(ReviewRating.again), 'Ngay');
+        expect(last.repeatLabel(ReviewRating.good), 'Ngay');
+      },
+    );
+  });
+
   test('giờ nhắc: đúng giờ đã chọn, hoặc lúc đến hạn nếu muộn hơn', () {
     final morning = DateTime(2026, 10, 28, 9, 30);
     final night = DateTime(2026, 10, 28, 22, 15);

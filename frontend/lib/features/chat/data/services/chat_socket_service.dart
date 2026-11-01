@@ -24,9 +24,13 @@ class ChatSocketService {
   static const Duration _maxBackoff = Duration(seconds: 15);
 
   final _messageController = StreamController<ChatMessage>.broadcast();
+  final _recalledController = StreamController<ChatMessage>.broadcast();
+  final _clearedController = StreamController<int>.broadcast();
   final _readController = StreamController<ReadReceipt>.broadcast();
   final _typingController = StreamController<TypingEvent>.broadcast();
   final _connectionController = StreamController<bool>.broadcast();
+  final _notificationController =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   io.Socket? _socket;
   Timer? _retryTimer;
@@ -35,8 +39,16 @@ class ChatSocketService {
   bool _connecting = false;
 
   Stream<ChatMessage> get onMessage => _messageController.stream;
+  Stream<ChatMessage> get onRecalled => _recalledController.stream;
+
+  /// Id hội thoại vừa được xoá (kể cả xoá từ thiết bị khác của cùng tài khoản).
+  Stream<int> get onCleared => _clearedController.stream;
   Stream<ReadReceipt> get onRead => _readController.stream;
   Stream<TypingEvent> get onTyping => _typingController.stream;
+
+  /// Thông báo mới: `{notification: {...}, unreadCount: n}` (event `notification:new`).
+  Stream<Map<String, dynamic>> get onNotification =>
+      _notificationController.stream;
 
   /// true khi vừa kết nối được, false khi mất kết nối.
   Stream<bool> get onConnectionChanged => _connectionController.stream;
@@ -113,9 +125,21 @@ class ChatSocketService {
       final json = _asMap(data);
       if (json != null) _messageController.add(ChatMessage.fromJson(json));
     });
+    socket.on('message:recalled', (data) {
+      final json = _asMap(data);
+      if (json != null) _recalledController.add(ChatMessage.fromJson(json));
+    });
+    socket.on('conversation:cleared', (data) {
+      final id = _asMap(data)?['conversationId'];
+      if (id is num) _clearedController.add(id.toInt());
+    });
     socket.on('message:read', (data) {
       final json = _asMap(data);
       if (json != null) _readController.add(ReadReceipt.fromJson(json));
+    });
+    socket.on('notification:new', (data) {
+      final json = _asMap(data);
+      if (json != null) _notificationController.add(json);
     });
     socket.on('typing', (data) {
       final json = _asMap(data);
@@ -150,19 +174,41 @@ class ChatSocketService {
   // ---------------------------------------------------------------------------
 
   /// Gửi tin văn bản và chờ ack. Ném [ApiException] khi server từ chối
-  /// (vd. 403 chưa follow lẫn nhau) hoặc khi mất kết nối / quá hạn (statusCode 503)
+  /// (vd. 403 do bị chặn) hoặc khi mất kết nối / quá hạn (statusCode 503)
   /// để nơi gọi chuyển sang gửi dự phòng qua REST.
   Future<ChatMessage> sendText({
     required int conversationId,
     required String content,
     required String clientMsgId,
-  }) async {
-    final data = await _emitWithAck('message:send', {
+    int? replyToId,
+  }) {
+    return _send({
       'conversationId': conversationId,
       'type': 'TEXT',
       'content': content,
       'clientMsgId': clientMsgId,
+      'replyToId': ?replyToId,
     });
+  }
+
+  /// Gửi tin ảnh đã tải lên; lỗi xử lý giống [sendText].
+  Future<ChatMessage> sendImage({
+    required int conversationId,
+    required String imageUrl,
+    required String clientMsgId,
+    int? replyToId,
+  }) {
+    return _send({
+      'conversationId': conversationId,
+      'type': 'IMAGE',
+      'imageUrl': imageUrl,
+      'clientMsgId': clientMsgId,
+      'replyToId': ?replyToId,
+    });
+  }
+
+  Future<ChatMessage> _send(Map<String, dynamic> payload) async {
+    final data = await _emitWithAck('message:send', payload);
     final json = _asMap(data);
     if (json == null) {
       throw ApiException(

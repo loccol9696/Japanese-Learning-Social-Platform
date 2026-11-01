@@ -1,14 +1,11 @@
 package com.jlsp.backend.subscription.service;
 
-import com.jlsp.backend.common.response.PageResponse;
-import com.jlsp.backend.subscription.dto.request.ConfirmPaymentRequest;
-import com.jlsp.backend.subscription.dto.request.CreateQrOrderRequest;
 import com.jlsp.backend.subscription.dto.request.SubscriptionPlanRequest;
-import com.jlsp.backend.subscription.dto.response.SubscriptionOrderResponse;
 import com.jlsp.backend.subscription.dto.response.SubscriptionPlanResponse;
+import com.jlsp.backend.subscription.dto.response.SubscriptionStatusResponse;
 import com.jlsp.backend.subscription.dto.response.TokenQuotaResponse;
-import com.jlsp.backend.subscription.entity.SubscriptionOrder;
-import org.springframework.data.domain.Pageable;
+import com.jlsp.backend.subscription.dto.response.TokenUsageResponse;
+import com.jlsp.backend.subscription.entity.TokenFeature;
 
 import java.util.List;
 
@@ -26,15 +23,22 @@ public interface SubscriptionService {
 
     void deletePlan(Long id);
 
-    SubscriptionOrderResponse createQrOrder(CreateQrOrderRequest request);
-
-    SubscriptionOrderResponse confirmPayment(ConfirmPaymentRequest request);
-
-    SubscriptionOrderResponse getOrderStatus(String orderCode);
-
-    PageResponse<SubscriptionOrderResponse> getSubscriptionHistory(SubscriptionOrder.OrderStatus status, Pageable pageable);
-
     TokenQuotaResponse checkTokenQuota(Long userId);
 
-    void validateAndDeductTokens(Long userId, int tokensRequired);
+    /** Gói hiện tại của người dùng kèm hạn mức token trong ngày. */
+    SubscriptionStatusResponse getMySubscription(Long userId);
+
+    /**
+     * Kiểm hạn mức trong ngày rồi trừ token; vượt hạn mức thì ném lỗi 403 và không trừ gì. Mỗi lần trừ thành công
+     * được ghi lại kèm [feature] để thống kê theo tính năng.
+     */
+    void validateAndDeductTokens(Long userId, int tokensRequired, TokenFeature feature);
+
+    /**
+     * Token đã dùng của người dùng theo từng ngày và từng tính năng, trong tuần này (thứ hai đến chủ nhật) hoặc
+     * tháng này.
+     *
+     * @param range "week" hoặc "month"; giá trị khác bị từ chối (400)
+     */
+    TokenUsageResponse getTokenUsage(Long userId, String range);
 }

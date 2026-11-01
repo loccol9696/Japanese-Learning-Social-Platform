@@ -20,6 +20,26 @@ class FollowService {
     return _list(data).map(FollowUser.fromJson).toList();
   }
 
+  /// Tìm người dùng công khai theo username / tên hiển thị (tối thiểu 2 ký tự).
+  Future<List<FollowUser>> searchUsers(String query) async {
+    final data = await _api.get(ApiConstants.userSearchUrl(query));
+    final content = data is Map<String, dynamic> ? data['content'] : null;
+    return _list(content).map(FollowUser.fromJson).toList();
+  }
+
+  Future<void> block(int userId) async {
+    await _api.post(ApiConstants.blockUrl(userId));
+  }
+
+  Future<void> unblock(int userId) async {
+    await _api.delete(ApiConstants.blockUrl(userId));
+  }
+
+  Future<List<BlockedUser>> fetchBlocked() async {
+    final data = await _api.get(ApiConstants.blockedUsersUrl);
+    return _list(data).map(BlockedUser.fromJson).toList();
+  }
+
   Future<void> follow(int userId) async {
     await _api.post(ApiConstants.followUrl(userId));
   }

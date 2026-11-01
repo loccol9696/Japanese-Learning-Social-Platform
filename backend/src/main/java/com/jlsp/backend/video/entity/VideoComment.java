@@ -3,6 +3,8 @@ package com.jlsp.backend.video.entity;
 import com.jlsp.backend.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 
@@ -16,6 +18,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@SQLRestriction("deleted_at IS NULL")
 public class VideoComment {
 
     @Id
@@ -34,11 +37,32 @@ public class VideoComment {
     @JoinColumn(name = "parent_id")
     private VideoComment parent;
 
+    /** Bình luận mà câu này trả lời: chính là {@link #parent} khi trả lời bình luận gốc, hoặc một phản hồi khác khi trả lời phản hồi. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reply_to_id")
+    private VideoComment replyTo;
+
     @Column(nullable = false, length = 1000)
     private String content;
 
+    /** Số lượt đánh giá hữu ích. Có default ở DB để ddl-auto thêm được cột vào bảng đã có dữ liệu. */
+    @Column(name = "like_count", nullable = false)
+    @ColumnDefault("0")
+    @Builder.Default
+    private Integer likeCount = 0;
+
+    /** Chủ video ghim bình luận gốc này lên đầu danh sách; mỗi video chỉ có một bình luận được ghim. */
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    @Builder.Default
+    private boolean pinned = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    /** Thời điểm xóa mềm, trùng với video chứa nó; NULL = chưa xóa. */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {

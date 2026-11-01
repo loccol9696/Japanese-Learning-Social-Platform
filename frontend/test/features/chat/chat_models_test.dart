@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/chat/data/models/chat_models.dart';
 import 'package:frontend/features/chat/presentation/chat_format.dart';
@@ -130,6 +132,115 @@ void main() {
       expect(formatMillis(12500), '00:12');
       expect(formatMillis(125000), '02:05');
       expect(formatSeconds(75), '01:15');
+    });
+  });
+
+  group('tin ảnh, thu hồi và chặn', () {
+    Map<String, dynamic> message(Map<String, dynamic> extra) => {
+      'id': 1,
+      'conversationId': 2,
+      'senderId': 3,
+      'type': 'TEXT',
+      'createdAt': '2026-10-31T09:00:00',
+      ...extra,
+    };
+
+    test('đọc tin ảnh', () {
+      final parsed = ChatMessage.fromJson(
+        message({'type': 'IMAGE', 'imageUrl': 'https://x/a.jpg'}),
+      );
+
+      expect(parsed.type, MessageType.image);
+      expect(parsed.imageUrl, 'https://x/a.jpg');
+      expect(parsed.previewFor(9), '📷 Ảnh');
+      expect(parsed.previewFor(3), 'Bạn: 📷 Ảnh');
+    });
+
+    test('tin đã thu hồi không lộ nội dung cũ ở Inbox', () {
+      final parsed = ChatMessage.fromJson(message({'recalled': true}));
+
+      expect(parsed.recalled, isTrue);
+      expect(parsed.previewFor(9), 'Tin nhắn đã thu hồi');
+    });
+
+    test('đổi trạng thái vẫn giữ ảnh đang gửi', () {
+      final pending = ChatMessage.pendingImage(
+        conversationId: 2,
+        senderId: 3,
+        bytes: Uint8List.fromList([1, 2, 3]),
+        clientMsgId: 'c',
+      );
+
+      final failed = pending
+          .copyWith(imageUrl: 'https://x/a.jpg')
+          .copyWith(status: MessageStatus.failed);
+
+      expect(failed.localImage, isNotNull);
+      expect(failed.imageUrl, 'https://x/a.jpg');
+      expect(failed.status, MessageStatus.failed);
+    });
+
+    test('đọc cờ chặn của hội thoại', () {
+      final conversation = Conversation.fromJson({
+        'id': 1,
+        'otherUser': {'id': 2, 'username': 'a'},
+        'canMessage': false,
+        'blockedByMe': true,
+      });
+
+      expect(conversation.canMessage, isFalse);
+      expect(conversation.blockedByMe, isTrue);
+      expect(conversation.copyWith(unreadCount: 1).blockedByMe, isTrue);
+    });
+
+    test('nhận ra chữ Nhật, không nhầm tiếng Việt', () {
+      expect(containsJapanese('こんにちは'), isTrue);
+      expect(containsJapanese('カタカナ'), isTrue);
+      expect(containsJapanese('日本語'), isTrue);
+      expect(containsJapanese('Xin chào các bạn'), isFalse);
+      expect(containsJapanese(''), isFalse);
+    });
+  });
+
+  group('trả lời', () {
+    test('đọc trích dẫn của tin trả lời', () {
+      final message = ChatMessage.fromJson({
+        'id': 2,
+        'conversationId': 1,
+        'senderId': 3,
+        'type': 'TEXT',
+        'content': 'ok',
+        'createdAt': '2026-10-31T09:00:00',
+        'replyTo': {
+          'id': 1,
+          'senderId': 4,
+          'type': 'TEXT',
+          'content': 'Xin chào',
+          'recalled': false,
+        },
+      });
+
+      expect(message.replyTo!.id, 1);
+      expect(message.replyTo!.senderId, 4);
+      expect(message.replyTo!.preview, 'Xin chào');
+    });
+
+    test('tóm tắt trích dẫn theo loại tin', () {
+      MessageReply reply(MessageType type, {bool recalled = false}) =>
+          MessageReply(
+            id: 1,
+            senderId: 2,
+            type: type,
+            content: '',
+            recalled: recalled,
+          );
+
+      expect(reply(MessageType.image).preview, '📷 Ảnh');
+      expect(reply(MessageType.videoShare).preview, '🎬 Video');
+      expect(
+        reply(MessageType.text, recalled: true).preview,
+        'Tin nhắn đã được thu hồi',
+      );
     });
   });
 }

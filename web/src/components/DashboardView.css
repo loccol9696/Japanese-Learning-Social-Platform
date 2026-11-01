@@ -16,7 +16,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1.25rem;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(18, 18, 22, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border-subtle);
@@ -40,7 +40,7 @@
   font-size: 0.85rem;
   padding: 0.25rem 0.6rem;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 4px 12px rgba(254, 44, 85, 0.35);
 }
 
 .brand-text {
@@ -147,7 +147,7 @@
 
 /* Hero Section Double-Bezel */
 .hero-bezel-outer {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(18, 18, 22, 0.7);
   border: 1px solid var(--border-subtle);
   padding: 0.5rem;
   border-radius: 2rem;
@@ -244,7 +244,7 @@
   display: flex;
   align-items: center;
   gap: 1.2rem;
-  background: #ffffff;
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   padding: 1.1rem 1.4rem;
   border-radius: 1.2rem;
@@ -341,7 +341,7 @@
 }
 
 .feature-bento-card {
-  background: #ffffff;
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 1.5rem;
   padding: 1.8rem;

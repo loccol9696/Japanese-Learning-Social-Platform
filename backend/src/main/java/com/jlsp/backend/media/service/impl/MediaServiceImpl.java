@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Cài đặt nghiệp vụ xử lý tải lên và sinh chữ ký Cloudinary.
@@ -30,9 +32,18 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class MediaServiceImpl implements MediaService {
 
+    /** /{cloud}/{image|video}/upload/[biến đổi/]v{version}/{public_id}.{đuôi} */
+    private static final Pattern CLOUDINARY_PATH =
+            Pattern.compile("^/[^/]+/(image|video)/upload/(?:.+?/)?v\\d+/(.+?)(?:\\.[^./]+)?$");
+
     private final Cloudinary cloudinary;
 
+    /** Video YouTube tối đa 10 phút. */
+    private static final int MAX_YOUTUBE_SECONDS = 10 * 60;
+    private static final String YOUTUBE_FOLDER = "jlsp/videos";
+
     private final SpeechToTextServiceIntf speechToTextService;
+    private final YoutubeDownloadClient youtubeDownloadClient;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${cloudinary.cloud-name:}")
@@ -52,9 +63,8 @@ public class MediaServiceImpl implements MediaService {
         Map<String, Object> paramsToSign = new HashMap<>();
         paramsToSign.put("timestamp", timestamp);
 
-        if (folder != null && !folder.isBlank()) {
-            paramsToSign.put("folder", folder.trim());
-        }
+        String safeFolder = MediaUploadPolicy.sanitizeFolder(folder);
+        paramsToSign.put("folder", safeFolder);
 
         String signature = cloudinary.apiSignRequest(paramsToSign, apiSecret.trim());
 
@@ -65,7 +75,7 @@ public class MediaServiceImpl implements MediaService {
                 .timestamp(timestamp)
                 .apiKey(apiKey.trim())
                 .cloudName(cloudName.trim())
-                .folder(folder != null ? folder.trim() : null)
+                .folder(safeFolder)
                 .build();
     }
 
@@ -76,35 +86,53 @@ public class MediaServiceImpl implements MediaService {
         if (file == null || file.isEmpty()) {
             throw new AppException(400, "File tải lên không được để trống");
         }
+        String safeFolder = MediaUploadPolicy.sanitizeFolder(folder);
+        MediaUploadPolicy.validateFile(file.getContentType(), file.getOriginalFilename(), file.getSize(), safeFolder);
 
+        byte[] fileBytes;
+        try {
+            fileBytes = file.getBytes();
+        } catch (IOException e) {
+            log.error("Lỗi khi đọc file để tải lên Cloudinary", e);
+            throw new AppException(500, "Lỗi đọc dữ liệu file: " + e.getMessage());
+        }
+        return uploadBytes(fileBytes, file.getOriginalFilename(), safeFolder);
+    }
+
+    @Override
+    public CloudinaryUploadResponse importFromYoutube(String youtubeUrl) {
+        validateCloudinaryConfig();
+
+        YoutubeDownloadClient.DownloadedVideo video =
+                youtubeDownloadClient.download(youtubeUrl, MAX_YOUTUBE_SECONDS);
+        log.info("Đã tải video YouTube {} ({} KB, {}s)",
+                video.videoId(), video.bytes().length / 1024, video.durationSeconds());
+
+        String filename = (video.videoId() != null && !video.videoId().isBlank()
+                ? "youtube-" + video.videoId() : "youtube") + ".mp4";
+        CloudinaryUploadResponse response = uploadBytes(video.bytes(), filename, YOUTUBE_FOLDER);
+        response.setTitle(video.title());
+        if (response.getDuration() == null && video.durationSeconds() != null) {
+            response.setDuration(video.durationSeconds().doubleValue());
+        }
+        return response;
+    }
+
+    /**
+     * Upload bytes lên Cloudinary. Không tự động chạy AI tạo phụ đề ở đây;
+     * AI chỉ được khởi chạy khi người dùng chủ động nhấn nút "Tạo bằng AI".
+     */
+    private CloudinaryUploadResponse uploadBytes(byte[] fileBytes, String filename, String safeFolder) {
         try {
             Map<String, Object> uploadParams = new HashMap<>();
             uploadParams.put("resource_type", "auto");
-            if (folder != null && !folder.isBlank()) {
-                uploadParams.put("folder", folder.trim());
-            }
+            uploadParams.put("folder", safeFolder);
 
             @SuppressWarnings("unchecked")
-            Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(), uploadParams);
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(fileBytes, uploadParams);
             String secureUrl = (String) uploadResult.get("secure_url");
             String aiTaskId = null;
             String aiStatus = "NOT_STARTED";
-
-            if ("video".equals(uploadResult.get("resource_type"))
-                    && secureUrl != null && !secureUrl.isBlank()) {
-                try {
-                    byte[] downloadedBytes = downloadFromCloudinary(secureUrl);
-                    aiTaskId = java.util.UUID.randomUUID().toString();
-                    speechToTextService.processAudioAsync(
-                            aiTaskId,
-                            downloadedBytes,
-                            file.getOriginalFilename());
-                    aiStatus = "PROCESSING";
-                } catch (Exception aiException) {
-                    log.error("Không thể khởi động AI cho file Cloudinary {}", secureUrl, aiException);
-                    aiStatus = "FAILED_TO_START";
-                }
-            }
 
             log.info("Upload file lên Cloudinary thành công: public_id={}, url={}",
                     uploadResult.get("public_id"), secureUrl);
@@ -129,9 +157,6 @@ public class MediaServiceImpl implements MediaService {
                     .aiTaskId(aiTaskId)
                     .aiStatus(aiStatus)
                     .build();
-        } catch (IOException e) {
-            log.error("Lỗi khi đọc file để tải lên Cloudinary", e);
-            throw new AppException(500, "Lỗi đọc dữ liệu file: " + e.getMessage());
         } catch (Exception e) {
             log.error("Lỗi khi tải file lên Cloudinary", e);
             throw new AppException(500, "Không thể tải file lên Cloudinary: " + e.getMessage());
@@ -173,12 +198,49 @@ public class MediaServiceImpl implements MediaService {
         return response.getBody();
     }
 
+    @Override
+    public void deleteByUrl(String url) {
+        CloudinaryAsset asset = parseCloudinaryUrl(url);
+        if (asset == null) {
+            return;
+        }
+        try {
+            Map<String, Object> options = new HashMap<>();
+            options.put("resource_type", asset.resourceType());
+            options.put("invalidate", true);
+            Object result = cloudinary.uploader().destroy(asset.publicId(), options).get("result");
+            log.info("Gỡ file Cloudinary public_id={}: {}", asset.publicId(), result);
+        } catch (Exception e) {
+            log.warn("Không thể gỡ file Cloudinary public_id={}", asset.publicId(), e);
+        }
+    }
+
+    /** Tách resource_type và public_id từ URL Cloudinary; null nếu không phải URL Cloudinary. */
+    static CloudinaryAsset parseCloudinaryUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(url.trim());
+            String host = uri.getHost();
+            if (host == null || !(host.equals("cloudinary.com") || host.endsWith(".cloudinary.com"))) {
+                return null;
+            }
+            Matcher matcher = CLOUDINARY_PATH.matcher(uri.getPath());
+            return matcher.matches() ? new CloudinaryAsset(matcher.group(1), matcher.group(2)) : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    record CloudinaryAsset(String resourceType, String publicId) {
+    }
+
     private void validateCloudinaryConfig() {
         if (cloudName == null || cloudName.isBlank()
                 || apiKey == null || apiKey.isBlank()
                 || apiSecret == null || apiSecret.isBlank()) {
-            log.error("Cloudinary chưa được cấu hình đầy đủ (cloudName, apiKey, apiSecret)!");
-            throw new AppException(500, "Cloudinary chưa được cấu hình đầy đủ trên hệ thống");
+            throw new AppException(503, "Chưa cấu hình đầy đủ thông tin Cloudinary");
         }
     }
 }

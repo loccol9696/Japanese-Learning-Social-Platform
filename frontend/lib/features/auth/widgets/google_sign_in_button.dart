@@ -84,7 +84,9 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
       await _initialize();
       if (!_ready) {
         final reason = (_initError ?? '').split('\n').first;
-        widget.onError(reason.isEmpty ? _unavailable : '$_unavailable ($reason)');
+        widget.onError(
+          reason.isEmpty ? _unavailable : '$_unavailable ($reason)',
+        );
         return;
       }
       if (!_usesNativeFlow) {
@@ -135,45 +137,48 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
   @override
   Widget build(BuildContext context) {
     if (_ready && !_usesNativeFlow) {
+      // Google không cho đổi giao diện nút trên web, nên đặt nút thật của Google xuống dưới (kéo giãn cho phủ kín
+      // khung 52px, rộng bằng nút Đăng nhập) rồi vẽ nút giống thiết kế, đặc hoàn toàn, đè lên trên. Lớp vẽ không
+      // nhận chạm nên bấm xuyên xuống nút thật của Google; đang bận hoặc bị khoá thì chặn chạm vào nút thật.
       return SizedBox(
         height: 52,
         child: Stack(
-          alignment: Alignment.center,
           children: [
-            IgnorePointer(
-              ignoring: !widget.enabled || _busy,
-              child: Opacity(
-                opacity: widget.enabled && !_busy ? 1 : 0.5,
-                // Google không cho đổi màu / bo góc nút của họ, nên bọc lại cho hợp với các ô nhập:
-                // cùng độ rộng, bo góc 12, viền mảnh và nền trắng cho dễ nhìn trên nền tối.
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final width = constraints.maxWidth > 400
-                        ? 400.0
-                        : constraints.maxWidth;
-                    return Center(
-                      child: Container(
-                        width: width,
-                        height: 44,
-                        clipBehavior: Clip.antiAlias,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white),
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: IgnorePointer(
+                  ignoring: !widget.enabled || _busy,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth.clamp(200.0, 400.0);
+                      return Center(
+                        child: Transform.scale(
+                          scaleX: constraints.maxWidth / width,
+                          scaleY: 52 / 40,
+                          child: SizedBox(
+                            width: width,
+                            height: 40,
+                            child: buildWebGoogleButton(width),
+                          ),
                         ),
-                        child: Center(child: buildWebGoogleButton(width - 2)),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
-            if (_busy)
-              const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppPalette.surface,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(child: _buildContent(busy: _busy)),
+                ),
               ),
+            ),
           ],
         ),
       );
@@ -184,43 +189,46 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
       height: 52,
       child: OutlinedButton(
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: AppPalette.border),
+          backgroundColor: AppPalette.surface,
+          side: BorderSide.none,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
         onPressed: widget.enabled && !_busy ? _startNative : null,
-        child: _busy
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    'assets/icons/google.png',
-                    height: 20,
-                    width: 20,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.g_mobiledata,
-                      size: 24,
-                      color: Colors.red,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Tiếp tục với Google',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppPalette.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
+        child: _buildContent(busy: _busy),
       ),
     );
+  }
+
+  Widget _buildContent({required bool busy}) {
+    return busy
+        ? const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/icons/google.png',
+                height: 20,
+                width: 20,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.g_mobiledata, size: 24, color: Colors.red),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Tiếp tục với Google',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppPalette.textPrimary,
+                ),
+              ),
+            ],
+          );
   }
 }

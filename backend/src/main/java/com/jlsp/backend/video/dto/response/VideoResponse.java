@@ -41,6 +41,12 @@ public class VideoResponse {
      */
     private JLPTLevel jlptLevel;
 
+    /** Chủ đề của video (rỗng nếu chưa gắn). */
+    private java.util.List<com.jlsp.backend.topic.dto.TopicResponse> topics;
+
+    /** Hashtag của video, không kèm dấu "#". */
+    private java.util.List<String> hashtags;
+
     /**
      * Đường dẫn phát video
      */
@@ -60,6 +66,11 @@ public class VideoResponse {
      * Lượt lưu vào bộ sưu tập
      */
     private Integer saveCount;
+
+    /**
+     * Lượt chia sẻ cho bạn bè qua chat
+     */
+    private Integer shareCount;
 
     private Long commentCount;
 
@@ -108,7 +119,22 @@ public class VideoResponse {
     private String subtitles;
 
     /**
+     * Kết quả phân tích ngữ pháp của AI (JSON)
+     */
+    private String grammarAnalysis;
+
+    /**
      * Thời điểm đăng tải
      */
     private LocalDateTime createdAt;
+
+    /**
+     * Thời điểm chuyển vào thùng rác (chỉ có ở danh sách thùng rác)
+     */
+    private LocalDateTime deletedAt;
+
+    /**
+     * Thời điểm video sẽ bị xóa hẳn (chỉ có ở danh sách thùng rác)
+     */
+    private LocalDateTime purgeAt;
 }

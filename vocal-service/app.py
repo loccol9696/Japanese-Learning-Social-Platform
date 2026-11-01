@@ -8,6 +8,9 @@ import sys
 from contextlib import asynccontextmanager  # 1. Thêm import này
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from starlette.background import BackgroundTask
+from urllib.parse import quote, urlparse
 
 BASE_TEMP_DIR = "temp_processing"
 os.makedirs(BASE_TEMP_DIR, exist_ok=True)
@@ -128,6 +131,16 @@ async def separate_vocal(file: UploadFile = File(...)):
             if not vocal_path or not os.path.exists(vocal_path):
                 raise HTTPException(status_code=500, detail="Không tìm thấy file vocal xuất ra.")
 
+            # Chuyển vocal sang 16kHz mono: nhẹ hơn ~5 lần, Google STT khuyên dùng định dạng này
+            small_path = os.path.join(task_dir, "vocals_16k_mono.wav")
+            conv = subprocess.run(
+                ["ffmpeg", "-y", "-i", vocal_path, "-ac", "1", "-ar", "16000",
+                 "-acodec", "pcm_s16le", small_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            if conv.returncode == 0 and os.path.exists(small_path):
+                vocal_path = small_path
+
             # Trả file vocal về cho Spring Boot
             return FileResponse(
                 vocal_path,
@@ -139,6 +152,127 @@ async def separate_vocal(file: UploadFile = File(...)):
             # Thu hồi VRAM tạm sau khi chạy xong
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+
+# ---------------------------------------------------------------------------
+# Tải video từ YouTube (yt-dlp) để backend upload lên Cloudinary
+# ---------------------------------------------------------------------------
+YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
+MAX_YOUTUBE_SECONDS = int(os.getenv("MAX_YOUTUBE_SECONDS", "600"))
+# Cloudinary gói free giới hạn video 100MB / file.
+MAX_YOUTUBE_BYTES = int(os.getenv("MAX_YOUTUBE_BYTES", str(95 * 1024 * 1024)))
+
+
+class YoutubeDownloadRequest(BaseModel):
+    url: str
+    max_duration: int | None = None
+
+
+def _ensure_yt_dlp():
+    try:
+        import yt_dlp
+        return yt_dlp
+    except ModuleNotFoundError:
+        import site
+        extra_paths = [site.getusersitepackages(), *site.getsitepackages()]
+        local_app = os.environ.get('LOCALAPPDATA', '')
+        if local_app:
+            import glob
+            extra_paths.extend(glob.glob(os.path.join(
+                local_app, 'Packages', 'PythonSoftwareFoundation.Python*',
+                'LocalCache', 'local-packages', 'Python*', 'site-packages'
+            )))
+        for candidate in extra_paths:
+            if candidate and os.path.isdir(candidate) and candidate not in sys.path:
+                sys.path.append(candidate)
+        try:
+            import yt_dlp
+            return yt_dlp
+        except ModuleNotFoundError:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-U', 'yt-dlp'])
+            import importlib
+            importlib.invalidate_caches()
+            import yt_dlp
+            return yt_dlp
+
+
+def _download_youtube(url: str, task_dir: str, max_duration: int):
+    yt_dlp = _ensure_yt_dlp()
+
+    base_opts = {"quiet": True, "no_warnings": True, "noplaylist": True}
+    with yt_dlp.YoutubeDL({**base_opts, "skip_download": True}) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    if info.get("is_live"):
+        raise HTTPException(status_code=400, detail="Không hỗ trợ video đang phát trực tiếp.")
+    duration = int(info.get("duration") or 0)
+    if duration <= 0:
+        raise HTTPException(status_code=400, detail="Không xác định được thời lượng video.")
+    if duration > max_duration:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Video dài {duration // 60} phút {duration % 60} giây, tối đa {max_duration // 60} phút.",
+        )
+
+    # Ưu tiên 720p; file quá nặng thì hạ chất lượng.
+    for height in (720, 480, 360):
+        prefix = f"video_{height}"
+        opts = {
+            **base_opts,
+            "format": (
+                f"bv*[height<={height}][ext=mp4]+ba[ext=m4a]/"
+                f"b[height<={height}][ext=mp4]/"
+                f"bv*[height<={height}]+ba/b[height<={height}]"
+            ),
+            "merge_output_format": "mp4",
+            "outtmpl": os.path.join(task_dir, prefix + ".%(ext)s"),
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([url])
+
+        files = [f for f in os.listdir(task_dir) if f.startswith(prefix + ".")]
+        if not files:
+            continue
+        path = os.path.join(task_dir, files[0])
+        if os.path.getsize(path) <= MAX_YOUTUBE_BYTES:
+            return info, path
+        os.remove(path)
+
+    raise HTTPException(status_code=413, detail="Video quá nặng, hãy chọn video ngắn hơn.")
+
+
+@app.post("/api/v1/youtube/download")
+async def download_youtube(req: YoutubeDownloadRequest):
+    url = req.url.strip()
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or (parsed.hostname or "").lower() not in YOUTUBE_HOSTS:
+        raise HTTPException(status_code=400, detail="Link YouTube không hợp lệ.")
+
+    max_duration = min(req.max_duration or MAX_YOUTUBE_SECONDS, MAX_YOUTUBE_SECONDS)
+    task_dir = os.path.join(BASE_TEMP_DIR, "yt-" + str(uuid.uuid4()))
+    os.makedirs(task_dir, exist_ok=True)
+
+    try:
+        info, path = await asyncio.to_thread(_download_youtube, url, task_dir, max_duration)
+    except HTTPException:
+        shutil.rmtree(task_dir, ignore_errors=True)
+        raise
+    except Exception as e:
+        shutil.rmtree(task_dir, ignore_errors=True)
+        raise HTTPException(status_code=422, detail=f"Không tải được video YouTube: {e}")
+
+    headers = {
+        "X-Video-Title": quote(info.get("title") or "youtube-video"),
+        "X-Video-Duration": str(int(info.get("duration") or 0)),
+        "X-Video-Id": str(info.get("id") or ""),
+    }
+    return FileResponse(
+        path,
+        media_type="video/mp4",
+        filename="youtube.mp4",
+        headers=headers,
+        background=BackgroundTask(shutil.rmtree, task_dir, True),
+    )
+
 
 if __name__ == "__main__":
     import uvicorn

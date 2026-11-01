@@ -9,6 +9,7 @@ import com.jlsp.backend.ai.service.SpeechToTextServiceIntf;
 import com.jlsp.backend.ai.service.GrammarAnalysisServiceIntf;
 import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.security.CurrentUser;
+import com.jlsp.backend.media.service.MediaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -26,16 +28,19 @@ public class SpeechToTextController {
     private final com.jlsp.backend.subscription.service.SubscriptionService subscriptionService;
     private final com.jlsp.backend.subscription.service.SystemSettingService systemSettingService;
     private final GrammarAnalysisServiceIntf grammarAnalysisService;
+    private final MediaService mediaService;
 
     public SpeechToTextController(
             SpeechToTextServiceIntf speechToTextService,
             com.jlsp.backend.subscription.service.SubscriptionService subscriptionService,
             com.jlsp.backend.subscription.service.SystemSettingService systemSettingService,
-            GrammarAnalysisServiceIntf grammarAnalysisService) {
+            GrammarAnalysisServiceIntf grammarAnalysisService,
+            MediaService mediaService) {
         this.speechToTextService = speechToTextService;
         this.subscriptionService = subscriptionService;
         this.systemSettingService = systemSettingService;
         this.grammarAnalysisService = grammarAnalysisService;
+        this.mediaService = mediaService;
     }
 
     @PostMapping("/transcribe")
@@ -54,7 +59,8 @@ public class SpeechToTextController {
         int tokensRequired = systemSettingService.calculateTokensRequired(duration);
 
         // Kiểm tra và trừ Token hạn mức theo ngày
-        subscriptionService.validateAndDeductTokens(userId, tokensRequired);
+        subscriptionService.validateAndDeductTokens(userId, tokensRequired,
+                com.jlsp.backend.subscription.entity.TokenFeature.VIDEO_SUBTITLE);
 
         String taskId = UUID.randomUUID().toString();
         speechToTextService.processAudioAsync(taskId, file);
@@ -69,11 +75,60 @@ public class SpeechToTextController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
+    /**
+     * Khởi chạy AI tạo phụ đề từ URL video trên Cloudinary khi người dùng nhấn nút "Tạo bằng AI".
+     */
+    @PostMapping("/transcribe-url")
+    public ResponseEntity<TranscriptionSubmitResponse> submitTranscriptionFromUrl(
+            @RequestBody Map<String, Object> body) {
+        Object rawUrl = body != null ? body.get("videoUrl") : null;
+        String videoUrl = rawUrl != null ? rawUrl.toString().trim() : "";
+        if (videoUrl.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Long userId = CurrentUser.idOrNull();
+        if (userId != null) {
+            int duration = 60;
+            Object rawDuration = body != null ? body.get("duration") : null;
+            if (rawDuration instanceof Number n && n.intValue() > 0) {
+                duration = n.intValue();
+            } else if (rawDuration != null) {
+                try {
+                    int parsed = Integer.parseInt(rawDuration.toString().trim());
+                    if (parsed > 0) duration = parsed;
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            int tokensRequired = systemSettingService.calculateTokensRequired(duration);
+            subscriptionService.validateAndDeductTokens(userId, tokensRequired,
+                    com.jlsp.backend.subscription.entity.TokenFeature.VIDEO_SUBTITLE);
+        }
+
+        byte[] videoBytes = mediaService.downloadFromCloudinary(videoUrl);
+        String taskId = UUID.randomUUID().toString();
+        speechToTextService.processAudioAsync(taskId, videoBytes, "draft-video.mp4");
+
+        TranscriptionSubmitResponse response = TranscriptionSubmitResponse.builder()
+                .taskId(taskId)
+                .status("PROCESSING")
+                .checkUrl("/api/speech/status/" + taskId)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
     @PostMapping("/analyze-grammar")
     public ResponseEntity<ApiResponse<List<SegmentGrammarAnalysis>>> analyzeGrammar(
             @RequestBody AnalyzeGrammarRequest request) throws Exception {
-                List<SegmentGrammarAnalysis> analyzedSegments = grammarAnalysisService.analyze(request.getSegments());
-                return ResponseEntity.ok(ApiResponse.success(analyzedSegments));
+        Long userId = CurrentUser.idOrNull();
+        if (userId != null) {
+            subscriptionService.validateAndDeductTokens(userId, 1,
+                    com.jlsp.backend.subscription.entity.TokenFeature.GRAMMAR_ANALYSIS);
+        }
+        List<SegmentGrammarAnalysis> analyzedSegments = grammarAnalysisService.analyze(request.getSegments());
+        return ResponseEntity.ok(ApiResponse.success(analyzedSegments));
     }
 
     @GetMapping("/status/{taskId}")

@@ -46,6 +46,12 @@ public class VideoDetailResponse {
      */
     private JLPTLevel jlptLevel;
 
+    /** Chủ đề của video (rỗng nếu chưa gắn). */
+    private java.util.List<com.jlsp.backend.topic.dto.TopicResponse> topics;
+
+    /** Hashtag của video, không kèm dấu "#". */
+    private java.util.List<String> hashtags;
+
     /**
      * Đường dẫn phát video
      */
@@ -75,6 +81,12 @@ public class VideoDetailResponse {
      * Lượt lưu vào bộ sưu tập
      */
     private Integer saveCount;
+
+    /** Lượt chia sẻ cho bạn bè qua chat. */
+    private Integer shareCount;
+
+    /** Số bình luận (gồm cả phản hồi); chỉ có khi lấy chi tiết một video để xem. */
+    private Long commentCount;
 
     /**
      * Trạng thái hiển thị (PUBLIC, PRIVATE...)

@@ -5,9 +5,11 @@ package com.jlsp.backend.video.entity;
  * - PENDING: Video đang chờ Moderator kiểm duyệt nội dung.
  * - APPROVED: Moderator đã duyệt chấp thuận, đủ điều kiện hiển thị trên feed.
  * - REJECTED: Moderator từ chối do vi phạm quy chuẩn cộng đồng / bản quyền.
+ * - DRAFT: Video đang ở trạng thái bản nháp, chưa gửi kiểm duyệt.
  */
 public enum VideoModStatus {
     PENDING,
     APPROVED,
-    REJECTED
+    REJECTED,
+    DRAFT
 }

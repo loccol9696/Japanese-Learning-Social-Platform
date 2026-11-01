@@ -64,8 +64,25 @@ public class User {
     @JoinColumn(name = "subscription_plan_id")
     private com.jlsp.backend.subscription.entity.SubscriptionPlan subscriptionPlan;
 
+    /** Chủ đề người dùng quan tâm (sở thích hiển thị trong hồ sơ). */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "user_topics",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "topic_id"))
+    @Builder.Default
+    private java.util.Set<com.jlsp.backend.topic.entity.Topic> topics = new java.util.HashSet<>();
+
     @Column(name = "vip_expires_at")
     private LocalDateTime vipExpiresAt;
+
+    /** Thời điểm đã trả lời 2 câu hỏi chào mừng (trình độ + sở thích). Null = chưa. */
+    @Column(name = "onboarding_completed_at")
+    private LocalDateTime onboardingCompletedAt;
+
+    /** Số lần bấm "Bỏ qua" câu hỏi chào mừng; đạt mức tối đa thì không hỏi nữa. */
+    @Column(name = "onboarding_skip_count", nullable = false, columnDefinition = "integer default 0 not null")
+    @Builder.Default
+    private Integer onboardingSkipCount = 0;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

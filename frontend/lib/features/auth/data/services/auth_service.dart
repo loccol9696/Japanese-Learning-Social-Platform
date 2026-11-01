@@ -61,9 +61,9 @@ class AuthService {
         'username': username.trim(),
         'email': normalizeEmail(email),
         'password': password,
-        'displayName': displayName?.trim().isNotEmpty == true
-            ? displayName!.trim()
-            : username.trim(),
+        // Không có Họ và tên thì để server tự đặt từ tên đăng nhập (tên đăng nhập có thể chứa ký tự mà Họ và tên cấm).
+        if (displayName?.trim().isNotEmpty == true)
+          'displayName': displayName!.trim(),
       },
       withAuth: false,
     );

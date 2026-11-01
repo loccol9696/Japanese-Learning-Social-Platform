@@ -30,6 +30,7 @@ class UserServiceImplPublicProfileTest {
     private UserRepository userRepository;
     private FollowRepository followRepository;
     private VideoRepository videoRepository;
+    private com.jlsp.backend.block.service.BlockService blockService;
     private UserServiceImpl service;
 
     @BeforeEach
@@ -37,8 +38,10 @@ class UserServiceImplPublicProfileTest {
         userRepository = mock(UserRepository.class);
         followRepository = mock(FollowRepository.class);
         videoRepository = mock(VideoRepository.class);
+        blockService = mock(com.jlsp.backend.block.service.BlockService.class);
         service = new UserServiceImpl(userRepository, new UserMapper(), mock(PasswordEncoder.class),
-                followRepository, videoRepository, mock(RefreshTokenService.class));
+                followRepository, videoRepository, mock(RefreshTokenService.class),
+                mock(com.jlsp.backend.topic.service.TopicService.class), blockService);
 
         when(followRepository.countByIdFollowerId(OWNER)).thenReturn(3L);
         when(followRepository.countByIdFollowingId(OWNER)).thenReturn(5L);
@@ -87,6 +90,32 @@ class UserServiceImplPublicProfileTest {
         assertThat(profile.getIsSelf()).isFalse();
         assertThat(profile.getIsFollowing()).isFalse();
         assertThat(profile.getIsFollowedBy()).isFalse();
+    }
+
+    @Test
+    void personWhoBlockedTheViewerLooksLikeTheyDoNotExist() {
+        when(userRepository.findById(OWNER)).thenReturn(Optional.of(owner(true)));
+        when(blockService.hasBlocked(OWNER, VIEWER)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.getPublicProfile(VIEWER, OWNER))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(404));
+    }
+
+    @Test
+    void personTheViewerBlockedIsStillViewableAndFlagged() {
+        when(userRepository.findById(OWNER)).thenReturn(Optional.of(owner(true)));
+        when(blockService.hasBlocked(VIEWER, OWNER)).thenReturn(true);
+
+        PublicProfileResponse profile = service.getPublicProfile(VIEWER, OWNER);
+
+        assertThat(profile.getIsBlocked()).isTrue();
+    }
+
+    @Test
+    void ownPageIsNeverFlaggedAsBlocked() {
+        when(userRepository.findById(OWNER)).thenReturn(Optional.of(owner(true)));
+
+        assertThat(service.getPublicProfile(OWNER, OWNER).getIsBlocked()).isFalse();
     }
 
     @Test

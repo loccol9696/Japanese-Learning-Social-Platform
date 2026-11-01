@@ -7,6 +7,8 @@ import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../domain/models/video_post.dart';
+import '../../../report/report_service.dart';
+import '../../../report/report_sheet.dart';
 import 'subtitle_mode.dart';
 import '../../../../core/theme/app_palette.dart';
 
@@ -52,7 +54,8 @@ class InteractionSidebar extends StatefulWidget {
 
 class _InteractionSidebarState extends State<InteractionSidebar>
     with TickerProviderStateMixin {
-  static Color get _accentBlue => AppPalette.info;
+  /// Màu của nút Lưu khi video đã được lưu (vàng như TikTok).
+  static Color get _savedColor => AppPalette.gold;
 
   late final AnimationController _likeScaleController;
 
@@ -186,8 +189,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
               : Icons.bookmark_border_rounded,
           countText: 'Lưu',
           onTap: _handleSave,
-          iconColor: _isSaved ? _accentBlue : AppPalette.onVideo,
-          countColor: _isSaved ? _accentBlue : AppPalette.onVideo,
+          iconColor: _isSaved ? _savedColor : AppPalette.onVideo,
+          countColor: _isSaved ? _savedColor : AppPalette.onVideo,
         ),
         const SizedBox(height: 8.0),
 
@@ -212,7 +215,52 @@ class _InteractionSidebarState extends State<InteractionSidebar>
 
         // 6. Subtitle Toggle Button (below script)
         _buildSubtitleToggleButton(activeTheme),
+
+        // 7. Báo cáo video (ẩn với video của chính mình)
+        if (_canReport) ...[
+          const SizedBox(height: 2.0),
+          _buildReportButton(activeTheme),
+        ],
       ],
+    );
+  }
+
+  bool get _isOwnVideo {
+    final me = AuthSession.instance.user?.id;
+    return me != null && me == widget.post.creatorId;
+  }
+
+  bool get _canReport {
+    if (int.tryParse(widget.post.id) == null) return false;
+    return !_isOwnVideo;
+  }
+
+  Widget _buildReportButton(AdaptiveVideoTheme theme) {
+    return Tooltip(
+      message: 'Báo cáo video',
+      child: GestureDetector(
+        onTap: () => showReportSheet(
+          context,
+          target: ReportTarget.video,
+          targetId: int.parse(widget.post.id),
+          subject: 'video này',
+        ),
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 36.0,
+          height: 32.0,
+          child: Center(
+            child: Icon(
+              Icons.flag_outlined,
+              size: 22.0,
+              color: theme.isLight
+                  ? theme.textSecondary.withValues(alpha: 0.7)
+                  : AppPalette.onVideoMuted,
+              shadows: theme.textShadows,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -240,7 +288,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
                     : Icons.subtitles_off_outlined,
                 size: 26.0,
                 color: isVisible
-                    ? (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo)
+                    ? (theme.isLight
+                          ? theme.primaryAdaptive
+                          : AppPalette.onVideo)
                     : (theme.isLight
                           ? theme.textSecondary.withValues(alpha: 0.5)
                           : AppPalette.onVideoMuted),
@@ -308,39 +358,40 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             ),
           ),
         ),
-        // Follow / Unfollow Badge Button
-        Positioned(
-          bottom: -8.0,
-          child: GestureDetector(
-            onTap: _handleFollow,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: 20.0,
-              height: 20.0,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _isFollowing
-                    ? AppColors.sakuraPink
-                    : (theme.isLight
-                          ? theme.primaryAdaptive
-                          : AppColors.periwinkle),
-                boxShadow: [
-                  BoxShadow(
-                    color: _isFollowing
-                        ? AppColors.sakuraPink.withValues(alpha: 0.6)
-                        : AppPalette.shadow,
-                    blurRadius: 8.0,
-                  ),
-                ],
-              ),
-              child: Icon(
-                _isFollowing ? Icons.check_rounded : Icons.add_rounded,
-                size: 14.0,
-                color: AppPalette.onVideo,
+        // Follow / Unfollow Badge Button (ẩn với video của chính mình)
+        if (!_isOwnVideo)
+          Positioned(
+            bottom: -8.0,
+            child: GestureDetector(
+              onTap: _handleFollow,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 20.0,
+                height: 20.0,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _isFollowing
+                      ? AppColors.sakuraPink
+                      : (theme.isLight
+                            ? theme.primaryAdaptive
+                            : AppColors.periwinkle),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _isFollowing
+                          ? AppColors.sakuraPink.withValues(alpha: 0.6)
+                          : AppPalette.shadow,
+                      blurRadius: 8.0,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  _isFollowing ? Icons.check_rounded : Icons.add_rounded,
+                  size: 14.0,
+                  color: AppPalette.onVideo,
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -368,7 +419,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
                   size: 26.0,
                   color: isLiked
                       ? AppColors.likeRed
-                      : (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo),
+                      : (theme.isLight
+                            ? theme.primaryAdaptive
+                            : AppPalette.onVideo),
                   shadows: _isLiked
                       ? [
                           const Shadow(

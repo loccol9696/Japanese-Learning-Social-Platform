@@ -116,44 +116,32 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
     UserProfileModel profile, {
     int? userId,
   }) async {
-    // 1. Save immediately to persistent storage so refresh never loses data
-    _saveToStorage(profile);
-
-    // 2. Synchronize to Backend Spring Boot REST API
-    try {
-      final userData = await TokenStorage.instance.getUserData();
-      final profileUrl = _buildUrl('profile');
-      final payload = jsonEncode(profile.toUpdateJson());
-      final response = await _authorized(
-        (headers) =>
-            _client.put(Uri.parse(profileUrl), headers: headers, body: payload),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final jsonMap = jsonDecode(response.body) as Map<String, dynamic>;
-        final data = jsonMap['data'] as Map<String, dynamic>;
-        final updated = UserProfileModel.fromJson(data);
-        _saveToStorage(updated);
-
-        // Cập nhật lại TokenStorage để giao diện toàn app phản ánh ngay
-        if (userData != null) {
-          final updatedUserData = Map<String, dynamic>.from(userData);
-          if (updated.displayName.isNotEmpty) {
-            updatedUserData['displayName'] = updated.displayName;
-          }
-          if (updated.avatarUrl.isNotEmpty) {
-            updatedUserData['avatarUrl'] = updated.avatarUrl;
-          }
-          await TokenStorage.instance.saveUser(updatedUserData);
-        }
-
-        return updated;
-      }
-    } catch (_) {
-      // Backend offline
+    final userData = await TokenStorage.instance.getUserData();
+    final profileUrl = _buildUrl('profile');
+    final response = await _authorized(
+      (headers) => _client.put(
+        Uri.parse(profileUrl),
+        headers: headers,
+        body: jsonEncode(profile.toUpdateJson()),
+      ),
+    );
+    final data = ApiClient.decodeResponse(response);
+    if (data is! Map<String, dynamic>) {
+      throw const FormatException('Dữ liệu hồ sơ trả về không hợp lệ.');
     }
 
-    return profile;
+    final updated = UserProfileModel.fromJson(data);
+    _saveToStorage(updated);
+
+    // Cập nhật lại TokenStorage để giao diện toàn app phản ánh ngay.
+    if (userData != null) {
+      final updatedUserData = Map<String, dynamic>.from(userData);
+      updatedUserData['displayName'] = updated.displayName;
+      updatedUserData['avatarUrl'] = updated.avatarUrl;
+      await TokenStorage.instance.saveUser(updatedUserData);
+    }
+
+    return updated;
   }
 
   /// Gửi request qua [ApiClient]: tự gắn access token, tự làm mới khi hết hạn,

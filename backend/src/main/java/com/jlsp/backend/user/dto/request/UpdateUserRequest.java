@@ -20,6 +20,8 @@ public class UpdateUserRequest {
     private String username;
 
     @Size(max = 100, message = "Display name must not exceed 100 characters")
+    @jakarta.validation.constraints.Pattern(regexp = com.jlsp.backend.auth.dto.request.DisplayNameRules.REGEX,
+            message = com.jlsp.backend.auth.dto.request.DisplayNameRules.MESSAGE)
     private String displayName;
 
     private String email;
@@ -33,8 +35,8 @@ public class UpdateUserRequest {
     @Size(max = 500, message = "Bio must not exceed 500 characters")
     private String bio;
 
-    @Builder.Default
-    private Set<Long> topicIds = new HashSet<>();
+    /** Null: giữ nguyên sở thích hiện tại; tập rỗng: xoá hết. */
+    private Set<Long> topicIds;
 
     @Builder.Default
     private Set<String> interests = new HashSet<>();

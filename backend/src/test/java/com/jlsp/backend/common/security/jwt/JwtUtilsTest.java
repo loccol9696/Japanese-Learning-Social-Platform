@@ -37,6 +37,18 @@ class JwtUtilsTest {
     }
 
     @Test
+    void claimsCarryTheIssueTimeUsedForPerUserRevocation() {
+        JwtUtils jwt = new JwtUtils(SECRET, "jlsp", Duration.ofMinutes(30));
+        long before = java.time.Instant.now().getEpochSecond();
+
+        var claims = jwt.parse(jwt.generateAccessToken(user())).orElseThrow();
+
+        assertThat(claims.issuedAt().getEpochSecond())
+                .isBetween(before, java.time.Instant.now().getEpochSecond());
+        assertThat(claims.expiresAt()).isAfter(claims.issuedAt());
+    }
+
+    @Test
     void eachTokenHasItsOwnId() {
         JwtUtils jwt = new JwtUtils(SECRET, "jlsp", Duration.ofMinutes(30));
         String first = jwt.parse(jwt.generateAccessToken(user())).orElseThrow().tokenId();

@@ -47,6 +47,7 @@ import {
   createQrOrder,
   confirmPayment,
   getAdminAnalytics,
+  getPendingReportCount,
   updateAdminProfile,
   getMetricTrend,
   getTokenRate,
@@ -59,6 +60,8 @@ import {
   type AdminAnalyticsData,
   type DailyMetricDto
 } from '../services/adminService';
+import VideoClassificationEditor from './VideoClassificationEditor';
+import ReportsManager from './ReportsManager';
 import './AdminDashboard.css';
 
 interface AdminDashboardProps {
@@ -79,7 +82,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
   // Enforce role separation on tab changes
   useEffect(() => {
-    if (isAdmin && activeTab === 'videos') {
+    if (isAdmin && (activeTab === 'videos' || activeTab === 'reports')) {
       setActiveTab('analytics');
     }
     if (isModerator && (activeTab === 'users' || activeTab === 'subscriptions' || activeTab === 'pricing' || activeTab === 'analytics')) {
@@ -180,29 +183,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   const [analyticsData, setAnalyticsData] = useState<AdminAnalyticsData | null>(null);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
+  // Filter types: 'month_year' (chọn tháng & năm) | 'range' (tùy chỉnh khoảng ngày)
+  type ChartFilterMode = 'month_year' | 'range';
+
+  // Global Filter State (đồng bộ cho toàn bộ biểu đồ)
+  const [globalFilterMode, setGlobalFilterMode] = useState<ChartFilterMode>('month_year');
+  const [globalYear, setGlobalYear] = useState<number>(2026);
+  const [globalMonth, setGlobalMonth] = useState<number>(10);
+  const [globalStartDate, setGlobalStartDate] = useState<string>('2026-10-01');
+  const [globalEndDate, setGlobalEndDate] = useState<string>('2026-10-31');
+
   // Chart 1: Học viên đăng ký (Chỉ role USER, loại trừ Admin/Mod)
-  const [userPeriod, setUserPeriod] = useState<'7days' | 'days_in_month' | 'month' | 'year'>('days_in_month');
+  const [userFilterMode, setUserFilterMode] = useState<ChartFilterMode>('month_year');
   const [userYear, setUserYear] = useState<number>(2026);
   const [userMonth, setUserMonth] = useState<number>(10);
+  const [userStartDate, setUserStartDate] = useState<string>('2026-10-01');
+  const [userEndDate, setUserEndDate] = useState<string>('2026-10-31');
   const [userTrendData, setUserTrendData] = useState<DailyMetricDto[] | null>(null);
   const [isLoadingUserTrend, setIsLoadingUserTrend] = useState<boolean>(false);
   const [userChartType, setUserChartType] = useState<'spline' | 'bar'>('spline');
 
   // Chart 2: Tiêu thụ Token AI
-  const [tokenPeriod, setTokenPeriod] = useState<'7days' | 'days_in_month' | 'month' | 'year'>('days_in_month');
+  const [tokenFilterMode, setTokenFilterMode] = useState<ChartFilterMode>('month_year');
   const [tokenYear, setTokenYear] = useState<number>(2026);
   const [tokenMonth, setTokenMonth] = useState<number>(10);
+  const [tokenStartDate, setTokenStartDate] = useState<string>('2026-10-01');
+  const [tokenEndDate, setTokenEndDate] = useState<string>('2026-10-31');
   const [tokenTrendData, setTokenTrendData] = useState<DailyMetricDto[] | null>(null);
   const [isLoadingTokenTrend, setIsLoadingTokenTrend] = useState<boolean>(false);
   const [tokenChartType, setTokenChartType] = useState<'spline' | 'bar'>('spline');
 
   // Chart 3: Doanh thu bán gói VIP
-  const [revPeriod, setRevPeriod] = useState<'7days' | 'days_in_month' | 'month' | 'year'>('days_in_month');
+  const [revFilterMode, setRevFilterMode] = useState<ChartFilterMode>('month_year');
   const [revYear, setRevYear] = useState<number>(2026);
   const [revMonth, setRevMonth] = useState<number>(10);
+  const [revStartDate, setRevStartDate] = useState<string>('2026-10-01');
+  const [revEndDate, setRevEndDate] = useState<string>('2026-10-31');
   const [revTrendData, setRevTrendData] = useState<DailyMetricDto[] | null>(null);
   const [isLoadingRevTrend, setIsLoadingRevTrend] = useState<boolean>(false);
   const [revChartType, setRevChartType] = useState<'spline' | 'bar'>('spline');
+
+  const formatVNDate = (dStr: string) => {
+    if (!dStr) return '';
+    try {
+      const parts = dStr.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      return dStr;
+    } catch {
+      return dStr;
+    }
+  };
 
   const loadAnalytics = async () => {
     if (!isAdmin) return;
@@ -217,11 +249,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
-  const fetchUserTrend = async (period: '7days' | 'days_in_month' | 'month' | 'year', y: number, m: number) => {
+  const fetchUserTrend = async (
+    mode: ChartFilterMode,
+    y: number,
+    m: number,
+    start?: string,
+    end?: string
+  ) => {
     if (!isAdmin) return;
+    if (mode === 'range' && (!start || !end)) return;
     setIsLoadingUserTrend(true);
     try {
-      const data = await getMetricTrend('user', period, y, m);
+      const period = mode === 'month_year' ? 'days_in_month' : 'range';
+      const data = await getMetricTrend('user', period, y, m, mode === 'range' ? start : undefined, mode === 'range' ? end : undefined);
       setUserTrendData(data);
     } catch (err) {
       console.error('Lỗi tải xu hướng học viên:', err);
@@ -230,11 +270,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
-  const fetchTokenTrend = async (period: '7days' | 'days_in_month' | 'month' | 'year', y: number, m: number) => {
+  const fetchTokenTrend = async (
+    mode: ChartFilterMode,
+    y: number,
+    m: number,
+    start?: string,
+    end?: string
+  ) => {
     if (!isAdmin) return;
+    if (mode === 'range' && (!start || !end)) return;
     setIsLoadingTokenTrend(true);
     try {
-      const data = await getMetricTrend('token', period, y, m);
+      const period = mode === 'month_year' ? 'days_in_month' : 'range';
+      const data = await getMetricTrend('token', period, y, m, mode === 'range' ? start : undefined, mode === 'range' ? end : undefined);
       setTokenTrendData(data);
     } catch (err) {
       console.error('Lỗi tải xu hướng token:', err);
@@ -243,11 +291,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
-  const fetchRevTrend = async (period: '7days' | 'days_in_month' | 'month' | 'year', y: number, m: number) => {
+  const fetchRevTrend = async (
+    mode: ChartFilterMode,
+    y: number,
+    m: number,
+    start?: string,
+    end?: string
+  ) => {
     if (!isAdmin) return;
+    if (mode === 'range' && (!start || !end)) return;
     setIsLoadingRevTrend(true);
     try {
-      const data = await getMetricTrend('revenue', period, y, m);
+      const period = mode === 'month_year' ? 'days_in_month' : 'range';
+      const data = await getMetricTrend('revenue', period, y, m, mode === 'range' ? start : undefined, mode === 'range' ? end : undefined);
       setRevTrendData(data);
     } catch (err) {
       console.error('Lỗi tải xu hướng doanh thu:', err);
@@ -264,35 +320,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
   useEffect(() => {
     if (isAdmin && activeTab === 'analytics') {
-      fetchUserTrend(userPeriod, userYear, userMonth);
+      fetchUserTrend(userFilterMode, userYear, userMonth, userStartDate, userEndDate);
     }
-  }, [isAdmin, activeTab, userPeriod, userYear, userMonth]);
+  }, [isAdmin, activeTab, userFilterMode, userYear, userMonth, userStartDate, userEndDate]);
 
   useEffect(() => {
     if (isAdmin && activeTab === 'analytics') {
-      fetchTokenTrend(tokenPeriod, tokenYear, tokenMonth);
+      fetchTokenTrend(tokenFilterMode, tokenYear, tokenMonth, tokenStartDate, tokenEndDate);
     }
-  }, [isAdmin, activeTab, tokenPeriod, tokenYear, tokenMonth]);
+  }, [isAdmin, activeTab, tokenFilterMode, tokenYear, tokenMonth, tokenStartDate, tokenEndDate]);
 
   useEffect(() => {
     if (isAdmin && activeTab === 'analytics') {
-      fetchRevTrend(revPeriod, revYear, revMonth);
+      fetchRevTrend(revFilterMode, revYear, revMonth, revStartDate, revEndDate);
     }
-  }, [isAdmin, activeTab, revPeriod, revYear, revMonth]);
+  }, [isAdmin, activeTab, revFilterMode, revYear, revMonth, revStartDate, revEndDate]);
 
-  // Đồng bộ nhanh thời gian cho tất cả biểu đồ cùng một lúc
-  const applyQuickSync = (period: '7days' | 'days_in_month' | 'month' | 'year', y: number = 2026, m: number = 10) => {
-    setUserPeriod(period);
-    setUserYear(y);
+  // Đồng bộ thời gian cho tất cả biểu đồ
+  const applyGlobalMonthYear = (m: number, y: number) => {
+    setGlobalFilterMode('month_year');
+    setGlobalMonth(m);
+    setGlobalYear(y);
+
+    setUserFilterMode('month_year');
     setUserMonth(m);
+    setUserYear(y);
 
-    setTokenPeriod(period);
-    setTokenYear(y);
+    setTokenFilterMode('month_year');
     setTokenMonth(m);
+    setTokenYear(y);
 
-    setRevPeriod(period);
-    setRevYear(y);
+    setRevFilterMode('month_year');
     setRevMonth(m);
+    setRevYear(y);
+  };
+
+  const applyGlobalRange = (start: string, end: string) => {
+    if (!start || !end) return;
+    setGlobalFilterMode('range');
+    setGlobalStartDate(start);
+    setGlobalEndDate(end);
+
+    setUserFilterMode('range');
+    setUserStartDate(start);
+    setUserEndDate(end);
+
+    setTokenFilterMode('range');
+    setTokenStartDate(start);
+    setTokenEndDate(end);
+
+    setRevFilterMode('range');
+    setRevStartDate(start);
+    setRevEndDate(end);
   };
 
   // Helper render thanh tóm tắt chỉ số đỉnh cao / trung bình / tổng cộng
@@ -334,27 +413,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   ) => {
     if (isLoading) {
       return (
-        <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
-          <span className="live-pulse-dot" style={{ display: 'inline-block', marginRight: 8 }} />
-          Đang tải dữ liệu biểu đồ...
+        <div className="chart-scroll-wrapper">
+          <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
+            <span className="live-pulse-dot" style={{ display: 'inline-block', marginRight: 8 }} />
+            Đang tải dữ liệu biểu đồ từ máy chủ Backend...
+          </div>
         </div>
       );
     }
 
     if (!metrics || metrics.length === 0) {
       return (
-        <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
-          Chưa có dữ liệu thống kê (0)
+        <div className="chart-scroll-wrapper">
+          <div className="curved-chart-container" style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>
+            Chưa có dữ liệu thống kê từ máy chủ (0)
+          </div>
         </div>
       );
     }
 
-    const width = 640;
-    const height = 210;
     const isDense = metrics.length > 14;
-    const padX = isDense ? 22 : 40;
+    const contentWidth = isDense ? Math.max(640, metrics.length * 36) : 640;
+    const height = 210;
+    const padX = isDense ? 28 : 40;
     const padY = 32;
-    const chartW = width - 2 * padX;
+    const chartW = contentWidth - 2 * padX;
     const chartH = height - 2 * padY;
 
     const maxVal = Math.max(1, ...metrics.map(m => m.value));
@@ -388,102 +471,127 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     const areaPath = `${curvePath} L ${points[points.length - 1].x.toFixed(1)} ${(height - padY).toFixed(1)} L ${points[0].x.toFixed(1)} ${(height - padY).toFixed(1)} Z`;
 
     return (
-      <div className="curved-chart-container">
-        <svg viewBox={`0 0 ${width} ${height}`} className="curved-chart-svg">
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.4" />
-              <stop offset="100%" stopColor={color} stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
+      <div className="chart-scroll-wrapper">
+        <div
+          className="curved-chart-container"
+          style={{
+            width: isDense ? `${contentWidth}px` : '100%',
+            minWidth: isDense ? `${contentWidth}px` : '100%',
+            height: '220px'
+          }}
+        >
+          <svg
+            viewBox={`0 0 ${contentWidth} ${height}`}
+            style={{
+              width: isDense ? `${contentWidth}px` : '100%',
+              height: `${height}px`,
+              display: 'block'
+            }}
+            className="curved-chart-svg"
+          >
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.4" />
+                <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
 
-          {/* Guide grid lines */}
-          <line x1={padX} y1={padY} x2={width - padX} y2={padY} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
-          <line x1={padX} y1={height / 2} x2={width - padX} y2={height / 2} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
-          <line x1={padX} y1={height - padY} x2={width - padX} y2={height - padY} stroke="var(--admin-border)" strokeWidth="1.5" />
+            {/* Guide grid lines */}
+            <line x1={padX} y1={padY} x2={contentWidth - padX} y2={padY} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
+            <line x1={padX} y1={height / 2} x2={contentWidth - padX} y2={height / 2} stroke="var(--admin-border-subtle)" strokeDasharray="3 3" />
+            <line x1={padX} y1={height - padY} x2={contentWidth - padX} y2={height - padY} stroke="var(--admin-border)" strokeWidth="1.5" />
 
-          {/* Area Fill under curve */}
-          <path d={areaPath} fill={`url(#${gradientId})`} />
+            {/* Area Fill under curve */}
+            <path d={areaPath} fill={`url(#${gradientId})`} />
 
-          {/* Parabolic Curved Spline Line */}
-          <path d={curvePath} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Parabolic Curved Spline Line */}
+            <path d={curvePath} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
-          {/* Nodes with Badges and Labels */}
-          {points.map((pt, i) => {
-            const valStr = formatVal(pt.value);
-            const badgeW = Math.max(26, valStr.length * 7 + 10);
-            const showLabel = !isDense || (i % 3 === 0) || (i === points.length - 1) || (pt.value > 0);
-            const showBadge = !isDense || (pt.value > 0);
+            {/* Nodes with Badges and Labels */}
+            {points.map((pt, i) => {
+              const valStr = formatVal(pt.value);
+              const badgeW = Math.max(26, valStr.length * 6.8 + 8);
+              const step = Math.ceil(points.length / 20);
+              const showLabel = !isDense || (i % step === 0) || (i === points.length - 1);
+              const showBadge = !isDense ? true : (pt.value === maxVal || (i % step === 0 && pt.value > 0));
 
-            return (
-              <g key={i} className="chart-svg-node">
-                <title>{`${pt.label}: ${valStr}`}</title>
+              return (
+                <g key={i} className="chart-svg-node">
+                  <title>{`${pt.label}: ${valStr}`}</title>
 
-                {/* Vertical hint line */}
-                {pt.value > 0 && (
-                  <line
-                    x1={pt.x}
-                    y1={pt.y}
-                    x2={pt.x}
-                    y2={height - padY}
-                    stroke={color}
-                    strokeWidth="1"
-                    strokeDasharray="2 2"
-                    opacity="0.45"
-                  />
-                )}
-
-                {/* Point circle */}
-                <circle
-                  cx={pt.x}
-                  cy={pt.y}
-                  r={pt.value > 0 ? (isDense ? 4.5 : 5.5) : (isDense ? 2.5 : 3.5)}
-                  fill="#ffffff"
-                  stroke={pt.value > 0 ? color : '#94a3b8'}
-                  strokeWidth="2.5"
-                />
-
-                {/* Badge Container */}
-                {showBadge && (
-                  <>
-                    <rect
-                      x={pt.x - badgeW / 2}
-                      y={Math.min(height - padY - 26, Math.max(6, pt.y - 25))}
-                      width={badgeW}
-                      height={18}
-                      rx={3}
-                      fill="#ffffff"
-                      stroke={pt.value > 0 ? color : '#cbd5e1'}
-                      strokeWidth="1.2"
-                      className="chart-svg-badge-rect"
+                  {/* Vertical hint line */}
+                  {pt.value > 0 && (
+                    <line
+                      x1={pt.x}
+                      y1={pt.y}
+                      x2={pt.x}
+                      y2={height - padY}
+                      stroke="var(--admin-border)"
+                      strokeDasharray="2 2"
+                      opacity="0.5"
                     />
+                  )}
+
+                  {/* Data Node Point */}
+                  <circle
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={pt.value > 0 ? (isDense ? 3.5 : 4.5) : 2.5}
+                    fill={pt.value > 0 ? color : 'var(--admin-border)'}
+                    stroke="var(--admin-bg-surface)"
+                    strokeWidth="2"
+                    className="chart-svg-circle"
+                  />
+
+                  {/* Floating Value Pill Badge */}
+                  {showBadge && pt.value > 0 && (
+                    <g transform={`translate(${pt.x - badgeW / 2}, ${pt.y - 23})`} className="chart-svg-badge-group">
+                      <rect
+                        width={badgeW}
+                        height="17"
+                        rx="3"
+                        fill="var(--admin-bg-surface-elevated)"
+                        stroke="var(--admin-border)"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x={badgeW / 2}
+                        y="12"
+                        textAnchor="middle"
+                        fill="var(--admin-text-main)"
+                        fontSize="9.5"
+                        fontFamily="var(--font-mono)"
+                        fontWeight="700"
+                      >
+                        {valStr}
+                      </text>
+                    </g>
+                  )}
+
+                  {/* Bottom Horizontal X-Axis Label */}
+                  {showLabel && (
                     <text
                       x={pt.x}
-                      y={Math.min(height - padY - 13, Math.max(19, pt.y - 12))}
+                      y={height - 8}
                       textAnchor="middle"
-                      className="chart-svg-badge-text"
-                      fill={pt.value > 0 ? '#0f172a' : '#94a3b8'}
+                      fill="var(--admin-text-dim)"
+                      fontSize={isDense ? "9" : "10.5"}
+                      fontFamily="var(--font-mono)"
+                      fontWeight="600"
+                      className="chart-svg-label"
                     >
-                      {valStr}
+                      {pt.label}
                     </text>
-                  </>
-                )}
-
-                {/* X Axis Label */}
-                {showLabel && (
-                  <text x={pt.x} y={height - 10} textAnchor="middle" className="chart-svg-label">
-                    {pt.label}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
       </div>
     );
   };
 
-  // Helper render biểu đồ cột trực quan
   const renderBarChart = (
     metrics: { dateLabel: string; value: number }[] | undefined,
     colorClass: string,
@@ -492,51 +600,78 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   ) => {
     if (isLoading) {
       return (
-        <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210 }}>
-          <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Đang tải dữ liệu biểu đồ...</span>
+        <div className="chart-scroll-wrapper">
+          <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210, width: '100%' }}>
+            <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Đang tải dữ liệu biểu đồ từ máy chủ Backend...</span>
+          </div>
         </div>
       );
     }
 
     if (!metrics || metrics.length === 0) {
       return (
-        <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210 }}>
-          <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Chưa có dữ liệu (0)</span>
+        <div className="chart-scroll-wrapper">
+          <div className="chart-bars-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 210, width: '100%' }}>
+            <span style={{ color: 'var(--admin-text-dim)', fontSize: '0.85rem' }}>Chưa có dữ liệu thống kê từ máy chủ (0)</span>
+          </div>
         </div>
       );
     }
 
     const maxVal = Math.max(1, ...metrics.map(t => t.value));
     const isDense = metrics.length > 14;
+    const computedWidth = isDense ? `${Math.max(640, metrics.length * 36)}px` : '100%';
+    const step = Math.ceil(metrics.length / 20);
 
     return (
-      <div className="chart-bars-wrap">
-        {metrics.map((t, idx) => {
-          const heightPct = t.value > 0 ? Math.max(10, (t.value / maxVal) * 85) : 3;
-          const showLabel = !isDense || (idx % 3 === 0) || (idx === metrics.length - 1) || (t.value > 0);
-          return (
-            <div key={idx} className="chart-col-item">
+      <div className="chart-scroll-wrapper">
+        <div
+          className="chart-bars-wrap"
+          style={{
+            width: computedWidth,
+            minWidth: computedWidth,
+            justifyContent: isDense ? 'flex-start' : 'space-between',
+            gap: isDense ? '0.45rem' : '0.75rem',
+            boxSizing: 'border-box'
+          }}
+        >
+          {metrics.map((t, idx) => {
+            const heightPct = t.value > 0 ? Math.max(8, (t.value / maxVal) * 82) : 3;
+            const showLabel = !isDense || (idx % step === 0) || (idx === metrics.length - 1);
+            const showBadge = !isDense ? (t.value > 0) : (t.value === maxVal || (idx % step === 0 && t.value > 0));
+
+            return (
               <div
-                className={`chart-bar-rect ${colorClass} ${t.value === 0 ? 'is-zero' : ''}`}
+                key={idx}
+                className="chart-col-item"
                 style={{
-                  height: `${heightPct}%`,
-                  animationDelay: `${idx * 20}ms`
+                  minWidth: isDense ? 26 : undefined,
+                  flex: isDense ? '0 0 auto' : 1
                 }}
-                title={`${t.dateLabel}: ${formatVal(t.value)}`}
               >
-                <span className="chart-bar-val-badge">
-                  {t.value > 0 ? formatVal(t.value) : (isDense ? '' : '0')}
-                </span>
+                <div
+                  className={`chart-bar-rect ${colorClass} ${t.value === 0 ? 'is-zero' : ''}`}
+                  style={{
+                    height: `${heightPct}%`,
+                    animationDelay: `${Math.min(idx * 15, 500)}ms`
+                  }}
+                  title={`${t.dateLabel}: ${formatVal(t.value)}`}
+                >
+                  {showBadge && (
+                    <span className="chart-bar-val-badge">
+                      {formatVal(t.value)}
+                    </span>
+                  )}
+                </div>
+                <span className="chart-col-label">{showLabel ? t.dateLabel : '\u00A0'}</span>
               </div>
-              <span className="chart-col-label">{showLabel ? t.dateLabel : ''}</span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     );
   };
 
-  // ==================== VIDEO MODERATION (MODERATOR ONLY) ====================
   const [videos, setVideos] = useState<VideoModerationItem[]>([]);
   const [videoModFilter, setVideoModFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [isLoadingVideos, setIsLoadingVideos] = useState(false);
@@ -772,11 +907,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [selectedPlanCode, setSelectedPlanCode] = useState('PRO_MONTHLY');
   const [activeQrOrder, setActiveQrOrder] = useState<{
+    id?: number;
     orderCode: string;
     verificationCode: string;
     planName: string;
     amount: number;
-    qrCodeUrl: string;
+    qrUrl?: string;
+    qrCodeUrl?: string;
     status: string;
   } | null>(null);
   const [verificationInput, setVerificationInput] = useState('');
@@ -944,6 +1081,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
+  // Pending reports count for Moderator badge
+  const [pendingReportsCount, setPendingReportsCount] = useState(0);
+
+  useEffect(() => {
+    if (isModerator) {
+      getPendingReportCount().then(c => setPendingReportsCount(c)).catch(() => {});
+    }
+  }, [isModerator, activeTab]);
+
   return (
     <div className={`admin-viewport ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       {/* Toast Notification */}
@@ -1006,6 +1152,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </button>
           )}
 
+          {/* TAB: XỬ LÝ REPORT - CHỈ HIỆN VỚI MODERATOR (ĐÃ XÓA KHỎI ADMIN) */}
+          {isModerator && (
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`nav-tab-item ${activeTab === 'reports' ? 'active' : ''}`}
+              title="Xử lý khiếu nại & báo cáo vi phạm"
+            >
+              <AlertTriangle size={18} />
+              {!isSidebarCollapsed && <span>Xử lý Report</span>}
+              {!isSidebarCollapsed && (
+                <span className="nav-tab-badge" style={{ background: '#f59e0b', color: '#000', fontWeight: 800 }}>
+                  {pendingReportsCount > 0 ? `${pendingReportsCount} MỚI` : 'BÁO CÁO'}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* TAB: QUẢN LÝ NGƯỜI DÙNG & TẠO TK HÀNG LOẠT (CHỈ ADMIN) */}
           {isAdmin && (
             <button
@@ -1041,16 +1204,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               {!isSidebarCollapsed && <span>Gói & Hạn mức Token</span>}
             </button>
           )}
-
-          {/* TAB: XỬ LÝ BÁO CÁO (CẢ ADMIN VÀ MODERATOR) */}
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`nav-tab-item ${activeTab === 'reports' ? 'active' : ''}`}
-            title="Xử lý báo cáo vi phạm"
-          >
-            <AlertTriangle size={18} />
-            {!isSidebarCollapsed && <span>Xử lý Report</span>}
-          </button>
 
           {/* TAB: TRANG HỒ SƠ CÁ NHÂN (CẢ ADMIN VÀ MODERATOR) */}
           <button
@@ -1257,49 +1410,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                 </div>
               </div>
 
-              {/* Quick Sync & Preset Toolbar */}
-              <div className="analytics-filter-bar">
-                <div className="analytics-filter-group">
-                  <span className="filter-label">⚡ Đồng bộ nhanh tất cả biểu đồ:</span>
-                  <div className="segmented-pill-wrap">
-                    <button
-                      type="button"
-                      className="pill-btn"
-                      onClick={() => applyQuickSync('7days')}
-                    >
-                      7 Ngày gần nhất
-                    </button>
-                    <button
-                      type="button"
-                      className="pill-btn"
-                      onClick={() => applyQuickSync('days_in_month', 2026, 10)}
-                    >
-                      Tháng 10/2026
-                    </button>
-                    <button
-                      type="button"
-                      className="pill-btn"
-                      onClick={() => applyQuickSync('month', 2026)}
-                    >
-                      12 Tháng năm 2026
-                    </button>
-                    <button
-                      type="button"
-                      className="pill-btn"
-                      onClick={() => applyQuickSync('year')}
-                    >
-                      5 Năm gần nhất
-                    </button>
-                  </div>
-                </div>
-
-                <div className="analytics-filter-group" style={{ marginLeft: 'auto' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--admin-text-dim)' }}>
-                    💡 Hoặc tùy chỉnh độc lập tháng / năm riêng cho từng biểu đồ bên dưới
-                  </span>
-                </div>
-              </div>
-
               {/* 3 Interactive Visual Charts */}
               <div className="analytics-charts-grid">
                 {/* Biểu đồ 1: Phân tích User Đăng Ký (Chỉ tính Học viên role USER) */}
@@ -1311,54 +1421,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                         <span>Học Viên Đăng Ký (Chỉ tính role USER)</span>
                       </div>
                       <span className="chart-subtitle">
-                        {userPeriod === '7days' && '7 Ngày gần nhất'}
-                        {userPeriod === 'days_in_month' && `Từng ngày trong Tháng ${userMonth}/${userYear}`}
-                        {userPeriod === 'month' && `12 Tháng trong Năm ${userYear}`}
-                        {userPeriod === 'year' && '5 Năm gần nhất (2022 - 2026)'}
+                        {userFilterMode === 'month_year'
+                          ? `Từng ngày trong Tháng ${userMonth}/${userYear}`
+                          : `Từ ${formatVNDate(userStartDate)} đến ${formatVNDate(userEndDate)}`}
                         {' • Loại trừ 100% Admin & Moderator'}
                       </span>
                     </div>
 
                     <div className="chart-card-toolbar">
-                      {/* Period Selector */}
+                      {/* Filter Mode Selector */}
                       <select
                         className="chart-mini-select"
-                        value={userPeriod}
-                        onChange={(e) => setUserPeriod(e.target.value as any)}
-                        title="Chọn kỳ hiển thị"
+                        value={userFilterMode}
+                        onChange={(e) => setUserFilterMode(e.target.value as ChartFilterMode)}
+                        title="Chế độ lọc thời gian"
                       >
-                        <option value="7days">7 Ngày gần nhất</option>
-                        <option value="days_in_month">Từng ngày trong tháng</option>
-                        <option value="month">12 Tháng trong năm</option>
-                        <option value="year">5 Năm gần nhất</option>
+                        <option value="month_year">Theo Tháng / Năm</option>
+                        <option value="range">Khoảng ngày tùy chỉnh</option>
                       </select>
 
-                      {/* Month Selector */}
-                      {userPeriod === 'days_in_month' && (
-                        <select
-                          className="chart-mini-select"
-                          value={userMonth}
-                          onChange={(e) => setUserMonth(Number(e.target.value))}
-                          title="Chọn tháng"
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                            <option key={m} value={m}>Tháng {m}</option>
-                          ))}
-                        </select>
+                      {/* Month & Year Selectors */}
+                      {userFilterMode === 'month_year' && (
+                        <>
+                          <select
+                            className="chart-mini-select"
+                            value={userMonth}
+                            onChange={(e) => setUserMonth(Number(e.target.value))}
+                            title="Chọn tháng"
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                              <option key={m} value={m}>Tháng {m}</option>
+                            ))}
+                          </select>
+                          <select
+                            className="chart-mini-select"
+                            value={userYear}
+                            onChange={(e) => setUserYear(Number(e.target.value))}
+                            title="Chọn năm"
+                          >
+                            {[2027, 2026, 2025, 2024, 2023, 2022].map(y => (
+                              <option key={y} value={y}>Năm {y}</option>
+                            ))}
+                          </select>
+                        </>
                       )}
 
-                      {/* Year Selector */}
-                      {(userPeriod === 'days_in_month' || userPeriod === 'month') && (
-                        <select
-                          className="chart-mini-select"
-                          value={userYear}
-                          onChange={(e) => setUserYear(Number(e.target.value))}
-                          title="Chọn năm"
-                        >
-                          {[2026, 2025, 2024, 2023, 2022].map(y => (
-                            <option key={y} value={y}>Năm {y}</option>
-                          ))}
-                        </select>
+                      {/* Custom Date Range Inputs */}
+                      {userFilterMode === 'range' && (
+                        <div className="chart-date-range-group">
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={userStartDate}
+                            onChange={(e) => setUserStartDate(e.target.value)}
+                            title="Từ ngày"
+                          />
+                          <span className="chart-date-label">→</span>
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={userEndDate}
+                            onChange={(e) => setUserEndDate(e.target.value)}
+                            title="Đến ngày"
+                          />
+                        </div>
                       )}
 
                       {/* View Type Toggle */}
@@ -1413,54 +1539,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                         <span>Tiêu Thụ Token AI (Speech-to-Text)</span>
                       </div>
                       <span className="chart-subtitle">
-                        {tokenPeriod === '7days' && '7 Ngày gần nhất'}
-                        {tokenPeriod === 'days_in_month' && `Từng ngày trong Tháng ${tokenMonth}/${tokenYear}`}
-                        {tokenPeriod === 'month' && `12 Tháng trong Năm ${tokenYear}`}
-                        {tokenPeriod === 'year' && '5 Năm gần nhất (2022 - 2026)'}
+                        {tokenFilterMode === 'month_year'
+                          ? `Từng ngày trong Tháng ${tokenMonth}/${tokenYear}`
+                          : `Từ ${formatVNDate(tokenStartDate)} đến ${formatVNDate(tokenEndDate)}`}
                         {' • Tổng lượng Token tiêu thụ thực tế'}
                       </span>
                     </div>
 
                     <div className="chart-card-toolbar">
-                      {/* Period Selector */}
+                      {/* Filter Mode Selector */}
                       <select
                         className="chart-mini-select"
-                        value={tokenPeriod}
-                        onChange={(e) => setTokenPeriod(e.target.value as any)}
-                        title="Chọn kỳ hiển thị"
+                        value={tokenFilterMode}
+                        onChange={(e) => setTokenFilterMode(e.target.value as ChartFilterMode)}
+                        title="Chế độ lọc thời gian"
                       >
-                        <option value="7days">7 Ngày gần nhất</option>
-                        <option value="days_in_month">Từng ngày trong tháng</option>
-                        <option value="month">12 Tháng trong năm</option>
-                        <option value="year">5 Năm gần nhất</option>
+                        <option value="month_year">Theo Tháng / Năm</option>
+                        <option value="range">Khoảng ngày tùy chỉnh</option>
                       </select>
 
-                      {/* Month Selector */}
-                      {tokenPeriod === 'days_in_month' && (
-                        <select
-                          className="chart-mini-select"
-                          value={tokenMonth}
-                          onChange={(e) => setTokenMonth(Number(e.target.value))}
-                          title="Chọn tháng"
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                            <option key={m} value={m}>Tháng {m}</option>
-                          ))}
-                        </select>
+                      {/* Month & Year Selectors */}
+                      {tokenFilterMode === 'month_year' && (
+                        <>
+                          <select
+                            className="chart-mini-select"
+                            value={tokenMonth}
+                            onChange={(e) => setTokenMonth(Number(e.target.value))}
+                            title="Chọn tháng"
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                              <option key={m} value={m}>Tháng {m}</option>
+                            ))}
+                          </select>
+                          <select
+                            className="chart-mini-select"
+                            value={tokenYear}
+                            onChange={(e) => setTokenYear(Number(e.target.value))}
+                            title="Chọn năm"
+                          >
+                            {[2027, 2026, 2025, 2024, 2023, 2022].map(y => (
+                              <option key={y} value={y}>Năm {y}</option>
+                            ))}
+                          </select>
+                        </>
                       )}
 
-                      {/* Year Selector */}
-                      {(tokenPeriod === 'days_in_month' || tokenPeriod === 'month') && (
-                        <select
-                          className="chart-mini-select"
-                          value={tokenYear}
-                          onChange={(e) => setTokenYear(Number(e.target.value))}
-                          title="Chọn năm"
-                        >
-                          {[2026, 2025, 2024, 2023, 2022].map(y => (
-                            <option key={y} value={y}>Năm {y}</option>
-                          ))}
-                        </select>
+                      {/* Custom Date Range Inputs */}
+                      {tokenFilterMode === 'range' && (
+                        <div className="chart-date-range-group">
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={tokenStartDate}
+                            onChange={(e) => setTokenStartDate(e.target.value)}
+                            title="Từ ngày"
+                          />
+                          <span className="chart-date-label">→</span>
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={tokenEndDate}
+                            onChange={(e) => setTokenEndDate(e.target.value)}
+                            title="Đến ngày"
+                          />
+                        </div>
                       )}
 
                       {/* View Type Toggle */}
@@ -1518,54 +1660,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                         <span>Doanh Thu Gói VIP (Đường Cong Parabol)</span>
                       </div>
                       <span className="chart-subtitle">
-                        {revPeriod === '7days' && '7 Ngày gần nhất'}
-                        {revPeriod === 'days_in_month' && `Từng ngày trong Tháng ${revMonth}/${revYear}`}
-                        {revPeriod === 'month' && `12 Tháng trong Năm ${revYear}`}
-                        {revPeriod === 'year' && '5 Năm gần nhất (2022 - 2026)'}
+                        {revFilterMode === 'month_year'
+                          ? `Từng ngày trong Tháng ${revMonth}/${revYear}`
+                          : `Từ ${formatVNDate(revStartDate)} đến ${formatVNDate(revEndDate)}`}
                         {' • Đơn hàng thanh toán thành công thực tế (VND)'}
                       </span>
                     </div>
 
                     <div className="chart-card-toolbar">
-                      {/* Period Selector */}
+                      {/* Filter Mode Selector */}
                       <select
                         className="chart-mini-select"
-                        value={revPeriod}
-                        onChange={(e) => setRevPeriod(e.target.value as any)}
-                        title="Chọn kỳ hiển thị"
+                        value={revFilterMode}
+                        onChange={(e) => setRevFilterMode(e.target.value as ChartFilterMode)}
+                        title="Chế độ lọc thời gian"
                       >
-                        <option value="7days">7 Ngày gần nhất</option>
-                        <option value="days_in_month">Từng ngày trong tháng</option>
-                        <option value="month">12 Tháng trong năm</option>
-                        <option value="year">5 Năm gần nhất</option>
+                        <option value="month_year">Theo Tháng / Năm</option>
+                        <option value="range">Khoảng ngày tùy chỉnh</option>
                       </select>
 
-                      {/* Month Selector */}
-                      {revPeriod === 'days_in_month' && (
-                        <select
-                          className="chart-mini-select"
-                          value={revMonth}
-                          onChange={(e) => setRevMonth(Number(e.target.value))}
-                          title="Chọn tháng"
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                            <option key={m} value={m}>Tháng {m}</option>
-                          ))}
-                        </select>
+                      {/* Month & Year Selectors */}
+                      {revFilterMode === 'month_year' && (
+                        <>
+                          <select
+                            className="chart-mini-select"
+                            value={revMonth}
+                            onChange={(e) => setRevMonth(Number(e.target.value))}
+                            title="Chọn tháng"
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                              <option key={m} value={m}>Tháng {m}</option>
+                            ))}
+                          </select>
+                          <select
+                            className="chart-mini-select"
+                            value={revYear}
+                            onChange={(e) => setRevYear(Number(e.target.value))}
+                            title="Chọn năm"
+                          >
+                            {[2027, 2026, 2025, 2024, 2023, 2022].map(y => (
+                              <option key={y} value={y}>Năm {y}</option>
+                            ))}
+                          </select>
+                        </>
                       )}
 
-                      {/* Year Selector */}
-                      {(revPeriod === 'days_in_month' || revPeriod === 'month') && (
-                        <select
-                          className="chart-mini-select"
-                          value={revYear}
-                          onChange={(e) => setRevYear(Number(e.target.value))}
-                          title="Chọn năm"
-                        >
-                          {[2026, 2025, 2024, 2023, 2022].map(y => (
-                            <option key={y} value={y}>Năm {y}</option>
-                          ))}
-                        </select>
+                      {/* Custom Date Range Inputs */}
+                      {revFilterMode === 'range' && (
+                        <div className="chart-date-range-group">
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={revStartDate}
+                            onChange={(e) => setRevStartDate(e.target.value)}
+                            title="Từ ngày"
+                          />
+                          <span className="chart-date-label">→</span>
+                          <input
+                            type="date"
+                            className="chart-date-input"
+                            value={revEndDate}
+                            onChange={(e) => setRevEndDate(e.target.value)}
+                            title="Đến ngày"
+                          />
+                        </div>
                       )}
 
                       {/* View Type Toggle */}
@@ -2150,7 +2308,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                           </td>
                           <td style={{ fontWeight: 600 }}>{o.userDisplayName || o.username}</td>
                           <td>
-                            <span style={{ fontWeight: 700, color: '#0f172a' }}>{o.planName}</span>
+                            <span style={{ fontWeight: 700, color: 'var(--admin-text-main)' }}>{o.planName}</span>
                           </td>
                           <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.9rem' }}>
                             {o.amount?.toLocaleString('vi-VN')} đ
@@ -2391,22 +2549,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </>
           )}
 
-          {/* ==================== TAB 5: XỬ LÝ REPORT ==================== */}
-          {activeTab === 'reports' && (
-            <div style={{
-              background: 'var(--admin-bg-surface)',
-              border: '1px solid var(--admin-border)',
-              borderRadius: '2px',
-              padding: '2.5rem',
-              textAlign: 'center',
-              color: 'var(--admin-text-dim)'
-            }}>
-              <AlertTriangle size={36} color="#f59e0b" style={{ margin: '0 auto 1rem' }} />
-              <h3 style={{ color: 'var(--admin-text-main)', marginBottom: '0.5rem' }}>Hệ Thống Khiếu Nại & Báo Cáo Nội Dung</h3>
-              <p style={{ maxWidth: '480px', margin: '0 auto', fontSize: '0.85rem' }}>
-                Hiện tại không có báo cáo vi phạm nào tồn đọng. Hệ thống sẽ tự động cập nhật khi có người dùng gắn cờ báo cáo video hoặc bình luận không lành mạnh.
-              </p>
-            </div>
+          {/* ==================== TAB 5: XỬ LÝ REPORT (CHỈ DÀNH CHO ROLE MODERATOR) ==================== */}
+          {activeTab === 'reports' && isModerator && (
+            <ReportsManager isAdmin={false} showToast={showToast} />
           )}
           {/* ==================== TAB 6: TRANG HỒ SƠ CÁ NHÂN (ADMIN & MODERATOR) ==================== */}
           {activeTab === 'profile' && (
@@ -2939,6 +3084,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                 </div>
               </div>
 
+              <VideoClassificationEditor
+                key={selectedDetailVideo.id}
+                video={selectedDetailVideo}
+                showToast={showToast}
+                onSaved={(updated) => {
+                  setSelectedDetailVideo({ ...selectedDetailVideo, ...updated });
+                  loadModerationVideos();
+                }}
+              />
+
               {/* Description */}
               {selectedDetailVideo.description && (
                 <div style={{ marginTop: '0.85rem' }}>
@@ -3115,38 +3270,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
               {activeQrOrder && (
                 <div className="qr-display-box">
-                  <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>
+                  <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--admin-text-main)' }}>
                     {activeQrOrder.planName} • {activeQrOrder.amount?.toLocaleString('vi-VN')} đ
                   </div>
 
-                  {/* Clean SVG QR Representation */}
+                  {/* Real QR image from Backend */}
                   <div className="qr-code-canvas-wrap">
-                    <svg width="150" height="150" viewBox="0 0 150 150">
-                      <rect width="150" height="150" fill="#ffffff" />
-                      {/* Top-left position marker */}
-                      <rect x="10" y="10" width="35" height="35" fill="#0f172a" />
-                      <rect x="15" y="15" width="25" height="25" fill="#ffffff" />
-                      <rect x="20" y="20" width="15" height="15" fill="#0f172a" />
-                      {/* Top-right position marker */}
-                      <rect x="105" y="10" width="35" height="35" fill="#0f172a" />
-                      <rect x="110" y="15" width="25" height="25" fill="#ffffff" />
-                      <rect x="115" y="20" width="15" height="15" fill="#0f172a" />
-                      {/* Bottom-left position marker */}
-                      <rect x="10" y="105" width="35" height="35" fill="#0f172a" />
-                      <rect x="15" y="110" width="25" height="25" fill="#ffffff" />
-                      <rect x="20" y="115" width="15" height="15" fill="#0f172a" />
-                      {/* Simulated QR data grid */}
-                      <rect x="55" y="15" width="12" height="12" fill="#0284c7" />
-                      <rect x="75" y="15" width="12" height="12" fill="#0f172a" />
-                      <rect x="55" y="35" width="12" height="12" fill="#0f172a" />
-                      <rect x="55" y="60" width="40" height="40" fill="#0284c7" />
-                      <rect x="65" y="70" width="20" height="20" fill="#ffffff" />
-                      <rect x="105" y="60" width="15" height="15" fill="#0f172a" />
-                      <rect x="125" y="80" width="15" height="15" fill="#0f172a" />
-                      <rect x="55" y="115" width="15" height="15" fill="#0f172a" />
-                      <rect x="80" y="115" width="15" height="15" fill="#0284c7" />
-                      <rect x="110" y="115" width="25" height="20" fill="#0f172a" />
-                    </svg>
+                    {activeQrOrder.qrUrl || activeQrOrder.qrCodeUrl ? (
+                      <img
+                        src={activeQrOrder.qrUrl || activeQrOrder.qrCodeUrl}
+                        alt={`Mã QR đơn ${activeQrOrder.orderCode}`}
+                        width="160"
+                        height="160"
+                        style={{ display: 'block', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <QrCode size={120} style={{ color: 'var(--admin-primary)' }} />
+                    )}
                   </div>
 
                   {/* THE PROMINENT VERIFICATION CODE DISPLAYED UNDER THE QR CODE AS REQUESTED */}
@@ -3164,7 +3304,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
                   {/* Payment Confirmation Form */}
                   <div style={{ width: '100%', marginTop: '0.5rem' }}>
-                    <label className="form-label-sharp" style={{ color: '#0f172a', marginBottom: '0.3rem', display: 'block' }}>
+                    <label className="form-label-sharp" style={{ color: 'var(--admin-text-main)', marginBottom: '0.3rem', display: 'block' }}>
                       Nhập mã xác thực để hoàn tất thanh toán:
                     </label>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>

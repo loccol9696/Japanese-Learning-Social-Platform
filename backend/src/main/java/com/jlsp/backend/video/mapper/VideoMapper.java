@@ -1,14 +1,21 @@
 package com.jlsp.backend.video.mapper;
 
+import com.jlsp.backend.topic.dto.TopicResponse;
+import com.jlsp.backend.topic.entity.Topic;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.video.dto.request.CreateVideoRequest;
 import com.jlsp.backend.video.dto.response.ShadowingPracticeResponse;
 import com.jlsp.backend.video.dto.response.VideoDetailResponse;
 import com.jlsp.backend.video.dto.response.VideoResponse;
+import com.jlsp.backend.video.entity.Hashtag;
 import com.jlsp.backend.video.entity.ShadowingPractice;
 import com.jlsp.backend.video.entity.Video;
 import com.jlsp.backend.video.entity.VideoStatus;
 import org.springframework.stereotype.Component;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Mapper chịu trách nhiệm chuyển đổi dữ liệu giữa Entity và DTO cho phân hệ Video.
@@ -22,9 +29,11 @@ public class VideoMapper {
      *
      * @param request DTO thông tin video tạo mới
      * @param creator Thực thể người dùng đăng tải
+     * @param topics  Chủ đề đã kiểm tra hợp lệ
+     * @param hashtags Hashtag đã chuẩn hoá
      * @return Video entity đã khởi tạo
      */
-    public Video toEntity(CreateVideoRequest request, User creator) {
+    public Video toEntity(CreateVideoRequest request, User creator, Set<Topic> topics, Set<Hashtag> hashtags) {
         if (request == null) {
             return null;
         }
@@ -36,13 +45,17 @@ public class VideoMapper {
                 .thumbnailUrl(request.getThumbnailUrl())
                 .duration(request.getDuration())
                 .jlptLevel(request.getJlptLevel())
+                .topics(topics)
+                .hashtags(hashtags)
                 .videoUrl(request.getVideoUrl())
                 .subtitles(request.getSubtitles())
                 .grammarAnalysis(request.getGrammarAnalysis())
                 .status(request.getStatus() != null ? request.getStatus() : VideoStatus.PUBLIC)
-                .modStatus((request.getStatus() == VideoStatus.PRIVATE) 
-                        ? com.jlsp.backend.video.entity.VideoModStatus.APPROVED 
-                        : com.jlsp.backend.video.entity.VideoModStatus.PENDING)
+                .modStatus(request.getStatus() == VideoStatus.DRAFT
+                        ? com.jlsp.backend.video.entity.VideoModStatus.DRAFT
+                        : (request.getStatus() == VideoStatus.PRIVATE
+                                ? com.jlsp.backend.video.entity.VideoModStatus.APPROVED
+                                : com.jlsp.backend.video.entity.VideoModStatus.PENDING))
                 .viewCount(0L)
                 .likeCount(0)
                 .saveCount(0)
@@ -71,10 +84,13 @@ public class VideoMapper {
                 .thumbnailUrl(video.getThumbnailUrl())
                 .duration(video.getDuration())
                 .jlptLevel(video.getJlptLevel())
+                .topics(topicsOf(video))
+                .hashtags(hashtagsOf(video))
                 .videoUrl(video.getVideoUrl())
                 .viewCount(video.getViewCount())
                 .likeCount(video.getLikeCount())
                 .saveCount(video.getSaveCount())
+                .shareCount(video.getShareCount())
                 .commentCount(commentCount)
                 .status(video.getStatus())
                 .modStatus(video.getModStatus())
@@ -87,6 +103,7 @@ public class VideoMapper {
                 .rejectionReason(video.getRejectionReason())
                 .moderatedAt(video.getModeratedAt())
                 .subtitles(video.getSubtitles())
+                .grammarAnalysis(video.getGrammarAnalysis())
                 .createdAt(video.getCreatedAt())
                 .build();
     }
@@ -113,12 +130,15 @@ public class VideoMapper {
                 .thumbnailUrl(video.getThumbnailUrl())
                 .duration(video.getDuration())
                 .jlptLevel(video.getJlptLevel())
+                .topics(topicsOf(video))
+                .hashtags(hashtagsOf(video))
                 .videoUrl(video.getVideoUrl())
                 .subtitles(video.getSubtitles())
                 .grammarAnalysis(video.getGrammarAnalysis())
                 .viewCount(video.getViewCount())
                 .likeCount(video.getLikeCount())
                 .saveCount(video.getSaveCount())
+                .shareCount(video.getShareCount())
                 .status(video.getStatus())
                 .modStatus(video.getModStatus())
                 .creatorId(creator != null ? creator.getId() : null)
@@ -133,6 +153,23 @@ public class VideoMapper {
                 .createdAt(video.getCreatedAt())
                 .updatedAt(video.getUpdatedAt())
                 .build();
+    }
+
+    /** Theo thứ tự hiển thị của hệ thống để mọi màn hình liệt kê chủ đề giống nhau. */
+    private List<TopicResponse> topicsOf(Video video) {
+        return video.getTopics().stream()
+                .sorted(Comparator.comparing(Topic::getSortOrder).thenComparing(Topic::getId))
+                .map(topic -> TopicResponse.builder()
+                        .id(topic.getId())
+                        .name(topic.getName())
+                        .isActive(topic.getIsActive())
+                        .sortOrder(topic.getSortOrder())
+                        .build())
+                .toList();
+    }
+
+    private List<String> hashtagsOf(Video video) {
+        return video.getHashtags().stream().map(Hashtag::getName).sorted().toList();
     }
 
     /**

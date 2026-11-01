@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/tts_service.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
+import '../../data/services/flashcard_service.dart';
 import '../../data/services/flashcard_store.dart';
 import 'deck_editor_screen.dart';
 import 'srs_study_screen.dart';
@@ -12,32 +14,60 @@ import 'flashcard_listening_screen.dart';
 import 'flashcard_matching_screen.dart';
 import 'flashcard_quiz_screen.dart';
 import 'flashcard_typing_screen.dart';
+import '../../../chat/presentation/widgets/share_video_sheet.dart';
+import '../../../follow/presentation/screens/user_profile_screen.dart';
+import '../widgets/carousel_card_frame.dart';
 import '../widgets/study_options_bottom_sheet.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 class DeckOverviewScreen extends StatefulWidget {
   final FlashcardSetModel deck;
 
-  const DeckOverviewScreen({super.key, required this.deck});
+  /// Người đã chia sẻ bộ thẻ này cho mình (mở từ khung chat). Để trống thì hiện theo tác giả.
+  final String? sharedByName;
+  final String? sharedByAvatarUrl;
+  final int? sharedByUserId;
+
+  const DeckOverviewScreen({
+    super.key,
+    required this.deck,
+    this.sharedByName,
+    this.sharedByAvatarUrl,
+    this.sharedByUserId,
+  });
 
   @override
   State<DeckOverviewScreen> createState() => _DeckOverviewScreenState();
 }
 
 class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
-  final PageController _pageController = PageController();
+  final PageController _pageController = PageController(viewportFraction: kCarouselViewportFraction);
   final FlashcardStore _store = FlashcardStore.instance;
   int _currentPage = 0;
   List<FlashcardItemModel> _allCards = [];
   List<FlashcardItemModel> _cards = [];
   bool _isLoading = false;
-  bool _isAuthor = true;
+  late bool _isAuthor = widget.deck.isOwner ?? true;
   StudyOptions _options = StudyOptions();
+
+  /// Bản sao của bộ này trong thư viện của mình (khi đã lưu); các chế độ học dùng bản này.
+  FlashcardSetModel? _savedDeck;
+  int? _savedSetId;
+  bool _isSaving = false;
+
+  /// Đang xem bộ thẻ của người khác (đúng thiết kế "Bộ thẻ được chia sẻ").
+  bool get _isShared => !_isAuthor;
+
+  /// Bộ dùng để học: bản sao của mình nếu đã lưu, không thì chính bộ này.
+  FlashcardSetModel get _studyDeck => _savedDeck ?? widget.deck;
 
   @override
   void initState() {
     super.initState();
+    _savedSetId = widget.deck.savedSetId;
     _checkIfAuthor();
+    _loadSavedCopy();
     // Cache-First (0ms): Nếu bộ thẻ này đã từng nạp, lấy ngay lập tức từ RAM/Cache
     if (_store.hasCachedCards(widget.deck.setId)) {
       _allCards = List.from(_store.getCachedCards(widget.deck.setId)!);
@@ -95,7 +125,67 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     }
   }
 
+  /// Đã lưu từ trước: nạp bản sao để các chế độ học và nút "Đã lưu" mở đúng bộ trong thư viện.
+  Future<void> _loadSavedCopy() async {
+    final savedId = _savedSetId;
+    if (savedId == null) return;
+    try {
+      final copy = await FlashcardService.instance.getSetById(savedId);
+      if (mounted) setState(() => _savedDeck = copy);
+    } catch (_) {
+      // Không nạp được thì vẫn hiện "Đã lưu"; bấm vào sẽ thử nạp lại.
+    }
+  }
+
+  /// Lưu bộ thẻ về thư viện của mình.
+  Future<void> _saveToLibrary() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+    try {
+      final copy = await FlashcardService.instance.copySet(widget.deck.setId);
+      FlashcardStore.instance.invalidateAll();
+      if (!mounted) return;
+      setState(() {
+        _savedDeck = copy;
+        _savedSetId = copy.setId;
+        _isSaving = false;
+      });
+      AppToast.showSuccess('Đã lưu vào thư viện của bạn', context: context);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      AppToast.showError(error.message, context: context);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      AppToast.showError('Không lưu được bộ thẻ. Vui lòng thử lại.', context: context);
+    }
+  }
+
+  /// Mở bản sao trong thư viện của mình.
+  Future<void> _openSavedCopy() async {
+    var copy = _savedDeck;
+    final savedId = _savedSetId;
+    if (copy == null && savedId != null) {
+      try {
+        copy = await FlashcardService.instance.getSetById(savedId);
+        if (mounted) setState(() => _savedDeck = copy);
+      } catch (_) {
+        if (mounted) AppToast.showError('Không mở được bộ thẻ đã lưu.', context: context);
+        return;
+      }
+    }
+    if (copy == null || !mounted) return;
+    final target = copy;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => DeckOverviewScreen(deck: target)),
+    );
+  }
+
   Future<void> _checkIfAuthor() async {
+    // Server đã cho biết chắc chắn thì dùng luôn, không đoán theo tên.
+    if (widget.deck.isOwner != null) return;
     final userData = await TokenStorage.instance.getUserData();
     if (userData != null && mounted) {
       final currentUserId = userData['id'] is int
@@ -143,8 +233,26 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 ),
               ),
 
-              // Dòng 1: Chỉnh sửa bộ thẻ
+              // Dòng 1: Chia sẻ cho bạn bè
               _buildDeckActionRow(
+                key: const ValueKey('deck-action-share'),
+                icon: Icons.ios_share_rounded,
+                title: 'Chia sẻ cho bạn bè',
+                color: AppPalette.textPrimary,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showShareDeckSheet(context, deckId: widget.deck.setId);
+                },
+              ),
+
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 28),
+                child: Divider(height: 1, color: AppPalette.border),
+              ),
+
+              // Dòng 2: Chỉnh sửa bộ thẻ
+              _buildDeckActionRow(
+                key: const ValueKey('deck-action-edit'),
                 icon: Icons.edit_outlined,
                 title: 'Chỉnh sửa bộ thẻ',
                 color: AppPalette.textPrimary,
@@ -167,8 +275,9 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 child: Divider(height: 1, color: AppPalette.border),
               ),
 
-              // Dòng 2: Xóa bộ thẻ
+              // Dòng 3: Xóa bộ thẻ
               _buildDeckActionRow(
+                key: const ValueKey('deck-action-delete'),
                 icon: Icons.delete_outline_rounded,
                 title: 'Xóa bộ thẻ',
                 color: _dangerRed,
@@ -186,12 +295,14 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
   }
 
   Widget _buildDeckActionRow({
+    Key? key,
     required IconData icon,
     required String title,
     required Color color,
     required VoidCallback onTap,
   }) {
     return InkWell(
+      key: key,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
@@ -246,23 +357,11 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 widget.deck.setId,
                 onError: (err) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Không thể xóa bộ thẻ: $err'),
-                        backgroundColor: AppPalette.accent,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
+                    AppToast.showError('Không thể xóa bộ thẻ: $err', context: context);
                   }
                 },
               );
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Đã xóa bộ thẻ thành công'),
-                  backgroundColor: AppPalette.surface,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              AppToast.showSuccess('Đã xóa bộ thẻ thành công', context: context);
               Navigator.pop(context, true);
             },
             child: Text('Xóa vĩnh viễn', style: TextStyle(color: AppPalette.textPrimary, fontWeight: FontWeight.w700)),
@@ -306,13 +405,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
       _applyOptions();
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã đặt lại tiến trình thẻ thành công'),
-        backgroundColor: AppPalette.surface,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.showSuccess('Đã đặt lại tiến trình thẻ thành công', context: context);
 
     // Gửi request API ngầm, rollback nếu lỗi
     _store.optimisticResetProgress(
@@ -323,13 +416,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
             _allCards = previousAllCards;
             _applyOptions();
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Không thể đặt lại tiến trình: $err'),
-              backgroundColor: AppPalette.accent,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppToast.showError('Không thể đặt lại tiến trình: $err', context: context);
         }
       },
     );
@@ -369,13 +456,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
             if (allIdx != -1) _allCards[allIdx] = revertedCard;
             _applyOptions();
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Không thể cập nhật gắn sao: $err'),
-              backgroundColor: AppPalette.accent,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppToast.showError('Không thể cập nhật gắn sao: $err', context: context);
         }
       },
     );
@@ -426,6 +507,103 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     );
   }
 
+  /// Dòng "19 thuật ngữ · Chia sẻ bởi X" kèm ảnh đại diện; có thêm "Tác giả" khi người chia sẻ không phải tác giả.
+  Widget _buildSharedInfo() {
+    final count = widget.deck.totalCards > 0 ? widget.deck.totalCards : _cards.length;
+    final sharer = widget.sharedByName?.trim() ?? '';
+    final author = widget.deck.authorName;
+    final name = sharer.isNotEmpty ? sharer : author;
+    final profileUserId = sharer.isNotEmpty ? widget.sharedByUserId : widget.deck.authorId;
+    final label = sharer.isNotEmpty ? 'Chia sẻ bởi' : 'Tác giả';
+    final style = TextStyle(color: AppPalette.textSecondary, fontSize: 13, fontWeight: FontWeight.w500);
+
+    return Column(
+      key: const ValueKey('deck-shared-info'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('$count thuật ngữ · $label ', style: style, maxLines: 1),
+            Flexible(
+              child: GestureDetector(
+                key: const ValueKey('deck-sharer-profile-link'),
+                behavior: HitTestBehavior.opaque,
+                onTap: profileUserId == null
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => UserProfileScreen(
+                              userId: profileUserId,
+                              initialName: name,
+                            ),
+                          ),
+                        ),
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (sharer.isNotEmpty && author.isNotEmpty && author != sharer)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text('Tác giả: $author', style: style.copyWith(fontSize: 12)),
+          ),
+      ],
+    );
+  }
+
+  /// Nút "Lưu về thư viện của tôi"; sau khi lưu đổi thành "Đã lưu trong thư viện" (bấm để mở bản sao).
+  Widget _buildSaveButton() {
+    final saved = _savedSetId != null;
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: FilledButton(
+        key: const ValueKey('deck-save-button'),
+        onPressed: _isSaving ? null : (saved ? _openSavedCopy : _saveToLibrary),
+        style: FilledButton.styleFrom(
+          backgroundColor: saved ? AppPalette.surface : AppPalette.accent,
+          foregroundColor: saved ? AppPalette.info : AppPalette.onAccent,
+          disabledBackgroundColor: AppPalette.accent.withValues(alpha: 0.6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          side: saved ? BorderSide(color: AppPalette.border) : null,
+        ),
+        child: _isSaving
+            ? SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.4, color: AppPalette.onAccent),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (saved) ...[
+                    const Icon(Icons.check_rounded, size: 20),
+                    const SizedBox(width: 8),
+                  ],
+                  Flexible(
+                    child: Text(
+                      saved ? 'Đã lưu trong thư viện' : 'Lưu về thư viện của tôi',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -456,6 +634,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          if (!_isShared)
                           IconButton(
                             icon: Icon(Icons.settings_outlined, color: AppPalette.textPrimary, size: 23),
                             onPressed: _openStudyOptions,
@@ -474,15 +653,18 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 ),
 
                 // Interactive Flashcard Carousel
+                // Không có lề ngang để thẻ trượt tới sát mép màn thay vì bị cắt cứng ở lề; khe và phần lấp ló của thẻ kế
+                // bên do viewportFraction + CarouselCardFrame đảm nhiệm.
                 Container(
-                  height: 230,
-                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  height: 240,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
                   child: _isLoading
                       ? Center(
                           child: CircularProgressIndicator(color: AppPalette.accent),
                         )
                       : _cards.isEmpty
                           ? Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
                               decoration: BoxDecoration(
                                 color: AppPalette.surface,
                                 borderRadius: BorderRadius.circular(24),
@@ -501,10 +683,15 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                               itemCount: _cards.length,
                               onPageChanged: (idx) => setState(() => _currentPage = idx),
                               itemBuilder: (context, index) {
-                                return _PreviewFlashcard(
-                                  card: _cards[index],
-                                  displayFrontFace: _options.displayFrontFace,
-                                  onToggleStar: () => _toggleStar(index),
+                                return CarouselCardFrame(
+                                  controller: _pageController,
+                                  index: index,
+                                  child: _PreviewFlashcard(
+                                    card: _cards[index],
+                                    displayFrontFace: _options.displayFrontFace,
+                                    showTools: !_isShared,
+                                    onToggleStar: () => _toggleStar(index),
+                                  ),
                                 );
                               },
                             ),
@@ -594,17 +781,28 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        '${widget.deck.totalCards > 0 ? widget.deck.totalCards : _cards.length} thuật ngữ',
-                        style: TextStyle(
-                          color: AppPalette.textSecondary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                      if (_isShared)
+                        _buildSharedInfo()
+                      else
+                        Text(
+                          '${widget.deck.totalCards > 0 ? widget.deck.totalCards : _cards.length} thuật ngữ',
+                          style: TextStyle(
+                            color: AppPalette.textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
+
+                if (_isShared) ...[
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: _buildSaveButton(),
+                  ),
+                ],
 
                 const SizedBox(height: 16),
 
@@ -617,10 +815,17 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                         icon: Icons.style_outlined,
                         title: 'Thẻ ghi nhớ',
                         onTap: () {
+                          if (_isShared && _savedSetId == null) {
+                            AppToast.showInfo(
+                              'Hãy lưu bộ thẻ về thư viện để học theo lịch ghi nhớ.',
+                              context: context,
+                            );
+                            return;
+                          }
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => SrsStudyScreen(deck: widget.deck),
+                              builder: (context) => SrsStudyScreen(deck: _studyDeck),
                             ),
                           );
                         },
@@ -633,7 +838,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (context) => FlashcardQuizScreen(
-                                deck: widget.deck,
+                                deck: _studyDeck,
                                 options: _options,
                               ),
                             ),
@@ -648,7 +853,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (context) => FlashcardTypingScreen(
-                                deck: widget.deck,
+                                deck: _studyDeck,
                                 options: _options,
                               ),
                             ),
@@ -663,7 +868,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (context) => FlashcardListeningScreen(
-                                deck: widget.deck,
+                                deck: _studyDeck,
                                 options: _options,
                               ),
                             ),
@@ -678,7 +883,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => FlashcardMatchingScreen(deck: widget.deck),
+                              builder: (context) => FlashcardMatchingScreen(deck: _studyDeck),
                             ),
                           );
                         },
@@ -702,10 +907,14 @@ class _PreviewFlashcard extends StatefulWidget {
   final String displayFrontFace; // 'term' or 'definition'
   final VoidCallback onToggleStar;
 
+  /// Ẩn loa và sao ở bộ thẻ của người khác (đúng thiết kế bộ thẻ được chia sẻ).
+  final bool showTools;
+
   const _PreviewFlashcard({
     required this.card,
     this.frontLanguage = 'ja',
     this.displayFrontFace = 'term',
+    this.showTools = true,
     required this.onToggleStar,
   });
 
@@ -922,8 +1131,9 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
       child: Stack(
         children: [
           // Audio icon
-          _buildAudioButton(),
+          if (widget.showTools) _buildAudioButton(),
           // Star icon
+          if (widget.showTools)
           Positioned(
             top: 0,
             right: 0,
@@ -983,8 +1193,9 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
       child: Stack(
         children: [
           // Audio icon
-          _buildAudioButton(),
+          if (widget.showTools) _buildAudioButton(),
           // Star icon
+          if (widget.showTools)
           Positioned(
             top: 0,
             right: 0,
@@ -1023,3 +1234,4 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
   );
 }
 }
+

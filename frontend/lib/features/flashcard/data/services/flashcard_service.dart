@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/flashcard_item_model.dart';
@@ -46,6 +47,13 @@ class FlashcardService {
     throw Exception('Không thể tải thông tin bộ thẻ ID: $setId');
   }
 
+  /// Lưu bộ thẻ của người khác về thư viện của mình (tạo bản sao riêng tư). Đã lưu rồi thì trả lại bản sao cũ.
+  Future<FlashcardSetModel> copySet(int setId) async {
+    final res = await _api.post(ApiConstants.flashcardSetCopyUrl(setId));
+    if (res is Map<String, dynamic>) return FlashcardSetModel.fromJson(res);
+    throw Exception('Không thể lưu bộ thẻ ID: $setId');
+  }
+
   /// Tạo bộ thẻ mới
   Future<FlashcardSetModel> createSet({
     required String title,
@@ -81,6 +89,24 @@ class FlashcardService {
       withAuth: true,
     );
     return FlashcardSetModel.fromJson(res as Map<String, dynamic>);
+  }
+
+  /// Lưu thứ tự bộ thẻ trong thư viện sau khi kéo thả ([setIds] theo thứ tự mới).
+  Future<void> reorderSets(List<int> setIds) async {
+    await _api.put(
+      ApiConstants.flashcardSetsOrderUrl,
+      body: {'ids': setIds},
+      withAuth: true,
+    );
+  }
+
+  /// Lưu thứ tự thẻ trong một bộ ([cardIds] theo thứ tự mới).
+  Future<void> reorderCards(int setId, List<int> cardIds) async {
+    await _api.put(
+      ApiConstants.flashcardCardsOrderUrl(setId),
+      body: {'ids': cardIds},
+      withAuth: true,
+    );
   }
 
   /// Xóa bộ thẻ
@@ -173,11 +199,16 @@ class FlashcardService {
 
   /// Gửi kết quả ôn tập thẻ (đúng/sai) để tính toán Spaced Repetition
   Future<void> submitAnswer(int cardId, bool isCorrect) async {
-    await _api.post(
-      ApiConstants.flashcardAnswerUrl,
-      body: {'cardId': cardId, 'isCorrect': isCorrect},
-      withAuth: true,
-    );
+    // Các màn luyện tập gọi mà không chờ kết quả; lỗi mạng chỉ làm mất một lượt thống kê, không được làm hỏng màn học.
+    try {
+      await _api.post(
+        ApiConstants.flashcardAnswerUrl,
+        body: {'cardId': cardId, 'isCorrect': isCorrect},
+        withAuth: true,
+      );
+    } catch (e) {
+      debugPrint('Không ghi được kết quả luyện tập thẻ $cardId: $e');
+    }
   }
 
   /// Phiên học ngắt quãng: thẻ đang học + thẻ đến hạn + thẻ mới.
@@ -232,9 +263,9 @@ class FlashcardService {
   }
 
   /// Lấy dữ liệu trò chơi Ghép thẻ (Matching game) từ Backend API
-  Future<MatchingGameModel> getMatchingGame(int setId) async {
+  Future<MatchingGameModel> getMatchingGame(int setId, {int pairCount = 5}) async {
     final res = await _api.get(
-      ApiConstants.flashcardMatchingUrl(setId),
+      '${ApiConstants.flashcardMatchingUrl(setId)}?pairCount=$pairCount',
       withAuth: true,
     );
     if (res is Map<String, dynamic>) {

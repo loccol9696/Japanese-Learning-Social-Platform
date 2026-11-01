@@ -99,97 +99,133 @@ class SubscriptionPlan {
   }
 }
 
-class PaymentResponse {
-  final int paymentId;
-  final String transactionRef;
+/// Đơn thanh toán chuyển khoản VietQR do server tạo. Số tiền, mã chuyển khoản và thông tin tài khoản nhận đều lấy từ
+/// server; app không tự tính hay ghi cứng.
+class PaymentOrder {
+  final int id;
+  final String orderCode;
+
+  /// Nội dung chuyển khoản người dùng phải ghi đúng (cũng là mã đơn).
+  final String transferMemo;
   final double amount;
-  final String paymentMethod;
+  final double? paidAmount;
+
+  /// PENDING, SUCCESS, EXPIRED, CANCELLED, NEEDS_REVIEW (hoặc FAILED).
   final String status;
   final int? planId;
   final String? planName;
-  final int? subscriptionId;
-  final String? paymentUrl;
-  final DateTime? paidAt;
+  final String? qrUrl;
+  final String bankName;
+  final String accountNo;
+  final String accountName;
+  final DateTime? expiresAt;
   final DateTime? createdAt;
+  final DateTime? completedAt;
 
-  const PaymentResponse({
-    required this.paymentId,
-    required this.transactionRef,
+  const PaymentOrder({
+    required this.id,
+    required this.orderCode,
+    required this.transferMemo,
     required this.amount,
-    required this.paymentMethod,
+    this.paidAmount,
     required this.status,
     this.planId,
     this.planName,
-    this.subscriptionId,
-    this.paymentUrl,
-    this.paidAt,
+    this.qrUrl,
+    this.bankName = '',
+    this.accountNo = '',
+    this.accountName = '',
+    this.expiresAt,
     this.createdAt,
+    this.completedAt,
   });
 
-  factory PaymentResponse.fromJson(Map<String, dynamic> json) {
-    return PaymentResponse(
-      paymentId: json['paymentId'] as int? ?? 0,
-      transactionRef: json['transactionRef'] as String? ?? '',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      paymentMethod: json['paymentMethod'] as String? ?? 'MOCK',
-      status: json['status'] as String? ?? 'SUCCESS',
-      planId: json['planId'] as int?,
-      planName: json['planName'] as String?,
-      subscriptionId: json['subscriptionId'] as int?,
-      paymentUrl: json['paymentUrl'] as String?,
-      paidAt: json['paidAt'] != null ? DateTime.tryParse(json['paidAt']) : null,
-      createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'])
-          : null,
+  factory PaymentOrder.fromJson(Map<String, dynamic> json) {
+    DateTime? date(String key) =>
+        json[key] != null ? DateTime.tryParse(json[key].toString()) : null;
+    final code = json['orderCode']?.toString() ?? '';
+    return PaymentOrder(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      orderCode: code,
+      transferMemo: json['transferMemo']?.toString() ?? code,
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      paidAmount: (json['paidAmount'] as num?)?.toDouble(),
+      status: json['status']?.toString() ?? 'PENDING',
+      planId: (json['planId'] as num?)?.toInt(),
+      planName: json['planName']?.toString(),
+      qrUrl: json['qrUrl']?.toString(),
+      bankName: json['bankName']?.toString() ?? '',
+      accountNo: json['accountNo']?.toString() ?? '',
+      accountName: json['accountName']?.toString() ?? '',
+      expiresAt: date('expiresAt'),
+      createdAt: date('createdAt'),
+      completedAt: date('completedAt'),
     );
+  }
+
+  bool get isPaid => status == 'SUCCESS';
+  bool get isExpired => status == 'EXPIRED';
+  bool get isCancelled => status == 'CANCELLED' || status == 'FAILED';
+
+  /// Đã nhận tiền nhưng chưa đủ hoặc về muộn: cần người quản trị xem xét.
+  bool get needsReview => status == 'NEEDS_REVIEW';
+
+  /// Không còn thay đổi nếu chỉ chờ thêm (không tính NEEDS_REVIEW vì khách có thể chuyển bù).
+  bool get isFinished => isPaid || isExpired || isCancelled;
+
+  /// Số tiền còn thiếu khi đã chuyển một phần.
+  double get remainingAmount {
+    final left = amount - (paidAmount ?? 0);
+    return left > 0 ? left : 0;
   }
 }
 
+/// Gói thành viên hiện tại của người đang đăng nhập, lấy từ server (`/payments/my-subscription`).
 class SubscriptionStatus {
   final bool isVip;
-  final int? subscriptionId;
   final int? planId;
+  final String? planCode;
   final String? planName;
-  final String? status;
-  final DateTime? startDate;
   final DateTime? endDate;
+  final bool lifetime;
   final int remainingDays;
+  final int dailyTokenLimit;
+  final int tokensUsedToday;
+  final int tokensRemainingToday;
 
   const SubscriptionStatus({
     required this.isVip,
-    this.subscriptionId,
     this.planId,
+    this.planCode,
     this.planName,
-    this.status,
-    this.startDate,
     this.endDate,
+    this.lifetime = false,
     required this.remainingDays,
+    this.dailyTokenLimit = 0,
+    this.tokensUsedToday = 0,
+    this.tokensRemainingToday = 0,
   });
 
   factory SubscriptionStatus.fromJson(Map<String, dynamic> json) {
     return SubscriptionStatus(
-      isVip: json['isVip'] as bool? ?? false,
-      subscriptionId: json['subscriptionId'] as int?,
-      planId: json['planId'] as int?,
-      planName: json['planName'] as String?,
-      status: json['status'] as String?,
-      startDate: json['startDate'] != null
-          ? DateTime.tryParse(json['startDate'])
+      isVip: json['vip'] as bool? ?? false,
+      planId: (json['planId'] as num?)?.toInt(),
+      planCode: json['planCode']?.toString(),
+      planName: json['planName']?.toString(),
+      endDate: json['expiresAt'] != null
+          ? DateTime.tryParse(json['expiresAt'].toString())
           : null,
-      endDate: json['endDate'] != null
-          ? DateTime.tryParse(json['endDate'])
-          : null,
+      lifetime: json['lifetime'] as bool? ?? false,
       remainingDays: (json['remainingDays'] as num?)?.toInt() ?? 0,
+      dailyTokenLimit: (json['dailyTokenLimit'] as num?)?.toInt() ?? 0,
+      tokensUsedToday: (json['tokensUsedToday'] as num?)?.toInt() ?? 0,
+      tokensRemainingToday:
+          (json['tokensRemainingToday'] as num?)?.toInt() ?? 0,
     );
   }
 
   bool get hasActiveSubscription => isVip;
-  bool get isLifetime {
-    final normalizedName = (planName ?? '').toLowerCase();
-    return normalizedName.contains('trọn đời') ||
-        normalizedName.contains('lifetime') ||
-        remainingDays >= 3650;
-  }
+  bool get isLifetime => lifetime;
 
   String get formattedExpiryDate {
     if (endDate == null) return '';

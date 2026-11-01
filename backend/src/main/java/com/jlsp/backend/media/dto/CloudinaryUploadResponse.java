@@ -24,4 +24,6 @@ public class CloudinaryUploadResponse {
     private Double duration;
     private String aiTaskId;
     private String aiStatus;
+    /** Tiêu đề gốc (khi nhập từ YouTube). */
+    private String title;
 }

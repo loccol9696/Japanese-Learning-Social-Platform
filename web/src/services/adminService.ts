@@ -1,4 +1,5 @@
 import type { ApiResponse, UserProfile, UserRole } from '../types/auth';
+import { authFetch, readJson } from './session';
 
 export interface AdminCreateUserPayload {
   username: string;
@@ -33,6 +34,8 @@ export interface VideoModerationItem {
   moderatedBy?: string;
   moderatedAt?: string;
   jlptLevel?: string;
+  topics?: TopicItem[];
+  hashtags?: string[];
   viewCount?: number;
   likeCount?: number;
   saveCount?: number;
@@ -84,6 +87,7 @@ export interface SubscriptionOrderItem {
   amount: number;
   paymentMethod: string;
   status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+  qrUrl?: string;
   createdAt: string;
   completedAt?: string;
 }
@@ -143,6 +147,23 @@ export async function rejectVideo(videoId: number, reason: string): Promise<Vide
   const resData: ApiResponse<VideoModerationItem> = await response.json();
   if (!response.ok) {
     throw new Error(resData.message || 'Từ chối duyệt video thất bại');
+  }
+  return resData.data;
+}
+
+/** Sửa chủ đề / hashtag của video; video giữ nguyên trạng thái kiểm duyệt. */
+export async function updateVideoClassification(
+  videoId: number,
+  payload: { topicIds: number[]; hashtags: string[] },
+): Promise<VideoModerationItem> {
+  const response = await authFetch(`/api/v1/videos/${videoId}/classification`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<VideoModerationItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể cập nhật phân loại video');
   }
   return resData.data;
 }
@@ -345,9 +366,11 @@ export async function updateTokenRate(secondsPerToken: number): Promise<TokenRat
 export async function getSubscriptionOrders(
   page = 0,
   size = 15,
-  sort = 'createdAt,desc'
+  sort = 'createdAt,desc',
+  status: 'SUCCESS' | 'PENDING' | '' = 'SUCCESS'
 ): Promise<PageResponse<SubscriptionOrderItem>> {
-  const response = await fetch(`/api/v1/payments/history?page=${page}&size=${size}&sort=${sort}`, {
+  const statusParam = status ? `&status=${status}` : '';
+  const response = await fetch(`/api/v1/payments/history?page=${page}&size=${size}&sort=${sort}${statusParam}`, {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<PageResponse<SubscriptionOrderItem>> = await response.json();
@@ -358,11 +381,13 @@ export async function getSubscriptionOrders(
 }
 
 export async function createQrOrder(planCode: string): Promise<{
+  id?: number;
   orderCode: string;
   verificationCode: string;
   planName: string;
   amount: number;
-  qrCodeUrl: string;
+  qrUrl?: string;
+  qrCodeUrl?: string;
   status: string;
 }> {
   const response = await fetch('/api/v1/payments/create-order', {
@@ -427,29 +452,33 @@ export async function getAdminAnalytics(period: '7days' | 'month' | 'year' = '7d
   });
   const resData: ApiResponse<AdminAnalyticsData> = await response.json();
   if (!response.ok) {
-    throw new Error(resData.message || 'Không thể tải dữ liệu thống kê');
+    throw new Error(resData.message || 'Không thể tải dữ liệu thống kê từ máy chủ Backend');
   }
   return resData.data;
 }
 
 export async function getMetricTrend(
   metric: 'user' | 'token' | 'revenue',
-  period: '7days' | 'days_in_month' | 'month' | 'year',
+  period: 'range' | '7days' | 'month' | 'year' | 'days_in_month',
   year?: number,
-  month?: number
+  month?: number,
+  startDate?: string,
+  endDate?: string
 ): Promise<DailyMetricDto[]> {
   const params = new URLSearchParams({ metric, period });
   if (year) params.append('year', year.toString());
   if (month) params.append('month', month.toString());
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
 
   const response = await fetch(`/api/v1/admin/analytics/trend?${params.toString()}`, {
     headers: getAuthHeaders(),
   });
   const resData: ApiResponse<DailyMetricDto[]> = await response.json();
   if (!response.ok) {
-    throw new Error(resData.message || 'Không thể tải xu hướng dữ liệu');
+    throw new Error(resData.message || 'Không thể tải dữ liệu xu hướng từ máy chủ Backend');
   }
-  return resData.data;
+  return resData.data || [];
 }
 
 export interface UpdateProfilePayload {
@@ -476,3 +505,152 @@ export async function updateAdminProfile(
   return resData.data;
 }
 
+// ==================== TOPICS (ADMIN) ====================
+
+export interface TopicItem {
+  id: number;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+/** Chủ đề đang hiển thị; kiểm duyệt viên không có quyền gọi {@link getAllTopicsAdmin}. */
+export async function getActiveTopics(): Promise<TopicItem[]> {
+  const response = await authFetch('/api/v1/topics', { headers: getAuthHeaders() });
+  const resData: ApiResponse<TopicItem[]> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách chủ đề');
+  }
+  return resData.data;
+}
+
+export async function getAllTopicsAdmin(): Promise<TopicItem[]> {
+  const response = await authFetch('/api/v1/topics/admin', { headers: getAuthHeaders() });
+  const resData: ApiResponse<TopicItem[]> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách chủ đề');
+  }
+  return resData.data;
+}
+
+export async function createTopic(payload: { name: string; sortOrder?: number }): Promise<TopicItem> {
+  const response = await authFetch('/api/v1/topics/admin', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<TopicItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tạo chủ đề');
+  }
+  return resData.data;
+}
+
+export async function updateTopic(
+  id: number,
+  payload: { name: string; isActive?: boolean; sortOrder?: number }
+): Promise<TopicItem> {
+  const response = await authFetch(`/api/v1/topics/admin/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<TopicItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể cập nhật chủ đề');
+  }
+  return resData.data;
+}
+
+// ==================== CONTENT REPORTS (MODERATOR ONLY) ====================
+export type ReportTargetType = 'VIDEO' | 'COMMENT' | 'USER';
+export type ReportReason =
+  | 'SPAM'
+  | 'INAPPROPRIATE'
+  | 'HARASSMENT'
+  | 'MISINFORMATION'
+  | 'COPYRIGHT'
+  | 'OTHER';
+export type ReportStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED';
+export type ReportAction = 'NONE' | 'HIDE_VIDEO' | 'DELETE_COMMENT' | 'LOCK_USER';
+
+export interface ReportItem {
+  id: number;
+  targetType: ReportTargetType;
+  targetId: number;
+  reason: ReportReason;
+  detail?: string;
+  status: ReportStatus;
+  action?: ReportAction;
+  resolutionNote?: string;
+  resolvedBy?: number;
+  resolvedAt?: string;
+  createdAt: string;
+  reporterId: number;
+  reporterUsername: string;
+  targetExists: boolean;
+  targetSummary?: string;
+  targetOwnerId?: number;
+  targetOwnerUsername?: string;
+  targetVideoId?: number;
+  pendingCountForTarget?: number;
+}
+
+export async function getReports(
+  status: ReportStatus = 'PENDING',
+  targetType?: ReportTargetType | '',
+  page = 0,
+  size = 10
+): Promise<PageResponse<ReportItem>> {
+  const params = new URLSearchParams({ status, page: String(page), size: String(size) });
+  if (targetType) params.set('targetType', targetType);
+  const response = await fetch(`/api/v1/admin/reports?${params.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<PageResponse<ReportItem>> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách báo cáo');
+  }
+  return resData.data;
+}
+
+export async function resolveReport(id: number, action: ReportAction, note: string): Promise<ReportItem> {
+  const response = await fetch(`/api/v1/admin/reports/${id}/resolve`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ action, note: note.trim() || undefined }),
+  });
+  const resData: ApiResponse<ReportItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể xử lý báo cáo');
+  }
+  return resData.data;
+}
+
+export async function dismissReport(id: number, note?: string): Promise<ReportItem> {
+  const response = await fetch(`/api/v1/admin/reports/${id}/dismiss`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ note: note ? note.trim() : undefined }),
+  });
+  const resData: ApiResponse<ReportItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể bác bỏ báo cáo');
+  }
+  return resData.data;
+}
+
+export async function getPendingReportCount(): Promise<number> {
+  try {
+    const response = await fetch('/api/v1/admin/reports?status=PENDING&page=0&size=1', {
+      headers: getAuthHeaders(),
+    });
+    const resData: ApiResponse<PageResponse<ReportItem>> = await response.json();
+    if (!response.ok || !resData.data) {
+      return 0;
+    }
+    return resData.data.totalElements || 0;
+  } catch {
+    return 0;
+  }
+}

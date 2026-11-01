@@ -1,3 +1,5 @@
+import '../../../profile/domain/models/topic_model.dart';
+import '../../../video/domain/hashtag_rules.dart';
 import 'ruby_segment.dart';
 
 class VideoPost {
@@ -12,6 +14,12 @@ class VideoPost {
   final String accentInfo;
   final String jlptLevel;
   final String topicTag;
+
+  /// Chủ đề hệ thống gắn cho video.
+  final List<TopicModel> topics;
+
+  /// Hashtag của video, không kèm dấu "#".
+  final List<String> hashtags;
   final String audioTitle;
   final String audioDiscImageUrl;
   final List<RubySegment> rubySegments;
@@ -40,6 +48,8 @@ class VideoPost {
     required this.accentInfo,
     required this.jlptLevel,
     required this.topicTag,
+    this.topics = const [],
+    this.hashtags = const [],
     required this.audioTitle,
     required this.audioDiscImageUrl,
     required this.rubySegments,
@@ -48,8 +58,8 @@ class VideoPost {
     required this.likeCount,
     required this.commentCount,
     required this.shareCount,
-    this.streakDays = 7,
-    this.xp = 15,
+    this.streakDays = 0,
+    this.xp = 0,
     this.isLiked = false,
     this.isSaved = false,
     this.isFollowing = false,
@@ -68,6 +78,8 @@ class VideoPost {
     String? accentInfo,
     String? jlptLevel,
     String? topicTag,
+    List<TopicModel>? topics,
+    List<String>? hashtags,
     String? audioTitle,
     String? audioDiscImageUrl,
     List<RubySegment>? rubySegments,
@@ -95,6 +107,8 @@ class VideoPost {
       accentInfo: accentInfo ?? this.accentInfo,
       jlptLevel: jlptLevel ?? this.jlptLevel,
       topicTag: topicTag ?? this.topicTag,
+      topics: topics ?? this.topics,
+      hashtags: hashtags ?? this.hashtags,
       audioTitle: audioTitle ?? this.audioTitle,
       audioDiscImageUrl: audioDiscImageUrl ?? this.audioDiscImageUrl,
       rubySegments: rubySegments ?? this.rubySegments,
@@ -125,6 +139,8 @@ class VideoPost {
       accentInfo: json['accentInfo'] as String? ?? '',
       jlptLevel: json['jlptLevel'] as String? ?? '',
       topicTag: json['topicTag'] as String? ?? '',
+      topics: TopicModel.listFromJson(json['topics']),
+      hashtags: parseHashtags(json['hashtags']),
       audioTitle: json['audioTitle'] as String? ?? '',
       audioDiscImageUrl: json['audioDiscImageUrl'] as String? ?? '',
       rubySegments:
@@ -136,8 +152,8 @@ class VideoPost {
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       shareCount: json['shareCount'] as int? ?? 0,
-      streakDays: json['streakDays'] as int? ?? 7,
-      xp: json['xp'] as int? ?? 15,
+      streakDays: json['streakDays'] as int? ?? 0,
+      xp: json['xp'] as int? ?? 0,
       isLiked: json['isLiked'] as bool? ?? false,
       isFollowing: json['isFollowing'] as bool? ?? false,
       progress: (json['progress'] as num?)?.toDouble() ?? 0.4,
@@ -157,6 +173,8 @@ class VideoPost {
       'accentInfo': accentInfo,
       'jlptLevel': jlptLevel,
       'topicTag': topicTag,
+      'topics': topics.map((t) => t.toJson()).toList(),
+      'hashtags': hashtags,
       'audioTitle': audioTitle,
       'audioDiscImageUrl': audioDiscImageUrl,
       'rubySegments': rubySegments.map((e) => e.toJson()).toList(),
