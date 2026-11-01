@@ -7,12 +7,16 @@ import 'package:video_player/video_player.dart';
 import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../../explore/presentation/explore_screen.dart';
 import '../../../chat/presentation/widgets/share_video_sheet.dart';
 import '../../../follow/presentation/screens/user_profile_screen.dart';
+import '../../../profile/domain/models/topic_model.dart';
 import '../../../report/report_service.dart';
 import '../../../report/report_sheet.dart';
+import '../../../video/data/services/video_trash_service.dart';
+import '../../../video/presentation/widgets/confirm_move_to_trash.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../screens/video_script_screen.dart';
@@ -35,6 +39,10 @@ class VideoPlayerItem extends StatefulWidget {
   /// của họ (true = đang theo dõi), để màn chứa video cập nhật nút theo dõi.
   final ValueChanged<bool>? onCreatorFollowChanged;
   final VoidCallback? onCommentTap;
+
+  /// Báo khi chủ video vừa chuyển video vào thùng rác, để màn chứa gỡ video đi.
+  /// null = màn chứa không gỡ được video nên menu không hiện mục Xóa.
+  final VoidCallback? onDeleted;
   final bool allowAccountActions;
 
   /// Chỉ video đang hiển thị trong PageView mới được phát và phát âm thanh.
@@ -61,6 +69,7 @@ class VideoPlayerItem extends StatefulWidget {
     this.onFollowToggle,
     this.onCreatorFollowChanged,
     this.onCommentTap,
+    this.onDeleted,
     this.allowAccountActions = true,
     this.isActive = true,
     this.initialPosition,
@@ -215,7 +224,35 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     return me == null || me != widget.post.creatorId;
   }
 
-  /// Menu nâng cao khi nhấn giữ trên video: tốc độ x2, trang người đăng, báo cáo.
+  bool get _canDelete {
+    if (widget.onDeleted == null || int.tryParse(widget.post.id) == null) {
+      return false;
+    }
+    final me = AuthSession.instance.user?.id;
+    return me != null && me == widget.post.creatorId;
+  }
+
+  /// Chuyển video vào thùng rác. Vẫn báo [VideoPlayerItem.onDeleted] nếu người
+  /// dùng đã vuốt sang video khác trong lúc chờ, vì video thật sự đã bị xóa.
+  Future<void> _moveToTrash() async {
+    if (!await confirmMoveToTrash(context) || !mounted) return;
+    final onDeleted = widget.onDeleted;
+    try {
+      await VideoTrashService().moveToTrash(int.parse(widget.post.id));
+    } catch (error) {
+      if (mounted) {
+        AppToast.showError('Không thể xóa video: $error', context: context);
+      }
+      return;
+    }
+    AppToast.showSuccess(
+      'Đã chuyển video vào thùng rác',
+      context: mounted ? context : null,
+    );
+    onDeleted?.call();
+  }
+
+  /// Menu nâng cao khi nhấn giữ trên video: tốc độ x2, trang người đăng, báo cáo, xóa.
   Future<void> _openVideoActions() async {
     RubySubtitleWidget.dismissLookups();
     final action = await showVideoActionsSheet(
@@ -224,6 +261,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       canChangeSpeed: _videoController?.value.isInitialized == true,
       canOpenCreator: widget.post.creatorId != null,
       canReport: _canReport,
+      canDelete: _canDelete,
       creatorName: widget.post.creatorName,
     );
     if (!mounted) return;
@@ -239,6 +277,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           targetId: int.parse(widget.post.id),
           subject: 'video này',
         );
+      case VideoAction.delete:
+        await _moveToTrash();
       case null:
         break;
     }

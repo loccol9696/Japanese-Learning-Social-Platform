@@ -298,6 +298,13 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
     WidgetsBinding.instance.addPostFrameCallback((_) => controller?.dispose());
   }
 
+  /// Gỡ video đã xóa khỏi kết quả; không còn video nào thì đóng khung xem.
+  void _removeVideo(int videoId) {
+    if (!mounted) return;
+    setState(() => _videos.removeWhere((v) => v.id == videoId));
+    if (_videos.isEmpty) _closeVideoFeed();
+  }
+
   /// Vuốt quay lại: khung video trượt theo ngón tay.
   void _onFeedDrag(double fraction) {
     if (_closingFeed) return;
@@ -438,6 +445,7 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
                 post: video.post,
                 // Mở từ trang tìm kiếm (có nút quay lại) thì không có thanh menu dưới nên không chừa chỗ cho nó.
                 reserveBottomBar: !widget.showBackButton,
+                onDeleted: () => _removeVideo(video.id),
               );
             },
           ),

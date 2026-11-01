@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../widgets/ruby_subtitle_widget.dart';
@@ -593,6 +595,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             videoOwnerId: post.creatorId,
             initialCount: post.commentCount,
           ),
+          onDeleted: () => _removePost(post.id),
           allowAccountActions: AuthSession.instance.isAuthenticated,
           playbackAllowed: _feedPlaybackAllowed,
         );
@@ -692,6 +695,37 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           : post;
       _followingPosts = _followingPosts.map(update).toList();
       _forYouPosts = _forYouPosts.map(update).toList();
+    });
+  }
+
+  /// Gỡ video đã xóa khỏi cả hai feed. Video kế tiếp thế chỗ video bị gỡ; video
+  /// cuối bị gỡ thì lùi về video liền trước.
+  void _removePost(String postId) {
+    if (!mounted) return;
+    int indexAfterRemoval(List<VideoPost> posts, int current) {
+      final removed = posts.indexWhere((post) => post.id == postId);
+      if (removed == -1) return current;
+      final index = removed < current ? current - 1 : current;
+      return index < posts.length - 1 ? index : math.max(posts.length - 2, 0);
+    }
+
+    final followingIndex = indexAfterRemoval(_followingPosts, _followingPostIndex);
+    final forYouIndex = indexAfterRemoval(_forYouPosts, _forYouPostIndex);
+    setState(() {
+      _followingPosts = _followingPosts.where((p) => p.id != postId).toList();
+      _forYouPosts = _forYouPosts.where((p) => p.id != postId).toList();
+      _followingPostIndex = followingIndex;
+      _forYouPostIndex = forYouIndex;
+    });
+    // PageController giữ trang cũ, phải kéo theo chỉ số mới sau khi danh sách đổi.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_followingFeedPageController.hasClients) {
+        _followingFeedPageController.jumpToPage(followingIndex);
+      }
+      if (_forYouFeedPageController.hasClients) {
+        _forYouFeedPageController.jumpToPage(forYouIndex);
+      }
     });
   }
 

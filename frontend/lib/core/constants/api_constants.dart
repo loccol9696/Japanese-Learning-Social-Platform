@@ -164,9 +164,6 @@ class ApiConstants {
   static String videoDetailUrl(String videoId) => '$baseUrl/videos/$videoId';
   static String videoClassificationUrl(int videoId) => '$baseUrl/videos/$videoId/classification';
 
-  // Report endpoints
-  static String get reportsUrl => '$baseUrl/reports';
-
   /// Server Socket.IO của chat: cùng host với API nhưng port riêng (9092).
   static String get socketUrl {
     if (_socketUrlOverride.isNotEmpty) return _socketUrlOverride;
