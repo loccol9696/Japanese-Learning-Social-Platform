@@ -103,7 +103,8 @@ public interface VideoRepository extends JpaRepository<Video, Long>, JpaSpecific
     Page<Video> findByUserId(Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = "user")
-    @Query("SELECT v FROM Video v JOIN VideoLike l ON l.id.videoId = v.id WHERE l.id.userId = :userId ORDER BY v.createdAt DESC")
+    @Query("SELECT v FROM Video v JOIN VideoLike l ON l.id.videoId = v.id WHERE l.id.userId = :userId " +
+           "AND v.modStatus <> com.jlsp.backend.video.entity.VideoModStatus.REJECTED ORDER BY v.createdAt DESC")
     Page<Video> findLikedByUserId(@Param("userId") Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = "user")
