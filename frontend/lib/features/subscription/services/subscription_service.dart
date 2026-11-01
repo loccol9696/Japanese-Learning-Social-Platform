@@ -2,6 +2,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../models/subscription_model.dart';
+import '../models/token_usage_model.dart';
 
 /// Gói thành viên và thanh toán. Mọi việc đi qua server bằng access token của người dùng; app không tự suy ra trạng thái
 /// VIP, không lưu VIP cục bộ và không có đường nào tự đánh dấu "đã thanh toán": gói chỉ được kích hoạt khi server nhận
@@ -64,6 +65,15 @@ class SubscriptionService {
   }
 
   /// Gói hiện tại của chính người dùng. Lỗi thì ném ra để màn hình tự xử lý, không giả vờ là VIP hay miễn phí.
+  /// Token AI đã dùng trong tuần này ("week") hoặc tháng này ("month"), theo ngày và theo tính năng.
+  Future<TokenUsage> getTokenUsage(String range) async {
+    final data = await ApiClient.instance.get(ApiConstants.tokenUsageUrl(range));
+    if (data is! Map<String, dynamic>) {
+      throw ApiException(statusCode: 500, message: 'Máy chủ trả về dữ liệu token không hợp lệ.');
+    }
+    return TokenUsage.fromJson(data);
+  }
+
   Future<SubscriptionStatus> getMyStatus() async {
     final data = await ApiClient.instance.get(ApiConstants.mySubscriptionUrl);
     if (data is! Map<String, dynamic>) {

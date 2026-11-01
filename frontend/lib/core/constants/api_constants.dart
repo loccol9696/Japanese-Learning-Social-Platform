@@ -102,6 +102,9 @@ class ApiConstants {
   /// Quota của người đang đăng nhập (server xác định qua access token).
   static String get myQuotaUrl => '$baseUrl/payments/my-quota';
 
+  /// Token AI đã dùng theo ngày và theo tính năng; [range] là "week" hoặc "month".
+  static String tokenUsageUrl(String range) => '$baseUrl/payments/token-usage?range=$range';
+
   /// Câu hỏi chào mừng (trình độ + sở thích): đọc / lưu (GET, PUT) và bỏ qua (POST).
   static String get onboardingUrl => '$baseUrl/onboarding';
   static String get onboardingSkipUrl => '$baseUrl/onboarding/skip';
