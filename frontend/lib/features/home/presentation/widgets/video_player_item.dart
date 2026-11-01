@@ -11,7 +11,8 @@ import '../../../auth/data/auth_session.dart';
 import '../../../explore/presentation/explore_screen.dart';
 import '../../../chat/presentation/widgets/share_video_sheet.dart';
 import '../../../follow/presentation/screens/user_profile_screen.dart';
-import '../../../profile/domain/models/topic_model.dart';
+import '../../../report/report_service.dart';
+import '../../../report/report_sheet.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../screens/video_script_screen.dart';
@@ -19,6 +20,7 @@ import 'bottom_nav_dock.dart';
 import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';
 import 'subtitle_mode.dart';
+import 'video_actions_sheet.dart';
 import 'video_info_overlay.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/video/app_video_playback.dart';
@@ -190,6 +192,55 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       controller.play().catchError((error) {
         debugPrint('Video playback failed: $error');
       });
+    }
+  }
+
+  bool _isDoubleSpeed = false;
+
+  void _toggleDoubleSpeed() {
+    final controller = _videoController;
+    if (controller == null || !controller.value.isInitialized) return;
+    final enabled = !_isDoubleSpeed;
+    setState(() => _isDoubleSpeed = enabled);
+    controller.setPlaybackSpeed(enabled ? 2.0 : 1.0).catchError((error) {
+      debugPrint('Video playback speed failed: $error');
+      if (mounted) setState(() => _isDoubleSpeed = !enabled);
+    });
+  }
+
+  /// Không báo cáo được video của chính mình; id không phải số là video mẫu.
+  bool get _canReport {
+    if (int.tryParse(widget.post.id) == null) return false;
+    final me = AuthSession.instance.user?.id;
+    return me == null || me != widget.post.creatorId;
+  }
+
+  /// Menu nâng cao khi nhấn giữ trên video: tốc độ x2, trang người đăng, báo cáo.
+  Future<void> _openVideoActions() async {
+    RubySubtitleWidget.dismissLookups();
+    final action = await showVideoActionsSheet(
+      context,
+      isDoubleSpeed: _isDoubleSpeed,
+      canChangeSpeed: _videoController?.value.isInitialized == true,
+      canOpenCreator: widget.post.creatorId != null,
+      canReport: _canReport,
+      creatorName: widget.post.creatorName,
+    );
+    if (!mounted) return;
+    switch (action) {
+      case VideoAction.toggleDoubleSpeed:
+        _toggleDoubleSpeed();
+      case VideoAction.openCreator:
+        await _openCreatorProfile();
+      case VideoAction.report:
+        await showReportSheet(
+          context,
+          target: ReportTarget.video,
+          targetId: int.parse(widget.post.id),
+          subject: 'video này',
+        );
+      case null:
+        break;
     }
   }
 
@@ -615,6 +666,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     onTap: _handleTapToPlayPause,
                     onDoubleTapDown: _handleDoubleTapDown,
                     onDoubleTap: _handleDoubleTap,
+                    onLongPress: _openVideoActions,
                   ),
                 ),
                 _buildPlaybackOverlay(),
@@ -671,6 +723,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                   width: tabWidth,
                 ),
                 Positioned.fill(child: _buildFloatingHearts()),
+                if (_isDoubleSpeed)
+                  _buildSpeedBadge(top: MediaQuery.paddingOf(context).top + 64),
 
                 // 5. Bottom Subtitle & Video Metadata Overlay
                 Positioned(
@@ -823,10 +877,12 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                               onTap: _handleTapToPlayPause,
                               onDoubleTapDown: _handleDoubleTapDown,
                               onDoubleTap: _handleDoubleTap,
+                              onLongPress: _openVideoActions,
                             ),
                           ),
                           Positioned.fill(child: _buildFloatingHearts()),
                           _buildPlaybackOverlay(),
+                          if (_isDoubleSpeed) _buildSpeedBadge(top: 8),
                         ],
                       ),
                     ),
@@ -940,6 +996,31 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// Nhãn nhỏ cho biết video đang phát x2, để không bị tưởng là lỗi tốc độ.
+  Widget _buildSpeedBadge({required double top}) {
+    return Positioned(
+      top: top,
+      left: 16,
+      child: IgnorePointer(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppPalette.videoScrim.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '2x',
+            style: TextStyle(
+              color: AppPalette.onVideo,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
       ),
     );
   }
