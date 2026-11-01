@@ -56,6 +56,9 @@ public interface ChatService {
     /** Thu hồi tin của chính mình trong 24 giờ sau khi gửi; gọi lại trên tin đã thu hồi không có tác dụng. */
     MessageResponse recallMessage(Long userId, Long messageId);
 
+    /** Kiểm duyệt gỡ tin vi phạm: giống thu hồi nhưng không giới hạn người gỡ và thời gian. */
+    void removeMessageByModeration(Long messageId);
+
     /** Nội dung cần dịch của một tin; ném lỗi nếu userId không thuộc hội thoại hoặc tin không có chữ. */
     String getTranslatableContent(Long userId, Long messageId);
 
