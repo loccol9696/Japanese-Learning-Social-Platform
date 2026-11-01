@@ -324,6 +324,22 @@ public class ChatServiceImpl implements ChatService {
             throw new AppException(400, "Tin nhắn đã quá 24 giờ nên không thể thu hồi");
         }
 
+        return clearAndBroadcast(message, userId, conversation.getOtherUser(userId).getId());
+    }
+
+    @Override
+    @Transactional
+    public void removeMessageByModeration(Long messageId) {
+        Message message = requireMessage(messageId);
+        if (message.getRecalledAt() != null) {
+            return;
+        }
+        Long senderId = message.getSender().getId();
+        message.setRemovedByModeration(true);
+        clearAndBroadcast(message, senderId, message.getConversation().getOtherUser(senderId).getId());
+    }
+
+    private MessageResponse clearAndBroadcast(Message message, Long senderId, Long recipientId) {
         message.setRecalledAt(LocalDateTime.now());
         message.setContent(null);
         message.setVideoId(null);
@@ -333,8 +349,7 @@ public class ChatServiceImpl implements ChatService {
         messageRepository.save(message);
 
         MessageResponse response = chatMapper.toMessageResponse(message, Map.of());
-        eventPublisher.publishEvent(new MessageRecalledEvent(response, userId,
-                conversation.getOtherUser(userId).getId()));
+        eventPublisher.publishEvent(new MessageRecalledEvent(response, senderId, recipientId));
         return response;
     }
 
@@ -474,7 +489,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /**
-     * Cả hai tài khoản phải đang hoạt động, follow lẫn nhau và không ai chặn ai. Kiểm tra cả
+     * Cả hai tài khoản phải đang hoạt động và không ai chặn ai (không cần follow nhau). Kiểm tra cả
      * người gửi vì socket chỉ xác thực lúc kết nối, tài khoản bị khoá sau đó vẫn còn kết nối.
      */
     private User ensureCanMessage(Long userId, Long recipientId) {
@@ -491,9 +506,6 @@ public class ChatServiceImpl implements ChatService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", recipientId));
         if (!Boolean.TRUE.equals(recipient.getIsActive())) {
             throw new AppException(400, "Tài khoản này đã bị khóa");
-        }
-        if (!followService.isMutual(userId, recipientId)) {
-            throw new AppException(403, "Hai bạn cần theo dõi lẫn nhau để nhắn tin");
         }
         if (userBlockRepository.existsBetween(userId, recipientId)) {
             throw new AppException(403, "Không thể nhắn tin cho người này");
@@ -585,7 +597,6 @@ public class ChatServiceImpl implements ChatService {
                 .unreadCount(state.unreadCounts().getOrDefault(conversation.getId(), 0L))
                 .otherLastReadMessageId(otherLastRead)
                 .canMessage(Boolean.TRUE.equals(other.getIsActive())
-                        && state.mutualIds().contains(other.getId())
                         && !state.blockedIds().contains(other.getId()))
                 .blockedByMe(state.blockedByMeIds().contains(other.getId()))
                 .lastMessageAt(conversation.getLastMessageAt())
@@ -593,12 +604,12 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /**
-     * Mốc đã đọc, số tin chưa đọc, quyền nhắn tin và trạng thái chặn của cả trang hội thoại:
-     * 4 truy vấn gộp thay vì nhiều truy vấn cho MỖI hội thoại.
+     * Mốc đã đọc, số tin chưa đọc và trạng thái chặn của cả trang hội thoại:
+     * 3 truy vấn gộp thay vì nhiều truy vấn cho MỖI hội thoại.
      */
     private InboxState loadInboxState(Long userId, List<Conversation> conversations) {
         if (conversations.isEmpty()) {
-            return new InboxState(Map.of(), Map.of(), Map.of(), Set.of(), Set.of(), Set.of());
+            return new InboxState(Map.of(), Map.of(), Map.of(), Set.of(), Set.of());
         }
         List<Long> conversationIds = conversations.stream().map(Conversation::getId).toList();
         Map<ConversationParticipantId, Long> lastReadIds = new HashMap<>();
@@ -626,15 +637,12 @@ public class ChatServiceImpl implements ChatService {
                 blockedByMeIds.add(block.getId().getBlockedId());
             }
         }
-        return new InboxState(lastReadIds, clearedIds, unreadCounts,
-                followService.findMutualIdsAmong(userId, otherIds),
-                blockedIds, blockedByMeIds);
+        return new InboxState(lastReadIds, clearedIds, unreadCounts, blockedIds, blockedByMeIds);
     }
 
     private record InboxState(Map<ConversationParticipantId, Long> lastReadIds,
                               Map<Long, Long> clearedIds,
                               Map<Long, Long> unreadCounts,
-                              Set<Long> mutualIds,
                               Set<Long> blockedIds,
                               Set<Long> blockedByMeIds) {
     }

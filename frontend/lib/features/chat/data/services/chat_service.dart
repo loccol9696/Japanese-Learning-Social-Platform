@@ -14,7 +14,7 @@ class ChatService {
 
   final ApiClient _api;
 
-  /// Những người follow lẫn nhau (được phép nhắn tin).
+  /// Danh sách bạn bè (follow lẫn nhau) để chọn nhanh khi nhắn tin hoặc chia sẻ.
   Future<List<ChatUser>> fetchContacts() async {
     final data = await _api.get(ApiConstants.chatContactsUrl);
     return _list(data).map(ChatUser.fromJson).toList();
@@ -26,7 +26,7 @@ class ChatService {
     return _list(content).map(Conversation.fromJson).toList();
   }
 
-  /// Mở (hoặc tạo) hội thoại với một người. Server trả 403 nếu chưa follow lẫn nhau.
+  /// Mở (hoặc tạo) hội thoại với một người. Server trả 403 nếu một bên đã chặn.
   Future<Conversation> openConversation(int recipientId) async {
     final data = await _api.post(
       ApiConstants.chatConversationsUrl,
@@ -191,7 +191,7 @@ class ChatService {
     return count is num ? count.toInt() : 0;
   }
 
-  /// Chia sẻ một bộ thẻ công khai cho nhiều người (người nhận phải follow lẫn nhau với mình).
+  /// Chia sẻ một bộ thẻ công khai cho nhiều người (người nhận không được chặn hoặc bị chặn).
   Future<void> shareDeck(
     int deckId, {
     required List<int> recipientIds,

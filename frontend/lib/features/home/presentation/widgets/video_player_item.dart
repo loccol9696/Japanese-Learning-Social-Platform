@@ -7,11 +7,16 @@ import 'package:video_player/video_player.dart';
 import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/data/auth_session.dart';
 import '../../../explore/presentation/explore_screen.dart';
 import '../../../chat/presentation/widgets/share_video_sheet.dart';
 import '../../../follow/presentation/screens/user_profile_screen.dart';
 import '../../../profile/domain/models/topic_model.dart';
+import '../../../report/report_service.dart';
+import '../../../report/report_sheet.dart';
+import '../../../video/data/services/video_trash_service.dart';
+import '../../../video/presentation/widgets/confirm_move_to_trash.dart';
 import '../../domain/models/video_post.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../screens/video_script_screen.dart';
@@ -19,6 +24,7 @@ import 'bottom_nav_dock.dart';
 import 'interaction_sidebar.dart';
 import 'ruby_subtitle_widget.dart';
 import 'subtitle_mode.dart';
+import 'video_actions_sheet.dart';
 import 'video_info_overlay.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/video/app_video_playback.dart';
@@ -33,6 +39,10 @@ class VideoPlayerItem extends StatefulWidget {
   /// của họ (true = đang theo dõi), để màn chứa video cập nhật nút theo dõi.
   final ValueChanged<bool>? onCreatorFollowChanged;
   final VoidCallback? onCommentTap;
+
+  /// Báo khi chủ video vừa chuyển video này vào thùng rác. Màn có danh sách video
+  /// tự gỡ qua [VideoTrashService.trashedVideoIds]; màn chỉ có một video dùng để đóng.
+  final VoidCallback? onDeleted;
   final bool allowAccountActions;
 
   /// Chỉ video đang hiển thị trong PageView mới được phát và phát âm thanh.
@@ -59,6 +69,7 @@ class VideoPlayerItem extends StatefulWidget {
     this.onFollowToggle,
     this.onCreatorFollowChanged,
     this.onCommentTap,
+    this.onDeleted,
     this.allowAccountActions = true,
     this.isActive = true,
     this.initialPosition,
@@ -119,6 +130,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           controller: _videoController,
           initialBilingual: _subtitleMode == SubtitleMode.bilingual,
           videoId: widget.post.id,
+          canReport: _canReport,
         ),
       ),
     );
@@ -190,6 +202,112 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       controller.play().catchError((error) {
         debugPrint('Video playback failed: $error');
       });
+    }
+  }
+
+  bool _isDoubleSpeed = false;
+
+  void _toggleDoubleSpeed() {
+    final controller = _videoController;
+    if (controller == null || !controller.value.isInitialized) return;
+    final enabled = !_isDoubleSpeed;
+    setState(() => _isDoubleSpeed = enabled);
+    controller.setPlaybackSpeed(enabled ? 2.0 : 1.0).catchError((error) {
+      debugPrint('Video playback speed failed: $error');
+      if (mounted) setState(() => _isDoubleSpeed = !enabled);
+    });
+  }
+
+  /// Không báo cáo được video của chính mình; id không phải số là video mẫu.
+  bool get _canReport {
+    if (int.tryParse(widget.post.id) == null) return false;
+    final me = AuthSession.instance.user?.id;
+    return me == null || me != widget.post.creatorId;
+  }
+
+  bool get _canDelete {
+    if (int.tryParse(widget.post.id) == null) return false;
+    final me = AuthSession.instance.user?.id;
+    return me != null && me == widget.post.creatorId;
+  }
+
+  Future<void> _moveToTrash() async {
+    if (!await confirmMoveToTrash(context) || !mounted) return;
+    try {
+      await VideoTrashService().moveToTrash(int.parse(widget.post.id));
+    } catch (error) {
+      if (mounted) {
+        AppToast.showError('Không thể xóa video: $error', context: context);
+      }
+      return;
+    }
+    AppToast.showSuccess(
+      'Đã chuyển video vào thùng rác',
+      context: mounted ? context : null,
+    );
+    if (mounted) widget.onDeleted?.call();
+  }
+
+  /// Vị trí câu đang hiện kèm bản dịch trên màn hình; null nếu không có bản dịch nào để báo cáo.
+  int? get _translatedLineOnScreen {
+    final cue = _activeSubtitle;
+    final visible = _showSubtitles && _subtitleMode == SubtitleMode.bilingual;
+    if (!_canReport || !visible || cue == null || cue.translation.trim().isEmpty) {
+      return null;
+    }
+    return cue.sourceIndex;
+  }
+
+  /// Hàm báo cáo mẫu ngữ pháp của [cue]; null nếu không báo cáo được.
+  ValueChanged<GrammarPointInfo>? _grammarReporter(SubtitleCue? cue) {
+    final segmentIndex = cue?.sourceIndex;
+    if (!_canReport || segmentIndex == null) return null;
+    return (grammar) => showGrammarReportSheet(
+      context,
+      videoId: int.parse(widget.post.id),
+      segmentIndex: segmentIndex,
+      grammarPattern: grammar.reportKey,
+    );
+  }
+
+  /// Menu nâng cao khi nhấn giữ trên video: tốc độ x2, trang người đăng, báo cáo, xóa.
+  Future<void> _openVideoActions() async {
+    RubySubtitleWidget.dismissLookups();
+    // Giữ lại câu lúc mở menu: video vẫn chạy nên phụ đề có thể đã sang câu khác khi chọn xong.
+    final translatedLine = _translatedLineOnScreen;
+    final action = await showVideoActionsSheet(
+      context,
+      isDoubleSpeed: _isDoubleSpeed,
+      canChangeSpeed: _videoController?.value.isInitialized == true,
+      canOpenCreator: widget.post.creatorId != null,
+      canReport: _canReport,
+      canReportTranslation: translatedLine != null,
+      canDelete: _canDelete,
+      creatorName: widget.post.creatorName,
+    );
+    if (!mounted) return;
+    switch (action) {
+      case VideoAction.toggleDoubleSpeed:
+        _toggleDoubleSpeed();
+      case VideoAction.openCreator:
+        await _openCreatorProfile();
+      case VideoAction.report:
+        await showReportSheet(
+          context,
+          target: ReportTarget.video,
+          targetId: int.parse(widget.post.id),
+          subject: 'video này',
+        );
+      case VideoAction.reportTranslation:
+        await showTranslationReportSheet(
+          context,
+          videoId: int.parse(widget.post.id),
+          segmentIndex: translatedLine!,
+        );
+      case VideoAction.delete:
+        await _moveToTrash();
+      case null:
+        break;
     }
   }
 
@@ -330,13 +448,23 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
     } else if (_pausedForHidden) {
       _pausedForHidden = false;
-      _isMutedForWebAutoplay = false;
-      controller.setVolume(1).then((_) => controller.play()).catchError(
-        (error) {
-          debugPrint('Video playback failed: $error');
-        },
-      );
+      _startPlayback(controller).catchError((error) {
+        debugPrint('Video playback failed: $error');
+      });
     }
+  }
+
+  /// Trình duyệt chỉ cho phát có tiếng sau khi người dùng đã chạm vào trang ít nhất một lần.
+  /// Cờ này dùng chung cho mọi video: đã mở tiếng một lần thì các video sau đều có tiếng.
+  static bool _webSoundUnlocked = false;
+
+  /// Phát video đang hiện, quyết định âm lượng ngay lúc phát (không dựa vào trạng thái lúc
+  /// khởi tạo, vì video có thể được kích hoạt trong lúc đang tải).
+  Future<void> _startPlayback(VideoPlayerController controller) async {
+    final withSound = !kIsWeb || _webSoundUnlocked;
+    _isMutedForWebAutoplay = !withSound;
+    await controller.setVolume(withSound ? 1 : 0);
+    await controller.play();
   }
 
   @override
@@ -377,10 +505,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       await controller.setLooping(true);
       // Trình duyệt chặn autoplay có tiếng. Video đầu tiên cần chạy mute;
       // lần chạm đầu tiên hoặc thao tác vuốt sẽ mở tiếng trở lại.
-      _isMutedForWebAutoplay = kIsWeb && widget.isActive;
-      await controller.setVolume(
-        widget.isActive && !kIsWeb ? 1 : 0,
-      );
+      await controller.setVolume(0);
       final startAt = widget.initialPosition;
       if (startAt != null && startAt < controller.value.duration) {
         await controller.seekTo(startAt);
@@ -397,7 +522,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       }
 
       try {
-        await controller.play();
+        await _startPlayback(controller);
       } catch (error) {
         // Browsers may block autoplay even when the video is muted.
         debugPrint('Video autoplay was blocked: $error');
@@ -498,6 +623,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       return;
     }
 
+    // Lần chạm này là thao tác của người dùng: từ giờ trình duyệt cho phát có tiếng.
+    _webSoundUnlocked = true;
     if (controller.value.isPlaying && _isMutedForWebAutoplay) {
       _isMutedForWebAutoplay = false;
       controller.setVolume(1).catchError((error) {
@@ -606,6 +733,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                     onTap: _handleTapToPlayPause,
                     onDoubleTapDown: _handleDoubleTapDown,
                     onDoubleTap: _handleDoubleTap,
+                    onLongPress: _openVideoActions,
                   ),
                 ),
                 _buildPlaybackOverlay(),
@@ -662,6 +790,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                   width: tabWidth,
                 ),
                 Positioned.fill(child: _buildFloatingHearts()),
+                if (_isDoubleSpeed)
+                  _buildSpeedBadge(top: MediaQuery.paddingOf(context).top + 64),
 
                 // 5. Bottom Subtitle & Video Metadata Overlay
                 Positioned(
@@ -684,6 +814,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                             sentence: activeCue?.text,
                             grammarPoints: activeCue?.grammarPoints ?? const [],
                             onLookupActiveChanged: _handleLookupActiveChanged,
+                            onReportGrammar: _grammarReporter(activeCue),
                           ),
                         ),
                       VideoInfoOverlay(
@@ -699,7 +830,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
 
                 // 6. Video Progress Scrubber Bar
                 Positioned(
-                  bottom: navBarHeight + 4.0,
+                  // Mép dưới của line trùng đúng mép trên menu điều hướng.
+                  bottom: navBarHeight,
                   left: 0,
                   right: 0,
                   child: SizedBox(
@@ -813,10 +945,12 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                               onTap: _handleTapToPlayPause,
                               onDoubleTapDown: _handleDoubleTapDown,
                               onDoubleTap: _handleDoubleTap,
+                              onLongPress: _openVideoActions,
                             ),
                           ),
                           Positioned.fill(child: _buildFloatingHearts()),
                           _buildPlaybackOverlay(),
+                          if (_isDoubleSpeed) _buildSpeedBadge(top: 8),
                         ],
                       ),
                     ),
@@ -849,6 +983,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                                         activeCue?.grammarPoints ?? const [],
                                     onLookupActiveChanged:
                                         _handleLookupActiveChanged,
+                                    onReportGrammar: _grammarReporter(activeCue),
                                   ),
                                 ),
                               VideoInfoOverlay(
@@ -930,6 +1065,31 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// Nhãn nhỏ cho biết video đang phát x2, để không bị tưởng là lỗi tốc độ.
+  Widget _buildSpeedBadge({required double top}) {
+    return Positioned(
+      top: top,
+      left: 16,
+      child: IgnorePointer(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppPalette.videoScrim.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '2x',
+            style: TextStyle(
+              color: AppPalette.onVideo,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
       ),
     );
   }

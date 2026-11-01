@@ -133,7 +133,9 @@ public class VideoServiceImpl implements VideoService {
             isSaved = videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, id);
         }
 
-        return videoMapper.toVideoDetailResponse(video, isLiked, isSaved);
+        VideoDetailResponse response = videoMapper.toVideoDetailResponse(video, isLiked, isSaved);
+        response.setCommentCount(videoCommentRepository.countByVideoId(id));
+        return response;
     }
 
     /**

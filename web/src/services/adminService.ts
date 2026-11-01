@@ -59,6 +59,7 @@ export interface AdminUserItem {
   displayName?: string;
   role: UserRole;
   isActive: boolean;
+  violationCount?: number;
   avatarUrl?: string;
   createdAt: string;
   updatedAt?: string;
@@ -563,16 +564,35 @@ export async function updateTopic(
 }
 
 // ==================== CONTENT REPORTS (MODERATOR ONLY) ====================
-export type ReportTargetType = 'VIDEO' | 'COMMENT' | 'USER';
+export type ReportTargetType = 'VIDEO' | 'COMMENT' | 'USER' | 'MESSAGE' | 'TRANSLATION' | 'GRAMMAR';
 export type ReportReason =
   | 'SPAM'
   | 'INAPPROPRIATE'
   | 'HARASSMENT'
   | 'MISINFORMATION'
   | 'COPYRIGHT'
+  | 'INACCURATE'
   | 'OTHER';
 export type ReportStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED';
-export type ReportAction = 'NONE' | 'HIDE_VIDEO' | 'DELETE_COMMENT' | 'LOCK_USER';
+export type ReportAction =
+  | 'NONE'
+  | 'WARN_USER'
+  | 'HIDE_VIDEO'
+  | 'DELETE_COMMENT'
+  | 'HIDE_MESSAGE'
+  | 'EDIT_TRANSLATION'
+  | 'REMOVE_TRANSLATION'
+  | 'EDIT_GRAMMAR'
+  | 'REMOVE_GRAMMAR'
+  | 'LOCK_USER';
+
+/** Nội dung bản dịch / mẫu ngữ pháp: backend trả về để điền sẵn, kiểm duyệt viên sửa rồi gửi lại. */
+export interface ReportCorrection {
+  translation?: string;
+  pattern?: string;
+  meaning?: string;
+  explanation?: string;
+}
 
 export interface ReportItem {
   id: number;
@@ -590,9 +610,14 @@ export interface ReportItem {
   reporterUsername: string;
   targetExists: boolean;
   targetSummary?: string;
+  targetSnapshot?: string;
+  targetImageUrl?: string;
+  targetContent?: ReportCorrection;
   targetOwnerId?: number;
   targetOwnerUsername?: string;
+  targetOwnerViolationCount?: number;
   targetVideoId?: number;
+  targetVideoUrl?: string;
   pendingCountForTarget?: number;
 }
 
@@ -614,11 +639,16 @@ export async function getReports(
   return resData.data;
 }
 
-export async function resolveReport(id: number, action: ReportAction, note: string): Promise<ReportItem> {
+export async function resolveReport(
+  id: number,
+  action: ReportAction,
+  note: string,
+  correction?: ReportCorrection
+): Promise<ReportItem> {
   const response = await fetch(`/api/v1/admin/reports/${id}/resolve`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ action, note: note.trim() || undefined }),
+    body: JSON.stringify({ action, note: note.trim() || undefined, correction }),
   });
   const resData: ApiResponse<ReportItem> = await response.json();
   if (!response.ok) {

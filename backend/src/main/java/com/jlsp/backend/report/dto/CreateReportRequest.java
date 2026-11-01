@@ -24,4 +24,11 @@ public class CreateReportRequest {
 
     @Size(max = 500, message = "Mô tả chi tiết tối đa 500 ký tự")
     private String detail;
+
+    /** Vị trí câu phụ đề; bắt buộc với báo cáo bản dịch và ngữ pháp. */
+    private Integer segmentIndex;
+
+    /** Mẫu ngữ pháp bị báo cáo trong câu; bắt buộc với báo cáo ngữ pháp. */
+    @Size(max = 200, message = "Mẫu ngữ pháp tối đa 200 ký tự")
+    private String grammarPattern;
 }

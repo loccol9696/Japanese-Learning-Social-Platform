@@ -35,6 +35,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     /** Chống thông báo trùng cho "theo dõi" (bấm theo dõi / bỏ theo dõi liên tục). */
     boolean existsByRecipientIdAndActorIdAndType(Long recipientId, Long actorId, NotificationType type);
 
+    boolean existsByRecipientIdAndReportId(Long recipientId, Long reportId);
+
     /** Xoá thông báo đã đọc tạo trước {@code cutoff}; trả về số dòng đã xoá. */
     @Modifying
     @Query("DELETE FROM Notification n WHERE n.isRead = true AND n.createdAt < :cutoff")

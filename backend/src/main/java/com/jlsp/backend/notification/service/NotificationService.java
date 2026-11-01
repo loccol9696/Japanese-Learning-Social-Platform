@@ -17,6 +17,12 @@ public interface NotificationService {
     void notify(Long recipientId, Long actorId, NotificationType type,
                 Long videoId, Long commentId, String message);
 
+    /** Thông báo về một báo cáo (ẩn danh người xử lý); {@code reportId} để người nhận mở xem kết quả. */
+    void notifyReportResult(Long recipientId, NotificationType type, Long videoId, Long reportId, String message);
+
+    /** Người này có nhận thông báo về báo cáo đó không; dùng để cho chủ nội dung xem kết quả. */
+    boolean wasNotifiedAboutReport(Long recipientId, Long reportId);
+
     PageResponse<NotificationResponse> list(Long userId, boolean unreadOnly, Pageable pageable);
 
     long unreadCount(Long userId);

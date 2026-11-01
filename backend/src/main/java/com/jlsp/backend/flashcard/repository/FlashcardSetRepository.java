@@ -33,4 +33,7 @@ public interface FlashcardSetRepository extends JpaRepository<FlashcardSet, Long
     List<FlashcardSet> findAllOrderedByUserId(@Param("userId") Long userId);
 
     Optional<FlashcardSet> findByUserIdAndIsVideoSavedTrue(Long userId);
+
+    /** Bản sao (mới nhất) mà người dùng đã lưu từ bộ thẻ gốc này. */
+    Optional<FlashcardSet> findFirstByUserIdAndSourceSetIdOrderByCreatedAtDesc(Long userId, Long sourceSetId);
 }

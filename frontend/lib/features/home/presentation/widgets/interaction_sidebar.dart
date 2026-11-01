@@ -225,10 +225,14 @@ class _InteractionSidebarState extends State<InteractionSidebar>
     );
   }
 
+  bool get _isOwnVideo {
+    final me = AuthSession.instance.user?.id;
+    return me != null && me == widget.post.creatorId;
+  }
+
   bool get _canReport {
     if (int.tryParse(widget.post.id) == null) return false;
-    final me = AuthSession.instance.user?.id;
-    return me == null || me != widget.post.creatorId;
+    return !_isOwnVideo;
   }
 
   Widget _buildReportButton(AdaptiveVideoTheme theme) {
@@ -284,7 +288,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
                     : Icons.subtitles_off_outlined,
                 size: 26.0,
                 color: isVisible
-                    ? (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo)
+                    ? (theme.isLight
+                          ? theme.primaryAdaptive
+                          : AppPalette.onVideo)
                     : (theme.isLight
                           ? theme.textSecondary.withValues(alpha: 0.5)
                           : AppPalette.onVideoMuted),
@@ -352,39 +358,40 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             ),
           ),
         ),
-        // Follow / Unfollow Badge Button
-        Positioned(
-          bottom: -8.0,
-          child: GestureDetector(
-            onTap: _handleFollow,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: 20.0,
-              height: 20.0,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _isFollowing
-                    ? AppColors.sakuraPink
-                    : (theme.isLight
-                          ? theme.primaryAdaptive
-                          : AppColors.periwinkle),
-                boxShadow: [
-                  BoxShadow(
-                    color: _isFollowing
-                        ? AppColors.sakuraPink.withValues(alpha: 0.6)
-                        : AppPalette.shadow,
-                    blurRadius: 8.0,
-                  ),
-                ],
-              ),
-              child: Icon(
-                _isFollowing ? Icons.check_rounded : Icons.add_rounded,
-                size: 14.0,
-                color: AppPalette.onVideo,
+        // Follow / Unfollow Badge Button (ẩn với video của chính mình)
+        if (!_isOwnVideo)
+          Positioned(
+            bottom: -8.0,
+            child: GestureDetector(
+              onTap: _handleFollow,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 20.0,
+                height: 20.0,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _isFollowing
+                      ? AppColors.sakuraPink
+                      : (theme.isLight
+                            ? theme.primaryAdaptive
+                            : AppColors.periwinkle),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _isFollowing
+                          ? AppColors.sakuraPink.withValues(alpha: 0.6)
+                          : AppPalette.shadow,
+                      blurRadius: 8.0,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  _isFollowing ? Icons.check_rounded : Icons.add_rounded,
+                  size: 14.0,
+                  color: AppPalette.onVideo,
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -412,7 +419,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
                   size: 26.0,
                   color: isLiked
                       ? AppColors.likeRed
-                      : (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo),
+                      : (theme.isLight
+                            ? theme.primaryAdaptive
+                            : AppPalette.onVideo),
                   shadows: _isLiked
                       ? [
                           const Shadow(

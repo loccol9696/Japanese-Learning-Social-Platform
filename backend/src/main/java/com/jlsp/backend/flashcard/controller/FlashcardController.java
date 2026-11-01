@@ -55,6 +55,15 @@ public class FlashcardController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    // 3a. Lưu bộ thẻ của người khác về thư viện của mình
+    @PostMapping("/sets/{setId}/copy")
+    public ResponseEntity<ApiResponse<FlashcardSetResponse>> copySet(@PathVariable Long setId) {
+        Long userId = CurrentUser.requireId();
+        FlashcardSetResponse response = flashcardService.copySet(userId, setId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED.value(), "Đã lưu bộ thẻ vào thư viện", response));
+    }
+
     // 3b. Cập nhật thông tin bộ thẻ
     @PutMapping("/sets/{setId}")
     public ResponseEntity<ApiResponse<FlashcardSetResponse>> updateSet(

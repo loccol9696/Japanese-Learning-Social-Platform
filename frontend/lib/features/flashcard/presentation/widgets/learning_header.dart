@@ -4,6 +4,7 @@ import 'streak_progress_bar.dart';
 
 class LearningHeader extends StatelessWidget {
   final int currentIndex;
+  final int? completedItems;
   final int totalItems;
   final VoidCallback onClose;
   final VoidCallback? onSettingsClick;
@@ -15,6 +16,7 @@ class LearningHeader extends StatelessWidget {
   const LearningHeader({
     super.key,
     required this.currentIndex,
+    this.completedItems,
     required this.totalItems,
     required this.onClose,
     this.onSettingsClick,
@@ -27,7 +29,8 @@ class LearningHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final validTotal = totalItems > 0 ? totalItems : 1;
     final clampedIndex = currentIndex.clamp(0, validTotal);
-    final progress = totalItems > 0 ? (clampedIndex / validTotal).clamp(0.0, 1.0) : 0.0;
+    final clampedCompleted = (completedItems ?? currentIndex).clamp(0, validTotal);
+    final progress = totalItems > 0 ? (clampedCompleted / validTotal).clamp(0.0, 1.0) : 0.0;
     final displayIndex = totalItems > 0 ? clampedIndex : 0;
 
     return Column(

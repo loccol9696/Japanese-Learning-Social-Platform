@@ -47,6 +47,7 @@ class ApiConstants {
   // Flashcard endpoints
   static String get flashcardSetsUrl => '$baseUrl/flashcards/sets';
   static String flashcardSetDetailUrl(int id) => '$baseUrl/flashcards/sets/$id';
+  static String flashcardSetCopyUrl(int id) => '$baseUrl/flashcards/sets/$id/copy';
   static String get flashcardSetsOrderUrl => '$baseUrl/flashcards/sets/order';
   static String flashcardCardsOrderUrl(int setId) =>
       '$baseUrl/flashcards/sets/$setId/cards/order';
@@ -101,6 +102,9 @@ class ApiConstants {
   /// Quota của người đang đăng nhập (server xác định qua access token).
   static String get myQuotaUrl => '$baseUrl/payments/my-quota';
 
+  /// Token AI đã dùng theo ngày và theo tính năng; [range] là "week" hoặc "month".
+  static String tokenUsageUrl(String range) => '$baseUrl/payments/token-usage?range=$range';
+
   /// Câu hỏi chào mừng (trình độ + sở thích): đọc / lưu (GET, PUT) và bỏ qua (POST).
   static String get onboardingUrl => '$baseUrl/onboarding';
   static String get onboardingSkipUrl => '$baseUrl/onboarding/skip';
@@ -110,6 +114,7 @@ class ApiConstants {
   static String get topicsUrl => '$baseUrl/topics';
   static String get hashtagSuggestUrl => '$baseUrl/hashtags/suggest';
   static String get reportsUrl => '$baseUrl/reports';
+  static String reportResultUrl(int id) => '$reportsUrl/$id';
   static String get notificationsUrl => '$baseUrl/notifications';
 
   // Video & Moderation endpoints
@@ -127,7 +132,7 @@ class ApiConstants {
   static String permanentDeleteVideoUrl(int videoId) =>
       '$baseUrl/videos/$videoId/permanent';
 
-  // Follow endpoints (chỉ follow lẫn nhau mới nhắn tin được)
+  // Follow endpoints
   static String followUrl(int userId) => '$baseUrl/users/$userId/follow';
   static String userSearchUrl(String query, {int page = 0, int size = 20}) =>
       '$baseUrl/users/search?q=${Uri.encodeQueryComponent(query)}&page=$page&size=$size';

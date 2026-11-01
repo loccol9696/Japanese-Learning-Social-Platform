@@ -563,7 +563,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         pending.clientMsgId,
         (m) => m.copyWith(status: MessageStatus.failed),
       );
-      // Server từ chối vì không còn follow lẫn nhau hoặc đã bị chặn → khoá ô nhập.
+      // Server từ chối vì đã bị chặn → khoá ô nhập.
       if (error.statusCode == 403) {
         _conversation = _conversation.copyWith(canMessage: false);
       }
@@ -663,7 +663,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         message.senderId == _myId &&
         DateTime.now().difference(message.createdAt) < _recallWindow;
     final canReply = _canReplyTo(message);
-    if (!canReply && !canCopy && !canRecall) return;
+    final canReport = message.senderId != _myId;
+    if (!canReply && !canCopy && !canRecall && !canReport) return;
 
     unawaited(HapticFeedback.mediumImpact());
     final action = await showModalBottomSheet<_MessageAction>(
@@ -731,6 +732,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                 ),
                 onTap: () => Navigator.of(sheet).pop(_MessageAction.recall),
               ),
+            if (canReport)
+              ListTile(
+                leading: Icon(Icons.flag_outlined, color: AppPalette.error),
+                title: Text(
+                  'Báo cáo tin nhắn',
+                  style: TextStyle(color: AppPalette.error),
+                ),
+                onTap: () => Navigator.of(sheet).pop(_MessageAction.report),
+              ),
           ],
         ),
       ),
@@ -748,6 +758,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         if (mounted) AppToast.showSuccess('Đã sao chép', context: context);
       case _MessageAction.recall:
         await _recall(message);
+      case _MessageAction.report:
+        await showReportSheet(
+          context,
+          target: ReportTarget.message,
+          targetId: message.id!,
+          subject: 'tin nhắn này',
+        );
       case null:
         break;
     }
@@ -867,7 +884,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       final set = await FlashcardService.instance.getSetById(deck.id);
       if (!mounted) return;
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => DeckOverviewScreen(deck: set)),
+        MaterialPageRoute(
+          builder: (_) => DeckOverviewScreen(
+            deck: set,
+            // Tin do người kia gửi thì ghi "Chia sẻ bởi" họ; tin của chính mình thì dùng tác giả bộ thẻ.
+            sharedByName: message.senderId == _myId ? null : _conversation.otherUser.name,
+            sharedByAvatarUrl: message.senderId == _myId ? null : _conversation.otherUser.avatarUrl,
+            sharedByUserId: message.senderId == _myId ? null : _conversation.otherUser.id,
+          ),
+        ),
       );
     } on ApiException catch (error) {
       if (mounted) AppToast.showError(error.message, context: context);
@@ -1343,7 +1368,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   }
 }
 
-enum _MessageAction { reply, study, translate, copy, recall }
+enum _MessageAction { reply, study, translate, copy, recall, report }
 
 class _DayLabel extends StatelessWidget {
   final String label;

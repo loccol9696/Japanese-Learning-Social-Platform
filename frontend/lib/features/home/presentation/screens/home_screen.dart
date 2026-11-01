@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../widgets/ruby_subtitle_widget.dart';
@@ -19,6 +22,7 @@ import '../widgets/comments_sheet.dart';
 import '../../../explore/presentation/explore_screen.dart';
 import '../../../flashcard/presentation/screens/deck_library_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
+import '../../../video/data/services/video_trash_service.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/auth/auth_guard.dart';
@@ -31,6 +35,10 @@ class HomeScreen extends StatefulWidget {
 
   const HomeScreen({super.key, this.repository});
 
+  /// Màn khác (đang nằm trên Trang chủ) yêu cầu chuyển sang một tab của thanh điều hướng, ví dụ sau khi thanh
+  /// toán xong. Trang chủ nhận yêu cầu rồi đặt lại về null.
+  static final ValueNotifier<int?> tabRequest = ValueNotifier<int?>(null);
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -41,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   late final PageController _homeTabController;
   late final PageController _followingFeedPageController;
   late final PageController _forYouFeedPageController;
+  late final StreamSubscription<int> _trashedVideos;
 
   FeedTab _currentFeedTab = FeedTab.forYou;
   int _homeTabIndex = 1;
@@ -70,6 +79,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   void initState() {
     super.initState();
     AuthSession.instance.addListener(_onAuthChanged);
+    HomeScreen.tabRequest.addListener(_onTabRequested);
     _repository =
         widget.repository ??
         HomeRepositoryImpl(remoteDataSource: HomeRemoteDataSourceImpl());
@@ -77,6 +87,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     _homeTabController = PageController(initialPage: 1);
     _followingFeedPageController = PageController();
     _forYouFeedPageController = PageController();
+    _trashedVideos = VideoTrashService.trashedVideoIds.listen(
+      (videoId) => _removePost('$videoId'),
+    );
     _checkRole();
     _loadFeed(FeedTab.forYou);
   }
@@ -132,9 +145,21 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     }
   }
 
+  void _onTabRequested() {
+    final tab = HomeScreen.tabRequest.value;
+    if (tab == null) return;
+    HomeScreen.tabRequest.value = null;
+    // Chờ màn đang đóng xong rồi mới đổi tab, để không đổi trang khi cây widget đang dựng lại.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _selectTab(tab);
+    });
+  }
+
   @override
   void dispose() {
     appRouteObserver.unsubscribe(this);
+    _trashedVideos.cancel();
+    HomeScreen.tabRequest.removeListener(_onTabRequested);
     AuthSession.instance.removeListener(_onAuthChanged);
     _tabPageController.dispose();
     _homeTabController.dispose();
@@ -191,6 +216,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Future<void> _onFeedTabChanged(FeedTab tab) async {
+    RubySubtitleWidget.dismissLookups();
+    FocusManager.instance.primaryFocus?.unfocus();
     if (tab == FeedTab.following && !AuthSession.instance.isAuthenticated) {
       await requireAuthentication(context);
       return;
@@ -206,6 +233,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Future<void> _onHomeTabPageChanged(int index) async {
+    // onPageChanged cũng được gọi khi chuyển trang bằng thao tác vuốt; đóng
+    // Overlay tra từ để nó không tiếp tục nổi trên feed vừa chuyển tới.
+    RubySubtitleWidget.dismissLookups();
+    FocusManager.instance.primaryFocus?.unfocus();
     _homeTabIndex = index;
     final tab = index == 0 ? FeedTab.following : FeedTab.forYou;
     if (tab == FeedTab.following && !AuthSession.instance.isAuthenticated) {
@@ -447,9 +478,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     controller: _homeTabController,
                     physics: const NeverScrollableScrollPhysics(),
                     onPageChanged: _onHomeTabPageChanged,
+                    // Giữ sống cả hai tab: nếu không, tab vừa rời đi bị hủy và vuốt quay lại sẽ về video đầu.
                     children: [
-                      _buildVideoFeed(FeedTab.following),
-                      _buildVideoFeed(FeedTab.forYou),
+                      _KeepAlivePage(child: _buildVideoFeed(FeedTab.following)),
+                      _KeepAlivePage(child: _buildVideoFeed(FeedTab.forYou)),
                     ],
                   ),
                 ),
@@ -548,10 +580,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         return VideoPlayerItem(
           key: ValueKey(post.id),
           post: post,
-          isActive: index ==
-              (tab == FeedTab.following
-                  ? _followingPostIndex
-                  : _forYouPostIndex),
+          // Tab đang ẩn vẫn còn sống nên video của nó phải tạm dừng.
+          isActive: tab == _currentFeedTab &&
+              index ==
+                  (tab == FeedTab.following
+                      ? _followingPostIndex
+                      : _forYouPostIndex),
           onLikeToggle: () => _handleLikeToggle(post),
           onSaveToggle: () => _handleSaveToggle(post),
           onFollowToggle: () => _handleFollowToggle(post),
@@ -667,6 +701,36 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           : post;
       _followingPosts = _followingPosts.map(update).toList();
       _forYouPosts = _forYouPosts.map(update).toList();
+    });
+  }
+
+  /// Gỡ video đã xóa khỏi cả hai feed. Video kế tiếp thế chỗ video bị gỡ; video
+  /// cuối bị gỡ thì lùi về video liền trước.
+  void _removePost(String postId) {
+    int indexAfterRemoval(List<VideoPost> posts, int current) {
+      final removed = posts.indexWhere((post) => post.id == postId);
+      if (removed == -1) return current;
+      final index = removed < current ? current - 1 : current;
+      return index < posts.length - 1 ? index : math.max(posts.length - 2, 0);
+    }
+
+    final followingIndex = indexAfterRemoval(_followingPosts, _followingPostIndex);
+    final forYouIndex = indexAfterRemoval(_forYouPosts, _forYouPostIndex);
+    setState(() {
+      _followingPosts = _followingPosts.where((p) => p.id != postId).toList();
+      _forYouPosts = _forYouPosts.where((p) => p.id != postId).toList();
+      _followingPostIndex = followingIndex;
+      _forYouPostIndex = forYouIndex;
+    });
+    // PageController giữ trang cũ, phải kéo theo chỉ số mới sau khi danh sách đổi.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_followingFeedPageController.hasClients) {
+        _followingFeedPageController.jumpToPage(followingIndex);
+      }
+      if (_forYouFeedPageController.hasClients) {
+        _forYouFeedPageController.jumpToPage(forYouIndex);
+      }
     });
   }
 

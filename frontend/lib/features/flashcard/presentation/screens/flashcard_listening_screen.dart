@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/services/tts_service.dart';
 import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../widgets/answer_streak.dart';
+import '../widgets/completion_fireworks.dart';
 import '../widgets/fire_celebration.dart';
 import '../widgets/learning_header.dart';
 import '../widgets/simple_empty_state.dart';
@@ -31,6 +33,7 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen> {
   final FlashcardService _service = FlashcardService.instance;
 
   List<FlashcardItemModel> _cards = [];
+  int _totalCards = 0;
   int _currentIndex = 0;
   bool _isLoading = true;
   String? _feedbackMessage;
@@ -38,6 +41,7 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen> {
 
   /// Chuỗi trả lời đúng liên tiếp (đổi màu thanh tiến trình, hiện lửa) và bộ đếm để chơi hiệu ứng lửa lớn.
   final AnswerStreak _streak = AnswerStreak();
+  final Set<int> _masteredCardIds = {};
   int _fireTrigger = 0;
 
   bool _isPlayingAudio = false;
@@ -64,6 +68,8 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen> {
   }
 
   Future<void> _loadCards() async {
+    _streak.reset();
+    _masteredCardIds.clear();
     setState(() => _isLoading = true);
     final list = await _service.getCardsInSet(
       widget.deck.setId,
@@ -73,19 +79,26 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen> {
     if (mounted) {
       setState(() {
         _cards = list;
+        _totalCards = list.length;
         _currentIndex = 0;
         _inputController.clear();
         _isCorrect = null;
         _feedbackMessage = null;
         _isLoading = false;
       });
-      _focusNode.requestFocus();
+      _focusAnswerInput();
       if (_cards.isNotEmpty) {
         Future.delayed(const Duration(milliseconds: 350), () {
           if (mounted) _playCurrentAudio();
         });
       }
     }
+  }
+
+  void _focusAnswerInput() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _focusNode.canRequestFocus) _focusNode.requestFocus();
+    });
   }
 
   void _stopAudio() {
@@ -155,81 +168,127 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen> {
     final isDefinition = _options.displayFrontFace == 'definition';
 
     bool isMatch;
-    String fullAnswerDisplay;
+    String correctAnswerDisplay;
 
     if (isDefinition) {
-      // Phát định nghĩa tiếng Việt -> Nhập thuật ngữ tiếng Nhật
-      final correctTerm = card.term.trim().toLowerCase();
-      final correctReading = (card.reading ?? '').trim().toLowerCase();
-      isMatch = userInput == correctTerm ||
-          (correctReading.isNotEmpty && userInput == correctReading);
-
-      final readingPart = (card.reading != null &&
-              card.reading!.trim().isNotEmpty &&
-              card.reading!.trim().toLowerCase() != card.term.trim().toLowerCase())
-          ? ' (${card.reading})'
-          : '';
-      fullAnswerDisplay = '${card.term}$readingPart: ${card.meaning}';
-    } else {
-      // Phát thuật ngữ tiếng Nhật -> Nhập định nghĩa
+      // Phát định nghĩa tiếng Việt -> Nhập lại định nghĩa tiếng Việt.
       final correctMeaning = card.meaning.trim().toLowerCase();
       final synonyms = card.meaning
           .split(RegExp(r'[,;/]'))
           .map((s) => s.trim().toLowerCase())
           .where((s) => s.isNotEmpty)
           .toList();
-      isMatch = userInput == correctMeaning ||
-          synonyms.contains(userInput) ||
-          userInput == card.term.trim().toLowerCase() ||
-          (card.reading != null && userInput == card.reading!.trim().toLowerCase());
-      fullAnswerDisplay = '${card.meaning} (${card.term})';
+      isMatch = userInput == correctMeaning || synonyms.contains(userInput);
+      correctAnswerDisplay = card.meaning;
+    } else {
+      // Phát thuật ngữ tiếng Nhật -> Nhập lại thuật ngữ tiếng Nhật.
+      final correctTerm = card.term.trim().toLowerCase();
+      final correctReading = (card.reading ?? '').trim().toLowerCase();
+      isMatch = userInput == correctTerm ||
+          (correctReading.isNotEmpty && userInput == correctReading);
+
+      final readingPart = card.reading != null &&
+              card.reading!.trim().isNotEmpty &&
+              card.reading!.trim().toLowerCase() != card.term.trim().toLowerCase()
+          ? ' (${card.reading})'
+          : '';
+      correctAnswerDisplay = '${card.term}$readingPart';
     }
 
     final reachedFireMilestone = _streak.record(correct: isMatch);
     setState(() {
       if (reachedFireMilestone) _fireTrigger++;
+      if (isMatch) _masteredCardIds.add(card.cardId);
       _isCorrect = isMatch;
-      _feedbackMessage = isMatch ? 'Chính xác! $fullAnswerDisplay' : 'Đáp án đúng: $fullAnswerDisplay';
+      _feedbackMessage = isMatch ? 'Chính xác!' : 'Đáp án đúng: $correctAnswerDisplay';
     });
 
     _service.submitAnswer(card.cardId, isMatch);
 
-    Future.delayed(Duration(milliseconds: reachedFireMilestone ? 2100 : 1600), () {
-      if (!mounted) return;
-      if (_currentIndex < _cards.length - 1) {
-        setState(() {
-          _currentIndex++;
-          _inputController.clear();
-          _isCorrect = null;
-          _feedbackMessage = null;
-        });
-        _focusNode.requestFocus();
-        _playCurrentAudio();
-      } else {
-        _showCompleted();
-      }
+    Future.delayed(
+      Duration(milliseconds: reachedFireMilestone ? 2100 : 1600),
+      () => _advanceToNext(retryCard: isMatch ? null : card),
+    );
+  }
+
+  void _onSkip() {
+    if (_cards.isEmpty || _feedbackMessage != null) return;
+    final card = _cards[_currentIndex];
+    final isDefinition = _options.displayFrontFace == 'definition';
+    final readingPart = card.reading != null &&
+            card.reading!.trim().isNotEmpty &&
+            card.reading!.trim().toLowerCase() != card.term.trim().toLowerCase()
+        ? ' (${card.reading})'
+        : '';
+    final correctAnswerDisplay = isDefinition
+        ? card.meaning
+        : '${card.term}$readingPart';
+
+    _streak.record(correct: false);
+    setState(() {
+      _isCorrect = false;
+      _feedbackMessage = 'Đáp án đúng: $correctAnswerDisplay';
     });
+    _service.submitAnswer(card.cardId, false);
+    Future.delayed(
+      const Duration(milliseconds: 1600),
+      () => _advanceToNext(retryCard: card),
+    );
+  }
+
+  void _advanceToNext({FlashcardItemModel? retryCard}) {
+    if (!mounted) return;
+    if (retryCard != null || _currentIndex < _cards.length - 1) {
+      setState(() {
+        if (retryCard != null) _cards.add(retryCard);
+        _currentIndex++;
+        _inputController.clear();
+        _isCorrect = null;
+        _feedbackMessage = null;
+      });
+      _focusAnswerInput();
+      _playCurrentAudio();
+    } else {
+      _showCompleted();
+    }
   }
 
   void _showCompleted() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppPalette.background,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Hoàn thành bài luyện nghe!', style: TextStyle(color: AppPalette.textPrimary)),
-        content: Text(
-          'Bạn đã hoàn tất tất cả câu hỏi luyện nghe trong bộ thẻ.',
-          style: TextStyle(color: AppPalette.textSecondary),
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: Text('Đóng', style: TextStyle(color: AppPalette.onAccent)),
+      builder: (ctx) => Stack(
+        fit: StackFit.expand,
+        alignment: Alignment.center,
+        children: [
+          const IgnorePointer(child: CompletionFireworks()),
+          Center(
+            child: AlertDialog(
+              backgroundColor: AppPalette.background,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text('Hoàn thành bài luyện nghe!', style: TextStyle(color: AppPalette.textPrimary)),
+              content: Text(
+                'Bạn đã hoàn tất tất cả câu hỏi luyện nghe trong bộ thẻ.',
+                style: TextStyle(color: AppPalette.textSecondary),
+              ),
+              actions: [
+                TextButton(
+                  key: const ValueKey('listening-restart'),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _loadCards();
+                  },
+                  child: Text('Học lại', style: TextStyle(color: AppPalette.textPrimary)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                  },
+                  child: Text('Đóng', style: TextStyle(color: AppPalette.onAccent)),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -271,6 +330,10 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen> {
       );
     }
 
+    final displayIndex = _isCorrect == null
+        ? math.min(_masteredCardIds.length + 1, _totalCards)
+        : math.min(_masteredCardIds.length + (_isCorrect == true ? 0 : 1), _totalCards);
+
     return Scaffold(
       backgroundColor: AppPalette.background,
       body: Stack(
@@ -281,8 +344,9 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen> {
               children: [
                 // Top Bar & Progress Bar
                 LearningHeader(
-                  currentIndex: _currentIndex + 1,
-                  totalItems: _cards.length,
+                  currentIndex: displayIndex,
+                  completedItems: _masteredCardIds.length,
+                  totalItems: _totalCards,
                   streak: _streak.count,
                   onClose: () => Navigator.pop(context),
                   onSettingsClick: _openSettings,
@@ -377,6 +441,27 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen> {
                     ),
                   ),
 
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      key: const ValueKey('listening-skip'),
+                      onPressed: _feedbackMessage == null ? _onSkip : null,
+                      child: Text(
+                        'Không biết',
+                        style: TextStyle(
+                          color: _feedbackMessage == null
+                              ? AppPalette.accent
+                              : AppPalette.textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
                 // Ô nghe-viết và nút kiểm tra đáp án.
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
@@ -456,7 +541,7 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen> {
             ),
           ),
           // Hiệu ứng lửa lớn khi đúng 5 câu liên tiếp
-          FireCelebration(trigger: _fireTrigger),
+          FireCelebration(trigger: _fireTrigger, streak: _streak.count),
         ],
       ),
     );

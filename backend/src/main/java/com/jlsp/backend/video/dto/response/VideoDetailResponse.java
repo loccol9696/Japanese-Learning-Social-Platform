@@ -85,6 +85,9 @@ public class VideoDetailResponse {
     /** Lượt chia sẻ cho bạn bè qua chat. */
     private Integer shareCount;
 
+    /** Số bình luận (gồm cả phản hồi); chỉ có khi lấy chi tiết một video để xem. */
+    private Long commentCount;
+
     /**
      * Trạng thái hiển thị (PUBLIC, PRIVATE...)
      */

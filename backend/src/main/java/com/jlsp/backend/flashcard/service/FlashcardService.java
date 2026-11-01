@@ -17,6 +17,12 @@ public interface FlashcardService {
 
     FlashcardSetResponse getSetById(Long userId, Long setId);
 
+    /**
+     * Lưu bộ thẻ của người khác (công khai) về thư viện của người gọi: tạo một bản sao riêng tư kèm toàn bộ thẻ
+     * theo đúng thứ tự. Đã lưu rồi thì trả lại bản sao cũ, không tạo thêm.
+     */
+    FlashcardSetResponse copySet(Long userId, Long setId);
+
     void deleteSet(Long userId, Long setId);
 
     /** Lưu thứ tự bộ thẻ trong thư viện sau khi người dùng kéo thả. */

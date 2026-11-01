@@ -11,6 +11,7 @@ import '../../data/video_manage_service.dart';
 import '../../domain/models/user_video_model.dart';
 import '../../../profile/domain/models/topic_model.dart';
 import '../../../topic/topic_service.dart';
+import '../widgets/confirm_move_to_trash.dart';
 import '../widgets/video_classification_fields.dart';
 import 'deleted_videos_screen.dart';
 import 'upload_video_screen.dart';
@@ -46,27 +47,7 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
   }
 
   Future<void> _moveToTrash(UserVideoModel video) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Xóa video?'),
-        content: const Text(
-          'Video cùng bình luận và lượt tương tác sẽ được giữ trong thùng rác '
-          '30 ngày, sau đó bị xóa hẳn. Bạn có thể khôi phục trong thời gian này.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Xóa'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
+    if (!await confirmMoveToTrash(context) || !mounted) return;
     try {
       await _trashService.moveToTrash(video.id);
       if (!mounted) return;

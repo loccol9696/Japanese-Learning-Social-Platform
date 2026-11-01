@@ -174,7 +174,7 @@ class ChatSocketService {
   // ---------------------------------------------------------------------------
 
   /// Gửi tin văn bản và chờ ack. Ném [ApiException] khi server từ chối
-  /// (vd. 403 chưa follow lẫn nhau) hoặc khi mất kết nối / quá hạn (statusCode 503)
+  /// (vd. 403 do bị chặn) hoặc khi mất kết nối / quá hạn (statusCode 503)
   /// để nơi gọi chuyển sang gửi dự phòng qua REST.
   Future<ChatMessage> sendText({
     required int conversationId,

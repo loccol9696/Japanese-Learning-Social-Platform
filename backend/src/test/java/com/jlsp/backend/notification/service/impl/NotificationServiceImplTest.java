@@ -88,6 +88,18 @@ class NotificationServiceImplTest {
     }
 
     @Test
+    void reportResultKeepsTheReportAndStaysAnonymous() {
+        service.notifyReportResult(RECIPIENT, NotificationType.REPORT_UPDATE, VIDEO_ID, 30L, "kết quả");
+
+        ArgumentCaptor<NotificationCreatedEvent> event = ArgumentCaptor.forClass(NotificationCreatedEvent.class);
+        verify(publisher).publishEvent(event.capture());
+        NotificationResponse payload = event.getValue().notification();
+        assertThat(payload.getReportId()).isEqualTo(30L);
+        assertThat(payload.getActorId()).isNull();
+        assertThat(payload.getMessage()).isEqualTo("kết quả");
+    }
+
+    @Test
     void neverNotifiesSomeoneAboutTheirOwnAction() {
         service.notify(RECIPIENT, RECIPIENT, NotificationType.LIKE, VIDEO_ID, null, null);
 

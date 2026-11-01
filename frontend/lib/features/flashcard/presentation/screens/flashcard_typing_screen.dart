@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../../data/models/flashcard_item_model.dart';
 import '../../data/models/flashcard_set_model.dart';
 import '../../data/services/flashcard_service.dart';
 import '../widgets/answer_streak.dart';
+import '../widgets/completion_fireworks.dart';
 import '../widgets/fire_celebration.dart';
 import '../widgets/learning_header.dart';
 import '../widgets/simple_empty_state.dart';
@@ -31,6 +34,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
   final FlashcardService _service = FlashcardService.instance;
 
   List<FlashcardItemModel> _cards = [];
+  int _totalCards = 0;
   int _currentIndex = 0;
   bool _isLoading = true;
   String? _feedbackMessage;
@@ -38,6 +42,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
 
   /// Chuỗi trả lời đúng liên tiếp (đổi màu thanh tiến trình, hiện lửa) và bộ đếm để chơi hiệu ứng lửa lớn.
   final AnswerStreak _streak = AnswerStreak();
+  final Set<int> _masteredCardIds = {};
   int _fireTrigger = 0;
 
   late String _targetLanguage;
@@ -60,7 +65,15 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     super.dispose();
   }
 
+  void _focusAnswerInput() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _focusNode.canRequestFocus) _focusNode.requestFocus();
+    });
+  }
+
   Future<void> _loadCards() async {
+    _streak.reset();
+    _masteredCardIds.clear();
     setState(() => _isLoading = true);
     final list = await _service.getCardsInSet(
       widget.deck.setId,
@@ -70,13 +83,14 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     if (mounted) {
       setState(() {
         _cards = list;
+        _totalCards = list.length;
         _currentIndex = 0;
         _inputController.clear();
         _isCorrect = null;
         _feedbackMessage = null;
         _isLoading = false;
       });
-      _focusNode.requestFocus();
+      _focusAnswerInput();
     }
   }
 
@@ -139,6 +153,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     final reachedFireMilestone = _streak.record(correct: isMatch);
     setState(() {
       if (reachedFireMilestone) _fireTrigger++;
+      if (isMatch) _masteredCardIds.add(card.cardId);
       _isCorrect = isMatch;
       _feedbackMessage =
           isMatch ? 'Chính xác!' : 'Đáp án đúng: $correctAnswerDisplay';
@@ -146,20 +161,10 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
 
     _service.submitAnswer(card.cardId, isMatch);
 
-    Future.delayed(Duration(milliseconds: reachedFireMilestone ? 1900 : 1400), () {
-      if (!mounted) return;
-      if (_currentIndex < _cards.length - 1) {
-        setState(() {
-          _currentIndex++;
-          _inputController.clear();
-          _isCorrect = null;
-          _feedbackMessage = null;
-        });
-        _focusNode.requestFocus();
-      } else {
-        _showCompleted();
-      }
-    });
+    Future.delayed(
+      Duration(milliseconds: reachedFireMilestone ? 1900 : 1400),
+      () => _advanceToNext(retryCard: isMatch ? null : card),
+    );
   }
 
   void _onSkip() {
@@ -185,38 +190,61 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     });
     _service.submitAnswer(card.cardId, false);
 
-    Future.delayed(const Duration(milliseconds: 1400), () {
-      if (!mounted) return;
-      if (_currentIndex < _cards.length - 1) {
-        setState(() {
-          _currentIndex++;
-          _inputController.clear();
-          _isCorrect = null;
-          _feedbackMessage = null;
-        });
-        _focusNode.requestFocus();
-      } else {
-        _showCompleted();
-      }
-    });
+    Future.delayed(
+      const Duration(milliseconds: 1400),
+      () => _advanceToNext(retryCard: card),
+    );
+  }
+
+  void _advanceToNext({FlashcardItemModel? retryCard}) {
+    if (!mounted) return;
+    if (retryCard != null || _currentIndex < _cards.length - 1) {
+      setState(() {
+        if (retryCard != null) _cards.add(retryCard);
+        _currentIndex++;
+        _inputController.clear();
+        _isCorrect = null;
+        _feedbackMessage = null;
+      });
+      _focusAnswerInput();
+    } else {
+      _showCompleted();
+    }
   }
 
   void _showCompleted() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppPalette.background,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Hoàn thành bài tự luận!', style: TextStyle(color: AppPalette.textPrimary)),
-        content: Text('Bạn đã hoàn tất tất cả câu hỏi tự luận.', style: TextStyle(color: AppPalette.textSecondary)),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: Text('Đóng', style: TextStyle(color: AppPalette.onAccent)),
+      builder: (ctx) => Stack(
+        fit: StackFit.expand,
+        alignment: Alignment.center,
+        children: [
+          const IgnorePointer(child: CompletionFireworks()),
+          Center(
+            child: AlertDialog(
+              backgroundColor: AppPalette.background,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text('Hoàn thành bài tự luận!', style: TextStyle(color: AppPalette.textPrimary)),
+              content: Text('Bạn đã hoàn tất tất cả câu hỏi tự luận.', style: TextStyle(color: AppPalette.textSecondary)),
+              actions: [
+                TextButton(
+                  key: const ValueKey('typing-restart'),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _loadCards();
+                  },
+                  child: Text('Học lại', style: TextStyle(color: AppPalette.textPrimary)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppPalette.accent),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                  },
+                  child: Text('Đóng', style: TextStyle(color: AppPalette.onAccent)),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -259,6 +287,9 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
     }
 
     final card = _cards[_currentIndex];
+    final displayIndex = _isCorrect == null
+        ? math.min(_masteredCardIds.length + 1, _totalCards)
+        : math.min(_masteredCardIds.length + (_isCorrect == true ? 0 : 1), _totalCards);
     final isInputTerm = _options.displayFrontFace == 'definition';
     // Nếu mặt trước (câu hỏi) là Định nghĩa -> Yêu cầu nhập Thuật ngữ
     // Nếu mặt trước (câu hỏi) là Thuật ngữ -> Yêu cầu nhập Định nghĩa
@@ -277,8 +308,9 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
               children: [
                 // Top Bar & Continuous Progress Bar
                 LearningHeader(
-                  currentIndex: _currentIndex + 1,
-                  totalItems: _cards.length,
+                  currentIndex: displayIndex,
+                  completedItems: _masteredCardIds.length,
+                  totalItems: _totalCards,
                   streak: _streak.count,
                   onClose: () => Navigator.pop(context),
                   onSettingsClick: _openSettings,
@@ -426,7 +458,7 @@ class _FlashcardTypingScreenState extends State<FlashcardTypingScreen> {
             ),
           ),
           // Hiệu ứng lửa lớn khi đúng 5 câu liên tiếp
-          FireCelebration(trigger: _fireTrigger),
+          FireCelebration(trigger: _fireTrigger, streak: _streak.count),
         ],
       ),
     );
