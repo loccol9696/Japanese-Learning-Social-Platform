@@ -100,4 +100,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(WordLookupCard), findsNothing);
   });
+
+  testWidgets('WordLookupCard hiện nút Report cạnh Thêm vào Flashcard và gọi callback khi bấm', (tester) async {
+    var reported = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: LookupSentenceText(
+              sentence: '桜',
+              style: const TextStyle(fontSize: 17),
+              onReportScript: () => reported = true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('桜', findRichText: true));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(WordLookupCard), findsOneWidget);
+    expect(find.byKey(const ValueKey('word-lookup-report-button')), findsOneWidget);
+    expect(find.text('Report'), findsOneWidget);
+    expect(find.text('Thêm vào Flashcard'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('word-lookup-report-button')));
+    await tester.pumpAndSettle();
+
+    expect(reported, isTrue);
+  });
 }

@@ -218,6 +218,7 @@ public class ReportServiceImpl implements ReportService {
             case REMOVE_TRANSLATION -> "Đã gỡ bản dịch";
             case EDIT_GRAMMAR -> "Đã sửa lại mẫu ngữ pháp";
             case REMOVE_GRAMMAR -> "Đã gỡ mẫu ngữ pháp";
+            case EDIT_SCRIPT -> "Đã sửa lại câu thoại tiếng Nhật";
             case LOCK_USER -> "Đã khóa tài khoản vi phạm";
             case NONE -> "Báo cáo đã được xử lý";
         };
@@ -225,14 +226,14 @@ public class ReportServiceImpl implements ReportService {
 
     private static String targetKeyOf(CreateReportRequest request) {
         ReportTargetType type = request.getTargetType();
-        if (type != ReportTargetType.TRANSLATION && type != ReportTargetType.GRAMMAR) {
+        if (type != ReportTargetType.TRANSLATION && type != ReportTargetType.GRAMMAR && type != ReportTargetType.SCRIPT) {
             return "";
         }
         Integer index = request.getSegmentIndex();
         if (index == null) {
             throw new AppException(400, "Thiếu vị trí câu phụ đề");
         }
-        if (type == ReportTargetType.TRANSLATION) {
+        if (type == ReportTargetType.TRANSLATION || type == ReportTargetType.SCRIPT) {
             return index.toString();
         }
         String pattern = request.getGrammarPattern();
@@ -251,7 +252,7 @@ public class ReportServiceImpl implements ReportService {
             case MESSAGE -> messageRepository.findById(targetId)
                     .map(m -> isParticipant(m, reporterId))
                     .orElse(false);
-            case TRANSLATION, GRAMMAR -> videoRepository.findById(targetId)
+            case TRANSLATION, GRAMMAR, SCRIPT -> videoRepository.findById(targetId)
                     .map(v -> v.getStatus() != VideoStatus.PRIVATE && v.getStatus() != VideoStatus.DRAFT)
                     .orElse(false);
             default -> true;
@@ -372,6 +373,19 @@ public class ReportServiceImpl implements ReportService {
                             "Một mẫu ngữ pháp trong video của bạn đã bị gỡ", note);
                 }
             }
+            case EDIT_SCRIPT -> {
+                requireEditable(report, target, ReportTargetType.SCRIPT);
+                String scriptText = requireText(correction == null ? null : correction.getScriptText(),
+                        "Vui lòng nhập câu thoại tiếng Nhật đã sửa");
+                Video video = videoRepository.findById(report.getTargetId()).orElseThrow();
+                video.setSubtitles(SubtitleLines.withScriptText(video.getSubtitles(),
+                        lineIndexOf(report.getTargetKey()), scriptText));
+                video.setGrammarAnalysis(null);
+                videoRepository.save(video);
+                eventPublisher.publishEvent(new com.jlsp.backend.video.event.SubtitlesUpdatedEvent(video.getId()));
+                notifyOwner(NotificationType.CONTENT_EDITED, target, report,
+                        "Một câu trong kịch bản video của bạn đã được sửa lại", note);
+            }
             case LOCK_USER -> {
                 if (!actorIsAdmin) {
                     throw new AppException(403, "Chỉ Admin mới được khóa tài khoản");
@@ -392,6 +406,7 @@ public class ReportServiceImpl implements ReportService {
             case MESSAGE -> "Tin nhắn của bạn";
             case TRANSLATION -> "Bản dịch trong video của bạn";
             case GRAMMAR -> "Phần ngữ pháp trong video của bạn";
+            case SCRIPT -> "Câu thoại trong video của bạn";
         };
         return content + " đã vi phạm tiêu chuẩn cộng đồng";
     }
@@ -471,7 +486,7 @@ public class ReportServiceImpl implements ReportService {
     /** Video để người báo cáo mở lại từ thông báo. */
     private static Long reportedVideoIdOf(Report report) {
         return switch (report.getTargetType()) {
-            case VIDEO, TRANSLATION, GRAMMAR -> report.getTargetId();
+            case VIDEO, TRANSLATION, GRAMMAR, SCRIPT -> report.getTargetId();
             default -> null;
         };
     }
@@ -501,6 +516,9 @@ public class ReportServiceImpl implements ReportService {
                     .orElse(Target.MISSING);
             case GRAMMAR -> videoRepository.findById(id)
                     .map(v -> grammarTarget(v, lineIndexOf(key), patternOf(key)))
+                    .orElse(Target.MISSING);
+            case SCRIPT -> videoRepository.findById(id)
+                    .map(v -> scriptTarget(v, lineIndexOf(key)))
                     .orElse(Target.MISSING);
         };
     }
@@ -546,6 +564,15 @@ public class ReportServiceImpl implements ReportService {
                 .orElseGet(() -> Target.gone(video.getUser(), video.getId(), video.getVideoUrl()));
     }
 
+    private static Target scriptTarget(Video video, int index) {
+        return SubtitleLines.find(video.getSubtitles(), index)
+                .filter(line -> !line.text().isBlank())
+                .map(line -> videoLineTarget(video, abbreviate(line.text()),
+                        "Câu thoại gốc: " + line.text() + (line.translation().isBlank() ? "" : "\nBản dịch: " + line.translation()),
+                        ReportCorrection.builder().scriptText(line.text()).translation(line.translation()).build()))
+                .orElseGet(() -> Target.gone(video.getUser(), video.getId(), video.getVideoUrl()));
+    }
+
     private static Target videoLineTarget(Video video, String summary, String snapshot, ReportCorrection content) {
         return new Target(true, video.getUser().getId(), video.getUser().getUsername(), summary, video.getId(),
                 snapshot, null, video.getVideoUrl(), content);
@@ -588,7 +615,7 @@ public class ReportServiceImpl implements ReportService {
     }
 
     private static boolean isVideoLine(ReportTargetType type) {
-        return type == ReportTargetType.TRANSLATION || type == ReportTargetType.GRAMMAR;
+        return type == ReportTargetType.TRANSLATION || type == ReportTargetType.GRAMMAR || type == ReportTargetType.SCRIPT;
     }
 
     private ReportResponse toResponse(Report r, Target target) {

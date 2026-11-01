@@ -20,6 +20,9 @@ class LookupSentenceText extends StatefulWidget {
   /// Báo cáo một mẫu ngữ pháp; null thì bảng ngữ pháp không có nút báo cáo.
   final ValueChanged<GrammarPointInfo>? onReportGrammar;
 
+  /// Báo cáo / đề xuất sửa câu thoại; null thì bảng tra từ không có nút báo cáo.
+  final VoidCallback? onReportScript;
+
   const LookupSentenceText({
     super.key,
     required this.sentence,
@@ -27,6 +30,7 @@ class LookupSentenceText extends StatefulWidget {
     this.grammarPoints = const [],
     this.onLookupActiveChanged,
     this.onReportGrammar,
+    this.onReportScript,
   });
 
   @override
@@ -177,6 +181,12 @@ class _LookupSentenceTextState extends State<LookupSentenceText> {
             token: segment.token!,
             sentence: widget.sentence,
             onClose: _clearSelection,
+            onReport: widget.onReportScript == null
+                ? null
+                : () {
+                    _clearSelection();
+                    widget.onReportScript!();
+                  },
           );
 
     _overlay = OverlayEntry(

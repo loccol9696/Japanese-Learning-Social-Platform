@@ -72,6 +72,7 @@ import {
   type DailyMetricDto
 } from '../services/adminService';
 import VideoClassificationEditor from './VideoClassificationEditor';
+import SubtitleEditor from './SubtitleEditor';
 import ReportsManager from './ReportsManager';
 import './AdminDashboard.css';
 
@@ -197,6 +198,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   // Filter types: 'month_year' (chọn tháng & năm) | 'range' (tùy chỉnh khoảng ngày)
   type ChartFilterMode = 'month_year' | 'range';
 
+  /*
+  // Global Filter State (đồng bộ cho toàn bộ biểu đồ)
+  const [_globalFilterMode, setGlobalFilterMode] = useState<ChartFilterMode>('month_year');
+  const [_globalYear, setGlobalYear] = useState<number>(2026);
+  const [_globalMonth, setGlobalMonth] = useState<number>(10);
+  const [_globalStartDate, setGlobalStartDate] = useState<string>('2026-10-01');
+  const [_globalEndDate, setGlobalEndDate] = useState<string>('2026-10-31');
+  */
   // Chart 1: Học viên đăng ký (Chỉ role USER, loại trừ Admin/Mod)
   const [userFilterMode, setUserFilterMode] = useState<ChartFilterMode>('month_year');
   const [userYear, setUserYear] = useState<number>(2026);
@@ -340,6 +349,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   }, [isAdmin, activeTab, revFilterMode, revYear, revMonth, revStartDate, revEndDate]);
 
+  /*
+  // Đồng bộ thời gian cho tất cả biểu đồ (dự phòng)
+  const _applyGlobalMonthYear = (m: number, y: number) => {
+    setGlobalFilterMode('month_year');
+    setGlobalMonth(m);
+    setGlobalYear(y);
+
+    setUserFilterMode('month_year');
+    setUserMonth(m);
+    setUserYear(y);
+
+    setTokenFilterMode('month_year');
+    setTokenMonth(m);
+    setTokenYear(y);
+
+    setRevFilterMode('month_year');
+    setRevMonth(m);
+    setRevYear(y);
+  };
+
+  const _applyGlobalRange = (start: string, end: string) => {
+    if (!start || !end) return;
+    setGlobalFilterMode('range');
+    setGlobalStartDate(start);
+    setGlobalEndDate(end);
+
+    setUserFilterMode('range');
+    setUserStartDate(start);
+    setUserEndDate(end);
+
+    setTokenFilterMode('range');
+    setTokenStartDate(start);
+    setTokenEndDate(end);
+
+    setRevFilterMode('range');
+    setRevStartDate(start);
+    setRevEndDate(end);
+  };
+  */
   // Helper render thanh tóm tắt chỉ số đỉnh cao / trung bình / tổng cộng
   const renderStatsStrip = (
     metrics: DailyMetricDto[] | null | undefined,
@@ -3565,70 +3613,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
               )}
 
               {/* Speech-to-text Transcription / Subtitles block */}
-              {(selectedDetailVideo.japaneseTranscription || selectedDetailVideo.vietnameseTranslation || (selectedDetailVideo.subtitles && selectedDetailVideo.subtitles !== '[]')) && (
-                <div style={{ marginTop: '0.85rem' }}>
-                  {(() => {
-                    let parsedSubs: Array<{ start?: string; end?: string; text?: string; translation?: string }> = [];
-                    if (selectedDetailVideo.subtitles && selectedDetailVideo.subtitles !== '[]') {
-                      try {
-                        const parsed = typeof selectedDetailVideo.subtitles === 'string'
-                          ? JSON.parse(selectedDetailVideo.subtitles)
-                          : selectedDetailVideo.subtitles;
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                          parsedSubs = parsed;
-                        }
-                      } catch {
-                        // ignore json parse error
-                      }
-                    }
-
-                    return (
-                      <>
-                        <label className="form-label-sharp" style={{ marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span>Trích xuất lời thoại AI (Speech-to-Text) & Phụ đề:</span>
-                          {parsedSubs.length > 0 && (
-                            <span style={{ fontSize: '0.72rem', color: '#0284c7', fontWeight: 600 }}>
-                              ({parsedSubs.length} đoạn hội thoại)
-                            </span>
-                          )}
-                        </label>
-
-                        {parsedSubs.length > 0 ? (
-                          <div className="mod-subtitles-list">
-                            {parsedSubs.map((sub, idx) => (
-                              <div key={idx} className="mod-subtitle-item">
-                                {(sub.start || sub.end) && (
-                                  <div className="mod-subtitle-time">
-                                    {sub.start || '00:00'} - {sub.end || ''}
-                                  </div>
-                                )}
-                                <div style={{ flex: 1 }}>
-                                  <div className="mod-subtitle-text">{sub.text}</div>
-                                  {sub.translation && (
-                                    <div className="mod-subtitle-trans">"{sub.translation}"</div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="mod-transcript-box">
-                            {selectedDetailVideo.japaneseTranscription && (
-                              <div className="mod-transcript-jp">{selectedDetailVideo.japaneseTranscription}</div>
-                            )}
-                            {selectedDetailVideo.vietnameseTranslation && (
-                              <div className="mod-transcript-vn">"{selectedDetailVideo.vietnameseTranslation}"</div>
-                            )}
-                            {!selectedDetailVideo.japaneseTranscription && !selectedDetailVideo.vietnameseTranslation && selectedDetailVideo.subtitles && (
-                              <div className="mod-transcript-jp">{selectedDetailVideo.subtitles}</div>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
+              <SubtitleEditor
+                video={selectedDetailVideo}
+                onSaved={(updated) => {
+                  setSelectedDetailVideo(updated);
+                  setVideos((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
+                }}
+                showToast={showToast}
+              />
 
               {/* Rejection Reason if any */}
               {selectedDetailVideo.rejectionReason && (

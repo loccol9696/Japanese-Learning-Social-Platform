@@ -8,7 +8,8 @@ enum ReportTarget {
   user('Người dùng'),
   message('Tin nhắn'),
   translation('Bản dịch'),
-  grammar('Ngữ pháp');
+  grammar('Ngữ pháp'),
+  script('Câu thoại');
 
   const ReportTarget(this.label);
 
@@ -16,7 +17,7 @@ enum ReportTarget {
 
   /// Các lý do hợp với loại đối tượng này, hiện theo thứ tự trong bảng báo cáo.
   List<ReportReason> get reasons => switch (this) {
-    translation || grammar => const [
+    translation || grammar || script => const [
       ReportReason.inaccurate,
       ReportReason.inappropriate,
       ReportReason.spam,

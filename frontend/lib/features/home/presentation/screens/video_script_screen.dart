@@ -83,6 +83,16 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
     );
   }
 
+  void _reportScript(int segmentIndex, {String? sentence}) {
+    widget.controller?.pause();
+    showScriptReportSheet(
+      context,
+      videoId: int.parse(widget.videoId!),
+      segmentIndex: segmentIndex,
+      originalSentence: sentence,
+    );
+  }
+
   void _reportGrammar(int segmentIndex, GrammarPointInfo grammar) {
     showGrammarReportSheet(
       context,
@@ -505,26 +515,55 @@ class _VideoScriptScreenState extends State<VideoScriptScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        LookupSentenceText(
-                          sentence: cue.text,
-                          grammarPoints: cue.grammarPoints,
-                          // Tra từ thì tạm dừng video để đọc bảng nghĩa, giống phụ đề ở trang chủ.
-                          onLookupActiveChanged: (active) {
-                            if (active) widget.controller?.pause();
-                          },
-                          onReportGrammar: reportableLine == null
-                              ? null
-                              : (grammar) => _reportGrammar(reportableLine, grammar),
-                          style: TextStyle(
-                            fontSize: 17,
-                            height: 1.35,
-                            fontWeight: isActive
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: isActive
-                                ? AppPalette.textPrimary
-                                : _inactiveText,
-                          ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: LookupSentenceText(
+                                sentence: cue.text,
+                                grammarPoints: cue.grammarPoints,
+                                // Tra từ thì tạm dừng video để đọc bảng nghĩa, giống phụ đề ở trang chủ.
+                                onLookupActiveChanged: (active) {
+                                  if (active) widget.controller?.pause();
+                                },
+                                onReportGrammar: reportableLine == null
+                                    ? null
+                                    : (grammar) => _reportGrammar(reportableLine, grammar),
+                                onReportScript: reportableLine == null
+                                    ? null
+                                    : () => _reportScript(reportableLine, sentence: cue.text),
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  height: 1.35,
+                                  fontWeight: isActive
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: isActive
+                                      ? AppPalette.textPrimary
+                                      : _inactiveText,
+                                ),
+                              ),
+                            ),
+                            if (reportableLine != null)
+                              Semantics(
+                                button: true,
+                                label: 'Báo cáo câu thoại',
+                                excludeSemantics: true,
+                                child: InkWell(
+                                  key: ValueKey('report-script-$i'),
+                                  onTap: () => _reportScript(reportableLine, sentence: cue.text),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(
+                                      Icons.edit_note_rounded,
+                                      size: 18,
+                                      color: AppPalette.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                         if (_bilingual && cue.translation.isNotEmpty) ...[
                           const SizedBox(height: 4),

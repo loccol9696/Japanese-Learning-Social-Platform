@@ -12,5 +12,7 @@ public enum ReportAction {
     REMOVE_TRANSLATION,
     EDIT_GRAMMAR,
     REMOVE_GRAMMAR,
-    LOCK_USER
+    LOCK_USER,
+    /** Sửa lại câu thoại tiếng Nhật bị AI tách sai. */
+    EDIT_SCRIPT
 }
