@@ -803,6 +803,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
+
+          _buildInterestChips(cleanLevel),
+        ],
+      ),
+    );
+  }
+
+  /// Cấp JLPT (nền nhấn) và các sở thích (manga, cuộc sống hằng ngày...) của người dùng.
+  Widget _buildInterestChips(String jlptLevel) {
+    final interests = _profile.interests
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    if (jlptLevel.isEmpty && interests.isEmpty) return const SizedBox.shrink();
+
+    Widget chip(String label, {bool highlighted = false, IconData? icon}) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: highlighted ? AppPalette.accentSoft : AppPalette.surfaceHigh,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 13, color: AppPalette.accent),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: highlighted ? AppPalette.accent : AppPalette.textPrimary,
+                fontSize: 12.5,
+                fontWeight: highlighted ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 14, right: 8),
+      child: Wrap(
+        key: const ValueKey('profile-interest-chips'),
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          if (jlptLevel.isNotEmpty)
+            chip(
+              'JLPT $jlptLevel',
+              highlighted: true,
+              icon: Icons.school_outlined,
+            ),
+          for (final interest in interests) chip(interest),
         ],
       ),
     );
