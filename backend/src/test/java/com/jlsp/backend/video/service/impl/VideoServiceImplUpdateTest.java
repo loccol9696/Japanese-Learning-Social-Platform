@@ -61,7 +61,7 @@ class VideoServiceImplUpdateTest {
                 mock(ShadowingPracticeRepository.class), userRepository, mock(FollowRepository.class),
                 new VideoMapper(), topicService, hashtagService, mock(NotificationService.class),
                 mock(BlockService.class), mock(com.jlsp.backend.common.security.ratelimit.RateLimiter.class),
-                mock(org.springframework.context.ApplicationEventPublisher.class));
+                mock(com.jlsp.backend.report.repository.ReportRepository.class));
 
         User owner = User.builder().id(OWNER).username("owner").role(UserRole.USER).build();
         video = Video.builder().id(VIDEO_ID).user(owner).title("Bài 1").description("Mô tả")

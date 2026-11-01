@@ -138,6 +138,13 @@ public interface VideoRepository extends JpaRepository<Video, Long>, JpaSpecific
     void updateSaveCount(@Param("id") Long id, @Param("amount") int amount);
 
     /**
+     * Cập nhật số lượt chia sẻ (share_count) thêm {@code amount} lượt, đảm bảo không âm.
+     */
+    @Modifying
+    @Query("UPDATE Video v SET v.shareCount = CASE WHEN (v.shareCount + :amount) < 0 THEN 0 ELSE (v.shareCount + :amount) END WHERE v.id = :id")
+    void updateShareCount(@Param("id") Long id, @Param("amount") int amount);
+
+    /**
      * Tổng số video của một user
      */
     long countByUserId(Long userId);

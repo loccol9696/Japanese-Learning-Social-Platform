@@ -52,7 +52,7 @@ public class NotificationServiceImpl implements NotificationService {
             if (actorId != null && blockService.isBlockedEitherWay(recipientId, actorId)) {
                 return;
             }
-            if (isDuplicate(recipientId, actorId, type, videoId)) {
+            if (isDuplicate(recipientId, actorId, type, videoId, commentId)) {
                 return;
             }
 
@@ -78,13 +78,16 @@ public class NotificationServiceImpl implements NotificationService {
         }
     }
 
-    private boolean isDuplicate(Long recipientId, Long actorId, NotificationType type, Long videoId) {
+    private boolean isDuplicate(Long recipientId, Long actorId, NotificationType type, Long videoId,
+                                Long commentId) {
         if (actorId == null) {
             return false;
         }
         return switch (type) {
-            case LIKE -> notificationRepository.existsByRecipientIdAndActorIdAndTypeAndVideoId(
+            case LIKE, VIDEO_SAVED, VIDEO_SHARED -> notificationRepository.existsByRecipientIdAndActorIdAndTypeAndVideoId(
                     recipientId, actorId, type, videoId);
+            case COMMENT_LIKED -> notificationRepository.existsByRecipientIdAndActorIdAndTypeAndCommentId(
+                    recipientId, actorId, type, commentId);
             case FOLLOW -> notificationRepository.existsByRecipientIdAndActorIdAndType(
                     recipientId, actorId, type);
             default -> false;

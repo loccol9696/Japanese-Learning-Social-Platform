@@ -18,7 +18,6 @@ import com.jlsp.backend.video.dto.response.ShadowingPracticeResponse;
 import com.jlsp.backend.video.dto.response.VideoDetailResponse;
 import com.jlsp.backend.video.dto.response.VideoResponse;
 import com.jlsp.backend.video.entity.*;
-import com.jlsp.backend.video.event.SubtitlesUpdatedEvent;
 import com.jlsp.backend.video.mapper.VideoMapper;
 import com.jlsp.backend.video.repository.ShadowingPracticeRepository;
 import com.jlsp.backend.video.repository.VideoCommentRepository;
@@ -33,7 +32,6 @@ import com.jlsp.backend.video.service.VideoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import java.time.LocalDateTime;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -73,6 +71,7 @@ public class VideoServiceImpl implements VideoService {
     private final com.jlsp.backend.notification.service.NotificationService notificationService;
     private final com.jlsp.backend.block.service.BlockService blockService;
     private final com.jlsp.backend.common.security.ratelimit.RateLimiter rateLimiter;
+    private final com.jlsp.backend.report.repository.ReportRepository reportRepository;
 
     /** Số chủ đề tối đa trên một video. */
     static final int MAX_TOPICS_PER_VIDEO = 3;
@@ -82,7 +81,6 @@ public class VideoServiceImpl implements VideoService {
 
     /** Một người xem chỉ được tính một lượt xem cho mỗi video trong khoảng này. */
     static final java.time.Duration VIEW_DEDUP_WINDOW = java.time.Duration.ofMinutes(30);
-    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Đăng tải bài học video mới.
@@ -318,13 +316,29 @@ public class VideoServiceImpl implements VideoService {
                 excludedAuthorIds(currentUserId),
                 org.springframework.data.domain.PageRequest.of(0, RECOMMEND_POOL_SIZE,
                         org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")));
-        List<Video> ranked = ForYouRanker.rank(pool.getContent(), prefs, LocalDateTime.now());
+        List<Video> ranked = ForYouRanker.rank(pool.getContent(), prefs, engagementExtras(pool.getContent()),
+                LocalDateTime.now());
 
         long from = Math.min(pageable.getOffset(), ranked.size());
         long to = Math.min(from + pageable.getPageSize(), ranked.size());
         Pageable plain = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
         return toVideoPageResponse(new org.springframework.data.domain.PageImpl<>(
                 ranked.subList((int) from, (int) to), plain, ranked.size()), currentUserId);
+    }
+
+    /** Số bình luận, số người luyện shadowing và số báo cáo đang chờ của cả nhóm video, mỗi loại một truy vấn gộp. */
+    private Map<Long, ForYouRanker.Extras> engagementExtras(List<Video> videos) {
+        if (videos.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> videoIds = videos.stream().map(Video::getId).toList();
+        Map<Long, Long> comments = IdCount.toMap(videoCommentRepository.countByVideoIds(videoIds));
+        Map<Long, Long> shadowing = IdCount.toMap(shadowingPracticeRepository.countPractitionersByVideoIds(videoIds));
+        Map<Long, Long> reports = IdCount.toMap(reportRepository.countPendingByTargetIds(
+                com.jlsp.backend.report.entity.ReportTargetType.VIDEO, videoIds));
+        return videoIds.stream().collect(Collectors.toMap(id -> id,
+                id -> new ForYouRanker.Extras(comments.getOrDefault(id, 0L), shadowing.getOrDefault(id, 0L),
+                        reports.getOrDefault(id, 0L))));
     }
 
     /**
@@ -529,6 +543,7 @@ public class VideoServiceImpl implements VideoService {
             videoSaveRepository.save(save);
             videoRepository.updateSaveCount(videoId, 1);
             log.info("User ID: {} đã SAVE video ID: {}", currentUserId, videoId);
+            notificationService.notify(video.getUser().getId(), currentUserId, com.jlsp.backend.notification.entity.NotificationType.VIDEO_SAVED, videoId, null, null);
             return true;
         }
     }
@@ -677,6 +692,7 @@ public class VideoServiceImpl implements VideoService {
             videoLikeRepository.save(like);
             videoRepository.updateLikeCount(videoId, 1);
             log.info("User ID: {} đã LIKE video ID: {}", currentUserId, videoId);
+            notificationService.notify(video.getUser().getId(), currentUserId, com.jlsp.backend.notification.entity.NotificationType.LIKE, videoId, null, null);
         }
     }
 
@@ -722,6 +738,7 @@ public class VideoServiceImpl implements VideoService {
             videoSaveRepository.save(save);
             videoRepository.updateSaveCount(videoId, 1);
             log.info("User ID: {} đã SAVE video ID: {}", currentUserId, videoId);
+            notificationService.notify(video.getUser().getId(), currentUserId, com.jlsp.backend.notification.entity.NotificationType.VIDEO_SAVED, videoId, null, null);
         }
     }
 

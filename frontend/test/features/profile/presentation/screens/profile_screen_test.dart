@@ -153,6 +153,28 @@ void main() {
     expect(find.text('Chưa có video đã thích'), findsOneWidget);
   });
 
+  testWidgets('ProfileScreen shows JLPT level and interests as chips', (tester) async {
+    final mockRepo = _MockProfileRepository()
+      ..profile = const UserProfileModel(
+        id: 1,
+        username: 'yamada_san',
+        displayName: 'Yamada Kenji',
+        currentLevel: 'N3',
+        interests: ['Manga', 'Cuộc sống hằng ngày'],
+      );
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: ProfileScreen(repository: mockRepo))),
+    );
+    await tester.pumpAndSettle();
+
+    final chips = find.byKey(const ValueKey('profile-interest-chips'));
+    expect(chips, findsOneWidget);
+    expect(find.descendant(of: chips, matching: find.text('JLPT N3')), findsOneWidget);
+    expect(find.descendant(of: chips, matching: find.text('Manga')), findsOneWidget);
+    expect(find.descendant(of: chips, matching: find.text('Cuộc sống hằng ngày')), findsOneWidget);
+  });
+
   testWidgets('ProfileScreen settings sheet lists the settings rows and logout', (tester) async {
     final mockRepo = _MockProfileRepository();
 

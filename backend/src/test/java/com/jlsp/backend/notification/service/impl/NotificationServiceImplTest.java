@@ -124,6 +124,27 @@ class NotificationServiceImplTest {
     }
 
     @Test
+    void savedAndSharedAreOnlyNotifiedOncePerActorAndVideo() {
+        when(repository.existsByRecipientIdAndActorIdAndTypeAndVideoId(
+                RECIPIENT, ACTOR, NotificationType.VIDEO_SAVED, VIDEO_ID)).thenReturn(true);
+        when(repository.existsByRecipientIdAndActorIdAndTypeAndVideoId(
+                RECIPIENT, ACTOR, NotificationType.VIDEO_SHARED, VIDEO_ID)).thenReturn(true);
+
+        service.notify(RECIPIENT, ACTOR, NotificationType.VIDEO_SAVED, VIDEO_ID, null, null);
+        service.notify(RECIPIENT, ACTOR, NotificationType.VIDEO_SHARED, VIDEO_ID, null, null);
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void savingOrSharingAnotherVideoIsStillNotified() {
+        service.notify(RECIPIENT, ACTOR, NotificationType.VIDEO_SAVED, VIDEO_ID, null, null);
+        service.notify(RECIPIENT, ACTOR, NotificationType.VIDEO_SHARED, VIDEO_ID, null, null);
+
+        verify(repository, org.mockito.Mockito.times(2)).save(any(Notification.class));
+    }
+
+    @Test
     void followIsOnlyNotifiedOncePerActor() {
         when(repository.existsByRecipientIdAndActorIdAndType(RECIPIENT, ACTOR, NotificationType.FOLLOW))
                 .thenReturn(true);
@@ -131,6 +152,30 @@ class NotificationServiceImplTest {
         service.notify(RECIPIENT, ACTOR, NotificationType.FOLLOW, null, null, null);
 
         verify(repository, never()).save(any());
+    }
+
+    @Test
+    void commentLikedIsOnlyNotifiedOncePerActorAndComment() {
+        when(repository.existsByRecipientIdAndActorIdAndTypeAndCommentId(
+                RECIPIENT, ACTOR, NotificationType.COMMENT_LIKED, 7L)).thenReturn(true);
+
+        service.notify(RECIPIENT, ACTOR, NotificationType.COMMENT_LIKED, VIDEO_ID, 7L, "hay");
+        verify(repository, never()).save(any());
+
+        // Bình luận khác của cùng video vẫn được báo riêng.
+        service.notify(RECIPIENT, ACTOR, NotificationType.COMMENT_LIKED, VIDEO_ID, 8L, "hay nữa");
+        verify(repository).save(any(Notification.class));
+    }
+
+    @Test
+    void commentLikedKeepsTheCommentTextAndIdOnTheNotification() {
+        service.notify(RECIPIENT, ACTOR, NotificationType.COMMENT_LIKED, VIDEO_ID, 7L, "  hay quá  ");
+
+        org.mockito.ArgumentCaptor<Notification> saved = org.mockito.ArgumentCaptor.forClass(Notification.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().getType()).isEqualTo(NotificationType.COMMENT_LIKED);
+        assertThat(saved.getValue().getCommentId()).isEqualTo(7L);
+        assertThat(saved.getValue().getMessage()).isEqualTo("hay quá");
     }
 
     @Test

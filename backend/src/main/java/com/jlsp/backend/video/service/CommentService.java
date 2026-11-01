@@ -2,6 +2,7 @@ package com.jlsp.backend.video.service;
 
 import com.jlsp.backend.video.dto.request.CommentSort;
 import com.jlsp.backend.video.dto.request.CreateCommentRequest;
+import com.jlsp.backend.video.dto.response.CommentFlagsResponse;
 import com.jlsp.backend.video.dto.response.CommentLikeResponse;
 import com.jlsp.backend.video.dto.response.VideoCommentResponse;
 
@@ -14,4 +15,8 @@ public interface CommentService {
     void delete(Long videoId, Long commentId, Long userId, boolean isAdmin);
     CommentLikeResponse like(Long videoId, Long commentId, Long userId);
     CommentLikeResponse unlike(Long videoId, Long commentId, Long userId);
+
+    /** Chủ video ghim một bình luận gốc lên đầu; bình luận đang được ghim trước đó tự bỏ ghim. */
+    CommentFlagsResponse pin(Long videoId, Long commentId, Long userId);
+    CommentFlagsResponse unpin(Long videoId, Long commentId, Long userId);
 }

@@ -2,10 +2,15 @@ package com.jlsp.backend.video.service.impl;
 
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
 import com.jlsp.backend.common.exception.AppException;
+import com.jlsp.backend.common.repository.IdCount;
+import com.jlsp.backend.notification.entity.NotificationType;
+import com.jlsp.backend.report.entity.ReportTargetType;
+import com.jlsp.backend.report.repository.ReportRepository;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.repository.UserRepository;
 import com.jlsp.backend.video.dto.request.CommentSort;
 import com.jlsp.backend.video.dto.request.CreateCommentRequest;
+import com.jlsp.backend.video.dto.response.CommentFlagsResponse;
 import com.jlsp.backend.video.dto.response.CommentLikeResponse;
 import com.jlsp.backend.video.dto.response.VideoCommentResponse;
 import com.jlsp.backend.video.entity.Video;
@@ -13,6 +18,7 @@ import com.jlsp.backend.video.entity.VideoComment;
 import com.jlsp.backend.video.repository.CommentLikeRepository;
 import com.jlsp.backend.video.repository.VideoCommentRepository;
 import com.jlsp.backend.video.repository.VideoRepository;
+import com.jlsp.backend.video.service.CommentRanker;
 import com.jlsp.backend.video.service.CommentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +42,7 @@ public class CommentServiceImpl implements CommentService {
     private final UserRepository userRepository;
     private final com.jlsp.backend.block.service.BlockService blockService;
     private final com.jlsp.backend.notification.service.NotificationService notificationService;
+    private final ReportRepository reportRepository;
 
     @Override
     public List<VideoCommentResponse> list(Long videoId, Long viewerId, CommentSort sort) {
@@ -51,8 +59,17 @@ public class CommentServiceImpl implements CommentService {
         Set<Long> likedIds = viewerId == null
                 ? Set.of()
                 : commentLikeRepository.findLikedCommentIds(viewerId, videoId);
-        return commentRepository.findByVideoIdAndParentIsNull(videoId, sort.getOrder()).stream()
+        List<VideoComment> roots = commentRepository.findByVideoIdAndParentIsNull(videoId, sort.getOrder()).stream()
                 .filter(comment -> !hidden.contains(comment.getUser().getId()))
+                .toList();
+        if (sort == CommentSort.HELPFUL && !roots.isEmpty()) {
+            Map<Long, Long> pendingReports = IdCount.toMap(reportRepository.countPendingByTargetIds(
+                    ReportTargetType.COMMENT, roots.stream().map(VideoComment::getId).toList()));
+            roots = CommentRanker.rank(roots, repliesByParent, pendingReports, LocalDateTime.now());
+        }
+        // Bình luận được chủ video ghim luôn nằm đầu ở cả hai cách sắp xếp; sort ổn định nên giữ nguyên thứ tự còn lại.
+        roots = roots.stream().sorted(Comparator.comparing(VideoComment::isPinned).reversed()).toList();
+        return roots.stream()
                 .map(comment -> toResponse(comment, hidden, repliesByParent, likedIds))
                 .toList();
     }
@@ -136,6 +153,8 @@ public class CommentServiceImpl implements CommentService {
         }
         if (commentLikeRepository.insertIfAbsent(userId, commentId, LocalDateTime.now()) > 0) {
             commentRepository.updateLikeCount(commentId, 1);
+            notificationService.notify(comment.getUser().getId(), userId, NotificationType.COMMENT_LIKED,
+                    videoId, commentId, comment.getContent());
         }
         return new CommentLikeResponse(true, commentRepository.findLikeCountById(commentId));
     }
@@ -148,6 +167,41 @@ public class CommentServiceImpl implements CommentService {
             commentRepository.updateLikeCount(commentId, -1);
         }
         return new CommentLikeResponse(false, commentRepository.findLikeCountById(commentId));
+    }
+
+    @Override
+    @Transactional
+    public CommentFlagsResponse pin(Long videoId, Long commentId, Long userId) {
+        VideoComment comment = findCommentOfOwner(videoId, commentId, userId);
+        if (comment.getParent() != null) {
+            throw new AppException(400, "Chỉ có thể ghim bình luận gốc");
+        }
+        if (!comment.isPinned()) {
+            commentRepository.clearPinned(videoId);
+            comment.setPinned(true);
+        }
+        return flags(comment);
+    }
+
+    @Override
+    @Transactional
+    public CommentFlagsResponse unpin(Long videoId, Long commentId, Long userId) {
+        VideoComment comment = findCommentOfOwner(videoId, commentId, userId);
+        comment.setPinned(false);
+        return flags(comment);
+    }
+
+    /** Bình luận thuộc video, và người gọi phải là chủ video đó. */
+    private VideoComment findCommentOfOwner(Long videoId, Long commentId, Long userId) {
+        VideoComment comment = findComment(videoId, commentId);
+        if (!comment.getVideo().getUser().getId().equals(userId)) {
+            throw new AppException(403, "Chỉ chủ video mới thực hiện được thao tác này");
+        }
+        return comment;
+    }
+
+    private static CommentFlagsResponse flags(VideoComment comment) {
+        return new CommentFlagsResponse(comment.isPinned());
     }
 
     private VideoComment findComment(Long videoId, Long commentId) {
@@ -182,6 +236,7 @@ public class CommentServiceImpl implements CommentService {
                 .content(comment.getContent())
                 .likeCount(comment.getLikeCount())
                 .isLiked(likedIds.contains(comment.getId()))
+                .pinned(comment.isPinned())
                 .createdAt(comment.getCreatedAt())
                 .replies(comment.getParent() == null
                         ? repliesByParent.getOrDefault(comment.getId(), List.of())

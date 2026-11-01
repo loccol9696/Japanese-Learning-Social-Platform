@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/constants/api_constants.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/token_storage.dart';
+import 'package:frontend/features/chat/presentation/screens/shared_video_screen.dart';
 import 'package:frontend/features/notification/notification_hub.dart';
 import 'package:frontend/features/notification/notification_model.dart';
 import 'package:frontend/features/notification/notification_sheet.dart';
@@ -87,6 +88,26 @@ void main() {
       final approved = AppNotification.fromJson(_raw(id: 3, type: 'VIDEO_APPROVED', videoTitle: 'Bài 2'));
       expect(approved.title, 'Video "Bài 2" của bạn đã được duyệt');
       expect(approved.actorName, 'Ai đó');
+    });
+
+    test('thông báo bình luận được thích', () {
+      final liked = AppNotification.fromJson(_raw(
+        id: 5, type: 'COMMENT_LIKED', actorId: 2, actor: 'Sakura', videoId: 9, message: 'Hay quá'));
+      expect(liked.type, NotificationType.commentLiked);
+      expect(liked.title, 'Sakura đã thấy bình luận của bạn hữu ích');
+      expect(liked.message, 'Hay quá');
+    });
+
+    test('thông báo video được lưu và được chia sẻ', () {
+      final saved = AppNotification.fromJson(_raw(
+        id: 9, type: 'VIDEO_SAVED', actorId: 2, actor: 'Sakura', videoId: 9, videoTitle: 'Bài 1'));
+      expect(saved.type, NotificationType.videoSaved);
+      expect(saved.title, 'Sakura đã lưu video "Bài 1" của bạn');
+
+      final shared = AppNotification.fromJson(_raw(
+        id: 10, type: 'VIDEO_SHARED', actorId: 3, actor: 'Tanaka', videoId: 9, videoTitle: 'Bài 1'));
+      expect(shared.type, NotificationType.videoShared);
+      expect(shared.title, 'Tanaka đã chia sẻ video "Bài 1" của bạn');
     });
 
     test('loại lạ không làm hỏng việc parse', () {
@@ -229,6 +250,29 @@ void main() {
 
       expect(find.text('MÀN QUẢN LÝ ĐĂNG TẢI'), findsOneWidget);
       expect(find.text('Thông báo'), findsNothing);
+    });
+
+    testWidgets('bình luận được thích mở video kèm khung bình luận, bình luận thường thì không', (tester) async {
+      ApiClient.overrideForTesting(MockClient((_) async => http.Response('{}', 404)));
+      await openSheet(tester, _FakeService([
+        AppNotification.fromJson(_raw(
+          id: 7, type: 'COMMENT_LIKED', isRead: true, actorId: 2, actor: 'Sakura', videoId: 9, message: 'Hay')),
+      ]));
+
+      await tester.tap(find.text('Hay'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<SharedVideoScreen>(find.byType(SharedVideoScreen)).openComments, isTrue);
+
+      Navigator.of(tester.element(find.byType(SharedVideoScreen))).pop();
+      await tester.pumpAndSettle();
+      await openSheet(tester, _FakeService([
+        AppNotification.fromJson(_raw(
+          id: 8, type: 'COMMENT', isRead: true, actorId: 2, actor: 'Sakura', videoId: 9, message: 'Chào')),
+      ]));
+
+      await tester.tap(find.text('Chào'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<SharedVideoScreen>(find.byType(SharedVideoScreen)).openComments, isFalse);
     });
 
     testWidgets('thông báo không có đích đến thì giữ nguyên bảng', (tester) async {

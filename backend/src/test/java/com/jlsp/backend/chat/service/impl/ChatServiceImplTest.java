@@ -28,6 +28,11 @@ import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.repository.UserRepository;
 import com.jlsp.backend.user.service.FollowService;
+import com.jlsp.backend.notification.entity.NotificationType;
+import com.jlsp.backend.notification.service.NotificationService;
+import com.jlsp.backend.video.entity.Video;
+import com.jlsp.backend.video.entity.VideoModStatus;
+import com.jlsp.backend.video.entity.VideoStatus;
 import com.jlsp.backend.video.repository.VideoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,12 +48,15 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import com.jlsp.backend.chat.dto.request.ShareDeckRequest;
+import com.jlsp.backend.chat.dto.request.ShareVideoRequest;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
 import com.jlsp.backend.common.repository.IdCount;
 import com.jlsp.backend.flashcard.entity.FlashcardSet;
@@ -72,6 +80,8 @@ class ChatServiceImplTest {
     private FlashcardSetRepository flashcardSetRepository;
     private FlashcardRepository flashcardRepository;
     private BlockService blockService;
+    private VideoRepository videoRepository;
+    private NotificationService notificationService;
     private ChatServiceImpl service;
     private Conversation conversation;
     private User me;
@@ -90,6 +100,8 @@ class ChatServiceImplTest {
         flashcardSetRepository = mock(FlashcardSetRepository.class);
         flashcardRepository = mock(FlashcardRepository.class);
         blockService = mock(BlockService.class);
+        videoRepository = mock(VideoRepository.class);
+        notificationService = mock(NotificationService.class);
         service = new ChatServiceImpl(
                 conversationRepository,
                 participantRepository,
@@ -98,14 +110,15 @@ class ChatServiceImplTest {
                 blockService,
                 deviceTokenRepository,
                 userRepository,
-                mock(VideoRepository.class),
+                videoRepository,
                 followService,
                 new ChatMapper(),
                 new ChatRateLimiter(),
                 new ChatImageValidator("demo"),
                 eventPublisher,
                 flashcardSetRepository,
-                flashcardRepository);
+                flashcardRepository,
+                notificationService);
 
         me = User.builder().id(ME).isActive(true).build();
         other = User.builder().id(OTHER).isActive(true).build();
@@ -552,6 +565,61 @@ class ChatServiceImplTest {
 
     private static ShareDeckRequest shareTo(Long... recipients) {
         return new ShareDeckRequest(List.of(recipients), "Học bộ này nhé");
+    }
+
+    private static final long VIDEO_ID = 9L;
+    private static final long VIDEO_OWNER = 77L;
+
+    private Video video(VideoModStatus modStatus) {
+        return Video.builder().id(VIDEO_ID).user(User.builder().id(VIDEO_OWNER).build())
+                .modStatus(modStatus).status(VideoStatus.PUBLIC).title("Bài 1").build();
+    }
+
+    private static ShareVideoRequest shareVideoTo(Long... recipients) {
+        return new ShareVideoRequest(List.of(recipients), "Xem đi", null);
+    }
+
+    @Test
+    void sharingAVideoCountsOneShareAndNotifiesTheOwnerOnce() {
+        givenMutualFriendAndWritableChat();
+        User other = User.builder().id(3L).isActive(true).build();
+        when(userRepository.findById(3L)).thenReturn(Optional.of(other));
+        when(followService.isMutual(ME, 3L)).thenReturn(true);
+        when(conversationRepository.findByUserLowIdAndUserHighId(ME, 3L)).thenReturn(Optional.of(conversation));
+        when(videoRepository.findById(VIDEO_ID)).thenReturn(Optional.of(video(VideoModStatus.APPROVED)));
+
+        List<MessageResponse> sent = service.shareVideo(ME, VIDEO_ID, shareVideoTo(FRIEND_ID, 3L));
+
+        assertThat(sent).hasSize(2);
+        // Mỗi người nhận là một lượt chia sẻ, nhưng chủ video chỉ nhận một thông báo cho cả lần chia sẻ.
+        verify(videoRepository).updateShareCount(VIDEO_ID, 2);
+        verify(notificationService, org.mockito.Mockito.times(1)).notify(VIDEO_OWNER, ME,
+                NotificationType.VIDEO_SHARED, VIDEO_ID, null, null);
+    }
+
+    @Test
+    void aVideoThatCannotBeSharedIsNeitherCountedNorNotified() {
+        when(videoRepository.findById(VIDEO_ID)).thenReturn(Optional.of(video(VideoModStatus.PENDING)));
+
+        assertThatThrownBy(() -> service.shareVideo(ME, VIDEO_ID, shareVideoTo(FRIEND_ID)))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(400));
+
+        verify(videoRepository, never()).updateShareCount(anyLong(), anyInt());
+        verify(notificationService, never()).notify(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void sharingFailsForAStrangerWithoutCountingOrNotifying() {
+        User stranger = User.builder().id(3L).isActive(true).build();
+        when(userRepository.findById(3L)).thenReturn(Optional.of(stranger));
+        when(followService.isMutual(ME, 3L)).thenReturn(false);
+        when(videoRepository.findById(VIDEO_ID)).thenReturn(Optional.of(video(VideoModStatus.APPROVED)));
+
+        assertThatThrownBy(() -> service.shareVideo(ME, VIDEO_ID, shareVideoTo(3L)))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getStatus()).isEqualTo(403));
+
+        verify(videoRepository, never()).updateShareCount(anyLong(), anyInt());
+        verify(notificationService, never()).notify(any(), any(), any(), any(), any(), any());
     }
 
     @Test
