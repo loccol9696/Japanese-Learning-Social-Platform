@@ -5,7 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 
 /**
- * Thứ tự bình luận gốc của video. Khi chưa có lượt đánh giá nào, HELPFUL trùng với NEWEST.
+ * Thứ tự bình luận gốc của video. HELPFUL được xếp lại trong bộ nhớ bằng
+ * {@link com.jlsp.backend.video.service.CommentRanker}; thứ tự ở đây chỉ là thứ tự đọc từ DB.
  */
 @Getter
 @RequiredArgsConstructor

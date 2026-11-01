@@ -23,6 +23,8 @@ public class VideoCommentResponse {
     private String content;
     private Integer likeCount;
     private Boolean isLiked;
+    /** Chủ video đã ghim bình luận này (chỉ bình luận gốc). */
+    private Boolean pinned;
     private LocalDateTime createdAt;
     private List<VideoCommentResponse> replies;
 }
