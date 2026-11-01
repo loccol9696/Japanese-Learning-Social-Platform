@@ -130,6 +130,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           controller: _videoController,
           initialBilingual: _subtitleMode == SubtitleMode.bilingual,
           videoId: widget.post.id,
+          canReport: _canReport,
         ),
       ),
     );
@@ -247,15 +248,40 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     if (mounted) widget.onDeleted?.call();
   }
 
+  /// Vị trí câu đang hiện kèm bản dịch trên màn hình; null nếu không có bản dịch nào để báo cáo.
+  int? get _translatedLineOnScreen {
+    final cue = _activeSubtitle;
+    final visible = _showSubtitles && _subtitleMode == SubtitleMode.bilingual;
+    if (!_canReport || !visible || cue == null || cue.translation.trim().isEmpty) {
+      return null;
+    }
+    return cue.sourceIndex;
+  }
+
+  /// Hàm báo cáo mẫu ngữ pháp của [cue]; null nếu không báo cáo được.
+  ValueChanged<GrammarPointInfo>? _grammarReporter(SubtitleCue? cue) {
+    final segmentIndex = cue?.sourceIndex;
+    if (!_canReport || segmentIndex == null) return null;
+    return (grammar) => showGrammarReportSheet(
+      context,
+      videoId: int.parse(widget.post.id),
+      segmentIndex: segmentIndex,
+      grammarPattern: grammar.reportKey,
+    );
+  }
+
   /// Menu nâng cao khi nhấn giữ trên video: tốc độ x2, trang người đăng, báo cáo, xóa.
   Future<void> _openVideoActions() async {
     RubySubtitleWidget.dismissLookups();
+    // Giữ lại câu lúc mở menu: video vẫn chạy nên phụ đề có thể đã sang câu khác khi chọn xong.
+    final translatedLine = _translatedLineOnScreen;
     final action = await showVideoActionsSheet(
       context,
       isDoubleSpeed: _isDoubleSpeed,
       canChangeSpeed: _videoController?.value.isInitialized == true,
       canOpenCreator: widget.post.creatorId != null,
       canReport: _canReport,
+      canReportTranslation: translatedLine != null,
       canDelete: _canDelete,
       creatorName: widget.post.creatorName,
     );
@@ -271,6 +297,12 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
           target: ReportTarget.video,
           targetId: int.parse(widget.post.id),
           subject: 'video này',
+        );
+      case VideoAction.reportTranslation:
+        await showTranslationReportSheet(
+          context,
+          videoId: int.parse(widget.post.id),
+          segmentIndex: translatedLine!,
         );
       case VideoAction.delete:
         await _moveToTrash();
@@ -782,6 +814,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                             sentence: activeCue?.text,
                             grammarPoints: activeCue?.grammarPoints ?? const [],
                             onLookupActiveChanged: _handleLookupActiveChanged,
+                            onReportGrammar: _grammarReporter(activeCue),
                           ),
                         ),
                       VideoInfoOverlay(
@@ -950,6 +983,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                                         activeCue?.grammarPoints ?? const [],
                                     onLookupActiveChanged:
                                         _handleLookupActiveChanged,
+                                    onReportGrammar: _grammarReporter(activeCue),
                                   ),
                                 ),
                               VideoInfoOverlay(

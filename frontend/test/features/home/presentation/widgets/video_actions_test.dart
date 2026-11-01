@@ -146,6 +146,7 @@ void main() {
       required String label,
       bool canChangeSpeed = true,
       bool canDelete = false,
+      bool canReportTranslation = false,
     }) async {
       VideoAction? result;
       await tester.pumpWidget(
@@ -160,6 +161,7 @@ void main() {
                     canChangeSpeed: canChangeSpeed,
                     canOpenCreator: true,
                     canReport: true,
+                    canReportTranslation: canReportTranslation,
                     canDelete: canDelete,
                     creatorName: 'Hana',
                   );
@@ -193,6 +195,14 @@ void main() {
       expect(
         await chooseAction(tester, label: 'Xóa video', canDelete: true),
         VideoAction.delete,
+      );
+      expect(
+        await chooseAction(
+          tester,
+          label: 'Báo cáo bản dịch câu này',
+          canReportTranslation: true,
+        ),
+        VideoAction.reportTranslation,
       );
     });
 

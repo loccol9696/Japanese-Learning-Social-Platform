@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_palette.dart';
 
 /// Thao tác người dùng chọn trong menu nâng cao của video.
-enum VideoAction { toggleDoubleSpeed, openCreator, report, delete }
+enum VideoAction { toggleDoubleSpeed, openCreator, report, reportTranslation, delete }
 
 /// Mở menu nâng cao của video (nhấn giữ trên video). Trả về thao tác đã chọn,
 /// null nếu người dùng đóng menu.
@@ -14,6 +14,7 @@ Future<VideoAction?> showVideoActionsSheet(
   required bool canOpenCreator,
   required bool canReport,
   required bool canDelete,
+  bool canReportTranslation = false,
   String creatorName = '',
 }) {
   return showModalBottomSheet<VideoAction>(
@@ -24,6 +25,7 @@ Future<VideoAction?> showVideoActionsSheet(
       canChangeSpeed: canChangeSpeed,
       canOpenCreator: canOpenCreator,
       canReport: canReport,
+      canReportTranslation: canReportTranslation,
       canDelete: canDelete,
       creatorName: creatorName,
     ),
@@ -36,6 +38,7 @@ class VideoActionsSheet extends StatelessWidget {
   final bool canChangeSpeed;
   final bool canOpenCreator;
   final bool canReport;
+  final bool canReportTranslation;
   final bool canDelete;
   final String creatorName;
 
@@ -45,6 +48,7 @@ class VideoActionsSheet extends StatelessWidget {
     required this.canChangeSpeed,
     required this.canOpenCreator,
     required this.canReport,
+    this.canReportTranslation = false,
     required this.canDelete,
     this.creatorName = '',
   });
@@ -90,6 +94,13 @@ class VideoActionsSheet extends StatelessWidget {
                 label: 'Báo cáo video',
                 color: AppPalette.error,
                 onTap: () => Navigator.of(context).pop(VideoAction.report),
+              ),
+            if (canReportTranslation)
+              _ActionTile(
+                icon: Icons.translate_rounded,
+                label: 'Báo cáo bản dịch câu này',
+                color: AppPalette.error,
+                onTap: () => Navigator.of(context).pop(VideoAction.reportTranslation),
               ),
             if (canDelete)
               _ActionTile(

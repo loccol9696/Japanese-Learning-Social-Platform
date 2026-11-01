@@ -5,9 +5,11 @@ import 'package:frontend/features/report/report_service.dart';
 import 'package:frontend/features/report/report_sheet.dart';
 
 /// Service giả: ghi lại lời gọi, có thể bắt buộc lỗi.
-class _FakeReportService implements ReportService {
+class _FakeReportService extends ReportService {
   final List<ReportReason> sent = [];
   final List<String?> details = [];
+  int? segmentIndex;
+  String? grammarPattern;
   ApiException? failWith;
 
   @override
@@ -16,10 +18,14 @@ class _FakeReportService implements ReportService {
     required int targetId,
     required ReportReason reason,
     String? detail,
+    int? segmentIndex,
+    String? grammarPattern,
   }) async {
     if (failWith != null) throw failWith!;
     sent.add(reason);
     details.add(detail);
+    this.segmentIndex = segmentIndex;
+    this.grammarPattern = grammarPattern;
   }
 }
 
@@ -27,7 +33,13 @@ void main() {
   late _FakeReportService service;
 
   /// Mở sheet bằng đúng route modal như app (không qua bước đăng nhập).
-  Future<void> openSheet(WidgetTester tester) async {
+  Future<void> openSheet(
+    WidgetTester tester, {
+    ReportTarget target = ReportTarget.comment,
+    String subject = 'bình luận này',
+    int? segmentIndex,
+    String? grammarPattern,
+  }) async {
     await tester.pumpWidget(MaterialApp(
       home: Builder(
         builder: (context) => Scaffold(
@@ -38,9 +50,11 @@ void main() {
                 isScrollControlled: true,
                 backgroundColor: Colors.transparent,
                 builder: (_) => ReportSheet(
-                  target: ReportTarget.comment,
+                  target: target,
                   targetId: 7,
-                  subject: 'bình luận này',
+                  subject: subject,
+                  segmentIndex: segmentIndex,
+                  grammarPattern: grammarPattern,
                   service: service,
                 ),
               ),
@@ -63,10 +77,45 @@ void main() {
     await openSheet(tester);
 
     expect(find.text('Báo cáo bình luận này'), findsOneWidget);
-    for (final reason in ReportReason.values) {
+    expect(ReportTarget.comment.reasons, hasLength(6));
+    for (final reason in ReportTarget.comment.reasons) {
       expect(find.text(reason.label), findsOneWidget);
     }
     expect(submitButton(tester).onPressed, isNull);
+  });
+
+  testWidgets('bản dịch có lý do dịch sai, không có lý do bản quyền', (tester) async {
+    await openSheet(tester, target: ReportTarget.translation, subject: 'bản dịch này');
+
+    expect(find.text(ReportReason.inaccurate.label), findsOneWidget);
+    expect(find.text(ReportReason.copyright.label), findsNothing);
+  });
+
+  testWidgets('tin nhắn không có lý do dịch sai', (tester) async {
+    await openSheet(tester, target: ReportTarget.message, subject: 'tin nhắn này');
+
+    expect(find.text(ReportReason.harassment.label), findsOneWidget);
+    expect(find.text(ReportReason.inaccurate.label), findsNothing);
+  });
+
+  testWidgets('báo cáo ngữ pháp gửi kèm vị trí câu và mẫu', (tester) async {
+    await openSheet(
+      tester,
+      target: ReportTarget.grammar,
+      subject: 'mẫu ngữ pháp này',
+      segmentIndex: 3,
+      grammarPattern: '〜ている',
+    );
+
+    await tester.tap(find.text(ReportReason.inaccurate.label));
+    await tester.pump();
+    await tester.tap(find.text('Gửi báo cáo'));
+    await tester.pumpAndSettle();
+
+    expect(service.sent, [ReportReason.inaccurate]);
+    expect(service.segmentIndex, 3);
+    expect(service.grammarPattern, '〜ている');
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('chọn lý do thì mở khóa nút gửi và gửi đúng dữ liệu rồi đóng sheet', (tester) async {
