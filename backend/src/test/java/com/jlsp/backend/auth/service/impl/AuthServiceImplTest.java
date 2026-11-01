@@ -4,6 +4,8 @@ import com.jlsp.backend.auth.dto.request.ChangePasswordRequest;
 import com.jlsp.backend.auth.dto.request.LoginRequest;
 import com.jlsp.backend.auth.dto.request.RegisterRequest;
 import com.jlsp.backend.auth.dto.response.AuthResponse;
+import com.jlsp.backend.otp.dto.ResendOtpRequest;
+import com.jlsp.backend.otp.dto.VerifyOtpRequest;
 import com.jlsp.backend.auth.google.GoogleTokenVerifier;
 import com.jlsp.backend.auth.service.LoginAttemptService;
 import com.jlsp.backend.common.exception.AppException;
@@ -35,6 +37,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class AuthServiceImplTest {
@@ -92,6 +95,82 @@ class AuthServiceImplTest {
         assertThatThrownBy(() -> service.login(login("Sakura@Example.com ", "wrong-pw")))
                 .isInstanceOf(AppException.class)
                 .hasMessage(AuthServiceImpl.INVALID_CREDENTIALS);
+    }
+
+    private User lockedUser() {
+        User locked = user(false, "correct-pw");
+        locked.setLockedAt(java.time.LocalDateTime.now());
+        return locked;
+    }
+
+    @Test
+    void correctPasswordOnLockedAccountSaysItIsLockedNotUnverified() {
+        when(userRepository.findByEmailIgnoreCase("sakura@example.com")).thenReturn(Optional.of(lockedUser()));
+
+        assertThatThrownBy(() -> service.login(login("sakura@example.com", "correct-pw")))
+                .isInstanceOf(AppException.class)
+                .hasMessage(AuthServiceImpl.LOCKED_ACCOUNT)
+                .extracting("status").isEqualTo(423);
+        verify(refreshTokenService, never()).issue(anyLong());
+    }
+
+    @Test
+    void wrongPasswordOnLockedAccountDoesNotRevealTheLock() {
+        when(userRepository.findByEmailIgnoreCase("sakura@example.com")).thenReturn(Optional.of(lockedUser()));
+
+        assertThatThrownBy(() -> service.login(login("sakura@example.com", "wrong-pw")))
+                .isInstanceOf(AppException.class)
+                .extracting("status").isEqualTo(401);
+    }
+
+    @Test
+    void otpCannotUnlockALockedAccount() {
+        User locked = lockedUser();
+        when(userRepository.findByEmailIgnoreCase("sakura@example.com")).thenReturn(Optional.of(locked));
+        VerifyOtpRequest request = new VerifyOtpRequest();
+        request.setEmail("sakura@example.com");
+        request.setOtp("123456");
+
+        assertThatThrownBy(() -> service.verifyOtp(request))
+                .isInstanceOf(AppException.class)
+                .extracting("status").isEqualTo(409);
+        assertThat(locked.getIsActive()).isFalse();
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void lockedAccountGetsNoActivationOtp() {
+        when(userRepository.findByEmailIgnoreCase("sakura@example.com")).thenReturn(Optional.of(lockedUser()));
+        ResendOtpRequest request = new ResendOtpRequest();
+        request.setEmail("sakura@example.com");
+
+        assertThatThrownBy(() -> service.resendOtp(request))
+                .isInstanceOf(AppException.class)
+                .extracting("status").isEqualTo(409);
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void lockedAccountCannotRefreshItsSession() {
+        when(refreshTokenService.consume("rt")).thenReturn(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(lockedUser()));
+
+        assertThatThrownBy(() -> service.refresh("rt"))
+                .isInstanceOf(AppException.class)
+                .extracting("status").isEqualTo(423);
+    }
+
+    @Test
+    void unverifiedAccountCanStillUseOtp() {
+        User pending = user(false, "correct-pw");
+        when(userRepository.findByEmailIgnoreCase("sakura@example.com")).thenReturn(Optional.of(pending));
+        VerifyOtpRequest request = new VerifyOtpRequest();
+        request.setEmail("sakura@example.com");
+        request.setOtp("123456");
+
+        service.verifyOtp(request);
+
+        assertThat(pending.getIsActive()).isTrue();
     }
 
     @Test

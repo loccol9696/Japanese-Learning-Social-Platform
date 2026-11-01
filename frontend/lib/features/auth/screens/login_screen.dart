@@ -108,9 +108,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       // 403 = mật khẩu đúng nhưng tài khoản chưa kích hoạt: hướng dẫn xác thực OTP.
-      // (Sai email/mật khẩu là 401, bị khoá tạm vì sai nhiều lần là 429.)
+      // (Sai email/mật khẩu là 401, bị khoá tạm vì sai nhiều lần là 429, bị khóa vì vi phạm là 423.)
       if (e.statusCode == 403) {
         _showInactiveDialog(email);
+      } else if (e.statusCode == 423) {
+        _showLockedDialog(e.message);
       } else {
         _showSnackBar(e.message, isError: true);
       }
@@ -125,6 +127,35 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// Tài khoản bị khóa không tự mở lại được nên chỉ báo lý do, không có bước OTP.
+  void _showLockedDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.lock_outline_rounded, color: AppPalette.error, size: 28),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Tài khoản đã bị khóa',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Text(message, style: const TextStyle(fontSize: 14)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text('Đóng', style: TextStyle(color: AppPalette.textSecondary)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showInactiveDialog(String email) {

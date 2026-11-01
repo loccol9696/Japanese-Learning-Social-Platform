@@ -17,6 +17,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE u.id = :id")
     Optional<User> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
 
+    /** Tăng ngay trong DB để hai kiểm duyệt viên nhắc nhở cùng lúc không ghi đè lên nhau. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE User u SET u.violationCount = u.violationCount + 1 WHERE u.id = :id")
+    void incrementViolationCount(@org.springframework.data.repository.query.Param("id") Long id);
+
     @EntityGraph(attributePaths = "subscriptionPlan")
     Optional<User> findByUsername(String username);
 
