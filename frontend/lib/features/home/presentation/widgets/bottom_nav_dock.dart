@@ -1,52 +1,76 @@
 import 'package:flutter/material.dart';
-import '../../../../core/localization/locale_manager.dart';
-import '../../../../core/theme/app_colors.dart';
 
+import '../../../../core/localization/locale_manager.dart';
+import '../../../../core/theme/app_palette.dart';
+import '../../../chat/data/services/chat_hub.dart';
+import '../../../notification/notification_hub.dart';
+
+/// Tab indices: 0 Home, 1 Flashcard, 2 Create (+), 3 Messages, 4 Profile.
+///
+/// Thanh menu dùng chung cho toàn bộ các tab: cùng màu nền trang, có viền mảnh phía trên.
 class BottomNavDock extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
+  final bool isModerator;
 
   const BottomNavDock({
     super.key,
     required this.selectedIndex,
     required this.onTabSelected,
+    this.isModerator = false,
   });
+
+  static const int flashcardIndex = 1;
+  static const int createIndex = 2;
+  static const int messagesIndex = 3;
+  static const int profileIndex = 4;
+
+  /// Chiều cao nội dung thanh menu, chưa tính vùng an toàn phía dưới.
+  static const double contentHeight = 56.0;
+
+  /// Chiều cao hàng icon + nhãn.
+  static const double rowHeight = 48.0;
+
+  /// Vạch cử chỉ giả (chỉ có ý nghĩa khi chạy trên web/máy tính).
+  static const double _indicatorTopGap = 2.0;
+  static const double _indicatorHeight = 3.0;
+  static const double _indicatorBottomGap = 3.0;
+
+  static const double _iconSize = 22.0;
+  static const double _labelSize = 10.0;
+  static const double _iconLabelGap = 2.0;
 
   static const List<_TabItemData> _tabs = [
     _TabItemData(
-      label: 'Home',
       activeIcon: Icons.home_rounded,
       inactiveIcon: Icons.home_outlined,
     ),
     _TabItemData(
-      label: 'Flashcard',
-      activeIcon: Icons.style_rounded,
-      inactiveIcon: Icons.style_outlined,
+      activeIcon: Icons.layers_rounded,
+      inactiveIcon: Icons.layers_outlined,
     ),
     _TabItemData(
-      label: 'Add Video',
-      activeIcon: Icons.video_call_rounded,
-      inactiveIcon: Icons.video_call_outlined,
+      activeIcon: Icons.add_rounded,
+      inactiveIcon: Icons.add_rounded,
     ),
     _TabItemData(
-      label: 'Messages',
       activeIcon: Icons.chat_bubble_rounded,
       inactiveIcon: Icons.chat_bubble_outline_rounded,
-      hasBadge: true,
     ),
     _TabItemData(
-      label: 'Profile',
       activeIcon: Icons.person_rounded,
       inactiveIcon: Icons.person_outline_rounded,
     ),
   ];
 
+  static Color get _activeColor => AppPalette.textPrimary;
+  static Color get _inactiveSolidColor => AppPalette.textSecondary;
+
   String _getTabLabel(int index) {
     return switch (index) {
       0 => appStrings.navHome,
-      1 => appStrings.navFlashcards,
-      2 => appStrings.navAddVideo,
-      3 => appStrings.navMessages,
+      flashcardIndex => appStrings.navFlashcards,
+      messagesIndex => appStrings.navMessages,
       4 => appStrings.navProfile,
       _ => '',
     };
@@ -54,199 +78,194 @@ class BottomNavDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    // SafeArea chừa vạch cử chỉ thật của thiết bị, menu không bị che.
+    final content = SafeArea(
       top: false,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Floating Pill Dock
-          Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(maxWidth: 420.0),
-            margin: const EdgeInsets.symmetric(horizontal: 16.0),
-            height: 64.0,
-            padding: const EdgeInsets.all(4.0),
-            decoration: BoxDecoration(
-              color: AppColors.dockBackground,
-              borderRadius: BorderRadius.circular(32.0),
-              border: Border.all(
-                color: AppColors.periwinkle.withValues(alpha: 0.3),
-                width: 1.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.backgroundCanvas.withValues(alpha: 0.85),
-                  blurRadius: 36.0,
-                  offset: const Offset(0, 14),
-                ),
-              ],
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final double tabWidth = constraints.maxWidth / _tabs.length;
-
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Sliding illuminated active pill indicator
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.fastOutSlowIn,
-                      left: selectedIndex * tabWidth,
-                      top: 0,
-                      bottom: 0,
-                      width: tabWidth,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.periwinkle.withValues(alpha: 0.28),
-                          borderRadius: BorderRadius.circular(28.0),
-                          border: Border.all(
-                            color: AppColors.periwinkle.withValues(alpha: 0.6),
-                            width: 1.0,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.periwinkle.withValues(alpha: 0.4),
-                              blurRadius: 16.0,
-                            ),
-                          ],
-                        ),
-                      ),
+          SizedBox(
+            height: rowHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: List.generate(_tabs.length, (index) {
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => onTabSelected(index),
+                    behavior: HitTestBehavior.opaque,
+                    child: Center(
+                      child: index == createIndex
+                          ? _buildCreateButton()
+                          : _buildTab(index),
                     ),
-
-                    // 5 Tab Buttons (Positioned.fill ensures full height & vertical centering)
-                    Positioned.fill(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: List.generate(_tabs.length, (index) {
-                          final tab = _tabs[index];
-                          final isSelected = selectedIndex == index;
-
-                          return Expanded(
-                            child: GestureDetector(
-                              onTap: () => onTabSelected(index),
-                              behavior: HitTestBehavior.opaque,
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    // Icon with optional Sakura Pink notification badge
-                                    Stack(
-                                      clipBehavior: Clip.none,
-                                      alignment: Alignment.center,
-                                      children: [
-                                        Icon(
-                                          isSelected
-                                              ? tab.activeIcon
-                                              : tab.inactiveIcon,
-                                          size: 22.0,
-                                          color: isSelected
-                                              ? AppColors.periwinkle
-                                              : AppColors.softSkyBlue
-                                                  .withValues(alpha: 0.55),
-                                          shadows: isSelected
-                                              ? [
-                                                  const Shadow(
-                                                    color: AppColors.periwinkle,
-                                                    blurRadius: 8.0,
-                                                  ),
-                                                ]
-                                              : null,
-                                        ),
-                                        if (tab.hasBadge)
-                                          Positioned(
-                                            top: -2.0,
-                                            right: -3.0,
-                                            child: Container(
-                                              width: 7.0,
-                                              height: 7.0,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: AppColors.sakuraPink,
-                                                border: Border.all(
-                                                  color: AppColors.dockBackground,
-                                                  width: 1.0,
-                                                ),
-                                                boxShadow: const [
-                                                  BoxShadow(
-                                                    color: AppColors.sakuraPink,
-                                                    blurRadius: 6.0,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 3.0),
-                                    // Label (dynamically localized)
-                                    Text(
-                                      _getTabLabel(index),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        height: 1.2,
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.w400,
-                                        color: isSelected
-                                            ? AppColors.onSurface
-                                            : AppColors.softSkyBlue
-                                                .withValues(alpha: 0.55),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                  ],
+                  ),
                 );
-              },
+              }),
             ),
           ),
 
-          // Home Bar Indicator (iOS style)
+          // Vạch cử chỉ (iOS style), mảnh và sát đáy
           Padding(
-            padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
+            padding: const EdgeInsets.only(
+              top: _indicatorTopGap,
+              bottom: _indicatorBottomGap,
+            ),
             child: Container(
-              width: 120.0,
-              height: 4.0,
+              width: 100.0,
+              height: _indicatorHeight,
               decoration: BoxDecoration(
-                color: AppColors.periwinkle.withValues(alpha: 0.5),
+                color: AppPalette.textSecondary.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(2.0),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.periwinkle.withValues(alpha: 0.4),
-                    blurRadius: 8.0,
-                  ),
-                ],
               ),
             ),
           ),
         ],
       ),
     );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppPalette.background,
+        // Cùng màu nền trang; chỉ có viền mảnh 1px ở mép trên để phân cách.
+        border: Border(top: BorderSide(color: AppPalette.surface, width: 1)),
+      ),
+      child: content,
+    );
+  }
+
+  Widget _buildTab(int index) {
+    final tab = _tabs[index];
+    final isSelected = selectedIndex == index;
+    final inactive = _inactiveSolidColor;
+    final color = isSelected ? _activeColor : inactive;
+    final shadows = null;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        index == messagesIndex
+            ? _buildMessagesIcon(isSelected ? tab.activeIcon : tab.inactiveIcon, color)
+            : index == profileIndex
+            ? _buildProfileIcon(isSelected ? tab.activeIcon : tab.inactiveIcon, color)
+            : Icon(
+                isSelected ? tab.activeIcon : tab.inactiveIcon,
+                size: _iconSize,
+                color: color,
+                shadows: shadows,
+              ),
+        const SizedBox(height: _iconLabelGap),
+        Text(
+          _getTabLabel(index),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: _labelSize,
+            height: 1.1,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: color,
+            shadows: shadows,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Icon tin nhắn kèm số tin chưa đọc.
+  Widget _buildMessagesIcon(IconData icon, Color color) {
+    return ValueListenableBuilder<int>(
+      valueListenable: ChatHub.instance.unreadCount,
+      builder: (context, unread, _) {
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(icon, size: _iconSize, color: color),
+            if (unread > 0)
+              Positioned(
+                right: -8,
+                top: -5,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  constraints: const BoxConstraints(minWidth: 15),
+                  decoration: BoxDecoration(
+                    color: AppPalette.like,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    unread > 99 ? '99+' : '$unread',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppPalette.onAccent,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Icon cá nhân kèm chấm đỏ khi có thông báo chưa đọc (chi tiết xem ở màn Thông báo).
+  Widget _buildProfileIcon(IconData icon, Color color) {
+    return ValueListenableBuilder<int>(
+      valueListenable: NotificationHub.instance.unreadCount,
+      builder: (context, unread, _) {
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(icon, size: _iconSize, color: color),
+            if (unread > 0)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: Container(
+                  key: const ValueKey('profile-notification-dot'),
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: AppPalette.like,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppPalette.background, width: 1.5),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Minimalist branded action button for uploading a video.
+  Widget _buildCreateButton() {
+    return Tooltip(
+      message: isModerator
+          ? appStrings.navApproveVideo
+          : appStrings.navAddVideo,
+      child: Container(
+        width: 52.0,
+        height: 34.0,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12.0),
+          color: AppPalette.accent,
+        ),
+        child: Icon(
+          isModerator ? Icons.fact_check_rounded : Icons.add_rounded,
+          size: 27.0,
+          color: AppPalette.onAccent,
+        ),
+      ),
+    );
   }
 }
 
 class _TabItemData {
-  final String label;
   final IconData activeIcon;
   final IconData inactiveIcon;
-  final bool hasBadge;
 
-  const _TabItemData({
-    required this.label,
-    required this.activeIcon,
-    required this.inactiveIcon,
-    this.hasBadge = false,
-  });
+  const _TabItemData({required this.activeIcon, required this.inactiveIcon});
 }

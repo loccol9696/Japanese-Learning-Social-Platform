@@ -1,0 +1,241 @@
+package com.jlsp.backend.video.entity;
+
+import com.jlsp.backend.user.entity.JLPTLevel;
+import com.jlsp.backend.user.entity.User;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.SQLRestriction;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "videos", indexes = {
+        // Feed / Khám phá: lọc PUBLIC + APPROVED rồi sắp theo created_at.
+        @Index(name = "idx_videos_feed", columnList = "status, mod_status, created_at"),
+        // Video của một người (hồ sơ, quản lý đăng tải, feed Following).
+        @Index(name = "idx_videos_user_created", columnList = "user_id, created_at"),
+        // Cố ý KHÔNG đánh chỉ mục view_count cho tab "Thịnh hành": cột này bị UPDATE ở
+        // mỗi lượt xem, có chỉ
+        // mục thì mọi lượt xem đều ghi thêm vào chỉ mục (mất cập nhật HOT, chỉ mục
+        // phình). Cần thì dùng
+        // bảng xếp hạng được tính định kỳ / Redis thay vì sắp xếp trực tiếp trên cột
+        // nóng.
+        // Lọc theo chủ đề rồi sắp theo thời gian (topic_id hầu như không đổi nên chỉ
+        // mục rẻ).
+        @Index(name = "idx_videos_topic_feed", columnList = "topic_id, status, mod_status, created_at"),
+        // Dọn thùng rác: tìm video đã quá hạn lưu.
+        @Index(name = "idx_videos_deleted_at", columnList = "deleted_at")
+})
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@SQLRestriction("deleted_at IS NULL")
+public class Video {
+
+    /**
+     * Khóa chính của video (Tương ứng video_id trong ERD)
+     */
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    /**
+     * Người đăng tải / Creator của video
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    /**
+     * Tiêu đề video bài học
+     */
+    @Column(nullable = false, length = 255)
+    private String title;
+
+    /**
+     * Mô tả chi tiết nội dung video bài học
+     */
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    /**
+     * Đường dẫn ảnh bìa / thumbnail của video
+     */
+    @Column(name = "thumbnail_url", nullable = false, length = 255)
+    private String thumbnailUrl;
+
+    /**
+     * Thời lượng video tính bằng giây
+     */
+    @Column(nullable = false)
+    private Integer duration;
+
+    /**
+     * Cấp độ JLPT tương ứng với độ khó của bài học (N5, N4, N3, N2, N1)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "jlpt_level", nullable = false, length = 10)
+    private JLPTLevel jlptLevel;
+
+    /**
+     * Đường dẫn phát video (file MP4 hoặc HLS stream .m3u8)
+     */
+    @Column(name = "video_url", nullable = false, length = 255)
+    private String videoUrl;
+
+    /**
+     * Dữ liệu phụ đề tương tác định dạng JSON.
+     * Cột này được thiết kế để nhận output từ AI (Whisper + Kuromoji)
+     * chứa timestamps (start_ms, end_ms), văn bản tiếng Nhật và chú thích
+     * Ruby/Furigana.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String subtitles;
+
+    /**
+     * Chủ đề của video (tuỳ chọn, nhiều chủ đề): metadata hệ thống, dùng để phân loại và cá nhân hoá feed.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "video_topics",
+            joinColumns = @JoinColumn(name = "video_id"),
+            inverseJoinColumns = @JoinColumn(name = "topic_id"),
+            indexes = @Index(name = "idx_video_topics_topic", columnList = "topic_id, video_id"))
+    @Builder.Default
+    private java.util.Set<com.jlsp.backend.topic.entity.Topic> topics = new java.util.HashSet<>();
+
+    /**
+     * Hashtag người đăng tự điền (tuỳ chọn), dùng cho tìm kiếm / khám phá.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "video_hashtags",
+            joinColumns = @JoinColumn(name = "video_id"),
+            inverseJoinColumns = @JoinColumn(name = "hashtag_id"),
+            indexes = @Index(name = "idx_video_hashtags_hashtag", columnList = "hashtag_id, video_id"))
+    @Builder.Default
+    private java.util.Set<Hashtag> hashtags = new java.util.HashSet<>();
+
+    /**
+     * Kết quả phân tích ngữ pháp do AI (Gemini) sinh ra từ subtitles, định dạng
+     * JSON array của SegmentGrammarAnalysis: mỗi phần tử ứng với 1 segment
+     * (index, startTime, endTime, text, grammarPoints).
+     * NULL = chưa phân tích / đang phân tích / subtitles vừa thay đổi.
+     */
+    @Column(name = "grammar_analysis", columnDefinition = "TEXT")
+    private String grammarAnalysis;
+
+    /**
+     * Tổng số lượt xem hợp lệ
+     */
+    @Column(name = "view_count", nullable = false)
+    @Builder.Default
+    private Long viewCount = 0L;
+
+    /**
+     * Tổng số lượt thích (Like)
+     */
+    @Column(name = "like_count", nullable = false)
+    @Builder.Default
+    private Integer likeCount = 0;
+
+    /**
+     * Tổng số lượt lưu vào bộ sưu tập (Bookmark/Save)
+     */
+    @Column(name = "save_count", nullable = false)
+    @Builder.Default
+    private Integer saveCount = 0;
+
+    /**
+     * Tổng số lượt chia sẻ cho bạn bè qua chat (mỗi người nhận một lượt). Có default ở DB để ddl-auto thêm được
+     * cột vào bảng đã có dữ liệu.
+     */
+    @Column(name = "share_count", nullable = false)
+    @ColumnDefault("0")
+    @Builder.Default
+    private Integer shareCount = 0;
+
+    /**
+     * Trạng thái hiển thị của video (PUBLIC, PRIVATE, UNLISTED)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private VideoStatus status = VideoStatus.PUBLIC;
+
+    /**
+     * Trạng thái kiểm duyệt của Moderator (PENDING, APPROVED, REJECTED)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mod_status", nullable = false, length = 20)
+    @Builder.Default
+    private VideoModStatus modStatus = VideoModStatus.PENDING;
+
+    /**
+     * Lý do từ chối kiểm duyệt (nếu vi phạm)
+     */
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    /**
+     * ID của Moderator thực hiện duyệt hoặc từ chối
+     */
+    @Column(name = "moderated_by")
+    private Long moderatedBy;
+
+    /**
+     * Thời điểm kiểm duyệt
+     */
+    @Column(name = "moderated_at")
+    private LocalDateTime moderatedAt;
+
+    /**
+     * Thời điểm đăng tải
+     */
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    /**
+     * Thời điểm cập nhật thông tin gần nhất
+     */
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    /**
+     * Thời điểm chuyển vào thùng rác; NULL = đang hoạt động.
+     * Hết hạn lưu, VideoTrashPurgeJob xóa hẳn video cùng dữ liệu phụ thuộc.
+     */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.viewCount == null) {
+            this.viewCount = 0L;
+        }
+        if (this.likeCount == null) {
+            this.likeCount = 0;
+        }
+        if (this.saveCount == null) {
+            this.saveCount = 0;
+        }
+        if (this.shareCount == null) {
+            this.shareCount = 0;
+        }
+        if (this.status == null) {
+            this.status = VideoStatus.PUBLIC;
+        }
+        if (this.modStatus == null) {
+            this.modStatus = VideoModStatus.PENDING;
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+}

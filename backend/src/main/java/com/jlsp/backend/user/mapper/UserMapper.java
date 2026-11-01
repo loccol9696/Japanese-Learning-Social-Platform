@@ -22,8 +22,12 @@ public class UserMapper {
                 .bio(entity.getBio())
                 .role(entity.getRole())
                 .isActive(entity.getIsActive())
+                .authProvider(entity.getAuthProvider())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .vipExpiresAt(entity.getVipExpiresAt())
+                .subscriptionPlanName(entity.getSubscriptionPlan() != null ? entity.getSubscriptionPlan().getName() : null)
+                .needsOnboarding(com.jlsp.backend.onboarding.OnboardingRules.needsOnboarding(entity))
                 .build();
     }
 

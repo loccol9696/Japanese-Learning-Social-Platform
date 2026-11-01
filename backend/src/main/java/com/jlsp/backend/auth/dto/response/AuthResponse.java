@@ -17,9 +17,10 @@ public class AuthResponse {
 
     private String accessToken;
 
-    private String refreshToken;
-
+    /** Thời gian sống của access token (giây). */
     private Long expiresIn;
+
+    private String refreshToken;
 
     private UserResponse user;
 }

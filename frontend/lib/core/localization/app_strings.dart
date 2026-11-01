@@ -1,8 +1,10 @@
 abstract class AppStrings {
   // Navigation Bar
   String get navHome;
+  String get navExplore;
   String get navFlashcards;
   String get navAddVideo;
+  String get navApproveVideo;
   String get navMessages;
   String get navProfile;
 
@@ -20,20 +22,56 @@ abstract class AppStrings {
   String get followingStatus;
   String get share;
   String get comments;
+  String get commentHelpful;
+  String get commentPinned;
+  String get commentPin;
+  String get commentUnpin;
+  String get commentSortHelpful;
+  String get commentSortNewest;
   String get subtitle;
 
   // Language
   String get selectLanguage;
   String get languageChanged;
+
+  // Profile Update Screen
+  String get profileTitle;
+  String get editProfile;
+  String get saveChanges;
+  String get saving;
+  String get profileUpdatedSuccessfully;
+  String get updateFailed;
+  String get selectJlptLevel;
+  String get selectInterests;
+  String get interestsHint;
+  String get changeAvatar;
+  String get choosePresetAvatar;
+  String get customAvatarUrl;
+  String get enterAvatarUrl;
+  String get displayName;
+  String get displayNamePlaceholder;
+  String get bio;
+  String get bioPlaceholder;
+  String get cancel;
+  String get select;
+  String get levelBeginner;
+  String get levelElementary;
+  String get levelIntermediate;
+  String get levelUpperIntermediate;
+  String get levelAdvanced;
 }
 
 class ViStrings implements AppStrings {
   @override
   String get navHome => 'Trang chủ';
   @override
+  String get navExplore => 'Khám phá';
+  @override
   String get navFlashcards => 'Flashcard';
   @override
   String get navAddVideo => 'Thêm video';
+  @override
+  String get navApproveVideo => 'Duyệt video';
   @override
   String get navMessages => 'Tin nhắn';
   @override
@@ -44,7 +82,7 @@ class ViStrings implements AppStrings {
   @override
   String get forYou => 'Dành cho bạn';
   @override
-  String get searchPlaceholder => 'Tìm kiếm bài học / Kanji / Slang...';
+  String get searchPlaceholder => 'Tìm video, người dùng...';
 
   @override
   String get noVideos => 'Không có video nào.';
@@ -63,21 +101,86 @@ class ViStrings implements AppStrings {
   @override
   String get comments => 'Bình luận';
   @override
+  String get commentHelpful => 'Hữu ích';
+  @override
+  String get commentPinned => 'Đã ghim';
+  @override
+  String get commentPin => 'Ghim';
+  @override
+  String get commentUnpin => 'Bỏ ghim';
+  @override
+  String get commentSortHelpful => 'Hữu ích nhất';
+  @override
+  String get commentSortNewest => 'Mới nhất';
+  @override
   String get subtitle => 'Phụ đề';
 
   @override
   String get selectLanguage => 'Chọn ngôn ngữ';
   @override
   String get languageChanged => 'Đã đổi sang Tiếng Việt';
+
+  @override
+  String get profileTitle => 'Hồ sơ người dùng';
+  @override
+  String get editProfile => 'Chỉnh sửa hồ sơ';
+  @override
+  String get saveChanges => 'Lưu thay đổi';
+  @override
+  String get saving => 'Đang lưu...';
+  @override
+  String get profileUpdatedSuccessfully => 'Cập nhật hồ sơ thành công!';
+  @override
+  String get updateFailed => 'Cập nhật thất bại. Vui lòng thử lại!';
+  @override
+  String get selectJlptLevel => 'Trình độ JLPT';
+  @override
+  String get selectInterests => 'Sở thích';
+  @override
+  String get interestsHint => 'Chọn các chủ đề bạn yêu thích để nhận video phù hợp';
+  @override
+  String get changeAvatar => 'Đổi ảnh đại diện';
+  @override
+  String get choosePresetAvatar => 'Chọn avatar mẫu Anime/Chibi';
+  @override
+  String get customAvatarUrl => 'Hoặc dán liên kết ảnh (URL)';
+  @override
+  String get enterAvatarUrl => 'https://example.com/avatar.png';
+  @override
+  String get displayName => 'Tên';
+  @override
+  String get displayNamePlaceholder => 'Nhập tên hiển thị của bạn';
+  @override
+  String get bio => 'Giới thiệu bản thân (Bio)';
+  @override
+  String get bioPlaceholder => 'Chia sẻ đôi nét về bạn và mục tiêu học tiếng Nhật...';
+  @override
+  String get cancel => 'Hủy';
+  @override
+  String get select => 'Chọn';
+  @override
+  String get levelBeginner => 'Nhập môn';
+  @override
+  String get levelElementary => 'Sơ cấp';
+  @override
+  String get levelIntermediate => 'Trung cấp';
+  @override
+  String get levelUpperIntermediate => 'Trung cao cấp';
+  @override
+  String get levelAdvanced => 'Thành thạo';
 }
 
 class EnStrings implements AppStrings {
   @override
   String get navHome => 'Home';
   @override
+  String get navExplore => 'Discover';
+  @override
   String get navFlashcards => 'Flashcards';
   @override
   String get navAddVideo => 'Create';
+  @override
+  String get navApproveVideo => 'Approve';
   @override
   String get navMessages => 'Inbox';
   @override
@@ -88,7 +191,7 @@ class EnStrings implements AppStrings {
   @override
   String get forYou => 'For You';
   @override
-  String get searchPlaceholder => 'Search lessons, Kanji, Slang...';
+  String get searchPlaceholder => 'Search videos, users...';
 
   @override
   String get noVideos => 'No videos available.';
@@ -107,21 +210,86 @@ class EnStrings implements AppStrings {
   @override
   String get comments => 'Comments';
   @override
+  String get commentHelpful => 'Helpful';
+  @override
+  String get commentPinned => 'Pinned';
+  @override
+  String get commentPin => 'Pin';
+  @override
+  String get commentUnpin => 'Unpin';
+  @override
+  String get commentSortHelpful => 'Most helpful';
+  @override
+  String get commentSortNewest => 'Newest';
+  @override
   String get subtitle => 'Subtitles';
 
   @override
   String get selectLanguage => 'Select Language';
   @override
   String get languageChanged => 'Switched to English';
+
+  @override
+  String get profileTitle => 'User Profile';
+  @override
+  String get editProfile => 'Update Profile';
+  @override
+  String get saveChanges => 'Save Changes';
+  @override
+  String get saving => 'Saving...';
+  @override
+  String get profileUpdatedSuccessfully => 'Profile updated successfully!';
+  @override
+  String get updateFailed => 'Update failed. Please try again!';
+  @override
+  String get selectJlptLevel => 'Target JLPT Level';
+  @override
+  String get selectInterests => 'Topics & Interests';
+  @override
+  String get interestsHint => 'Choose topics you love to personalize your feed';
+  @override
+  String get changeAvatar => 'Change Avatar';
+  @override
+  String get choosePresetAvatar => 'Choose preset Anime/Chibi avatar';
+  @override
+  String get customAvatarUrl => 'Or paste image URL';
+  @override
+  String get enterAvatarUrl => 'https://example.com/avatar.png';
+  @override
+  String get displayName => 'Display Name';
+  @override
+  String get displayNamePlaceholder => 'Enter your display name';
+  @override
+  String get bio => 'Bio';
+  @override
+  String get bioPlaceholder => 'Tell us about yourself and your Japanese study goals...';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get select => 'Select';
+  @override
+  String get levelBeginner => 'Beginner';
+  @override
+  String get levelElementary => 'Elementary';
+  @override
+  String get levelIntermediate => 'Intermediate';
+  @override
+  String get levelUpperIntermediate => 'Upper-Intermediate';
+  @override
+  String get levelAdvanced => 'Advanced';
 }
 
 class JaStrings implements AppStrings {
   @override
   String get navHome => 'ホーム';
   @override
+  String get navExplore => '発見';
+  @override
   String get navFlashcards => '単語帳';
   @override
   String get navAddVideo => '投稿';
+  @override
+  String get navApproveVideo => '動画を承認';
   @override
   String get navMessages => 'メッセージ';
   @override
@@ -151,10 +319,71 @@ class JaStrings implements AppStrings {
   @override
   String get comments => 'コメント';
   @override
+  String get commentHelpful => '役に立った';
+  @override
+  String get commentPinned => '固定済み';
+  @override
+  String get commentPin => '固定';
+  @override
+  String get commentUnpin => '固定解除';
+  @override
+  String get commentSortHelpful => '役に立つ順';
+  @override
+  String get commentSortNewest => '新しい順';
+  @override
   String get subtitle => '字幕';
 
   @override
   String get selectLanguage => '言語を選択';
   @override
   String get languageChanged => '日本語に切り替えました';
+
+  @override
+  String get profileTitle => 'マイページ';
+  @override
+  String get editProfile => 'プロフィール編集';
+  @override
+  String get saveChanges => '変更を保存';
+  @override
+  String get saving => '保存中...';
+  @override
+  String get profileUpdatedSuccessfully => 'プロフィールを更新しました！';
+  @override
+  String get updateFailed => '更新に失敗しました。もう一度お試しください。';
+  @override
+  String get selectJlptLevel => '目標JLPTレベル';
+  @override
+  String get selectInterests => '関心のあるトピック・興味';
+  @override
+  String get interestsHint => '好きなトピックを選択してフィードをパーソナライズ';
+  @override
+  String get changeAvatar => 'アバターを変更';
+  @override
+  String get choosePresetAvatar => 'プリセットアバターから選択';
+  @override
+  String get customAvatarUrl => 'または画像URLを入力';
+  @override
+  String get enterAvatarUrl => 'https://example.com/avatar.png';
+  @override
+  String get displayName => '表示名';
+  @override
+  String get displayNamePlaceholder => '表示名を入力してください';
+  @override
+  String get bio => '自己紹介';
+  @override
+  String get bioPlaceholder => '自己紹介や日本語学習の目標を書いてみましょう...';
+  @override
+  String get cancel => 'キャンセル';
+  @override
+  String get select => '選択';
+  @override
+  String get levelBeginner => '入門';
+  @override
+  String get levelElementary => '初級';
+  @override
+  String get levelIntermediate => '中級';
+  @override
+  String get levelUpperIntermediate => '中上級';
+  @override
+  String get levelAdvanced => '上級';
 }

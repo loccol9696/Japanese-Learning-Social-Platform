@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 
@@ -7,15 +8,17 @@ enum FeedTab { following, forYou }
 class HomeHeader extends StatelessWidget {
   final FeedTab currentTab;
   final ValueChanged<FeedTab> onTabChanged;
-  final VoidCallback? onSearchTap;
   final AdaptiveVideoTheme? theme;
+
+  /// Mở màn Khám phá. Null thì ẩn icon.
+  final VoidCallback? onExploreTap;
 
   const HomeHeader({
     super.key,
     required this.currentTab,
     required this.onTabChanged,
-    this.onSearchTap,
     this.theme,
+    this.onExploreTap,
   });
 
   @override
@@ -52,25 +55,11 @@ class HomeHeader extends StatelessWidget {
               ),
             ),
           ),
-
-          // Right Search Action Button
-          Positioned(
-            right: 8.0,
-            child: SizedBox(
-              width: 40.0,
-              height: 40.0,
-              child: IconButton(
-                onPressed: onSearchTap,
-                icon: Icon(
-                  Icons.search_rounded,
-                  size: 26.0,
-                  color: activeTheme.headerSearchIcon,
-                ),
-                splashRadius: 22.0,
-                padding: EdgeInsets.zero,
-              ),
+          if (onExploreTap != null)
+            Positioned(
+              right: 4,
+              child: _ExploreButton(theme: activeTheme, onTap: onExploreTap!),
             ),
-          ),
         ],
       ),
     );
@@ -122,6 +111,28 @@ class HomeHeader extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Icon khám phá (tìm kiếm) ở góc phải header.
+class _ExploreButton extends StatelessWidget {
+  final AdaptiveVideoTheme theme;
+  final VoidCallback onTap;
+
+  const _ExploreButton({required this.theme, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: appStrings.navExplore,
+      onPressed: onTap,
+      icon: Icon(
+        Icons.search_rounded,
+        size: 28,
+        color: theme.headerSelectedText,
+        shadows: theme.textShadows,
       ),
     );
   }

@@ -2,31 +2,50 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/localization/locale_manager.dart';
+import '../../../../core/auth/auth_guard.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/data/auth_session.dart';
 import '../../domain/models/video_post.dart';
+import '../../../report/report_service.dart';
+import '../../../report/report_sheet.dart';
+import 'subtitle_mode.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class InteractionSidebar extends StatefulWidget {
   final VideoPost post;
   final AdaptiveVideoTheme? theme;
-  final bool isSubtitlesVisible;
+  final SubtitleMode subtitleMode;
+  final bool? isLikedOverride;
+  final int? likeCountOverride;
   final VoidCallback? onToggleSubtitles;
   final VoidCallback? onLikeToggle;
+  final VoidCallback? onSaveToggle;
   final VoidCallback? onFollowToggle;
+
+  /// Bấm vào avatar người đăng để mở trang cá nhân của họ.
+  final VoidCallback? onCreatorTap;
   final VoidCallback? onCommentTap;
   final VoidCallback? onShareTap;
+  final VoidCallback? onScriptTap;
+  final bool allowAccountActions;
 
   const InteractionSidebar({
     super.key,
     required this.post,
     this.theme,
-    this.isSubtitlesVisible = true,
+    this.subtitleMode = SubtitleMode.bilingual,
+    this.isLikedOverride,
+    this.likeCountOverride,
     this.onToggleSubtitles,
     this.onLikeToggle,
+    this.onSaveToggle,
     this.onFollowToggle,
+    this.onCreatorTap,
     this.onCommentTap,
     this.onShareTap,
+    this.onScriptTap,
+    this.allowAccountActions = true,
   });
 
   @override
@@ -35,11 +54,13 @@ class InteractionSidebar extends StatefulWidget {
 
 class _InteractionSidebarState extends State<InteractionSidebar>
     with TickerProviderStateMixin {
-  late final AnimationController _discController;
+  /// Màu của nút Lưu khi video đã được lưu (vàng như TikTok).
+  static Color get _savedColor => AppPalette.gold;
+
   late final AnimationController _likeScaleController;
-  late final AnimationController _noteBounceController;
 
   late bool _isLiked;
+  late bool _isSaved;
   late bool _isFollowing;
   late int _likeCount;
 
@@ -47,13 +68,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   void initState() {
     super.initState();
     _isLiked = widget.post.isLiked;
+    _isSaved = widget.post.isSaved;
     _isFollowing = widget.post.isFollowing;
     _likeCount = widget.post.likeCount;
-
-    _discController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat();
 
     _likeScaleController = AnimationController(
       vsync: this,
@@ -61,18 +78,18 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       lowerBound: 1.0,
       upperBound: 1.3,
     );
-
-    _noteBounceController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
   }
 
   @override
   void didUpdateWidget(covariant InteractionSidebar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.post.id != widget.post.id) {
+    if (oldWidget.post.id != widget.post.id ||
+        oldWidget.post.isLiked != widget.post.isLiked ||
+        oldWidget.post.isSaved != widget.post.isSaved ||
+        oldWidget.post.isFollowing != widget.post.isFollowing ||
+        oldWidget.post.likeCount != widget.post.likeCount) {
       _isLiked = widget.post.isLiked;
+      _isSaved = widget.post.isSaved;
       _isFollowing = widget.post.isFollowing;
       _likeCount = widget.post.likeCount;
     }
@@ -80,13 +97,19 @@ class _InteractionSidebarState extends State<InteractionSidebar>
 
   @override
   void dispose() {
-    _discController.dispose();
     _likeScaleController.dispose();
-    _noteBounceController.dispose();
     super.dispose();
   }
 
-  void _handleLike() {
+  Future<void> _handleLike() async {
+    if (!AuthSession.instance.isAuthenticated) {
+      await requireAuthentication(
+        context,
+        message: 'Vui lòng đăng nhập để thả tim video này.',
+      );
+      return;
+    }
+
     setState(() {
       _isLiked = !_isLiked;
       if (_isLiked) {
@@ -104,10 +127,23 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   }
 
   void _handleFollow() {
+    if (!widget.allowAccountActions) {
+      widget.onFollowToggle?.call();
+      return;
+    }
     setState(() {
       _isFollowing = !_isFollowing;
     });
     widget.onFollowToggle?.call();
+  }
+
+  void _handleSave() {
+    if (!widget.allowAccountActions) {
+      widget.onSaveToggle?.call();
+      return;
+    }
+    setState(() => _isSaved = !_isSaved);
+    widget.onSaveToggle?.call();
   }
 
   String _formatCount(int count) {
@@ -128,44 +164,109 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 0. Subtitle Toggle Button (placed directly above user avatar)
-        _buildSubtitleToggleButton(activeTheme),
-        const SizedBox(height: 14.0),
-
         // 1. Creator Avatar & Follow Button
         _buildCreatorAvatar(activeTheme),
-        const SizedBox(height: 16.0),
+        const SizedBox(height: 8.0),
 
         // 2. Like / Heart Button
         _buildLikeButton(activeTheme),
-        const SizedBox(height: 14.0),
+        const SizedBox(height: 6.0),
 
         // 3. Comments Button
         _buildActionButton(
           theme: activeTheme,
-          icon: Icons.chat_bubble_rounded,
           countText: _formatCount(widget.post.commentCount),
           onTap: widget.onCommentTap,
+          icon: Icons.chat_bubble_outline_rounded,
+          countFontSize: 10.0,
+          countColor: AppPalette.onVideo,
         ),
-        const SizedBox(height: 14.0),
+        const SizedBox(height: 8.0),
+        _buildActionButton(
+          theme: activeTheme,
+          icon: _isSaved
+              ? Icons.bookmark_rounded
+              : Icons.bookmark_border_rounded,
+          countText: 'Lưu',
+          onTap: _handleSave,
+          iconColor: _isSaved ? _savedColor : AppPalette.onVideo,
+          countColor: _isSaved ? _savedColor : AppPalette.onVideo,
+        ),
+        const SizedBox(height: 8.0),
 
         // 4. Share Button
         _buildActionButton(
           theme: activeTheme,
-          icon: Icons.reply_rounded,
+          icon: Icons.reply_outlined,
+          flipIcon: true,
           countText: _formatCount(widget.post.shareCount),
           onTap: widget.onShareTap,
         ),
-        const SizedBox(height: 16.0),
+        const SizedBox(height: 6.0),
 
-        // 5. Rotating Vinyl Disc
-        _buildRotatingDisc(activeTheme),
+        // 5. Kịch bản (mở danh sách toàn bộ câu thoại)
+        _buildActionButton(
+          theme: activeTheme,
+          icon: Icons.article_outlined,
+          countText: 'Kịch bản',
+          onTap: widget.onScriptTap,
+        ),
+        const SizedBox(height: 6.0),
+
+        // 6. Subtitle Toggle Button (below script)
+        _buildSubtitleToggleButton(activeTheme),
+
+        // 7. Báo cáo video (ẩn với video của chính mình)
+        if (_canReport) ...[
+          const SizedBox(height: 2.0),
+          _buildReportButton(activeTheme),
+        ],
       ],
     );
   }
 
+  bool get _canReport {
+    if (int.tryParse(widget.post.id) == null) return false;
+    final me = AuthSession.instance.user?.id;
+    return me == null || me != widget.post.creatorId;
+  }
+
+  Widget _buildReportButton(AdaptiveVideoTheme theme) {
+    return Tooltip(
+      message: 'Báo cáo video',
+      child: GestureDetector(
+        onTap: () => showReportSheet(
+          context,
+          target: ReportTarget.video,
+          targetId: int.parse(widget.post.id),
+          subject: 'video này',
+        ),
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 36.0,
+          height: 32.0,
+          child: Center(
+            child: Icon(
+              Icons.flag_outlined,
+              size: 22.0,
+              color: theme.isLight
+                  ? theme.textSecondary.withValues(alpha: 0.7)
+                  : AppPalette.onVideoMuted,
+              shadows: theme.textShadows,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSubtitleToggleButton(AdaptiveVideoTheme theme) {
-    final isVisible = widget.isSubtitlesVisible;
+    final isVisible = widget.subtitleMode != SubtitleMode.off;
+    final label = switch (widget.subtitleMode) {
+      SubtitleMode.bilingual => 'Song ngữ',
+      SubtitleMode.japaneseOnly => 'Tiếng Nhật',
+      SubtitleMode.off => 'Tắt',
+    };
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -174,35 +275,34 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           onTap: widget.onToggleSubtitles,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
-            width: 44.0,
-            height: 44.0,
+            width: 36.0,
+            height: 36.0,
             child: Center(
               child: Icon(
                 isVisible
-                    ? Icons.subtitles_rounded
-                    : Icons.subtitles_off_rounded,
-                size: 28.0,
+                    ? Icons.subtitles_outlined
+                    : Icons.subtitles_off_outlined,
+                size: 26.0,
                 color: isVisible
-                    ? (theme.isLight ? theme.primaryAdaptive : Colors.white)
+                    ? (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo)
                     : (theme.isLight
                           ? theme.textSecondary.withValues(alpha: 0.5)
-                          : Colors.white54),
+                          : AppPalette.onVideoMuted),
                 shadows: theme.textShadows,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 2.0),
         Text(
-          appStrings.subtitle,
+          label,
           style: TextStyle(
-            fontSize: 11.0,
+            fontSize: 10.0,
             fontWeight: isVisible ? FontWeight.bold : FontWeight.w500,
             color: isVisible
-                ? (theme.isLight ? theme.primaryAdaptive : Colors.white)
+                ? (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo)
                 : (theme.isLight
                       ? theme.textSecondary.withValues(alpha: 0.6)
-                      : Colors.white60),
+                      : AppPalette.onVideoMuted),
             shadows: theme.textShadows,
           ),
         ),
@@ -215,35 +315,39 @@ class _InteractionSidebarState extends State<InteractionSidebar>
       alignment: Alignment.center,
       clipBehavior: Clip.none,
       children: [
-        Container(
-          width: 48.0,
-          height: 48.0,
-          padding: const EdgeInsets.all(2.5),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [
-                AppColors.periwinkle,
-                AppColors.lavender,
-                AppColors.sakuraPink,
-              ],
-              begin: Alignment.bottomLeft,
-              end: Alignment.topRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.lavender.withValues(alpha: 0.5),
-                blurRadius: 15.0,
+        GestureDetector(
+          onTap: widget.onCreatorTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: 48.0,
+            height: 48.0,
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.periwinkle,
+                  AppColors.lavender,
+                  AppColors.sakuraPink,
+                ],
+                begin: Alignment.bottomLeft,
+                end: Alignment.topRight,
               ),
-            ],
-          ),
-          child: ClipOval(
-            child: Image.network(
-              widget.post.creatorAvatarUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
-                color: AppColors.surfaceContainerHigh,
-                child: const Icon(Icons.person, color: AppColors.periwinkle),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.lavender.withValues(alpha: 0.5),
+                  blurRadius: 15.0,
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: Image.network(
+                widget.post.creatorAvatarUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  color: AppColors.surfaceContainerHigh,
+                  child: Icon(Icons.person, color: AppColors.periwinkle),
+                ),
               ),
             ),
           ),
@@ -255,8 +359,8 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             onTap: _handleFollow,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              width: 22.0,
-              height: 22.0,
+              width: 20.0,
+              height: 20.0,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: _isFollowing
@@ -268,15 +372,15 @@ class _InteractionSidebarState extends State<InteractionSidebar>
                   BoxShadow(
                     color: _isFollowing
                         ? AppColors.sakuraPink.withValues(alpha: 0.6)
-                        : Colors.black.withValues(alpha: 0.25),
+                        : AppPalette.shadow,
                     blurRadius: 8.0,
                   ),
                 ],
               ),
               child: Icon(
                 _isFollowing ? Icons.check_rounded : Icons.add_rounded,
-                size: 16.0,
-                color: Colors.white,
+                size: 14.0,
+                color: AppPalette.onVideo,
               ),
             ),
           ),
@@ -286,6 +390,9 @@ class _InteractionSidebarState extends State<InteractionSidebar>
   }
 
   Widget _buildLikeButton(AdaptiveVideoTheme theme) {
+    final isLiked = widget.isLikedOverride ?? _isLiked;
+    final likeCount = widget.likeCountOverride ?? _likeCount;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -295,21 +402,21 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           child: ScaleTransition(
             scale: _likeScaleController,
             child: SizedBox(
-              width: 44.0,
-              height: 44.0,
+              width: 36.0,
+              height: 36.0,
               child: Center(
                 child: Icon(
-                  _isLiked
+                  isLiked
                       ? Icons.favorite_rounded
                       : Icons.favorite_border_rounded,
-                  size: 30.0,
-                  color: _isLiked
-                      ? AppColors.sakuraPink
-                      : (theme.isLight ? theme.primaryAdaptive : Colors.white),
+                  size: 26.0,
+                  color: isLiked
+                      ? AppColors.likeRed
+                      : (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo),
                   shadows: _isLiked
                       ? [
                           const Shadow(
-                            color: AppColors.sakuraPink,
+                            color: AppColors.likeRed,
                             blurRadius: 10.0,
                           ),
                         ]
@@ -319,13 +426,12 @@ class _InteractionSidebarState extends State<InteractionSidebar>
             ),
           ),
         ),
-        const SizedBox(height: 2.0),
         Text(
-          _formatCount(_likeCount),
+          _formatCount(likeCount),
           style: TextStyle(
-            fontSize: 12.0,
+            fontSize: 10.0,
             fontWeight: FontWeight.w600,
-            color: theme.isLight ? theme.primaryAdaptive : Colors.white,
+            color: theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo,
             shadows: theme.textShadows,
           ),
         ),
@@ -335,9 +441,15 @@ class _InteractionSidebarState extends State<InteractionSidebar>
 
   Widget _buildActionButton({
     required AdaptiveVideoTheme theme,
-    required IconData icon,
-    required String countText,
+    IconData? icon,
+    String? countText,
     VoidCallback? onTap,
+    Widget? customIcon,
+    double iconSize = 26.0,
+    bool flipIcon = false,
+    Color? iconColor,
+    double countFontSize = 10.0,
+    Color? countColor,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -346,98 +458,40 @@ class _InteractionSidebarState extends State<InteractionSidebar>
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
-            width: 44.0,
-            height: 44.0,
-            child: Center(
-              child: Icon(
-                icon,
-                size: 28.0,
-                color: theme.isLight ? theme.primaryAdaptive : Colors.white,
-                shadows: theme.textShadows,
-              ),
-            ),
+            width: 36.0,
+            height: 36.0,
+            child:
+                customIcon ??
+                Center(
+                  child: Transform.flip(
+                    flipX: flipIcon,
+                    child: Icon(
+                      icon,
+                      size: iconSize,
+                      color:
+                          iconColor ??
+                          (theme.isLight
+                              ? theme.primaryAdaptive
+                              : AppPalette.onVideo),
+                      shadows: theme.textShadows,
+                    ),
+                  ),
+                ),
           ),
         ),
         const SizedBox(height: 2.0),
-        Text(
-          countText,
-          style: TextStyle(
-            fontSize: 12.0,
-            fontWeight: FontWeight.w600,
-            color: theme.isLight ? theme.primaryAdaptive : Colors.white,
-            shadows: theme.textShadows,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRotatingDisc(AdaptiveVideoTheme theme) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        RotationTransition(
-          turns: _discController,
-          child: Container(
-            width: 42.0,
-            height: 42.0,
-            padding: const EdgeInsets.all(4.0),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: theme.isLight ? Colors.white : AppColors.surfaceDim,
-              border: Border.all(
-                color: theme.isLight
-                    ? const Color(0xFF1E212D).withValues(alpha: 0.3)
-                    : AppColors.lavender,
-                width: 2.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.isLight
-                      ? Colors.black.withValues(alpha: 0.1)
-                      : AppColors.lavender.withValues(alpha: 0.5),
-                  blurRadius: 12.0,
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: Image.network(
-                widget.post.audioDiscImageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: AppColors.surfaceContainerHighest,
-                  child: Icon(
-                    Icons.album_rounded,
-                    size: 16.0,
-                    color: theme.isLight
-                        ? const Color(0xFF1E212D)
-                        : AppColors.lavender,
-                  ),
-                ),
-              ),
+        if (countText != null)
+          Text(
+            countText,
+            style: TextStyle(
+              fontSize: countFontSize,
+              fontWeight: FontWeight.w600,
+              color:
+                  countColor ??
+                  (theme.isLight ? theme.primaryAdaptive : AppPalette.onVideo),
+              shadows: theme.textShadows,
             ),
           ),
-        ),
-        // Animated bouncing music note
-        Positioned(
-          top: -6.0,
-          right: -4.0,
-          child: AnimatedBuilder(
-            animation: _noteBounceController,
-            builder: (context, child) {
-              return Transform.translate(
-                offset: Offset(0, -4.0 * _noteBounceController.value),
-                child: child,
-              );
-            },
-            child: const Icon(
-              Icons.music_note_rounded,
-              size: 16.0,
-              color: AppColors.sakuraPink,
-              shadows: [Shadow(color: AppColors.sakuraPink, blurRadius: 8.0)],
-            ),
-          ),
-        ),
       ],
     );
   }

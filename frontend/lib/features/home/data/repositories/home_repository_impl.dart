@@ -18,14 +18,17 @@ class HomeRepositoryImpl implements HomeRepository {
   }
 
   @override
-  Future<bool> toggleLike(String postId) async {
-    // In real app, call API
-    return true;
+  Future<bool> setLiked(String postId, {required bool liked}) {
+    return remoteDataSource.setLiked(postId, liked: liked);
   }
 
   @override
-  Future<bool> toggleFollow(String creatorId) async {
-    // In real app, call API
-    return true;
+  Future<bool> setSaved(String postId, {required bool saved}) {
+    return remoteDataSource.setSaved(postId, saved: saved);
+  }
+
+  @override
+  Future<bool> setFollow(int creatorId, {required bool follow}) {
+    return remoteDataSource.setFollow(creatorId, follow: follow);
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_palette.dart';
 
 class StreakXpBadge extends StatelessWidget {
   final int streakDays;
@@ -47,7 +48,7 @@ class StreakXpBadge extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: activeTheme.isLight
-                  ? const Color(0xFF1E212D).withValues(alpha: 0.4)
+                  ? AppPalette.surfaceHigh.withValues(alpha: 0.4)
                   : AppColors.softSkyBlue.withValues(alpha: 0.7),
             ),
           ),
@@ -57,7 +58,7 @@ class StreakXpBadge extends StatelessWidget {
               fontSize: 12.0,
               fontWeight: FontWeight.bold,
               color: activeTheme.isLight
-                  ? const Color(0xFFD97706)
+                  ? AppPalette.warning
                   : AppColors.warmPeach,
             ),
           ),

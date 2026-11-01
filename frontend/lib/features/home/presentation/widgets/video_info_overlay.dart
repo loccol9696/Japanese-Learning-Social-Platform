@@ -1,170 +1,151 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/adaptive_video_theme.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../domain/models/video_post.dart';
 
+import '../../../../core/theme/adaptive_video_theme.dart';
+import '../../domain/models/video_post.dart';
+import '../../../../core/theme/app_palette.dart';
+import '../../../profile/domain/models/topic_model.dart';
+
+/// Thông tin video ở góc dưới: @username ở dòng trên; dòng dưới là tên video kèm huy hiệu JLPT viền xanh;
+/// cuối cùng là chủ đề và hashtag, bấm vào để xem các video cùng loại.
 class VideoInfoOverlay extends StatelessWidget {
   final VideoPost post;
   final AdaptiveVideoTheme? theme;
+
+  /// Bấm vào @username để mở trang cá nhân người đăng.
+  final VoidCallback? onCreatorTap;
+
+  final ValueChanged<TopicModel>? onTopicTap;
+  final ValueChanged<String>? onHashtagTap;
+
+  /// Giới hạn để hàng thẻ không che mất video khi người đăng gắn đủ chủ đề và hashtag.
+  static const int _maxTags = 5;
 
   const VideoInfoOverlay({
     super.key,
     required this.post,
     this.theme,
+    this.onCreatorTap,
+    this.onTopicTap,
+    this.onHashtagTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final activeTheme = theme ?? const AdaptiveVideoTheme(isLight: false);
+    final hasCreator = post.creatorTag.isNotEmpty;
+    final hasJlpt = post.jlptLevel.isNotEmpty;
+    final hasTitle = post.topicTag.isNotEmpty;
+    final hasTags = post.topics.isNotEmpty || post.hashtags.isNotEmpty;
+
+    if (!hasCreator && !hasJlpt && !hasTitle && !hasTags) {
+      return const SizedBox.shrink();
+    }
+
+    final shadow = [
+      Shadow(
+        color: AppPalette.videoScrim.withValues(alpha: 0.60),
+        offset: const Offset(0, 1),
+        blurRadius: 4.0,
+      ),
+    ];
+
+    final tags = [
+      for (final topic in post.topics)
+        _tag(topic.name, onTopicTap == null ? null : () => onTopicTap!(topic), shadow),
+      for (final hashtag in post.hashtags)
+        _tag('#$hashtag', onHashtagTap == null ? null : () => onHashtagTap!(hashtag), shadow),
+    ].take(_maxTags).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Creator Handle & Verified Accent Badge
-        Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8.0,
-          runSpacing: 4.0,
-          children: [
-            Text(
+        // Dòng 1: @username
+        if (hasCreator)
+          GestureDetector(
+            onTap: onCreatorTap,
+            behavior: HitTestBehavior.opaque,
+            child: Text(
               post.creatorTag,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 16.0,
-                fontWeight: FontWeight.bold,
-                color: activeTheme.textPrimary,
-                shadows: activeTheme.textShadows,
+                fontSize: 18.0,
+                fontWeight: FontWeight.w800,
+                color: AppPalette.onVideo,
+                shadows: shadow,
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 3.0),
-              decoration: BoxDecoration(
-                color: activeTheme.isLight
-                    ? Colors.white.withValues(alpha: 0.8)
-                    : AppColors.periwinkle.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(12.0),
-                border: Border.all(
-                  color: activeTheme.isLight
-                      ? const Color(0xFF1E212D).withValues(alpha: 0.2)
-                      : AppColors.softSkyBlue.withValues(alpha: 0.5),
-                  width: 1.0,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.verified_rounded,
-                    size: 14.0,
-                    color: activeTheme.isLight
-                        ? const Color(0xFF1E212D)
-                        : AppColors.softSkyBlue,
-                  ),
-                  const SizedBox(width: 4.0),
-                  Text(
-                    post.accentInfo,
+          ),
+
+        // Dòng 2: tên video kèm huy hiệu JLPT viền xanh
+        if (hasTitle || hasJlpt) ...[
+          if (hasCreator) const SizedBox(height: 6.0),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (hasTitle) ...[
+                Flexible(
+                  child: Text(
+                    post.topicTag,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 11.0,
-                      fontWeight: FontWeight.w600,
-                      color: activeTheme.isLight
-                          ? const Color(0xFF1E212D)
-                          : AppColors.primaryFixed,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w500,
+                      color: AppPalette.onVideo.withValues(alpha: 0.9),
+                      shadows: shadow,
                     ),
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6.0),
-
-        // JLPT Level & Topic Pill
-        Row(
-          children: [
-            // JLPT Badge (Adaptive: Đen xám on Light, Trắng on Dark)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 2.5),
-              decoration: BoxDecoration(
-                color: activeTheme.jlptBadgeBackground,
-                borderRadius: BorderRadius.circular(12.0),
-                boxShadow: [
-                  BoxShadow(
-                    color: activeTheme.isLight
-                        ? Colors.black.withValues(alpha: 0.15)
-                        : Colors.white.withValues(alpha: 0.25),
-                    blurRadius: 8.0,
-                  ),
-                ],
-              ),
-              child: Text(
-                post.jlptLevel,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: activeTheme.jlptBadgeText,
                 ),
-              ),
-            ),
-            const SizedBox(width: 8.0),
-            // Topic with Cafe Icon
-            Flexible(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.local_cafe_rounded,
-                    size: 14.0,
-                    color: activeTheme.isLight
-                        ? const Color(0xFFD97706)
-                        : AppColors.warmPeach,
+              ],
+              if (hasTitle && hasJlpt) const SizedBox(width: 10.0),
+              if (hasJlpt)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12.0,
+                    vertical: 3.0,
                   ),
-                  const SizedBox(width: 4.0),
-                  Flexible(
-                    child: Text(
-                      post.topicTag,
-                      style: TextStyle(
-                        fontSize: 12.0,
-                        fontWeight: FontWeight.w600,
-                        color: activeTheme.textSecondary,
-                        overflow: TextOverflow.ellipsis,
-                        shadows: activeTheme.textShadows,
-                      ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16.0),
+                    border: Border.all(color: AppPalette.info, width: 1.2),
+                  ),
+                  child: Text(
+                    post.jlptLevel,
+                    style: TextStyle(
+                      fontSize: 13.0,
+                      fontWeight: FontWeight.w800,
+                      color: AppPalette.info,
+                      letterSpacing: 0.2,
                     ),
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6.0),
-
-        // Audio Info Footer with Music Note
-        Row(
-          children: [
-            Icon(
-              Icons.music_note_rounded,
-              size: 14.0,
-              color: activeTheme.isLight
-                  ? const Color(0xFF7C3AED)
-                  : AppColors.lavender,
-            ),
-            const SizedBox(width: 4.0),
-            Expanded(
-              child: Text(
-                post.audioTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.0,
-                  fontWeight: FontWeight.w500,
-                  color: activeTheme.textSecondary,
-                  shadows: activeTheme.textShadows,
                 ),
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
+
+        // Dòng 3: chủ đề và hashtag
+        if (tags.isNotEmpty) ...[
+          const SizedBox(height: 6.0),
+          Wrap(spacing: 10.0, runSpacing: 2.0, children: tags),
+        ],
       ],
+    );
+  }
+
+  Widget _tag(String label, VoidCallback? onTap, List<Shadow> shadow) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13.0,
+          fontWeight: FontWeight.w600,
+          color: AppPalette.onVideo,
+          shadows: shadow,
+        ),
+      ),
     );
   }
 }

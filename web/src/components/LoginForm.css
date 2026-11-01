@@ -1,0 +1,405 @@
+/* ==========================================================================
+   LOGIN & REGISTER - TIKTOK DARK THEME (MÀU CHỦ ĐẠO ĐEN & ĐỎ HỒNG TIKTOK)
+   Dominant: Pure Deep Black / Obsidian (#08080c, #0b0c14)
+   Button Accent: TikTok Crimson / Pink-Red (#FE2C55)
+   ========================================================================== */
+
+.auth-viewport {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0b0c16;
+  background: radial-gradient(circle at 50% 30%, #111322 0%, #08080d 100%);
+  padding: 2.5rem 1.25rem;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #ffffff;
+  position: relative;
+  z-index: 10;
+}
+
+/* Centered Form Card matching Screenshot */
+.auth-container {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 2;
+}
+
+/* Heading: Đăng nhập / Đăng ký */
+.auth-title {
+  font-size: 1.85rem;
+  font-weight: 700;
+  text-align: center;
+  color: #ffffff;
+  margin-bottom: 2rem;
+  letter-spacing: -0.01em;
+}
+
+/* Alert Notification */
+.auth-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-bottom: 1.25rem;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.auth-alert.error {
+  background-color: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.auth-alert.success {
+  background-color: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #86efac;
+}
+
+.auth-alert .alert-icon {
+  flex-shrink: 0;
+}
+
+/* Form Layout */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Field Group */
+.auth-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.auth-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+/* Input Wrapper matching Screenshot */
+.auth-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.field-icon-left {
+  position: absolute;
+  left: 1rem;
+  color: #8a93a6;
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.field-icon-right {
+  position: absolute;
+  right: 0.9rem;
+  background: none;
+  border: none;
+  color: #8a93a6;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.field-icon-right:hover {
+  color: #ffffff;
+}
+
+.auth-input {
+  width: 100%;
+  height: 48px;
+  background-color: #161828;
+  border: 1px solid #282c42;
+  border-radius: 8px;
+  padding: 0 2.75rem 0 2.85rem;
+  font-size: 0.95rem;
+  color: #ffffff;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.auth-input::placeholder {
+  color: #64748b;
+  font-size: 0.925rem;
+}
+
+.auth-input:focus {
+  border-color: #FE2C55;
+  background-color: #1a1c30;
+  box-shadow: 0 0 0 2px rgba(254, 44, 85, 0.25);
+}
+
+.auth-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Action Row (Remember me + Forgot password) */
+.auth-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: -0.15rem;
+  font-size: 0.875rem;
+}
+
+.remember-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #cbd5e1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.custom-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #FE2C55;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.forgot-link-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 0;
+}
+
+.forgot-link-btn:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   PRIMARY TIKTOK BUTTON: ĐỎ HỒNG NHƯ TIKTOK (#FE2C55)
+   ========================================================================== */
+.btn-tiktok-primary {
+  width: 100%;
+  height: 48px;
+  background-color: #FE2C55;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  box-shadow: 0 4px 18px rgba(254, 44, 85, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-tiktok-primary:hover:not(:disabled) {
+  background-color: #e02449;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(254, 44, 85, 0.5);
+}
+
+.btn-tiktok-primary:active:not(:disabled) {
+  transform: translateY(0);
+  background-color: #c91c3d;
+}
+
+.btn-tiktok-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-arrow {
+  transition: transform 0.2s;
+}
+
+.btn-tiktok-primary:hover:not(:disabled) .btn-arrow {
+  transform: translateX(3px);
+}
+
+/* ==========================================================================
+   DIVIDER: HOẶC TIẾP TỤC VỚI
+   ========================================================================== */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  margin: 1.75rem 0 1.25rem;
+  gap: 0.85rem;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background-color: #222638;
+}
+
+.divider-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   GOOGLE BUTTON (WHITE PILL AS IN SCREENSHOT)
+   ========================================================================== */
+.btn-google-pill {
+  width: 100%;
+  height: 48px;
+  background-color: #ffffff;
+  color: #1e293b;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-google-pill:hover {
+  background-color: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.btn-google-pill:active {
+  transform: translateY(0);
+}
+
+.google-icon {
+  flex-shrink: 0;
+}
+
+.google-text {
+  font-size: 0.925rem;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   FOOTER (SWITCH LOGIN / REGISTER)
+   ========================================================================== */
+.auth-footer {
+  text-align: center;
+  margin-top: 1.75rem;
+  font-size: 0.9rem;
+}
+
+.footer-switch-text {
+  color: #94a3b8;
+}
+
+.footer-highlight-link {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.footer-highlight-link:hover {
+  color: #FE2C55;
+}
+
+/* Quick Fill Admin Helper Chip */
+.demo-credentials-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed #202436;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.demo-chip-btn {
+  background: rgba(254, 44, 85, 0.08);
+  border: 1px solid rgba(254, 44, 85, 0.2);
+  color: #FE2C55;
+  font-family: monospace;
+  font-size: 0.775rem;
+  font-weight: 600;
+  padding: 0.25rem 0.55rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.demo-chip-btn:hover {
+  background: #FE2C55;
+  color: #ffffff;
+}
+
+.demo-chip-btn.quick-login {
+  background: rgba(37, 244, 238, 0.1);
+  border-color: rgba(37, 244, 238, 0.35);
+  color: #25F4EE;
+  font-family: inherit;
+}
+
+.demo-chip-btn.quick-login:hover {
+  background: #25F4EE;
+  color: #000000;
+  box-shadow: 0 0 12px rgba(37, 244, 238, 0.4);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustment */
+@media (max-width: 480px) {
+  .auth-viewport {
+    padding: 1.5rem 1rem;
+  }
+  .auth-title {
+    font-size: 1.6rem;
+    margin-bottom: 1.5rem;
+  }
+  .google-text {
+    font-size: 0.85rem;
+  }
+}

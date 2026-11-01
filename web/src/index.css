@@ -1,0 +1,98 @@
+/* ==========================================================================
+   GLOBAL DESIGN SYSTEM: TIKTOK DARK THEME
+   Chủ đạo: Đen obsidian (#09090b, #121215)
+   Điểm nhấn: Đỏ hồng TikTok (#FE2C55) & Cyan neon (#25F4EE)
+   ========================================================================== */
+
+:root {
+  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+  --font-jp: 'Noto Sans JP', sans-serif;
+
+  /* TikTok Deep Dark Canvas & Surfaces */
+  --bg-core: #09090b;              /* Obsidian Deep Black */
+  --bg-surface: #121215;           /* Card & Panel Dark Surface */
+  --bg-surface-subtle: #18181c;    /* Elevated sections / subtle cards */
+  --bg-surface-elevated: #22222a;  /* Floating popovers / dropdowns */
+  
+  /* TikTok Signature Pink-Red Brand Palette */
+  --primary-color: #FE2C55;        /* TikTok Pink-Red */
+  --primary-hover: #e02449;        /* Hover Red-Pink */
+  --primary-light: rgba(254, 44, 85, 0.15);
+  --primary-soft: rgba(254, 44, 85, 0.08);
+
+  /* Legacy alias compatibility */
+  --primary-blue: #FE2C55;
+  --primary-blue-hover: #e02449;
+  --primary-blue-light: rgba(254, 44, 85, 0.15);
+  --primary-blue-soft: rgba(254, 44, 85, 0.08);
+
+  /* TikTok Neon Cyan & Secondary Accents */
+  --accent-cyan: #25F4EE;          /* TikTok Cyan Accent */
+  --accent-emerald: #10b981;       /* Success green */
+  --accent-gold: #f59e0b;          /* Warning amber */
+
+  /* Sleek Dark Borders */
+  --border-subtle: #23232a;        /* 1px dark border */
+  --border-strong: #32323d;        /* Strong card border */
+  --border-focus: #FE2C55;         /* Focus outline */
+
+  /* High Legibility Dark Mode Typography */
+  --text-main: #f4f4f5;            /* Pure readable white-slate */
+  --text-muted: #a1a1aa;           /* Readable neutral gray */
+  --text-dim: #71717a;             /* Subtle gray */
+
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-subtle: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+  --shadow-elevated: 0 20px 40px -15px rgba(254, 44, 85, 0.2), 0 8px 16px -6px rgba(0, 0, 0, 0.6);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-core);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-color: var(--bg-core);
+}
+
+/* Subtle Ambient Atmosphere Glow */
+.ambient-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: 
+    radial-gradient(ellipse 65% 50% at 85% 15%, rgba(254, 44, 85, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 15% 85%, rgba(37, 244, 238, 0.05) 0%, transparent 55%);
+}
+
+.noise-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}

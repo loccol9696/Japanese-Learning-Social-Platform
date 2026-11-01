@@ -27,6 +27,17 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
+    /** LOCAL: đăng ký bằng mật khẩu. GOOGLE: tạo từ đăng nhập Google (mật khẩu là chuỗi ngẫu nhiên không ai biết). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 20,
+            columnDefinition = "varchar(20) default 'LOCAL' not null")
+    @Builder.Default
+    private AuthProvider authProvider = AuthProvider.LOCAL;
+
+    /** Mã người dùng Google ("sub"), ổn định kể cả khi đổi email. Có thể có ở cả tài khoản LOCAL đã liên kết. */
+    @Column(name = "google_sub", unique = true, length = 64)
+    private String googleSub;
+
     @Column(name = "display_name", length = 100)
     private String displayName;
 
@@ -48,6 +59,30 @@ public class User {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "subscription_plan_id")
+    private com.jlsp.backend.subscription.entity.SubscriptionPlan subscriptionPlan;
+
+    /** Chủ đề người dùng quan tâm (sở thích hiển thị trong hồ sơ). */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "user_topics",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "topic_id"))
+    @Builder.Default
+    private java.util.Set<com.jlsp.backend.topic.entity.Topic> topics = new java.util.HashSet<>();
+
+    @Column(name = "vip_expires_at")
+    private LocalDateTime vipExpiresAt;
+
+    /** Thời điểm đã trả lời 2 câu hỏi chào mừng (trình độ + sở thích). Null = chưa. */
+    @Column(name = "onboarding_completed_at")
+    private LocalDateTime onboardingCompletedAt;
+
+    /** Số lần bấm "Bỏ qua" câu hỏi chào mừng; đạt mức tối đa thì không hỏi nữa. */
+    @Column(name = "onboarding_skip_count", nullable = false, columnDefinition = "integer default 0 not null")
+    @Builder.Default
+    private Integer onboardingSkipCount = 0;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

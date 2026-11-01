@@ -8,3 +8,8 @@ Nền tảng mạng xã hội kết hợp học tiếng Nhật: Video ngắn tư
 - **Backend:** Spring Boot (Java 17, Spring Data JPA, Maven)
 - **Database:** PostgreSQL 
 
+
+## 📚 Tài liệu
+- [Rà soát bảo mật & hiệu năng, cách đo, việc còn lại](docs/hardening-and-performance.md)
+- Biến môi trường backend: [`backend/.env.example`](backend/.env.example)
+- Kiểm tra tải: `backend/loadtest/k6-read-paths.js`

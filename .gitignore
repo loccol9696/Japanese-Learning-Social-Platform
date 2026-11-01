@@ -13,3 +13,28 @@ agent.md
 *.swo
 .DS_Store
 Thumbs.db
+
+# Database & Diagram files
+docs/database_erd.drawio
+*.drawio
+*.db
+*.sqlite
+*.sqlite3
+#Resource file
+backend/src/main/resources/application.yml
+backend/src/main/resources/credentials/
+
+#python file
+vocal-service/.venv
+vocal-service/__pycache__
+vocal-service/temp_processing
+
+#env
+.env
+
+#Flutter runner
+frontend/linux/
+frontend/windows/
+frontend/macos/
+
+frontend/android/build/

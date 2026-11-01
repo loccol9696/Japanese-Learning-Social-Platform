@@ -1,0 +1,169 @@
+package com.jlsp.backend.ai.controller;
+
+import com.jlsp.backend.ai.dto.request.AnalyzeGrammarRequest;
+import com.jlsp.backend.ai.dto.response.ScriptSegment;
+import com.jlsp.backend.ai.dto.response.SegmentGrammarAnalysis;
+import com.jlsp.backend.ai.dto.response.TranscriptionStatusResponse;
+import com.jlsp.backend.ai.dto.response.TranscriptionSubmitResponse;
+import com.jlsp.backend.ai.service.SpeechToTextServiceIntf;
+import com.jlsp.backend.ai.service.GrammarAnalysisServiceIntf;
+import com.jlsp.backend.common.response.ApiResponse;
+import com.jlsp.backend.common.security.CurrentUser;
+import com.jlsp.backend.media.service.MediaService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/speech")
+public class SpeechToTextController {
+
+    private final SpeechToTextServiceIntf speechToTextService;
+    private final com.jlsp.backend.subscription.service.SubscriptionService subscriptionService;
+    private final com.jlsp.backend.subscription.service.SystemSettingService systemSettingService;
+    private final GrammarAnalysisServiceIntf grammarAnalysisService;
+    private final MediaService mediaService;
+
+    public SpeechToTextController(
+            SpeechToTextServiceIntf speechToTextService,
+            com.jlsp.backend.subscription.service.SubscriptionService subscriptionService,
+            com.jlsp.backend.subscription.service.SystemSettingService systemSettingService,
+            GrammarAnalysisServiceIntf grammarAnalysisService,
+            MediaService mediaService) {
+        this.speechToTextService = speechToTextService;
+        this.subscriptionService = subscriptionService;
+        this.systemSettingService = systemSettingService;
+        this.grammarAnalysisService = grammarAnalysisService;
+        this.mediaService = mediaService;
+    }
+
+    @PostMapping("/transcribe")
+    public ResponseEntity<TranscriptionSubmitResponse> submitTranscription(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "duration", required = false) Integer durationSeconds) {
+
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Long userId = CurrentUser.requireId();
+
+        // Tính toán số token theo thời lượng video (mặc định 60s / 1 token, có thể tùy chỉnh trong Admin)
+        int duration = (durationSeconds != null && durationSeconds > 0) ? durationSeconds : 60;
+        int tokensRequired = systemSettingService.calculateTokensRequired(duration);
+
+        // Kiểm tra và trừ Token hạn mức theo ngày
+        subscriptionService.validateAndDeductTokens(userId, tokensRequired);
+
+        String taskId = UUID.randomUUID().toString();
+        speechToTextService.processAudioAsync(taskId, file);
+
+        TranscriptionSubmitResponse response = TranscriptionSubmitResponse.builder()
+                .taskId(taskId)
+                .status("PROCESSING")
+                .checkUrl("/api/speech/status/" + taskId)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    /**
+     * Khởi chạy AI tạo phụ đề từ URL video trên Cloudinary khi người dùng nhấn nút "Tạo bằng AI".
+     */
+    @PostMapping("/transcribe-url")
+    public ResponseEntity<TranscriptionSubmitResponse> submitTranscriptionFromUrl(
+            @RequestBody Map<String, Object> body) {
+        Object rawUrl = body != null ? body.get("videoUrl") : null;
+        String videoUrl = rawUrl != null ? rawUrl.toString().trim() : "";
+        if (videoUrl.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Long userId = CurrentUser.idOrNull();
+        if (userId != null) {
+            int duration = 60;
+            Object rawDuration = body != null ? body.get("duration") : null;
+            if (rawDuration instanceof Number n && n.intValue() > 0) {
+                duration = n.intValue();
+            } else if (rawDuration != null) {
+                try {
+                    int parsed = Integer.parseInt(rawDuration.toString().trim());
+                    if (parsed > 0) duration = parsed;
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            int tokensRequired = systemSettingService.calculateTokensRequired(duration);
+            subscriptionService.validateAndDeductTokens(userId, tokensRequired);
+        }
+
+        byte[] videoBytes = mediaService.downloadFromCloudinary(videoUrl);
+        String taskId = UUID.randomUUID().toString();
+        speechToTextService.processAudioAsync(taskId, videoBytes, "draft-video.mp4");
+
+        TranscriptionSubmitResponse response = TranscriptionSubmitResponse.builder()
+                .taskId(taskId)
+                .status("PROCESSING")
+                .checkUrl("/api/speech/status/" + taskId)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    @PostMapping("/analyze-grammar")
+    public ResponseEntity<ApiResponse<List<SegmentGrammarAnalysis>>> analyzeGrammar(
+            @RequestBody AnalyzeGrammarRequest request) throws Exception {
+        Long userId = CurrentUser.idOrNull();
+        if (userId != null) {
+            subscriptionService.validateAndDeductTokens(userId, 1);
+        }
+        List<SegmentGrammarAnalysis> analyzedSegments = grammarAnalysisService.analyze(request.getSegments());
+        return ResponseEntity.ok(ApiResponse.success(analyzedSegments));
+    }
+
+    @GetMapping("/status/{taskId}")
+    public ResponseEntity<TranscriptionStatusResponse> checkStatus(@PathVariable String taskId) {
+        String status = speechToTextService.getStatus(taskId);
+
+        if ("NOT_FOUND".equals(status)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(TranscriptionStatusResponse.builder()
+                            .taskId(taskId)
+                            .status("NOT_FOUND")
+                            .errorMessage("Không tìm thấy tác vụ với ID này")
+                            .build());
+        }
+
+        if (status.startsWith("FAILED")) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(TranscriptionStatusResponse.builder()
+                            .taskId(taskId)
+                            .status("FAILED")
+                            .errorMessage(status.replace("FAILED: ", ""))
+                            .build());
+        }
+
+        if ("COMPLETED".equals(status)) {
+            List<ScriptSegment> segments = speechToTextService.getResult(taskId);
+            return ResponseEntity.ok(TranscriptionStatusResponse.builder()
+                    .taskId(taskId)
+                    .status("COMPLETED")
+                    .totalSegments(segments != null ? segments.size() : 0)
+                    .segments(segments)
+                    .build());
+        }
+
+        // Đang xử lý
+        return ResponseEntity.ok(TranscriptionStatusResponse.builder()
+                .taskId(taskId)
+                .status("PROCESSING")
+                .build());
+    }
+}
