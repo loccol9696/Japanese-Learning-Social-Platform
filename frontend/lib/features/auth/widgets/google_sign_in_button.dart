@@ -126,7 +126,10 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
     setState(() => _busy = false);
     if (error is GoogleSignInException) {
       if (error.code == GoogleSignInExceptionCode.canceled) return;
-      widget.onError('Không đăng nhập được bằng Google (${error.code.name}).');
+      final detail = error.description != null && error.description!.isNotEmpty
+          ? ': ${error.description}'
+          : '';
+      widget.onError('Không đăng nhập được bằng Google (${error.code.name}$detail).');
     } else if (error is ApiException) {
       widget.onError(error.message);
     } else {

@@ -13,7 +13,7 @@ class GoogleAuthService {
   /// audience trùng với backend.
   static const String clientId = String.fromEnvironment(
     'GOOGLE_CLIENT_ID',
-    defaultValue: '173731891323-5nraiefaj1htr4jb71s7t6e3cb9mrqpu.apps.googleusercontent.com',
+    defaultValue: '676491718695-p5rjj3094pffsdp5741geqre2ffam63t.apps.googleusercontent.com',
   );
 
   Future<void>? _initialization;
