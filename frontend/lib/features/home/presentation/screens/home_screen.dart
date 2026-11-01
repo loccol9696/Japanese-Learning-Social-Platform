@@ -191,6 +191,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Future<void> _onFeedTabChanged(FeedTab tab) async {
+    RubySubtitleWidget.dismissLookups();
+    FocusManager.instance.primaryFocus?.unfocus();
     if (tab == FeedTab.following && !AuthSession.instance.isAuthenticated) {
       await requireAuthentication(context);
       return;
@@ -206,6 +208,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Future<void> _onHomeTabPageChanged(int index) async {
+    // onPageChanged cũng được gọi khi chuyển trang bằng thao tác vuốt; đóng
+    // Overlay tra từ để nó không tiếp tục nổi trên feed vừa chuyển tới.
+    RubySubtitleWidget.dismissLookups();
+    FocusManager.instance.primaryFocus?.unfocus();
     _homeTabIndex = index;
     final tab = index == 0 ? FeedTab.following : FeedTab.forYou;
     if (tab == FeedTab.following && !AuthSession.instance.isAuthenticated) {
@@ -447,9 +453,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     controller: _homeTabController,
                     physics: const NeverScrollableScrollPhysics(),
                     onPageChanged: _onHomeTabPageChanged,
+                    // Giữ sống cả hai tab: nếu không, tab vừa rời đi bị hủy và vuốt quay lại sẽ về video đầu.
                     children: [
-                      _buildVideoFeed(FeedTab.following),
-                      _buildVideoFeed(FeedTab.forYou),
+                      _KeepAlivePage(child: _buildVideoFeed(FeedTab.following)),
+                      _KeepAlivePage(child: _buildVideoFeed(FeedTab.forYou)),
                     ],
                   ),
                 ),
@@ -548,10 +555,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         return VideoPlayerItem(
           key: ValueKey(post.id),
           post: post,
-          isActive: index ==
-              (tab == FeedTab.following
-                  ? _followingPostIndex
-                  : _forYouPostIndex),
+          // Tab đang ẩn vẫn còn sống nên video của nó phải tạm dừng.
+          isActive: tab == _currentFeedTab &&
+              index ==
+                  (tab == FeedTab.following
+                      ? _followingPostIndex
+                      : _forYouPostIndex),
           onLikeToggle: () => _handleLikeToggle(post),
           onSaveToggle: () => _handleSaveToggle(post),
           onFollowToggle: () => _handleFollowToggle(post),
