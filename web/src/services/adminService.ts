@@ -1,4 +1,5 @@
 import type { ApiResponse, UserProfile, UserRole } from '../types/auth';
+import { authFetch, readJson } from './session';
 
 export interface AdminCreateUserPayload {
   username: string;
@@ -33,6 +34,8 @@ export interface VideoModerationItem {
   moderatedBy?: string;
   moderatedAt?: string;
   jlptLevel?: string;
+  topics?: TopicItem[];
+  hashtags?: string[];
   viewCount?: number;
   likeCount?: number;
   saveCount?: number;
@@ -144,6 +147,23 @@ export async function rejectVideo(videoId: number, reason: string): Promise<Vide
   const resData: ApiResponse<VideoModerationItem> = await response.json();
   if (!response.ok) {
     throw new Error(resData.message || 'Từ chối duyệt video thất bại');
+  }
+  return resData.data;
+}
+
+/** Sửa chủ đề / hashtag của video; video giữ nguyên trạng thái kiểm duyệt. */
+export async function updateVideoClassification(
+  videoId: number,
+  payload: { topicIds: number[]; hashtags: string[] },
+): Promise<VideoModerationItem> {
+  const response = await authFetch(`/api/v1/videos/${videoId}/classification`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<VideoModerationItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể cập nhật phân loại video');
   }
   return resData.data;
 }
@@ -481,6 +501,63 @@ export async function updateAdminProfile(
   const resData: ApiResponse<AdminUserItem> = await response.json();
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể cập nhật thông tin hồ sơ');
+  }
+  return resData.data;
+}
+
+// ==================== TOPICS (ADMIN) ====================
+
+export interface TopicItem {
+  id: number;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+/** Chủ đề đang hiển thị; kiểm duyệt viên không có quyền gọi {@link getAllTopicsAdmin}. */
+export async function getActiveTopics(): Promise<TopicItem[]> {
+  const response = await authFetch('/api/v1/topics', { headers: getAuthHeaders() });
+  const resData: ApiResponse<TopicItem[]> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách chủ đề');
+  }
+  return resData.data;
+}
+
+export async function getAllTopicsAdmin(): Promise<TopicItem[]> {
+  const response = await authFetch('/api/v1/topics/admin', { headers: getAuthHeaders() });
+  const resData: ApiResponse<TopicItem[]> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách chủ đề');
+  }
+  return resData.data;
+}
+
+export async function createTopic(payload: { name: string; sortOrder?: number }): Promise<TopicItem> {
+  const response = await authFetch('/api/v1/topics/admin', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<TopicItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tạo chủ đề');
+  }
+  return resData.data;
+}
+
+export async function updateTopic(
+  id: number,
+  payload: { name: string; isActive?: boolean; sortOrder?: number }
+): Promise<TopicItem> {
+  const response = await authFetch(`/api/v1/topics/admin/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<TopicItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể cập nhật chủ đề');
   }
   return resData.data;
 }

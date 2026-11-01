@@ -35,9 +35,14 @@ public class UpdateVideoRequest {
     private JLPTLevel jlptLevel;
 
     /**
-     * Chủ đề mới; null thì giữ nguyên, 0 hoặc số âm để bỏ chủ đề.
+     * Chủ đề mới (tối đa 3); null thì giữ nguyên, danh sách rỗng để bỏ hết.
      */
-    private Long topicId;
+    private java.util.Set<Long> topicIds;
+
+    /**
+     * Hashtag mới (tối đa 5); null thì giữ nguyên, danh sách rỗng để bỏ hết.
+     */
+    private java.util.List<String> hashtags;
 
     /**
      * Phụ đề JSON mới (tuỳ chọn, khi chỉnh sửa bản nháp hoặc cập nhật toàn bộ).

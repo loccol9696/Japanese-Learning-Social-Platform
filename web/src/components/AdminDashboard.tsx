@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import type { UserProfile } from '../types/auth';
-import ReportsManager from './ReportsManager';
 import {
   Video,
   AlertTriangle,
@@ -61,6 +60,8 @@ import {
   type AdminAnalyticsData,
   type DailyMetricDto
 } from '../services/adminService';
+import VideoClassificationEditor from './VideoClassificationEditor';
+import ReportsManager from './ReportsManager';
 import './AdminDashboard.css';
 
 interface AdminDashboardProps {
@@ -3082,6 +3083,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                   </span>
                 </div>
               </div>
+
+              <VideoClassificationEditor
+                key={selectedDetailVideo.id}
+                video={selectedDetailVideo}
+                showToast={showToast}
+                onSaved={(updated) => {
+                  setSelectedDetailVideo({ ...selectedDetailVideo, ...updated });
+                  loadModerationVideos();
+                }}
+              />
 
               {/* Description */}
               {selectedDetailVideo.description && (
