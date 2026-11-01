@@ -7,6 +7,7 @@ import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/storage/token_storage.dart';
 import 'package:frontend/features/flashcard/data/models/flashcard_set_model.dart';
 import 'package:frontend/features/flashcard/presentation/screens/flashcard_quiz_screen.dart';
+import 'package:frontend/features/flashcard/presentation/widgets/streak_progress_bar.dart';
 import 'package:frontend/features/flashcard/presentation/widgets/study_options_bottom_sheet.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -93,10 +94,14 @@ void main() {
     await pumpQuiz(tester);
 
     expect(progress, findsOneWidget);
+    expect(tester.widget<StreakProgressBar>(find.byType(StreakProgressBar)).progress, 0);
     expect(find.text('Thuật ngữ'), findsOneWidget);
     expect(find.text('T1'), findsOneWidget);
     expect(find.text('Chọn câu trả lời'), findsOneWidget);
     expect(optionTexts(tester), hasLength(4));
+    final questionCard = tester.getRect(find.byKey(const ValueKey('quiz-question-card')));
+    final firstOption = tester.getRect(find.byKey(const ValueKey('quiz-option-0')));
+    expect(firstOption.top - questionCard.bottom, greaterThan(100));
     expect(find.text('Bạn không biết?'), findsNothing);
     expect(find.byKey(const ValueKey('quiz-continue')), findsNothing);
   });
@@ -106,6 +111,7 @@ void main() {
     await pumpQuiz(tester);
 
     final wrong = await tapOption(tester, question: 1, correct: false);
+    expect(tester.widget<StreakProgressBar>(find.byType(StreakProgressBar)).progress, 0);
     final texts = optionTexts(tester);
     final right = texts.indexOf('M1');
 
@@ -118,9 +124,26 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('quiz-continue')));
     await tester.pump();
-    expect(find.text('2 / $_cardCount'), findsOneWidget);
+    expect(find.text('1 / $_cardCount'), findsOneWidget);
+    expect(tester.widget<StreakProgressBar>(find.byType(StreakProgressBar)).progress, 0);
     expect(find.byKey(const ValueKey('quiz-continue')), findsNothing);
     expect(find.text('T2'), findsOneWidget);
+  });
+
+  testWidgets('Không biết hiện đáp án đúng, không tăng tiến trình và đưa câu xuống cuối', (tester) async {
+    await pumpQuiz(tester);
+    final right = optionTexts(tester).indexOf('M1');
+
+    await tester.tap(find.byKey(const ValueKey('quiz-skip')));
+    await tester.pump();
+
+    expect(find.byKey(ValueKey('quiz-correct-$right')), findsOneWidget);
+    expect(find.byKey(const ValueKey('quiz-continue')), findsNothing);
+    expect(tester.widget<StreakProgressBar>(find.byType(StreakProgressBar)).progress, 0);
+
+    await tester.pump(const Duration(milliseconds: 1200));
+    expect(find.text('T2'), findsOneWidget);
+    expect(find.text('1 / $_cardCount'), findsOneWidget);
   });
 
   testWidgets('trả lời đúng: hiện tick, không có nút "Tiếp tục", tự chuyển sang câu sau', (tester) async {
@@ -133,6 +156,35 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 1200));
     expect(find.text('2 / $_cardCount'), findsOneWidget);
+  });
+
+  testWidgets('câu trả lời sai được hỏi lại và bài chỉ kết thúc sau khi trả lời đúng', (tester) async {
+    await pumpQuiz(tester);
+
+    await tapOption(tester, question: 1, correct: false);
+    await tester.tap(find.byKey(const ValueKey('quiz-continue')));
+    await tester.pump();
+
+    for (var question = 2; question <= _cardCount; question++) {
+      await answerCorrectly(tester, question);
+    }
+
+    expect(find.text('T1'), findsOneWidget);
+    expect(find.text('$_cardCount / $_cardCount'), findsOneWidget);
+    expect(find.text('Hoàn thành bài trắc nghiệm!'), findsNothing);
+
+    await tapOption(tester, question: 1, correct: true);
+    await tester.pump(const Duration(milliseconds: 1200));
+    expect(find.text('Hoàn thành bài trắc nghiệm!'), findsOneWidget);
+    expect(find.byKey(const ValueKey('completion-fireworks')), findsOneWidget);
+    expect(find.byKey(const ValueKey('quiz-restart')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('quiz-restart')));
+    await tester.pumpAndSettle();
+    expect(find.text('Hoàn thành bài trắc nghiệm!'), findsNothing);
+    expect(find.text('T1'), findsOneWidget);
+    expect(find.text('1 / $_cardCount'), findsOneWidget);
+    expect(tester.widget<StreakProgressBar>(find.byType(StreakProgressBar)).progress, 0);
   });
 
   testWidgets('chọn xong không chọn lại được đáp án khác', (tester) async {

@@ -1,3 +1,4 @@
+import '../../../subscription/screens/token_usage_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../app/routes.dart';
@@ -278,6 +279,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onTap: () {
           Navigator.of(sheetContext).pop();
           _openEditProfile();
+        },
+      ),
+      _SettingsRowData(
+        icon: Icons.bolt_rounded,
+        title: 'Token AI',
+        onTap: () {
+          Navigator.of(sheetContext).pop();
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const TokenUsageScreen()),
+          );
         },
       ),
       _SettingsRowData(
@@ -1559,7 +1570,7 @@ class _ProfilePlanSheetState extends State<_ProfilePlanSheet> {
   @override
   Widget build(BuildContext context) {
     final availableHeight = MediaQuery.sizeOf(context).height * 0.94;
-    const preferredHeight = 540.0;
+    const preferredHeight = 620.0;
     final sheetHeight = availableHeight > preferredHeight
         ? preferredHeight
         : availableHeight;

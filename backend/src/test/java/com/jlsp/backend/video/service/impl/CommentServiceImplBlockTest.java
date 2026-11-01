@@ -28,6 +28,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.jlsp.backend.video.repository.CommentLikeRepository;
+import com.jlsp.backend.video.dto.request.CommentSort;
+import org.springframework.data.domain.Sort;
+import static org.mockito.ArgumentMatchers.eq;
 
 class CommentServiceImplBlockTest {
 

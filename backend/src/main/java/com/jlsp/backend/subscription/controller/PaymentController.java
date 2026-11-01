@@ -7,6 +7,7 @@ import com.jlsp.backend.subscription.dto.request.CreateOrderRequest;
 import com.jlsp.backend.subscription.dto.response.SubscriptionOrderResponse;
 import com.jlsp.backend.subscription.dto.response.SubscriptionStatusResponse;
 import com.jlsp.backend.subscription.dto.response.TokenQuotaResponse;
+import com.jlsp.backend.subscription.dto.response.TokenUsageResponse;
 import com.jlsp.backend.subscription.service.PaymentService;
 import com.jlsp.backend.subscription.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +52,14 @@ public class PaymentController {
     @GetMapping("/my-subscription")
     public ResponseEntity<ApiResponse<SubscriptionStatusResponse>> getMySubscription() {
         return ResponseEntity.ok(ApiResponse.success(subscriptionService.getMySubscription(CurrentUser.requireId())));
+    }
+
+    /** GET /api/v1/payments/token-usage?range=week|month: token đã dùng theo ngày và theo tính năng. */
+    @GetMapping("/token-usage")
+    public ResponseEntity<ApiResponse<TokenUsageResponse>> getTokenUsage(
+            @RequestParam(value = "range", defaultValue = "week") String range) {
+        return ResponseEntity.ok(ApiResponse.success(
+                subscriptionService.getTokenUsage(CurrentUser.requireId(), range)));
     }
 
     @GetMapping({"/my-quota", "/token-quota"})
