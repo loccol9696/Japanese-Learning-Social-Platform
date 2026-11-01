@@ -40,6 +40,12 @@ public class SubscriptionOrder {
     @Column(nullable = false)
     private BigDecimal amount;
 
+    @Column(name = "promo_code", length = 50)
+    private String promoCode;
+
+    @Column(name = "discount_amount")
+    private BigDecimal discountAmount;
+
     @Column(name = "payment_method", nullable = false, length = 50)
     @Builder.Default
     private String paymentMethod = "VIETQR_LOCAL";

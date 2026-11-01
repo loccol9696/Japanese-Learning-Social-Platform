@@ -1,11 +1,14 @@
 package com.jlsp.backend.subscription.service;
 
+import com.jlsp.backend.subscription.dto.request.PromoCodeRequest;
 import com.jlsp.backend.subscription.dto.request.SubscriptionPlanRequest;
+import com.jlsp.backend.subscription.dto.response.PromoCodeResponse;
 import com.jlsp.backend.subscription.dto.response.SubscriptionPlanResponse;
 import com.jlsp.backend.subscription.dto.response.SubscriptionStatusResponse;
 import com.jlsp.backend.subscription.dto.response.TokenQuotaResponse;
 
 import java.util.List;
+import java.util.Map;
 
 public interface SubscriptionService {
 
@@ -27,4 +30,17 @@ public interface SubscriptionService {
     SubscriptionStatusResponse getMySubscription(Long userId);
 
     void validateAndDeductTokens(Long userId, int tokensRequired);
+
+    // ==================== PROMO CODE / VOUCHER ====================
+    List<PromoCodeResponse> getAllPromoCodes();
+
+    PromoCodeResponse createPromoCode(PromoCodeRequest request);
+
+    PromoCodeResponse updatePromoCode(Long id, PromoCodeRequest request);
+
+    PromoCodeResponse togglePromoCodeStatus(Long id);
+
+    void deletePromoCode(Long id);
+
+    Map<String, Object> verifyPromoCode(String code, Long planId);
 }

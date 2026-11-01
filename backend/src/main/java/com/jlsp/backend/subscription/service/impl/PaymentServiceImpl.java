@@ -14,7 +14,9 @@ import com.jlsp.backend.subscription.payment.PaymentMemo;
 import com.jlsp.backend.subscription.payment.PaymentProperties;
 import com.jlsp.backend.subscription.payment.VietQrUrlBuilder;
 import com.jlsp.backend.subscription.payment.WebhookResult;
+import com.jlsp.backend.subscription.entity.PromoCode;
 import com.jlsp.backend.subscription.repository.PaymentTransactionRepository;
+import com.jlsp.backend.subscription.repository.PromoCodeRepository;
 import com.jlsp.backend.subscription.repository.SubscriptionOrderRepository;
 import com.jlsp.backend.subscription.repository.SubscriptionPlanRepository;
 import com.jlsp.backend.subscription.service.PaymentService;
@@ -51,14 +53,16 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserRepository userRepository;
     private final PaymentProperties props;
     private final Clock clock;
+    private final PromoCodeRepository promoCodeRepository;
 
     @Autowired
     public PaymentServiceImpl(SubscriptionPlanRepository planRepository,
                               SubscriptionOrderRepository orderRepository,
                               PaymentTransactionRepository transactionRepository,
                               UserRepository userRepository,
-                              PaymentProperties props) {
-        this(planRepository, orderRepository, transactionRepository, userRepository, props, Clock.systemDefaultZone());
+                              PaymentProperties props,
+                              PromoCodeRepository promoCodeRepository) {
+        this(planRepository, orderRepository, transactionRepository, userRepository, props, Clock.systemDefaultZone(), promoCodeRepository);
     }
 
     PaymentServiceImpl(SubscriptionPlanRepository planRepository,
@@ -67,12 +71,23 @@ public class PaymentServiceImpl implements PaymentService {
                        UserRepository userRepository,
                        PaymentProperties props,
                        Clock clock) {
+        this(planRepository, orderRepository, transactionRepository, userRepository, props, clock, null);
+    }
+
+    PaymentServiceImpl(SubscriptionPlanRepository planRepository,
+                       SubscriptionOrderRepository orderRepository,
+                       PaymentTransactionRepository transactionRepository,
+                       UserRepository userRepository,
+                       PaymentProperties props,
+                       Clock clock,
+                       PromoCodeRepository promoCodeRepository) {
         this.planRepository = planRepository;
         this.orderRepository = orderRepository;
         this.transactionRepository = transactionRepository;
         this.userRepository = userRepository;
         this.props = props;
         this.clock = clock;
+        this.promoCodeRepository = promoCodeRepository;
     }
 
     private LocalDateTime now() {

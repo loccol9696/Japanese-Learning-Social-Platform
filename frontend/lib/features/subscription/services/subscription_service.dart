@@ -71,4 +71,115 @@ class SubscriptionService {
     }
     return SubscriptionStatus.fromJson(data);
   }
+
+  Future<Map<String, dynamic>> verifyPromoCode(String code, {int? planId}) async {
+    final data = await ApiClient.instance.get(
+      '${ApiConstants.baseUrl}/payments/verify-promo?code=${Uri.encodeComponent(code.trim().toUpperCase())}${planId != null ? '&planId=$planId' : ''}',
+    );
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    throw ApiException(statusCode: 400, message: 'Mã khuyến mãi không hợp lệ');
+  }
+
+  Future<List<SubscriptionPlan>> getAllPlansAdmin() async {
+    try {
+      final data = await ApiClient.instance.get('${ApiConstants.subscriptionPlansUrl}/admin-all');
+      final List list = data is List ? data : const [];
+      return list.map((e) => SubscriptionPlan.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {}
+    return getPlans();
+  }
+
+  Future<bool> updatePlanAdmin({
+    required int planId,
+    required String name,
+    required double price,
+    required int durationDays,
+    required int dailyTokenLimit,
+    String? description,
+    String? features,
+    bool? isActive,
+  }) async {
+    try {
+      await ApiClient.instance.put(
+        '${ApiConstants.subscriptionPlansUrl}/$planId',
+        body: {
+          'name': name,
+          'price': price,
+          'durationDays': durationDays,
+          'dailyTokenLimit': dailyTokenLimit,
+          'description': description,
+          'features': features,
+          'isActive': isActive ?? true,
+        },
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<PromoCodeItem>> getPromoCodesAdmin() async {
+    try {
+      final data = await ApiClient.instance.get('${ApiConstants.baseUrl}/admin/promo-codes');
+      final List list = data is List ? data : const [];
+      return list.map((e) => PromoCodeItem.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {}
+    return [];
+  }
+
+  Future<PromoCodeItem?> createPromoCodeAdmin({
+    required String code,
+    String? description,
+    int? discountPercent,
+    double? discountAmount,
+    int? maxUses,
+    int? durationDays,
+    bool? isActive,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final endDate = (durationDays != null && durationDays > 0)
+          ? now.add(Duration(days: durationDays))
+          : now.add(const Duration(days: 365));
+
+      final data = await ApiClient.instance.post(
+        '${ApiConstants.baseUrl}/admin/promo-codes',
+        body: {
+          'code': code.trim().toUpperCase(),
+          'description': description,
+          'discountPercent': discountPercent ?? 0,
+          'discountAmount': discountAmount ?? 0,
+          'maxUses': maxUses ?? 100,
+          'startDate': now.toIso8601String(),
+          'endDate': endDate.toIso8601String(),
+          'isActive': isActive ?? true,
+        },
+      );
+      if (data is Map<String, dynamic>) {
+        return PromoCodeItem.fromJson(data);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<PromoCodeItem?> togglePromoCodeAdmin(int id) async {
+    try {
+      final data = await ApiClient.instance.put('${ApiConstants.baseUrl}/admin/promo-codes/$id/toggle');
+      if (data is Map<String, dynamic>) {
+        return PromoCodeItem.fromJson(data);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<bool> deletePromoCodeAdmin(int id) async {
+    try {
+      await ApiClient.instance.delete('${ApiConstants.baseUrl}/admin/promo-codes/$id');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 }

@@ -21,6 +21,7 @@ import '../../domain/models/user_profile_model.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../../../subscription/models/subscription_model.dart';
 import '../../../subscription/services/subscription_service.dart';
+import '../../../subscription/screens/admin_membership_manage_screen.dart';
 import '../../../subscription/widgets/subscription_success_dialog.dart';
 import '../../../subscription/widgets/vietqr_payment_sheet.dart';
 import 'profile_update_screen.dart';
@@ -253,6 +254,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSettingsSheet(BuildContext sheetContext) {
     final rows = <_SettingsRowData>[
+      _SettingsRowData(
+        icon: Icons.card_membership_rounded,
+        title: 'Gói hội viên',
+        value: _profile.role.toUpperCase() == 'ADMIN'
+            ? 'Cấu hình & Tạo mã ưu đãi >'
+            : (_isPremium
+                ? (_membershipStatus?.planName ?? 'Đang kích hoạt')
+                : 'Nâng cấp ngay'),
+        onTap: () {
+          Navigator.of(sheetContext).pop();
+          if (_profile.role.toUpperCase() == 'ADMIN') {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => AdminMembershipManageScreen()),
+            );
+          } else {
+            _openSubscription();
+          }
+        },
+      ),
       _SettingsRowData(
         icon: Icons.cloud_upload_outlined,
         title: 'Quản lý đăng tải',
@@ -906,7 +926,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _membershipStatus?.hasActiveSubscription ?? _profile.isVip;
 
   Future<void> _openSubscription() async {
-    await Navigator.of(context).pushNamed(AppRoutes.subscription);
+    if (_profile.role.toUpperCase() == 'ADMIN') {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => AdminMembershipManageScreen()),
+      );
+    } else {
+      await Navigator.of(context).pushNamed(AppRoutes.subscription);
+    }
     await _loadMembershipStatus();
   }
 
@@ -956,6 +982,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showPlanSheet() {
+    if (_profile.role.toUpperCase() == 'ADMIN') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => AdminMembershipManageScreen()),
+      );
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,

@@ -24,6 +24,8 @@ public class SubscriptionOrderResponse {
     private Integer dailyTokenLimit;
     private BigDecimal amount;
     private BigDecimal paidAmount;
+    private String promoCode;
+    private BigDecimal discountAmount;
     private String paymentMethod;
     private SubscriptionOrder.OrderStatus status;
     private String qrUrl;
