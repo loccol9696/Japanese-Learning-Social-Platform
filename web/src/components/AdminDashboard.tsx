@@ -31,7 +31,10 @@ import {
   Save,
   Eye,
   Play,
-  Ticket
+  Ticket,
+  Plus,
+  Trash2,
+  Tag
 } from 'lucide-react';
 import {
   getModerationVideos,
@@ -203,7 +206,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   const [_globalStartDate, setGlobalStartDate] = useState<string>('2026-10-01');
   const [_globalEndDate, setGlobalEndDate] = useState<string>('2026-10-31');
   */
-
   // Chart 1: Học viên đăng ký (Chỉ role USER, loại trừ Admin/Mod)
   const [userFilterMode, setUserFilterMode] = useState<ChartFilterMode>('month_year');
   const [userYear, setUserYear] = useState<number>(2026);
@@ -386,7 +388,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     setRevEndDate(end);
   };
   */
-
   // Helper render thanh tóm tắt chỉ số đỉnh cao / trung bình / tổng cộng
   const renderStatsStrip = (
     metrics: DailyMetricDto[] | null | undefined,
@@ -1187,6 +1188,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   };
 
 
+  const [voucherStatusFilter, setVoucherStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+
+  const filteredVouchers = vouchers.filter(v => {
+    if (voucherStatusFilter === 'ACTIVE' && !v.isActive) return false;
+    if (voucherStatusFilter === 'INACTIVE' && v.isActive) return false;
+    if (!voucherSearch.trim()) return true;
+    const q = voucherSearch.toLowerCase();
+    return v.code.toLowerCase().includes(q) || (v.description && v.description.toLowerCase().includes(q));
+  });
+
   const handleOpenEditPlan = (plan: SubscriptionPlanItem) => {
     setEditingPlan(plan);
     setEditName(plan.name);
@@ -1453,6 +1464,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
           </div>
 
           <div className="top-bar-right">
+                        {activeTab === 'vouchers' && isAdmin && (
+              <>
+                <button onClick={() => loadVouchers()} className="btn-outline">
+                  <RefreshCw size={15} className={isLoadingVouchers ? 'spin' : ''} />
+                  <span>Làm mới</span>
+                </button>
+                <button
+                  onClick={handleOpenCreateVoucher}
+                  className="btn-solid-primary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  <Plus size={15} />
+                  <span>Tạo Mã Voucher Mới</span>
+                </button>
+              </>
+            )}
             {activeTab === 'analytics' && isAdmin && (
               <button onClick={() => loadAnalytics()} className="btn-outline">
                 <RefreshCw size={15} className={isLoadingAnalytics ? 'spin' : ''} />
@@ -2707,6 +2734,321 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </>
           )}
 
+                    {/* ==================== TAB: QUẢN LÝ VOUCHER & MÃ KHUYẾN MÃI (CHỈ ADMIN) ==================== */}
+          {activeTab === 'vouchers' && isAdmin && (
+            <div className="voucher-container">
+              {/* 4 Thẻ KPI Tóm Tắt Voucher */}
+              <div className="voucher-kpi-grid">
+                <div className="voucher-kpi-card">
+                  <div className="voucher-kpi-icon cyan">
+                    <Ticket size={22} />
+                  </div>
+                  <div className="voucher-kpi-info">
+                    <span className="voucher-kpi-label">Tổng Mã Voucher</span>
+                    <span className="voucher-kpi-val">{vouchers.length}</span>
+                  </div>
+                </div>
+
+                <div className="voucher-kpi-card">
+                  <div className="voucher-kpi-icon green">
+                    <CheckCircle2 size={22} />
+                  </div>
+                  <div className="voucher-kpi-info">
+                    <span className="voucher-kpi-label">Đang Kích Hoạt</span>
+                    <span className="voucher-kpi-val" style={{ color: '#10b981' }}>
+                      {vouchers.filter(v => v.isActive).length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="voucher-kpi-card">
+                  <div className="voucher-kpi-icon amber">
+                    <Lock size={22} />
+                  </div>
+                  <div className="voucher-kpi-info">
+                    <span className="voucher-kpi-label">Đang Tạm Dừng</span>
+                    <span className="voucher-kpi-val" style={{ color: '#f59e0b' }}>
+                      {vouchers.filter(v => !v.isActive).length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="voucher-kpi-card">
+                  <div className="voucher-kpi-icon pink">
+                    <Sparkles size={22} />
+                  </div>
+                  <div className="voucher-kpi-info">
+                    <span className="voucher-kpi-label">Tổng Lượt Đã Dùng</span>
+                    <span className="voucher-kpi-val" style={{ color: '#FE2C55' }}>
+                      {vouchers.reduce((sum, v) => sum + (v.usedCount || 0), 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Thanh Toolbar Tìm kiếm & Thao tác */}
+              <div className="toolbar-row">
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div className="search-box-wrap" style={{ minWidth: '320px' }}>
+                    <Search size={15} color="#94a3b8" />
+                    <input
+                      type="text"
+                      placeholder="Tìm theo mã voucher, mô tả ưu đãi..."
+                      value={voucherSearch}
+                      onChange={e => setVoucherSearch(e.target.value)}
+                    />
+                    {voucherSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setVoucherSearch('')}
+                        style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.85rem' }}
+                        title="Xóa tìm kiếm"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Nút lọc trạng thái */}
+                  <div style={{ display: 'flex', gap: '0.35rem', background: 'var(--admin-bg-base)', padding: '3px', borderRadius: '6px', border: '1px solid var(--admin-border)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setVoucherStatusFilter('ALL')}
+                      className={`btn-outline ${voucherStatusFilter === 'ALL' ? 'btn-solid-primary' : ''}`}
+                      style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', height: 'auto', border: 'none' }}
+                    >
+                      Tất cả ({vouchers.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVoucherStatusFilter('ACTIVE')}
+                      className={`btn-outline ${voucherStatusFilter === 'ACTIVE' ? 'btn-solid-primary' : ''}`}
+                      style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', height: 'auto', border: 'none' }}
+                    >
+                      Đang bật ({vouchers.filter(v => v.isActive).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVoucherStatusFilter('INACTIVE')}
+                      className={`btn-outline ${voucherStatusFilter === 'INACTIVE' ? 'btn-solid-primary' : ''}`}
+                      style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', height: 'auto', border: 'none' }}
+                    >
+                      Tạm dừng ({vouchers.filter(v => !v.isActive).length})
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                  <button type="button" onClick={loadVouchers} className="btn-outline" title="Tải lại danh sách voucher">
+                    <RefreshCw size={14} className={isLoadingVouchers ? 'spin' : ''} />
+                    <span>Làm mới</span>
+                  </button>
+                  <button type="button" onClick={handleOpenCreateVoucher} className="btn-solid-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Plus size={16} />
+                    <span>Tạo Mã Voucher Mới</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Bảng danh sách voucher */}
+              <div className="data-table-container">
+                <table className="enterprise-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '170px' }}>Mã Voucher</th>
+                      <th>Mô Tả Ưu Đãi</th>
+                      <th style={{ width: '150px' }}>Mức Giảm Giá</th>
+                      <th style={{ width: '170px' }}>Lượt Sử Dụng</th>
+                      <th style={{ width: '180px' }}>Thời Gian Áp Dụng</th>
+                      <th style={{ width: '130px' }}>Trạng Thái</th>
+                      <th style={{ textAlign: 'center', width: '230px' }}>Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isLoadingVouchers ? (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '3.5rem', color: '#94a3b8' }}>
+                          <RefreshCw size={26} className="spin" style={{ margin: '0 auto 0.6rem' }} />
+                          <div style={{ fontSize: '0.9rem' }}>Đang tải danh sách mã voucher...</div>
+                        </td>
+                      </tr>
+                    ) : filteredVouchers.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '3.5rem', color: '#94a3b8' }}>
+                          <Ticket size={36} style={{ opacity: 0.35, margin: '0 auto 0.75rem' }} />
+                          <div style={{ fontSize: '0.92rem', color: '#cbd5e1', marginBottom: '0.5rem' }}>
+                            {voucherSearch || voucherStatusFilter !== 'ALL'
+                              ? 'Không tìm thấy voucher phù hợp với bộ lọc hiện tại.'
+                              : 'Chưa có mã voucher nào trong hệ thống.'}
+                          </div>
+                          {(voucherSearch || voucherStatusFilter !== 'ALL') ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setVoucherSearch('');
+                                setVoucherStatusFilter('ALL');
+                              }}
+                              className="btn-outline"
+                              style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}
+                            >
+                              Xóa bộ lọc
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleOpenCreateVoucher}
+                              className="btn-solid-primary"
+                              style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}
+                            >
+                              <Plus size={14} />
+                              <span>Tạo mã voucher đầu tiên</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredVouchers.map(v => {
+                        const isPercent = v.discountPercent && v.discountPercent > 0;
+                        const isExhausted = v.usedCount >= v.maxUses;
+                        const percentUsed = v.maxUses > 0 ? (v.usedCount / v.maxUses) * 100 : 0;
+
+                        return (
+                          <tr key={v.id}>
+                            {/* Mã code kèm nút copy */}
+                            <td>
+                              <div className="voucher-code-badge">
+                                <Tag size={13} />
+                                <span>{v.code}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(v.code);
+                                    showToast(`Đã sao chép mã "${v.code}" vào clipboard!`);
+                                  }}
+                                  className="voucher-copy-btn"
+                                  title="Sao chép mã"
+                                >
+                                  <Copy size={12} />
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Mô tả */}
+                            <td>
+                              <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.88rem', lineHeight: '1.4' }}>
+                                {v.description || <span style={{ color: '#64748b', fontStyle: 'italic' }}>Không có mô tả</span>}
+                              </div>
+                            </td>
+
+                            {/* Mức giảm */}
+                            <td>
+                              {isPercent ? (
+                                <span className="voucher-discount-badge percent">
+                                  ⚡ Giảm {v.discountPercent}%
+                                </span>
+                              ) : (
+                                <span className="voucher-discount-badge amount">
+                                  🏷️ -{(v.discountAmount || 0).toLocaleString('vi-VN')} đ
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Lượt dùng & Progress */}
+                            <td>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                                  <span style={{ fontWeight: 700, color: isExhausted ? '#ef4444' : '#f1f5f9' }}>
+                                    {v.usedCount} <span style={{ color: '#94a3b8', fontWeight: 400 }}>/ {v.maxUses}</span>
+                                  </span>
+                                  <span style={{ fontSize: '0.74rem', color: isExhausted ? '#ef4444' : '#94a3b8' }}>
+                                    {percentUsed.toFixed(0)}%
+                                  </span>
+                                </div>
+                                <div className="voucher-progress-track">
+                                  <div
+                                    className="voucher-progress-fill"
+                                    style={{
+                                      width: `${Math.min(100, Math.max(percentUsed > 0 ? 5 : 0, percentUsed))}%`,
+                                      background: isExhausted
+                                        ? 'linear-gradient(90deg, #ef4444, #dc2626)'
+                                        : percentUsed > 75
+                                        ? 'linear-gradient(90deg, #f59e0b, #d97706)'
+                                        : 'linear-gradient(90deg, #38bdf8, #2563eb)'
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Thời gian */}
+                            <td style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                                <span style={{ color: '#94a3b8' }}>
+                                  Từ: <strong style={{ color: '#e2e8f0' }}>{v.startDate ? new Date(v.startDate).toLocaleDateString('vi-VN') : 'Hiện tại'}</strong>
+                                </span>
+                                <span style={{ color: '#94a3b8' }}>
+                                  Đến: <strong style={{ color: v.endDate ? '#e2e8f0' : '#38bdf8' }}>{v.endDate ? new Date(v.endDate).toLocaleDateString('vi-VN') : 'Vô thời hạn'}</strong>
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Trạng thái */}
+                            <td>
+                              {v.isActive ? (
+                                <span className="voucher-status-pill active">
+                                  <span className="status-dot" />
+                                  <span>Đang bật</span>
+                                </span>
+                              ) : (
+                                <span className="voucher-status-pill inactive">
+                                  <span className="status-dot" />
+                                  <span>Tạm dừng</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Thao tác */}
+                            <td style={{ textAlign: 'center' }}>
+                              <div className="voucher-actions">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleVoucher(v.id)}
+                                  className={`voucher-btn-action ${v.isActive ? 'btn-toggle-active' : 'btn-toggle-inactive'}`}
+                                  title={v.isActive ? 'Tạm dừng áp dụng voucher này' : 'Kích hoạt lại voucher này'}
+                                >
+                                  {v.isActive ? <Lock size={13} /> : <Unlock size={13} />}
+                                  <span>{v.isActive ? 'Tạm dừng' : 'Kích hoạt'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditVoucher(v)}
+                                  className="voucher-btn-action"
+                                  title="Chỉnh sửa thông tin voucher"
+                                >
+                                  <Edit2 size={13} />
+                                  <span>Sửa</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteVoucher(v)}
+                                  className="voucher-btn-action btn-delete"
+                                  title="Xóa hoàn toàn voucher này"
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Xóa</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* ==================== TAB 5: XỬ LÝ REPORT (MODERATOR VÀ ADMIN) ==================== */}
           {activeTab === 'reports' && (isModerator || isAdmin) && (
             <ReportsManager isAdmin={isAdmin} showToast={showToast} />
@@ -3569,6 +3911,139 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
           </div>
         </div>
       )}
+      {/* ==================== MODAL: TẠO / CHỈNH SỬA VOUCHER (PROMO CODE) ==================== */}
+      {isVoucherModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-sharp-box" style={{ maxWidth: '520px' }}>
+            <div className="modal-sharp-header">
+              <h3 className="modal-sharp-title">
+                {editingVoucher ? `Chỉnh Sửa Mã Voucher "${editingVoucher.code}"` : 'Tạo Mã Voucher Mới'}
+              </h3>
+              <button onClick={() => setIsVoucherModalOpen(false)} className="btn-icon-square">✕</button>
+            </div>
+            <form onSubmit={handleSaveVoucher}>
+              <div className="modal-sharp-body">
+                {/* Mã Voucher */}
+                <div className="form-group-sharp">
+                  <label className="form-label-sharp">Mã Khuyến Mãi (Code) *</label>
+                  <input
+                    type="text"
+                    required
+                    style={{ textTransform: 'uppercase', fontFamily: 'var(--font-mono)', fontWeight: 700 }}
+                    className="form-input-sharp"
+                    value={voucherCode}
+                    onChange={e => setVoucherCode(e.target.value.toUpperCase())}
+                    placeholder="VD: JLSP10, TET2026, SENSEI..."
+                  />
+                  <span className="form-input-help">Viết liền, không dấu, tự động viết hoa (học viên sẽ nhập mã này).</span>
+                </div>
+
+                {/* Mô tả */}
+                <div className="form-group-sharp">
+                  <label className="form-label-sharp">Mô Tả Ưu Đãi</label>
+                  <input
+                    type="text"
+                    className="form-input-sharp"
+                    value={voucherDescription}
+                    onChange={e => setVoucherDescription(e.target.value)}
+                    placeholder="VD: Giảm 20% cho học viên mới đợt khai giảng"
+                  />
+                </div>
+
+                {/* Loại giảm giá & Giá trị */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                  <div className="form-group-sharp">
+                    <label className="form-label-sharp">Hình thức giảm *</label>
+                    <select
+                      className="form-select-sharp"
+                      value={voucherDiscountType}
+                      onChange={e => setVoucherDiscountType(e.target.value as any)}
+                    >
+                      <option value="percent">Giảm theo Phần trăm (%)</option>
+                      <option value="amount">Giảm số tiền cố định (VND)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group-sharp">
+                    <label className="form-label-sharp">
+                      {voucherDiscountType === 'percent' ? 'Mức giảm (%) *' : 'Số tiền giảm (VND) *'}
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={voucherDiscountType === 'percent' ? 100 : 10000000}
+                      step={voucherDiscountType === 'percent' ? 1 : 1000}
+                      required
+                      className="form-input-sharp"
+                      value={voucherDiscountValue}
+                      onChange={e => setVoucherDiscountValue(parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+
+                {/* Số lượt sử dụng tối đa */}
+                <div className="form-group-sharp">
+                  <label className="form-label-sharp">Số Lượt Dùng Tối Đa (Max Uses) *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    className="form-input-sharp"
+                    value={voucherMaxUses}
+                    onChange={e => setVoucherMaxUses(parseInt(e.target.value) || 1)}
+                  />
+                  <span className="form-input-help">Tổng số lượt tất cả học viên có thể áp dụng mã này trước khi hết lượt.</span>
+                </div>
+
+                {/* Thời gian bắt đầu và kết thúc */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                  <div className="form-group-sharp">
+                    <label className="form-label-sharp">Thời gian bắt đầu</label>
+                    <input
+                      type="datetime-local"
+                      className="form-input-sharp"
+                      value={voucherStartDate}
+                      onChange={e => setVoucherStartDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group-sharp">
+                    <label className="form-label-sharp">Thời gian kết thúc</label>
+                    <input
+                      type="datetime-local"
+                      className="form-input-sharp"
+                      value={voucherEndDate}
+                      onChange={e => setVoucherEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Trạng thái kích hoạt */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.5rem' }}>
+                  <input
+                    type="checkbox"
+                    id="voucher-active-checkbox"
+                    checked={voucherIsActive}
+                    onChange={e => setVoucherIsActive(e.target.checked)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--admin-primary)' }}
+                  />
+                  <label htmlFor="voucher-active-checkbox" style={{ fontSize: '0.88rem', color: '#f1f5f9', cursor: 'pointer', userSelect: 'none' }}>
+                    Kích hoạt sử dụng ngay (Học viên có thể áp dụng mã này)
+                  </label>
+                </div>
+              </div>
+
+              <div className="modal-sharp-footer">
+                <button type="button" onClick={() => setIsVoucherModalOpen(false)} className="btn-outline">Hủy</button>
+                <button type="submit" disabled={isSavingVoucher} className="btn-solid-primary">
+                  {isSavingVoucher ? 'Đang lưu...' : (editingVoucher ? 'Cập Nhật Voucher' : 'Tạo Mã Voucher')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
