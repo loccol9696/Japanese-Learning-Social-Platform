@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../profile/domain/models/topic_model.dart';
+import '../../../video/domain/hashtag_rules.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../../domain/models/video_post.dart';
 
@@ -115,6 +117,8 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       accentInfo: 'Japanese Learning',
       jlptLevel: jlpt.startsWith('JLPT') ? jlpt : 'JLPT $jlpt',
       topicTag: title,
+      topics: TopicModel.listFromJson(json['topics']),
+      hashtags: parseHashtags(json['hashtags']),
       audioTitle: title,
       audioDiscImageUrl: creatorAvatarUrl.isNotEmpty
           ? creatorAvatarUrl

@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/adaptive_video_theme.dart';
 import '../../domain/models/video_post.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../profile/domain/models/topic_model.dart';
 
-/// Thông tin video ở góc dưới: @username ở dòng trên; dòng dưới là tên video kèm huy hiệu JLPT viền xanh.
+/// Thông tin video ở góc dưới: @username ở dòng trên; dòng dưới là tên video kèm huy hiệu JLPT viền xanh;
+/// cuối cùng là chủ đề và hashtag, bấm vào để xem các video cùng loại.
 class VideoInfoOverlay extends StatelessWidget {
   final VideoPost post;
   final AdaptiveVideoTheme? theme;
@@ -12,11 +14,19 @@ class VideoInfoOverlay extends StatelessWidget {
   /// Bấm vào @username để mở trang cá nhân người đăng.
   final VoidCallback? onCreatorTap;
 
+  final ValueChanged<TopicModel>? onTopicTap;
+  final ValueChanged<String>? onHashtagTap;
+
+  /// Giới hạn để hàng thẻ không che mất video khi người đăng gắn đủ chủ đề và hashtag.
+  static const int _maxTags = 5;
+
   const VideoInfoOverlay({
     super.key,
     required this.post,
     this.theme,
     this.onCreatorTap,
+    this.onTopicTap,
+    this.onHashtagTap,
   });
 
   @override
@@ -24,8 +34,9 @@ class VideoInfoOverlay extends StatelessWidget {
     final hasCreator = post.creatorTag.isNotEmpty;
     final hasJlpt = post.jlptLevel.isNotEmpty;
     final hasTitle = post.topicTag.isNotEmpty;
+    final hasTags = post.topics.isNotEmpty || post.hashtags.isNotEmpty;
 
-    if (!hasCreator && !hasJlpt && !hasTitle) {
+    if (!hasCreator && !hasJlpt && !hasTitle && !hasTags) {
       return const SizedBox.shrink();
     }
 
@@ -36,6 +47,13 @@ class VideoInfoOverlay extends StatelessWidget {
         blurRadius: 4.0,
       ),
     ];
+
+    final tags = [
+      for (final topic in post.topics)
+        _tag(topic.name, onTopicTap == null ? null : () => onTopicTap!(topic), shadow),
+      for (final hashtag in post.hashtags)
+        _tag('#$hashtag', onHashtagTap == null ? null : () => onHashtagTap!(hashtag), shadow),
+    ].take(_maxTags).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,7 +123,29 @@ class VideoInfoOverlay extends StatelessWidget {
             ],
           ),
         ],
+
+        // Dòng 3: chủ đề và hashtag
+        if (tags.isNotEmpty) ...[
+          const SizedBox(height: 6.0),
+          Wrap(spacing: 10.0, runSpacing: 2.0, children: tags),
+        ],
       ],
+    );
+  }
+
+  Widget _tag(String label, VoidCallback? onTap, List<Shadow> shadow) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13.0,
+          fontWeight: FontWeight.w600,
+          color: AppPalette.onVideo,
+          shadows: shadow,
+        ),
+      ),
     );
   }
 }

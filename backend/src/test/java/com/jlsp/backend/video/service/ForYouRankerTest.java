@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -20,7 +21,7 @@ class ForYouRankerTest {
         return Video.builder()
                 .id(id)
                 .jlptLevel(level)
-                .topic(topicId == null ? null : Topic.builder().id(topicId).build())
+                .topics(topicId == null ? new HashSet<>() : new HashSet<>(Set.of(Topic.builder().id(topicId).build())))
                 .viewCount(views)
                 .likeCount(0)
                 .saveCount(0)
@@ -39,6 +40,18 @@ class ForYouRankerTest {
 
         var ranked = ForYouRanker.rank(List.of(khongLienQuan, khop),
                 new ForYouRanker.Preferences(JLPTLevel.N3, Set.of(7L)), NOW);
+
+        assertThat(ids(ranked)).containsExactly(1L, 2L);
+    }
+
+    @Test
+    void videoKhopKhiMotTrongCacChuDeNamTrongSoThich() {
+        Video nhieuChuDe = video(1L, JLPTLevel.N1, 3L, 0);
+        nhieuChuDe.getTopics().add(Topic.builder().id(7L).build());
+        Video khongKhop = video(2L, JLPTLevel.N1, 3L, 0);
+
+        var ranked = ForYouRanker.rank(List.of(khongKhop, nhieuChuDe),
+                new ForYouRanker.Preferences(null, Set.of(7L)), NOW);
 
         assertThat(ids(ranked)).containsExactly(1L, 2L);
     }

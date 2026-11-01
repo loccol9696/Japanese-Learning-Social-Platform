@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
         // Dọn thùng rác: tìm video đã quá hạn lưu.
         @Index(name = "idx_videos_deleted_at", columnList = "deleted_at")
 })
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -95,11 +96,26 @@ public class Video {
     private String subtitles;
 
     /**
-     * Chủ đề của video (tuỳ chọn). EAGER vì bảng chủ đề rất nhỏ và luôn được hiển thị kèm video.
+     * Chủ đề của video (tuỳ chọn, nhiều chủ đề): metadata hệ thống, dùng để phân loại và cá nhân hoá feed.
      */
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "topic_id")
-    private com.jlsp.backend.topic.entity.Topic topic;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "video_topics",
+            joinColumns = @JoinColumn(name = "video_id"),
+            inverseJoinColumns = @JoinColumn(name = "topic_id"),
+            indexes = @Index(name = "idx_video_topics_topic", columnList = "topic_id, video_id"))
+    @Builder.Default
+    private java.util.Set<com.jlsp.backend.topic.entity.Topic> topics = new java.util.HashSet<>();
+
+    /**
+     * Hashtag người đăng tự điền (tuỳ chọn), dùng cho tìm kiếm / khám phá.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "video_hashtags",
+            joinColumns = @JoinColumn(name = "video_id"),
+            inverseJoinColumns = @JoinColumn(name = "hashtag_id"),
+            indexes = @Index(name = "idx_video_hashtags_hashtag", columnList = "hashtag_id, video_id"))
+    @Builder.Default
+    private java.util.Set<Hashtag> hashtags = new java.util.HashSet<>();
 
     /**
      * Kết quả phân tích ngữ pháp do AI (Gemini) sinh ra từ subtitles, định dạng
