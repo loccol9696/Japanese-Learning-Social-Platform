@@ -261,6 +261,8 @@ void main() {
       ),
     ]);
     await openSheet(tester, ownerId: _me);
+    await tester.tap(find.text('Xem 1 câu trả lời'));
+    await tester.pumpAndSettle();
 
     await longPress(tester, 'phản hồi');
 

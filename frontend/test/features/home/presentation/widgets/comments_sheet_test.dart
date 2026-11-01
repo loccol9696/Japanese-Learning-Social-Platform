@@ -85,8 +85,31 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('phản hồi bị ẩn cho tới khi bấm "Xem N câu trả lời", bấm "Ẩn" để thu lại', (tester) async {
+    await openSheet(tester);
+
+    expect(find.text('trả lời'), findsNothing);
+    expect(find.text('20 phút trước'), findsNothing);
+    expect(find.text('Xem 1 câu trả lời'), findsOneWidget);
+    expect(find.text('Ẩn'), findsNothing);
+
+    await tester.tap(find.text('Xem 1 câu trả lời'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('trả lời'), findsOneWidget);
+    expect(find.text('Xem 1 câu trả lời'), findsNothing);
+
+    await tester.tap(find.text('Ẩn'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('trả lời'), findsNothing);
+    expect(find.text('Xem 1 câu trả lời'), findsOneWidget);
+  });
+
   testWidgets('hiện tổng số bình luận, tên, thời gian và bình luận trả lời', (tester) async {
     await openSheet(tester);
+    await tester.tap(find.text('Xem 1 câu trả lời'));
+    await tester.pumpAndSettle();
 
     expect(find.text('3 bình luận'), findsOneWidget);
     expect(find.text('Shadow'), findsOneWidget);

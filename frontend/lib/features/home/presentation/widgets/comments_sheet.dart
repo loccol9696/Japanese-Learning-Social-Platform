@@ -88,6 +88,9 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   /// Bình luận đang chờ backend xác nhận lượt đánh giá.
   final Set<int> _likesInFlight = {};
 
+  /// Id các bình luận gốc đang mở danh sách phản hồi; mặc định phản hồi được ẩn.
+  final Set<int> _expandedThreads = {};
+
   /// Tổng số bình luận bao gồm cả reply lồng nhau.
   int get _totalCommentCount =>
       _comments.fold(0, (sum, c) => sum + 1 + c.replies.length);
@@ -142,6 +145,12 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       return;
     }
     _highlightRevealed = true;
+    // Phản hồi đang bị ẩn thì mở luồng của nó ra để có chỗ cuộn tới.
+    for (final comment in _comments) {
+      if (comment.replies.any((r) => r.id == id)) {
+        setState(() => _expandedThreads.add(comment.id));
+      }
+    }
     _highlightTimer = Timer(_highlightDuration, () {
       if (mounted) setState(() => _highlightId = null);
     });
@@ -318,6 +327,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         if (comment.parentId == null) {
           _comments = [comment, ..._comments];
         } else {
+          // Mở luồng để người dùng thấy ngay phản hồi vừa đăng.
+          _expandedThreads.add(comment.parentId!);
           _load();
         }
       });
@@ -451,14 +462,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
         ),
       );
     }
-    Widget thread(VideoComment comment) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildComment(comment, isReply: false),
-        for (final reply in comment.replies)
-          _buildComment(reply, isReply: true),
-      ],
-    );
+    final thread = _buildThread;
 
     // Cuộn tới một bình luận cần widget của nó đã được dựng; ListView.builder chỉ dựng phần đang hiện nên khi
     // mở từ thông báo dùng danh sách dựng đủ (danh sách vốn đã tải đủ một lần, không phân trang).
@@ -476,6 +480,59 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       padding: const EdgeInsets.only(top: 4, bottom: 8),
       itemCount: _comments.length,
       itemBuilder: (_, index) => thread(_comments[index]),
+    );
+  }
+
+  /// Bình luận gốc kèm phản hồi: phản hồi chỉ hiện khi bấm "Xem N câu trả lời" và có nút "Ẩn" để thu lại.
+  Widget _buildThread(VideoComment comment) {
+    final replyCount = comment.replies.length;
+    final expanded = _expandedThreads.contains(comment.id);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildComment(comment, isReply: false),
+        if (replyCount > 0 && expanded) ...[
+          for (final reply in comment.replies)
+            _buildComment(reply, isReply: true),
+          _repliesToggle(
+            'Ẩn',
+            Icons.keyboard_arrow_up_rounded,
+            () => setState(() => _expandedThreads.remove(comment.id)),
+          ),
+        ] else if (replyCount > 0)
+          _repliesToggle(
+            'Xem $replyCount câu trả lời',
+            Icons.keyboard_arrow_down_rounded,
+            () => setState(() => _expandedThreads.add(comment.id)),
+          ),
+      ],
+    );
+  }
+
+  /// Dòng "—— Xem N câu trả lời ⌄" thẳng hàng với nội dung bình luận gốc.
+  Widget _repliesToggle(String label, IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16 + _replyIndent, 4, 16, 8),
+        child: Row(
+          children: [
+            Container(width: 24, height: 1, color: AppPalette.border),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                color: AppPalette.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(icon, size: 18, color: AppPalette.textSecondary),
+          ],
+        ),
+      ),
     );
   }
 
@@ -609,16 +666,6 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _timeAgo(comment.createdAt),
-                        style: TextStyle(
-                          color: AppPalette.textSecondary.withValues(
-                            alpha: 0.8,
-                          ),
-                          fontSize: 12,
-                        ),
-                      ),
                     ],
                   ),
                   if (comment.pinned) ...[
@@ -636,7 +683,22 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  _actionButton('Trả lời', () => _startReply(comment)),
+                  // Như TikTok: thời gian rồi "Trả lời" cùng một dòng dưới nội dung.
+                  Row(
+                    children: [
+                      Text(
+                        _timeAgo(comment.createdAt),
+                        style: TextStyle(
+                          color: AppPalette.textSecondary.withValues(
+                            alpha: 0.8,
+                          ),
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      _actionButton('Trả lời', () => _startReply(comment)),
+                    ],
+                  ),
                 ],
               ),
             ),

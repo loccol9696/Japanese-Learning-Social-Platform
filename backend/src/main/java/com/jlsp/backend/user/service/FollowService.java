@@ -16,7 +16,7 @@ public interface FollowService {
 
     FollowStatusResponse getStatus(Long currentUserId, Long targetUserId);
 
-    /** Hai người follow lẫn nhau (điều kiện để nhắn tin). */
+    /** Hai người follow lẫn nhau. */
     boolean isMutual(Long userId, Long otherUserId);
 
     /** Trong số otherUserIds, những người follow lẫn nhau với userId (một truy vấn cho cả danh sách). */

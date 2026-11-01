@@ -506,7 +506,7 @@ class _InboxScreenState extends State<InboxScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Bạn có thể nhắn tin và chia sẻ video cho những người đã follow lẫn nhau.',
+              'Bạn có thể nhắn tin cho bất kỳ ai từ hồ sơ của họ và chia sẻ video cho bạn bè.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppPalette.textSecondary, height: 1.4),
             ),
