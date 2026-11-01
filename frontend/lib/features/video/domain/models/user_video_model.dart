@@ -1,3 +1,6 @@
+import '../../../profile/domain/models/topic_model.dart';
+import '../hashtag_rules.dart';
+
 class UserVideoModel {
   final int id;
   final int? userId;
@@ -19,6 +22,8 @@ class UserVideoModel {
   final String? userDisplayName;
   final String? username;
   final String? userAvatarUrl;
+  final List<TopicModel> topics;
+  final List<String> hashtags;
   final String? deletedAt;
   final String? purgeAt;
 
@@ -43,6 +48,8 @@ class UserVideoModel {
     this.userDisplayName,
     this.username,
     this.userAvatarUrl,
+    this.topics = const [],
+    this.hashtags = const [],
     this.deletedAt,
     this.purgeAt,
   });
@@ -93,6 +100,8 @@ class UserVideoModel {
       userDisplayName: json['userDisplayName'] as String?,
       username: json['username'] as String?,
       userAvatarUrl: json['userAvatarUrl'] as String?,
+      topics: TopicModel.listFromJson(json['topics']),
+      hashtags: parseHashtags(json['hashtags']),
       deletedAt: json['deletedAt'] as String?,
       purgeAt: json['purgeAt'] as String?,
     );
@@ -120,6 +129,8 @@ class UserVideoModel {
       'userDisplayName': userDisplayName,
       'username': username,
       'userAvatarUrl': userAvatarUrl,
+      'topics': topics.map((t) => t.toJson()).toList(),
+      'hashtags': hashtags,
       'deletedAt': deletedAt,
       'purgeAt': purgeAt,
     };

@@ -1,7 +1,10 @@
 package com.jlsp.backend.video.service.impl;
 
+import com.jlsp.backend.block.service.BlockService;
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
+import com.jlsp.backend.notification.entity.NotificationType;
+import com.jlsp.backend.notification.service.NotificationService;
 import com.jlsp.backend.user.entity.User;
 import com.jlsp.backend.user.repository.UserRepository;
 import com.jlsp.backend.video.dto.request.CommentSort;
@@ -28,6 +31,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import com.jlsp.backend.block.service.BlockService;
@@ -43,6 +47,7 @@ class CommentServiceImplLikeTest {
     private VideoCommentRepository commentRepository;
     private CommentLikeRepository commentLikeRepository;
     private CommentServiceImpl service;
+    private NotificationService notificationService;
     private Video video;
     private User author;
 
@@ -51,8 +56,10 @@ class CommentServiceImplLikeTest {
         commentRepository = mock(VideoCommentRepository.class);
         commentLikeRepository = mock(CommentLikeRepository.class);
         VideoRepository videoRepository = mock(VideoRepository.class);
+        notificationService = mock(NotificationService.class);
         service = new CommentServiceImpl(commentRepository, commentLikeRepository, videoRepository,
-                mock(UserRepository.class), mock(BlockService.class), mock(NotificationService.class));
+                mock(UserRepository.class), mock(BlockService.class), notificationService,
+                mock(com.jlsp.backend.report.repository.ReportRepository.class));
 
         video = Video.builder().id(VIDEO).build();
         author = User.builder().id(AUTHOR).username("hana").build();
@@ -72,6 +79,27 @@ class CommentServiceImplLikeTest {
         assertThat(first.getIsLiked()).isTrue();
         assertThat(repeat.getIsLiked()).isTrue();
         assertThat(repeat.getLikeCount()).isEqualTo(4);
+    }
+
+    @Test
+    void newLikeNotifiesTheCommentAuthorOnlyTheFirstTime() {
+        when(commentLikeRepository.insertIfAbsent(eq(VIEWER), eq(COMMENT), any())).thenReturn(1, 0);
+
+        service.like(VIDEO, COMMENT, VIEWER);
+        service.like(VIDEO, COMMENT, VIEWER);
+
+        verify(notificationService, times(1)).notify(eq(AUTHOR), eq(VIEWER),
+                eq(NotificationType.COMMENT_LIKED), eq(VIDEO), eq(COMMENT), any());
+    }
+
+    @Test
+    void unlikeAndSelfLikeDoNotNotify() {
+        when(commentLikeRepository.deleteLike(VIEWER, COMMENT)).thenReturn(1);
+
+        service.unlike(VIDEO, COMMENT, VIEWER);
+        assertThatThrownBy(() -> service.like(VIDEO, COMMENT, AUTHOR)).isInstanceOf(AppException.class);
+
+        verify(notificationService, never()).notify(any(), any(), any(), any(), any(), any());
     }
 
     @Test

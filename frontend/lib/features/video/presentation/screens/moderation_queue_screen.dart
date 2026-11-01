@@ -2,15 +2,21 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../profile/data/datasources/profile_remote_datasource.dart';
 import '../../../profile/data/repositories/profile_repository_impl.dart';
+import '../../../profile/domain/models/topic_model.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
+import '../../../topic/topic_service.dart';
+import '../../data/video_manage_service.dart';
 import '../../domain/models/user_video_model.dart';
+import '../widgets/video_classification_fields.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/widgets/app_toast.dart';
 
 class ModerationQueueScreen extends StatefulWidget {
   final ProfileRepository? repository;
+  final VideoManageService? manageService;
 
-  const ModerationQueueScreen({super.key, this.repository});
+  const ModerationQueueScreen({super.key, this.repository, this.manageService});
 
   @override
   State<ModerationQueueScreen> createState() => _ModerationQueueScreenState();
@@ -18,6 +24,7 @@ class ModerationQueueScreen extends StatefulWidget {
 
 class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
   late final ProfileRepository _repository;
+  late final VideoManageService _manage = widget.manageService ?? VideoManageService();
   bool _isLoading = true;
   List<UserVideoModel> _videos = [];
   String _activeStatus = 'PENDING';
@@ -58,6 +65,34 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
       AppToast.showError(e.toString().replaceAll('Exception: ', ''), context: context);
     } finally {
       if (mounted) setState(() => _processingIds.remove(video.id));
+    }
+  }
+
+  /// Sửa chủ đề / hashtag gắn sai hoặc không phù hợp, video giữ nguyên trạng thái duyệt.
+  Future<void> _editClassification(UserVideoModel video) async {
+    var available = <TopicModel>[];
+    try {
+      available = await TopicService().fetchTopics();
+    } catch (_) {
+      // Không tải được danh sách vẫn sửa được hashtag và bỏ chủ đề đang gắn.
+    }
+    if (!mounted) return;
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surfaceCard,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _ClassificationSheet(
+        video: video,
+        // Gộp cả chủ đề đang gắn để bỏ được chủ đề admin đã ẩn.
+        topics: {...available, ...video.topics}.toList(),
+        manage: _manage,
+      ),
+    );
+    if (saved == true && mounted) {
+      AppToast.showSuccess('Đã cập nhật phân loại video', context: context);
+      _loadVideos();
     }
   }
 
@@ -416,6 +451,8 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                             ),
                           ],
                         ),
+                      const SizedBox(height: 8),
+                      _buildClassification(video),
                     ],
                   ),
                 ),
@@ -477,6 +514,40 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
     );
   }
 
+  Widget _buildClassification(UserVideoModel video) {
+    final labels = [
+      ...video.topics.map((t) => t.name),
+      ...video.hashtags.map((tag) => '#$tag'),
+    ];
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final label in labels)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(label, style: TextStyle(color: AppPalette.textSecondary, fontSize: 11)),
+          ),
+        InkWell(
+          onTap: () => _editClassification(video),
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.all(2),
+            child: Text(
+              labels.isEmpty ? 'Thêm chủ đề, hashtag' : 'Sửa',
+              style: TextStyle(color: AppColors.periwinkle, fontSize: 11, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildEmpty() {
     return Center(
       child: Column(
@@ -499,5 +570,79 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
     final m = seconds ~/ 60;
     final s = seconds % 60;
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+}
+
+class _ClassificationSheet extends StatefulWidget {
+  final UserVideoModel video;
+  final List<TopicModel> topics;
+  final VideoManageService manage;
+
+  const _ClassificationSheet({required this.video, required this.topics, required this.manage});
+
+  @override
+  State<_ClassificationSheet> createState() => _ClassificationSheetState();
+}
+
+class _ClassificationSheetState extends State<_ClassificationSheet> {
+  final _fieldsKey = GlobalKey<VideoClassificationFieldsState>();
+  late Set<int> _topicIds = widget.video.topics.map((t) => t.id).toSet();
+  late List<String> _hashtags = widget.video.hashtags;
+  bool _isSaving = false;
+
+  Future<void> _save() async {
+    if (_fieldsKey.currentState?.commitPending() == false) return;
+    setState(() => _isSaving = true);
+    try {
+      await widget.manage.updateClassification(widget.video.id, topicIds: _topicIds, hashtags: _hashtags);
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      AppToast.showError(e is ApiException ? e.message : 'Không thể cập nhật phân loại', context: context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 18, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.video.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: AppPalette.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              VideoClassificationFields(
+                key: _fieldsKey,
+                topics: widget.topics,
+                selectedTopicIds: _topicIds,
+                onTopicsChanged: (ids) => setState(() => _topicIds = ids),
+                hashtags: _hashtags,
+                onHashtagsChanged: (tags) => setState(() => _hashtags = tags),
+              ),
+              const SizedBox(height: 18),
+              ElevatedButton(
+                onPressed: _isSaving ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.periwinkle,
+                  foregroundColor: AppPalette.onAccent,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: Text(_isSaving ? 'Đang lưu...' : 'Lưu'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -51,6 +51,12 @@ public class VideoComment {
     @Builder.Default
     private Integer likeCount = 0;
 
+    /** Chủ video ghim bình luận gốc này lên đầu danh sách; mỗi video chỉ có một bình luận được ghim. */
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    @Builder.Default
+    private boolean pinned = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

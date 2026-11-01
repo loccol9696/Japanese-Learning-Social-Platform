@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/localization/locale_manager.dart';
 import '../../../../core/theme/app_palette.dart';
 
-/// Nút "Hữu ích" của một bình luận. [onTap] null: chỉ hiện số lượt (bình luận của chính mình).
+/// Nút "Hữu ích" của một bình luận (biểu tượng ở trên, số lượt ở dưới, đặt bên phải dòng bình luận). [onTap] null: chỉ hiện số lượt (bình luận của chính mình).
 class CommentLikeButton extends StatelessWidget {
   final int likeCount;
   final bool isLiked;
@@ -23,16 +23,16 @@ class CommentLikeButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isLiked ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
-              size: 14,
+              size: 20,
               color: color,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(height: 2),
             Text(
               likeCount > 0 ? '$likeCount' : appStrings.commentHelpful,
               style: TextStyle(

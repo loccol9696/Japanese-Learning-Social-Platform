@@ -154,9 +154,21 @@ class _NotificationSheetState extends State<NotificationSheet> {
       NotificationType.like ||
       NotificationType.comment ||
       NotificationType.reply ||
+      NotificationType.videoSaved ||
+      NotificationType.videoShared ||
       NotificationType.videoApproved ||
       NotificationType.reportUpdate when videoId != null => () => navigator.push(
         MaterialPageRoute(builder: (_) => SharedVideoScreen(videoId: videoId)),
+      ),
+      // Bình luận được thích: mở video rồi mở luôn khung bình luận để thấy bình luận đó.
+      NotificationType.commentLiked when videoId != null => () => navigator.push(
+        MaterialPageRoute(
+          builder: (_) => SharedVideoScreen(
+            videoId: videoId,
+            openComments: true,
+            highlightCommentId: n.commentId,
+          ),
+        ),
       ),
       _ => null,
     };

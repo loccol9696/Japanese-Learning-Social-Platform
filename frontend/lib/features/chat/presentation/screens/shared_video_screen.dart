@@ -13,11 +13,21 @@ import '../../../home/presentation/widgets/comments_sheet.dart';
 import '../../../home/presentation/widgets/video_player_item.dart';
 
 /// Mở một video được bạn bè chia sẻ trong chat, bắt đầu từ [startMs] (nếu có).
+/// [openComments] tự mở khung bình luận ngay khi video tải xong (từ thông báo về bình luận);
+/// [highlightCommentId] cuộn tới và tô nổi bình luận đó trong khung.
 class SharedVideoScreen extends StatefulWidget {
   final int videoId;
   final int? startMs;
+  final bool openComments;
+  final int? highlightCommentId;
 
-  const SharedVideoScreen({super.key, required this.videoId, this.startMs});
+  const SharedVideoScreen({
+    super.key,
+    required this.videoId,
+    this.startMs,
+    this.openComments = false,
+    this.highlightCommentId,
+  });
 
   @override
   State<SharedVideoScreen> createState() => _SharedVideoScreenState();
@@ -29,6 +39,9 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
   VideoPost? _post;
   bool _loading = true;
   String? _error;
+
+  /// Khung bình luận tự mở tối đa một lần, kể cả khi người dùng bấm "Thử lại" tải video.
+  bool _commentsAutoOpened = false;
 
   @override
   void initState() {
@@ -48,7 +61,15 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
       if (json is! Map<String, dynamic>) {
         throw const FormatException('Dữ liệu video không hợp lệ.');
       }
-      if (mounted) setState(() => _post = _dataSource.toVideoPost(json));
+      if (mounted) {
+        setState(() => _post = _dataSource.toVideoPost(json));
+        if (widget.openComments && !_commentsAutoOpened) {
+          _commentsAutoOpened = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _openComments();
+          });
+        }
+      }
     } on ApiException catch (error) {
       if (mounted) {
         setState(
@@ -62,6 +83,18 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _openComments() {
+    final post = _post;
+    if (post == null) return;
+    showCommentsSheet(
+      context,
+      videoId: post.id,
+      videoOwnerId: post.creatorId,
+      initialCount: post.commentCount,
+      highlightCommentId: widget.highlightCommentId,
+    );
   }
 
   void _update(VideoPost Function(VideoPost) change) {
@@ -161,11 +194,7 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
               onCreatorFollowChanged: (following) {
                 if (mounted) _update((p) => p.copyWith(isFollowing: following));
               },
-              onCommentTap: () => showCommentsSheet(
-                context,
-                videoId: post.id,
-                initialCount: post.commentCount,
-              ),
+              onCommentTap: _openComments,
             )
           else if (_loading)
             const Center(child: CircularProgressIndicator())

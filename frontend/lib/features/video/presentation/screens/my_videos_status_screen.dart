@@ -9,8 +9,13 @@ import '../../../profile/domain/repositories/profile_repository.dart';
 import '../../data/services/video_trash_service.dart';
 import '../../data/video_manage_service.dart';
 import '../../domain/models/user_video_model.dart';
+import '../../../profile/domain/models/topic_model.dart';
+import '../../../topic/topic_service.dart';
+import '../widgets/video_classification_fields.dart';
 import 'deleted_videos_screen.dart';
 import 'upload_video_screen.dart';
+
+const _jlptLevels = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
 class MyVideosStatusScreen extends StatefulWidget {
   final ProfileRepository? repository;
@@ -100,8 +105,6 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
     }
   }
 
-  static const _levels = ['N5', 'N4', 'N3', 'N2', 'N1'];
-
   Future<void> _editVideo(UserVideoModel video) async {
     if (video.isDraft) {
       final updated = await Navigator.of(context).push<dynamic>(
@@ -120,85 +123,23 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
       }
       return;
     }
-    final titleCtrl = TextEditingController(text: video.title);
-    final descCtrl = TextEditingController(text: video.description ?? '');
-    var level = _levels.contains(video.jlptLevel) ? video.jlptLevel : 'N5';
-    final formKey = GlobalKey<FormState>();
+    final selectableTopics = {...await _loadTopics(), ...video.topics}.toList();
+    if (!mounted) return;
 
-    final saved = await showDialog<bool>(
+    final edit = await showDialog<_VideoEdit>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          backgroundColor: AppColors.surfaceCard,
-          title: Text(
-            'Sửa video',
-            style: TextStyle(color: AppPalette.textPrimary),
-          ),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: titleCtrl,
-                    maxLength: 200,
-                    style: TextStyle(color: AppPalette.textPrimary),
-                    decoration: const InputDecoration(labelText: 'Tiêu đề'),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Tiêu đề không được để trống'
-                        : null,
-                  ),
-                  TextFormField(
-                    controller: descCtrl,
-                    maxLines: 3,
-                    style: TextStyle(color: AppPalette.textPrimary),
-                    decoration: const InputDecoration(labelText: 'Mô tả'),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: level,
-                    dropdownColor: AppColors.surfaceCard,
-                    style: TextStyle(color: AppPalette.textPrimary),
-                    decoration: const InputDecoration(labelText: 'Cấp độ JLPT'),
-                    items: [
-                      for (final l in _levels)
-                        DropdownMenuItem(value: l, child: Text(l)),
-                    ],
-                    onChanged: (v) => setLocal(() => level = v ?? level),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Huỷ'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
-              },
-              child: const Text('Lưu'),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => _EditVideoDialog(video: video, topics: selectableTopics),
     );
-
-    final title = titleCtrl.text.trim();
-    final desc = descCtrl.text.trim();
-    titleCtrl.dispose();
-    descCtrl.dispose();
-    if (saved != true || !mounted) return;
+    if (edit == null || !mounted) return;
 
     try {
       await _manage.update(
         video.id,
-        title: title,
-        description: desc,
-        jlptLevel: level,
+        title: edit.title,
+        description: edit.description,
+        jlptLevel: edit.jlptLevel,
+        topicIds: edit.topicIds,
+        hashtags: edit.hashtags,
       );
       if (!mounted) return;
       AppToast.showSuccess('Đã cập nhật video', context: context);
@@ -209,6 +150,51 @@ class _MyVideosStatusScreenState extends State<MyVideosStatusScreen> {
       if (mounted) {
         AppToast.showError('Không thể cập nhật video', context: context);
       }
+    }
+  }
+
+  /// Danh sách chủ đề chỉ để gắn thêm: tải lỗi thì vẫn sửa được các mục khác.
+  Future<List<TopicModel>> _loadTopics() async {
+    try {
+      return await TopicService().fetchTopics();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> _deleteVideo(UserVideoModel video) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceCard,
+        title: Text('Xoá video?', style: TextStyle(color: AppPalette.textPrimary)),
+        content: Text(
+          '"${video.title}" sẽ bị xoá vĩnh viễn cùng lượt thích và bình luận.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Huỷ'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Xoá', style: TextStyle(color: AppPalette.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _manage.delete(video.id);
+      if (!mounted) return;
+      setState(() => _allVideos.removeWhere((v) => v.id == video.id));
+      AppToast.showSuccess('Đã xoá video', context: context);
+    } on ApiException catch (e) {
+      if (mounted) AppToast.showError(e.message, context: context);
+    } catch (_) {
+      if (mounted) AppToast.showError('Không thể xoá video', context: context);
     }
   }
 
@@ -568,4 +554,139 @@ String formatVideoDate(String? iso, DateTime now) {
   }
   final day = '${two(t.day)}/${two(t.month)}';
   return t.year == now.year ? day : '$day/${t.year}';
+}
+
+class _VideoEdit {
+  final String title;
+  final String description;
+  final String jlptLevel;
+  final Set<int> topicIds;
+  final List<String> hashtags;
+
+  const _VideoEdit({
+    required this.title,
+    required this.description,
+    required this.jlptLevel,
+    required this.topicIds,
+    required this.hashtags,
+  });
+}
+
+/// Hộp thoại sửa video. Controller do chính State sở hữu để chỉ dispose khi dialog đã rời khỏi cây
+/// widget, tránh dùng controller đã dispose trong lúc dialog còn chạy animation đóng.
+class _EditVideoDialog extends StatefulWidget {
+  final UserVideoModel video;
+  final List<TopicModel> topics;
+
+  const _EditVideoDialog({required this.video, required this.topics});
+
+  @override
+  State<_EditVideoDialog> createState() => _EditVideoDialogState();
+}
+
+class _EditVideoDialogState extends State<_EditVideoDialog> {
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _descCtrl;
+  final _formKey = GlobalKey<FormState>();
+  final _classificationKey = GlobalKey<VideoClassificationFieldsState>();
+  late String _level;
+  late Set<int> _topicIds;
+  late List<String> _hashtags;
+
+  @override
+  void initState() {
+    super.initState();
+    final video = widget.video;
+    _titleCtrl = TextEditingController(text: video.title);
+    _descCtrl = TextEditingController(text: video.description ?? '');
+    _level = _jlptLevels.contains(video.jlptLevel) ? video.jlptLevel : 'N5';
+    _topicIds = video.topics.map((t) => t.id).toSet();
+    _hashtags = video.hashtags;
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (_classificationKey.currentState?.commitPending() == false) return;
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.pop(
+      context,
+      _VideoEdit(
+        title: _titleCtrl.text.trim(),
+        description: _descCtrl.text.trim(),
+        jlptLevel: _level,
+        topicIds: _topicIds,
+        hashtags: _hashtags,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surfaceCard,
+      title: Text(
+        'Sửa video',
+        style: TextStyle(color: AppPalette.textPrimary),
+      ),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _titleCtrl,
+                maxLength: 200,
+                style: TextStyle(color: AppPalette.textPrimary),
+                decoration: const InputDecoration(labelText: 'Tiêu đề'),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Tiêu đề không được để trống'
+                    : null,
+              ),
+              TextFormField(
+                controller: _descCtrl,
+                maxLines: 3,
+                style: TextStyle(color: AppPalette.textPrimary),
+                decoration: const InputDecoration(labelText: 'Mô tả'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _level,
+                dropdownColor: AppColors.surfaceCard,
+                style: TextStyle(color: AppPalette.textPrimary),
+                decoration: const InputDecoration(labelText: 'Cấp độ JLPT'),
+                items: [
+                  for (final l in _jlptLevels)
+                    DropdownMenuItem(value: l, child: Text(l)),
+                ],
+                onChanged: (v) => setState(() => _level = v ?? _level),
+              ),
+              const SizedBox(height: 18),
+              VideoClassificationFields(
+                key: _classificationKey,
+                topics: widget.topics,
+                selectedTopicIds: _topicIds,
+                onTopicsChanged: (ids) => setState(() => _topicIds = ids),
+                hashtags: _hashtags,
+                onHashtagsChanged: (tags) => setState(() => _hashtags = tags),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Huỷ'),
+        ),
+        TextButton(onPressed: _save, child: const Text('Lưu')),
+      ],
+    );
+  }
 }

@@ -7,7 +7,9 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,7 +22,7 @@ class ForYouRankerTest {
         return Video.builder()
                 .id(id)
                 .jlptLevel(level)
-                .topic(topicId == null ? null : Topic.builder().id(topicId).build())
+                .topics(topicId == null ? new HashSet<>() : new HashSet<>(Set.of(Topic.builder().id(topicId).build())))
                 .viewCount(views)
                 .likeCount(0)
                 .saveCount(0)
@@ -44,6 +46,18 @@ class ForYouRankerTest {
     }
 
     @Test
+    void videoKhopKhiMotTrongCacChuDeNamTrongSoThich() {
+        Video nhieuChuDe = video(1L, JLPTLevel.N1, 3L, 0);
+        nhieuChuDe.getTopics().add(Topic.builder().id(7L).build());
+        Video khongKhop = video(2L, JLPTLevel.N1, 3L, 0);
+
+        var ranked = ForYouRanker.rank(List.of(khongKhop, nhieuChuDe),
+                new ForYouRanker.Preferences(null, Set.of(7L)), NOW);
+
+        assertThat(ids(ranked)).containsExactly(1L, 2L);
+    }
+
+    @Test
     void trinhDoLechMotBacDuocDiemThapHonDungTrinhDo() {
         assertThat(ForYouRanker.levelFit(JLPTLevel.N3, JLPTLevel.N3)).isEqualTo(1.0);
         assertThat(ForYouRanker.levelFit(JLPTLevel.N3, JLPTLevel.N4)).isEqualTo(0.5);
@@ -61,6 +75,45 @@ class ForYouRankerTest {
                 new ForYouRanker.Preferences(JLPTLevel.N5, Set.of(7L)), NOW);
 
         assertThat(ids(ranked)).containsExactly(2L, 1L);
+    }
+
+    private static Video engaged(long id, long views, int likes, int saves) {
+        Video v = video(id, JLPTLevel.N5, 7L, views);
+        v.setLikeCount(likes);
+        v.setSaveCount(saves);
+        return v;
+    }
+
+    private static final ForYouRanker.Preferences N5_TOPIC7 = new ForYouRanker.Preferences(JLPTLevel.N5, Set.of(7L));
+
+    @Test
+    void videoMotXemMotThichKhongThangVideoNhieuLuotXemVaTuongTac() {
+        Video it = engaged(1, 1, 1, 0);
+        Video nhieu = engaged(2, 500, 40, 10);
+
+        assertThat(ids(ForYouRanker.rank(List.of(it, nhieu), N5_TOPIC7, NOW))).containsExactly(2L, 1L);
+    }
+
+    @Test
+    void binhLuanVaLuyenShadowingDayVideoLenTrenVideoChiNhieuLuotXem() {
+        Video chiXem = engaged(1, 1_000, 0, 0);
+        Video hocNhieu = engaged(2, 400, 0, 0);
+        Map<Long, ForYouRanker.Extras> extras = Map.of(2L, new ForYouRanker.Extras(30, 25, 0));
+
+        assertThat(ids(ForYouRanker.rank(List.of(chiXem, hocNhieu), N5_TOPIC7, extras, NOW)))
+                .containsExactly(2L, 1L);
+        // Không có tín hiệu bổ sung thì video nhiều lượt xem hơn đứng trước như cũ.
+        assertThat(ids(ForYouRanker.rank(List.of(chiXem, hocNhieu), N5_TOPIC7, NOW))).containsExactly(1L, 2L);
+    }
+
+    @Test
+    void videoBiBaoCaoDangChoXuLyBiDayXuongDuoiVideoSach() {
+        Video biBaoCao = engaged(1, 1_000, 100, 20);
+        Video sach = engaged(2, 100, 5, 0);
+        Map<Long, ForYouRanker.Extras> extras = Map.of(1L, new ForYouRanker.Extras(0, 0, 2));
+
+        assertThat(ids(ForYouRanker.rank(List.of(biBaoCao, sach), N5_TOPIC7, NOW))).containsExactly(1L, 2L);
+        assertThat(ids(ForYouRanker.rank(List.of(biBaoCao, sach), N5_TOPIC7, extras, NOW))).containsExactly(2L, 1L);
     }
 
     @Test

@@ -23,6 +23,17 @@ class CommentLikeResult {
   }
 }
 
+/// Trạng thái ghim của một bình luận mà backend trả về sau khi chủ video ghim / bỏ ghim.
+class CommentFlags {
+  final bool pinned;
+
+  const CommentFlags({required this.pinned});
+
+  factory CommentFlags.fromJson(Map<String, dynamic> json) {
+    return CommentFlags(pinned: json['pinned'] == true);
+  }
+}
+
 class VideoComment {
   final int id;
   final int videoId;
@@ -38,6 +49,9 @@ class VideoComment {
   final String content;
   final int likeCount;
   final bool isLiked;
+
+  /// Chủ video đã ghim bình luận này lên đầu.
+  final bool pinned;
   final DateTime? createdAt;
   final List<VideoComment> replies;
 
@@ -54,6 +68,7 @@ class VideoComment {
     required this.content,
     this.likeCount = 0,
     this.isLiked = false,
+    this.pinned = false,
     required this.createdAt,
     required this.replies,
   });
@@ -61,12 +76,15 @@ class VideoComment {
   VideoComment copyWith({
     int? likeCount,
     bool? isLiked,
+    bool? pinned,
     List<VideoComment>? replies,
   }) {
     return VideoComment(
       id: id,
       videoId: videoId,
       parentId: parentId,
+      replyToName: replyToName,
+      replyToUserId: replyToUserId,
       userId: userId,
       username: username,
       displayName: displayName,
@@ -74,6 +92,7 @@ class VideoComment {
       content: content,
       likeCount: likeCount ?? this.likeCount,
       isLiked: isLiked ?? this.isLiked,
+      pinned: pinned ?? this.pinned,
       createdAt: createdAt,
       replies: replies ?? this.replies,
     );
@@ -95,6 +114,7 @@ class VideoComment {
       content: json['content']?.toString() ?? '',
       likeCount: _toInt(json['likeCount']),
       isLiked: json['isLiked'] == true,
+      pinned: json['pinned'] == true,
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
       replies: (json['replies'] as List<dynamic>? ?? const [])
           .whereType<Map<String, dynamic>>()

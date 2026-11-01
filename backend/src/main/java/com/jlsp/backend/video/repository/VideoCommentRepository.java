@@ -31,6 +31,11 @@ public interface VideoCommentRepository extends JpaRepository<VideoComment, Long
             "ELSE (c.likeCount + :amount) END WHERE c.id = :id")
     void updateLikeCount(@Param("id") Long id, @Param("amount") int amount);
 
+    /** Bỏ ghim mọi bình luận của video, để ghim bình luận mới thì chỉ còn một bình luận được ghim. */
+    @Modifying
+    @Query("UPDATE VideoComment c SET c.pinned = false WHERE c.video.id = :videoId AND c.pinned = true")
+    void clearPinned(@Param("videoId") Long videoId);
+
     /** Đọc thẳng từ DB vì {@link #updateLikeCount} không cập nhật entity đã nạp. */
     @Query("SELECT c.likeCount FROM VideoComment c WHERE c.id = :id")
     int findLikeCountById(@Param("id") Long id);

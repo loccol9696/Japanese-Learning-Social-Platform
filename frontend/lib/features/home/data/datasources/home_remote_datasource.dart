@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../profile/domain/models/topic_model.dart';
+import '../../../video/domain/hashtag_rules.dart';
 import '../../domain/models/ruby_segment.dart';
 import '../../domain/models/video_post.dart';
 
@@ -102,7 +104,6 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       json['grammarAnalysis'],
     );
     final likes = _toInt(json['likeCount']);
-    final views = _toInt(json['viewCount']);
 
     return VideoPost(
       id: id,
@@ -115,6 +116,8 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       accentInfo: 'Japanese Learning',
       jlptLevel: jlpt.startsWith('JLPT') ? jlpt : 'JLPT $jlpt',
       topicTag: title,
+      topics: TopicModel.listFromJson(json['topics']),
+      hashtags: parseHashtags(json['hashtags']),
       audioTitle: title,
       audioDiscImageUrl: creatorAvatarUrl.isNotEmpty
           ? creatorAvatarUrl
@@ -128,7 +131,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
           : json['description']?.toString() ?? '',
       likeCount: likes,
       commentCount: _toInt(json['commentCount']),
-      shareCount: views,
+      shareCount: _toInt(json['shareCount']),
       isLiked: json['isLiked'] == true,
       isSaved: json['isSaved'] == true,
       isFollowing: json['isFollowing'] == true,

@@ -4,6 +4,7 @@ import com.jlsp.backend.user.entity.JLPTLevel;
 import com.jlsp.backend.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
@@ -26,6 +27,7 @@ import java.time.LocalDateTime;
         // Dọn thùng rác: tìm video đã quá hạn lưu.
         @Index(name = "idx_videos_deleted_at", columnList = "deleted_at")
 })
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -95,11 +97,26 @@ public class Video {
     private String subtitles;
 
     /**
-     * Chủ đề của video (tuỳ chọn). EAGER vì bảng chủ đề rất nhỏ và luôn được hiển thị kèm video.
+     * Chủ đề của video (tuỳ chọn, nhiều chủ đề): metadata hệ thống, dùng để phân loại và cá nhân hoá feed.
      */
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "topic_id")
-    private com.jlsp.backend.topic.entity.Topic topic;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "video_topics",
+            joinColumns = @JoinColumn(name = "video_id"),
+            inverseJoinColumns = @JoinColumn(name = "topic_id"),
+            indexes = @Index(name = "idx_video_topics_topic", columnList = "topic_id, video_id"))
+    @Builder.Default
+    private java.util.Set<com.jlsp.backend.topic.entity.Topic> topics = new java.util.HashSet<>();
+
+    /**
+     * Hashtag người đăng tự điền (tuỳ chọn), dùng cho tìm kiếm / khám phá.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "video_hashtags",
+            joinColumns = @JoinColumn(name = "video_id"),
+            inverseJoinColumns = @JoinColumn(name = "hashtag_id"),
+            indexes = @Index(name = "idx_video_hashtags_hashtag", columnList = "hashtag_id, video_id"))
+    @Builder.Default
+    private java.util.Set<Hashtag> hashtags = new java.util.HashSet<>();
 
     /**
      * Kết quả phân tích ngữ pháp do AI (Gemini) sinh ra từ subtitles, định dạng
@@ -130,6 +147,15 @@ public class Video {
     @Column(name = "save_count", nullable = false)
     @Builder.Default
     private Integer saveCount = 0;
+
+    /**
+     * Tổng số lượt chia sẻ cho bạn bè qua chat (mỗi người nhận một lượt). Có default ở DB để ddl-auto thêm được
+     * cột vào bảng đã có dữ liệu.
+     */
+    @Column(name = "share_count", nullable = false)
+    @ColumnDefault("0")
+    @Builder.Default
+    private Integer shareCount = 0;
 
     /**
      * Trạng thái hiển thị của video (PUBLIC, PRIVATE, UNLISTED)
@@ -196,6 +222,9 @@ public class Video {
         }
         if (this.saveCount == null) {
             this.saveCount = 0;
+        }
+        if (this.shareCount == null) {
+            this.shareCount = 0;
         }
         if (this.status == null) {
             this.status = VideoStatus.PUBLIC;

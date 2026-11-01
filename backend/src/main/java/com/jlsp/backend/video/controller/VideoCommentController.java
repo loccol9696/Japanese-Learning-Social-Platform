@@ -4,6 +4,7 @@ import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.security.CurrentUser;
 import com.jlsp.backend.video.dto.request.CommentSort;
 import com.jlsp.backend.video.dto.request.CreateCommentRequest;
+import com.jlsp.backend.video.dto.response.CommentFlagsResponse;
 import com.jlsp.backend.video.dto.response.CommentLikeResponse;
 import com.jlsp.backend.video.dto.response.VideoCommentResponse;
 import com.jlsp.backend.video.service.CommentService;
@@ -40,6 +41,20 @@ public class VideoCommentController {
             @PathVariable Long videoId,
             @PathVariable Long commentId) {
         return ResponseEntity.ok(ApiResponse.success(commentService.unlike(videoId, commentId, CurrentUser.requireId())));
+    }
+
+    @PostMapping("/{commentId}/pin")
+    public ResponseEntity<ApiResponse<CommentFlagsResponse>> pin(
+            @PathVariable Long videoId,
+            @PathVariable Long commentId) {
+        return ResponseEntity.ok(ApiResponse.success(commentService.pin(videoId, commentId, CurrentUser.requireId())));
+    }
+
+    @DeleteMapping("/{commentId}/pin")
+    public ResponseEntity<ApiResponse<CommentFlagsResponse>> unpin(
+            @PathVariable Long videoId,
+            @PathVariable Long commentId) {
+        return ResponseEntity.ok(ApiResponse.success(commentService.unpin(videoId, commentId, CurrentUser.requireId())));
     }
 
     @PostMapping
