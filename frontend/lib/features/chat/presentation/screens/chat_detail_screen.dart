@@ -563,7 +563,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         pending.clientMsgId,
         (m) => m.copyWith(status: MessageStatus.failed),
       );
-      // Server từ chối vì không còn follow lẫn nhau hoặc đã bị chặn → khoá ô nhập.
+      // Server từ chối vì đã bị chặn → khoá ô nhập.
       if (error.statusCode == 403) {
         _conversation = _conversation.copyWith(canMessage: false);
       }

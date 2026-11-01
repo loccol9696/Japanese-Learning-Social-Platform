@@ -20,6 +20,7 @@ class BottomNavDock extends StatelessWidget {
     this.isModerator = false,
   });
 
+  static const int homeIndex = 0;
   static const int flashcardIndex = 1;
   static const int createIndex = 2;
   static const int messagesIndex = 3;

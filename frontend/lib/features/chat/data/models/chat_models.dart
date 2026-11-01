@@ -309,7 +309,7 @@ class Conversation {
   final int unreadCount;
   final int? otherLastReadMessageId;
 
-  /// false khi hai bên không còn follow lẫn nhau hoặc một bên đã chặn: chỉ xem lại
+  /// false khi một bên đã chặn hoặc tài khoản bị khoá: chỉ xem lại
   /// được lịch sử.
   final bool canMessage;
 

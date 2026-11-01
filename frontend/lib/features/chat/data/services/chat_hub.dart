@@ -115,7 +115,7 @@ class ChatHub with WidgetsBindingObserver {
       error.statusCode == 503 || error.statusCode == 401;
 
   /// Gửi tin văn bản: socket trước, lỗi mạng thì chuyển sang REST.
-  /// Lỗi nghiệp vụ của server (vd. 403 chưa follow lẫn nhau) được ném lại nguyên vẹn.
+  /// Lỗi nghiệp vụ của server (vd. 403 do bị chặn) được ném lại nguyên vẹn.
   Future<ChatMessage> sendText({
     required int conversationId,
     required String content,

@@ -31,6 +31,10 @@ class HomeScreen extends StatefulWidget {
 
   const HomeScreen({super.key, this.repository});
 
+  /// Màn khác (đang nằm trên Trang chủ) yêu cầu chuyển sang một tab của thanh điều hướng, ví dụ sau khi thanh
+  /// toán xong. Trang chủ nhận yêu cầu rồi đặt lại về null.
+  static final ValueNotifier<int?> tabRequest = ValueNotifier<int?>(null);
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -70,6 +74,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   void initState() {
     super.initState();
     AuthSession.instance.addListener(_onAuthChanged);
+    HomeScreen.tabRequest.addListener(_onTabRequested);
     _repository =
         widget.repository ??
         HomeRepositoryImpl(remoteDataSource: HomeRemoteDataSourceImpl());
@@ -132,9 +137,20 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     }
   }
 
+  void _onTabRequested() {
+    final tab = HomeScreen.tabRequest.value;
+    if (tab == null) return;
+    HomeScreen.tabRequest.value = null;
+    // Chờ màn đang đóng xong rồi mới đổi tab, để không đổi trang khi cây widget đang dựng lại.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _selectTab(tab);
+    });
+  }
+
   @override
   void dispose() {
     appRouteObserver.unsubscribe(this);
+    HomeScreen.tabRequest.removeListener(_onTabRequested);
     AuthSession.instance.removeListener(_onAuthChanged);
     _tabPageController.dispose();
     _homeTabController.dispose();
@@ -191,6 +207,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Future<void> _onFeedTabChanged(FeedTab tab) async {
+    RubySubtitleWidget.dismissLookups();
+    FocusManager.instance.primaryFocus?.unfocus();
     if (tab == FeedTab.following && !AuthSession.instance.isAuthenticated) {
       await requireAuthentication(context);
       return;
@@ -206,6 +224,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Future<void> _onHomeTabPageChanged(int index) async {
+    // onPageChanged cũng được gọi khi chuyển trang bằng thao tác vuốt; đóng
+    // Overlay tra từ để nó không tiếp tục nổi trên feed vừa chuyển tới.
+    RubySubtitleWidget.dismissLookups();
+    FocusManager.instance.primaryFocus?.unfocus();
     _homeTabIndex = index;
     final tab = index == 0 ? FeedTab.following : FeedTab.forYou;
     if (tab == FeedTab.following && !AuthSession.instance.isAuthenticated) {
@@ -447,9 +469,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     controller: _homeTabController,
                     physics: const NeverScrollableScrollPhysics(),
                     onPageChanged: _onHomeTabPageChanged,
+                    // Giữ sống cả hai tab: nếu không, tab vừa rời đi bị hủy và vuốt quay lại sẽ về video đầu.
                     children: [
-                      _buildVideoFeed(FeedTab.following),
-                      _buildVideoFeed(FeedTab.forYou),
+                      _KeepAlivePage(child: _buildVideoFeed(FeedTab.following)),
+                      _KeepAlivePage(child: _buildVideoFeed(FeedTab.forYou)),
                     ],
                   ),
                 ),
@@ -548,10 +571,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         return VideoPlayerItem(
           key: ValueKey(post.id),
           post: post,
-          isActive: index ==
-              (tab == FeedTab.following
-                  ? _followingPostIndex
-                  : _forYouPostIndex),
+          // Tab đang ẩn vẫn còn sống nên video của nó phải tạm dừng.
+          isActive: tab == _currentFeedTab &&
+              index ==
+                  (tab == FeedTab.following
+                      ? _followingPostIndex
+                      : _forYouPostIndex),
           onLikeToggle: () => _handleLikeToggle(post),
           onSaveToggle: () => _handleSaveToggle(post),
           onFollowToggle: () => _handleFollowToggle(post),

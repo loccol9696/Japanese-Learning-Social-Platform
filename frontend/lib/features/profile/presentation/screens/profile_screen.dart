@@ -22,7 +22,9 @@ import '../../domain/models/user_profile_model.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../../../subscription/models/subscription_model.dart';
 import '../../../subscription/services/subscription_service.dart';
-import '../../../subscription/widgets/subscription_success_dialog.dart';
+import '../../../home/presentation/screens/home_screen.dart';
+import '../../../home/presentation/widgets/bottom_nav_dock.dart';
+import '../../../subscription/screens/subscription_success_screen.dart';
 import '../../../subscription/widgets/vietqr_payment_sheet.dart';
 import 'profile_update_screen.dart';
 import '../../../streak/streak_chip.dart';
@@ -953,15 +955,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (!mounted) return;
     if (paid == true) {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => SubscriptionSuccessDialog(
-          order: order,
-          plan: plan,
-          onDismiss: () {},
-        ),
-      );
+      final action = await showSubscriptionSuccess(context, order: order, plan: plan);
+      if (action == SubscriptionSuccessAction.startLearning) HomeScreen.tabRequest.value = BottomNavDock.homeIndex;
     }
     await _loadMembershipStatus();
   }

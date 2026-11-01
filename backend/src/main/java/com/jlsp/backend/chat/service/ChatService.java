@@ -15,11 +15,11 @@ import java.util.List;
 
 /**
  * Nghiệp vụ chat 1-1, dùng chung cho REST controller và Socket.IO gateway.
- * Chỉ hai người follow lẫn nhau mới được nhắn tin / chia sẻ video cho nhau.
+ * Ai cũng có thể nhắn tin / chia sẻ cho nhau, trừ khi một bên đã chặn hoặc tài khoản bị khoá.
  */
 public interface ChatService {
 
-    /** Những người có thể nhắn tin (follow lẫn nhau). */
+    /** Những người có thể nhắn tin (bạn bè follow lẫn nhau, để chọn nhanh). */
     List<ChatUserResponse> getContacts(Long userId);
 
     PageResponse<ConversationResponse> getConversations(Long userId, Pageable pageable);

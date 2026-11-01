@@ -259,7 +259,7 @@ class _ShareFriendsSheetState extends State<ShareFriendsSheet> {
         padding: EdgeInsets.symmetric(horizontal: 32),
         child: Center(
           child: Text(
-            'Bạn chỉ có thể chia sẻ cho người đã follow lẫn nhau với bạn.\n'
+            'Danh sách chia sẻ gồm những người follow lẫn nhau với bạn.\n'
             'Hãy follow bạn bè để bắt đầu!',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppPalette.textSecondary, height: 1.4),
