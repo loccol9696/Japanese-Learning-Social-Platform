@@ -16,6 +16,8 @@ enum NotificationType {
   videoRejected,
   reportUpdate,
   contentRemoved,
+  contentEdited,
+  violationWarning,
   unknown;
 
   static NotificationType parse(String? code) => switch (code) {
@@ -30,6 +32,8 @@ enum NotificationType {
     'VIDEO_REJECTED' => videoRejected,
     'REPORT_UPDATE' => reportUpdate,
     'CONTENT_REMOVED' => contentRemoved,
+    'CONTENT_EDITED' => contentEdited,
+    'VIOLATION_WARNING' => violationWarning,
     _ => unknown,
   };
 }
@@ -46,6 +50,7 @@ class AppNotification {
   final int? videoId;
   final String videoTitle;
   final int? commentId;
+  final int? reportId;
   final String message;
 
   const AppNotification({
@@ -60,6 +65,7 @@ class AppNotification {
     this.videoId,
     this.videoTitle = '',
     this.commentId,
+    this.reportId,
     this.message = '',
   });
 
@@ -83,9 +89,19 @@ class AppNotification {
       NotificationType.videoRejected => 'Video$video của bạn bị từ chối',
       NotificationType.reportUpdate => 'Cập nhật về báo cáo của bạn',
       NotificationType.contentRemoved => 'Nội dung của bạn đã bị gỡ',
+      NotificationType.contentEdited => 'Nội dung của bạn đã được chỉnh sửa',
+      NotificationType.violationWarning => 'Bạn nhận được nhắc nhở vi phạm',
       NotificationType.unknown => 'Bạn có thông báo mới',
     };
   }
+
+  /// Thông báo kiểm duyệt: người nhận cần đọc đủ lý do và ghi chú nên không được cắt bớt.
+  bool get showsFullMessage => switch (type) {
+    NotificationType.contentRemoved ||
+    NotificationType.contentEdited ||
+    NotificationType.violationWarning => true,
+    _ => false,
+  };
 
   AppNotification copyWith({bool? isRead}) => AppNotification(
     id: id,
@@ -99,6 +115,7 @@ class AppNotification {
     videoId: videoId,
     videoTitle: videoTitle,
     commentId: commentId,
+    reportId: reportId,
     message: message,
   );
 
@@ -114,6 +131,7 @@ class AppNotification {
     videoId: _toInt(json['videoId']),
     videoTitle: json['videoTitle']?.toString() ?? '',
     commentId: _toInt(json['commentId']),
+    reportId: _toInt(json['reportId']),
     message: json['message']?.toString() ?? '',
   );
 }

@@ -10,6 +10,7 @@ import '../chat/data/models/chat_models.dart';
 import '../chat/presentation/screens/shared_video_screen.dart';
 import '../chat/presentation/widgets/chat_avatar.dart';
 import '../follow/presentation/screens/user_profile_screen.dart';
+import '../report/report_result_screen.dart';
 import 'notification_hub.dart';
 import 'notification_model.dart';
 import 'notification_service.dart';
@@ -142,8 +143,18 @@ class _NotificationSheetState extends State<NotificationSheet> {
     final navigator = Navigator.of(context);
     final actorId = n.actorId;
     final videoId = n.videoId;
+    final reportId = n.reportId;
     // Đích đến của thông báo; null nghĩa là không có gì để mở nên giữ nguyên bảng.
     final Future<void> Function()? open = switch (n.type) {
+      // Thông báo cũ chưa gắn báo cáo thì đi theo các nhánh bên dưới.
+      NotificationType.reportUpdate ||
+      NotificationType.contentRemoved ||
+      NotificationType.contentEdited ||
+      NotificationType.violationWarning when reportId != null => () => navigator.push(
+        MaterialPageRoute(
+          builder: (_) => ReportResultScreen(reportId: reportId, videoId: videoId),
+        ),
+      ),
       NotificationType.follow when actorId != null => () => navigator.push(
         MaterialPageRoute(
           builder: (_) => UserProfileScreen(userId: actorId, initialName: n.actorName),
@@ -157,6 +168,8 @@ class _NotificationSheetState extends State<NotificationSheet> {
       NotificationType.videoSaved ||
       NotificationType.videoShared ||
       NotificationType.videoApproved ||
+      NotificationType.contentEdited ||
+      NotificationType.violationWarning ||
       NotificationType.reportUpdate when videoId != null => () => navigator.push(
         MaterialPageRoute(builder: (_) => SharedVideoScreen(videoId: videoId)),
       ),
@@ -339,8 +352,8 @@ class _NotificationSheetState extends State<NotificationSheet> {
                     const SizedBox(height: 2),
                     Text(
                       n.message,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: n.showsFullMessage ? null : 2,
+                      overflow: n.showsFullMessage ? null : TextOverflow.ellipsis,
                       style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
                     ),
                   ],
