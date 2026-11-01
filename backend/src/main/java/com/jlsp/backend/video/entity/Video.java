@@ -4,6 +4,7 @@ import com.jlsp.backend.user.entity.JLPTLevel;
 import com.jlsp.backend.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
@@ -148,6 +149,15 @@ public class Video {
     private Integer saveCount = 0;
 
     /**
+     * Tổng số lượt chia sẻ cho bạn bè qua chat (mỗi người nhận một lượt). Có default ở DB để ddl-auto thêm được
+     * cột vào bảng đã có dữ liệu.
+     */
+    @Column(name = "share_count", nullable = false)
+    @ColumnDefault("0")
+    @Builder.Default
+    private Integer shareCount = 0;
+
+    /**
      * Trạng thái hiển thị của video (PUBLIC, PRIVATE, UNLISTED)
      */
     @Enumerated(EnumType.STRING)
@@ -212,6 +222,9 @@ public class Video {
         }
         if (this.saveCount == null) {
             this.saveCount = 0;
+        }
+        if (this.shareCount == null) {
+            this.shareCount = 0;
         }
         if (this.status == null) {
             this.status = VideoStatus.PUBLIC;

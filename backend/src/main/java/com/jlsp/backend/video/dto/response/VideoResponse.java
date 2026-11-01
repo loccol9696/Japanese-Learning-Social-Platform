@@ -67,6 +67,11 @@ public class VideoResponse {
      */
     private Integer saveCount;
 
+    /**
+     * Lượt chia sẻ cho bạn bè qua chat
+     */
+    private Integer shareCount;
+
     private Long commentCount;
 
     /**

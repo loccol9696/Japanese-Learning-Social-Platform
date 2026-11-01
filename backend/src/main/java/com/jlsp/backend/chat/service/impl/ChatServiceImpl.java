@@ -1,6 +1,8 @@
 package com.jlsp.backend.chat.service.impl;
 
 import com.jlsp.backend.chat.dto.request.SendMessageRequest;
+import com.jlsp.backend.notification.entity.NotificationType;
+import com.jlsp.backend.notification.service.NotificationService;
 import com.jlsp.backend.chat.dto.request.ShareDeckRequest;
 import com.jlsp.backend.chat.dto.request.ShareVideoRequest;
 import com.jlsp.backend.chat.dto.response.ChatUserResponse;
@@ -89,6 +91,7 @@ public class ChatServiceImpl implements ChatService {
     private final ApplicationEventPublisher eventPublisher;
     private final FlashcardSetRepository flashcardSetRepository;
     private final FlashcardRepository flashcardRepository;
+    private final NotificationService notificationService;
 
     @Override
     public List<ChatUserResponse> getContacts(Long userId) {
@@ -225,6 +228,8 @@ public class ChatServiceImpl implements ChatService {
             Conversation conversation = findOrCreateConversation(userId, recipient);
             sent.add(createMessage(userId, conversation, recipient, message));
         }
+        videoRepository.updateShareCount(videoId, sent.size());
+        notificationService.notify(video.getUser().getId(), userId, NotificationType.VIDEO_SHARED, videoId, null, null);
         log.info("User {} shared video {} to {} người", userId, videoId, sent.size());
         return sent;
     }

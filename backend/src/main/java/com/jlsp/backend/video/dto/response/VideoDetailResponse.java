@@ -82,6 +82,9 @@ public class VideoDetailResponse {
      */
     private Integer saveCount;
 
+    /** Lượt chia sẻ cho bạn bè qua chat. */
+    private Integer shareCount;
+
     /**
      * Trạng thái hiển thị (PUBLIC, PRIVATE...)
      */
