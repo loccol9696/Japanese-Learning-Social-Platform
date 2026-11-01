@@ -1140,7 +1140,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   };
 
 
+  const [voucherStatusFilter, setVoucherStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+
   const filteredVouchers = vouchers.filter(v => {
+    if (voucherStatusFilter === 'ACTIVE' && !v.isActive) return false;
+    if (voucherStatusFilter === 'INACTIVE' && v.isActive) return false;
     if (!voucherSearch.trim()) return true;
     const q = voucherSearch.toLowerCase();
     return v.code.toLowerCase().includes(q) || (v.description && v.description.toLowerCase().includes(q));
@@ -2684,36 +2688,116 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
                     {/* ==================== TAB: QUẢN LÝ VOUCHER & MÃ KHUYẾN MÃI (CHỈ ADMIN) ==================== */}
           {activeTab === 'vouchers' && isAdmin && (
-            <div className="tab-pane-container">
-              {/* Thanh tìm kiếm & thống kê nhanh */}
-              <div className="filter-bar">
-                <div className="search-box">
-                  <Search size={16} className="search-icon" />
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm theo mã voucher, mô tả ưu đãi..."
-                    value={voucherSearch}
-                    onChange={e => setVoucherSearch(e.target.value)}
-                    className="search-input"
-                  />
-                  {voucherSearch && (
-                    <button onClick={() => setVoucherSearch('')} className="btn-clear-search">✕</button>
-                  )}
+            <div className="voucher-container">
+              {/* 4 Thẻ KPI Tóm Tắt Voucher */}
+              <div className="voucher-kpi-grid">
+                <div className="voucher-kpi-card">
+                  <div className="voucher-kpi-icon cyan">
+                    <Ticket size={22} />
+                  </div>
+                  <div className="voucher-kpi-info">
+                    <span className="voucher-kpi-label">Tổng Mã Voucher</span>
+                    <span className="voucher-kpi-val">{vouchers.length}</span>
+                  </div>
                 </div>
 
-                <div className="filter-stats" style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-                  <span className="status-pill info" style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}>
-                    Tổng: <strong>{vouchers.length}</strong> voucher
-                  </span>
-                  <span className="status-pill success" style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}>
-                    Đang bật: <strong>{vouchers.filter(v => v.isActive).length}</strong>
-                  </span>
+                <div className="voucher-kpi-card">
+                  <div className="voucher-kpi-icon green">
+                    <CheckCircle2 size={22} />
+                  </div>
+                  <div className="voucher-kpi-info">
+                    <span className="voucher-kpi-label">Đang Kích Hoạt</span>
+                    <span className="voucher-kpi-val" style={{ color: '#10b981' }}>
+                      {vouchers.filter(v => v.isActive).length}
+                    </span>
+                  </div>
                 </div>
 
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.6rem' }}>
-                  <button onClick={handleOpenCreateVoucher} className="btn-solid-primary">
-                    <Plus size={15} />
-                    <span>Tạo Mã Voucher</span>
+                <div className="voucher-kpi-card">
+                  <div className="voucher-kpi-icon amber">
+                    <Lock size={22} />
+                  </div>
+                  <div className="voucher-kpi-info">
+                    <span className="voucher-kpi-label">Đang Tạm Dừng</span>
+                    <span className="voucher-kpi-val" style={{ color: '#f59e0b' }}>
+                      {vouchers.filter(v => !v.isActive).length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="voucher-kpi-card">
+                  <div className="voucher-kpi-icon pink">
+                    <Sparkles size={22} />
+                  </div>
+                  <div className="voucher-kpi-info">
+                    <span className="voucher-kpi-label">Tổng Lượt Đã Dùng</span>
+                    <span className="voucher-kpi-val" style={{ color: '#FE2C55' }}>
+                      {vouchers.reduce((sum, v) => sum + (v.usedCount || 0), 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Thanh Toolbar Tìm kiếm & Thao tác */}
+              <div className="toolbar-row">
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div className="search-box-wrap" style={{ minWidth: '320px' }}>
+                    <Search size={15} color="#94a3b8" />
+                    <input
+                      type="text"
+                      placeholder="Tìm theo mã voucher, mô tả ưu đãi..."
+                      value={voucherSearch}
+                      onChange={e => setVoucherSearch(e.target.value)}
+                    />
+                    {voucherSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setVoucherSearch('')}
+                        style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.85rem' }}
+                        title="Xóa tìm kiếm"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Nút lọc trạng thái */}
+                  <div style={{ display: 'flex', gap: '0.35rem', background: 'var(--admin-bg-base)', padding: '3px', borderRadius: '6px', border: '1px solid var(--admin-border)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setVoucherStatusFilter('ALL')}
+                      className={`btn-outline ${voucherStatusFilter === 'ALL' ? 'btn-solid-primary' : ''}`}
+                      style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', height: 'auto', border: 'none' }}
+                    >
+                      Tất cả ({vouchers.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVoucherStatusFilter('ACTIVE')}
+                      className={`btn-outline ${voucherStatusFilter === 'ACTIVE' ? 'btn-solid-primary' : ''}`}
+                      style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', height: 'auto', border: 'none' }}
+                    >
+                      Đang bật ({vouchers.filter(v => v.isActive).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVoucherStatusFilter('INACTIVE')}
+                      className={`btn-outline ${voucherStatusFilter === 'INACTIVE' ? 'btn-solid-primary' : ''}`}
+                      style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', height: 'auto', border: 'none' }}
+                    >
+                      Tạm dừng ({vouchers.filter(v => !v.isActive).length})
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                  <button type="button" onClick={loadVouchers} className="btn-outline" title="Tải lại danh sách voucher">
+                    <RefreshCw size={14} className={isLoadingVouchers ? 'spin' : ''} />
+                    <span>Làm mới</span>
+                  </button>
+                  <button type="button" onClick={handleOpenCreateVoucher} className="btn-solid-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Plus size={16} />
+                    <span>Tạo Mã Voucher Mới</span>
                   </button>
                 </div>
               </div>
@@ -2723,77 +2807,125 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                 <table className="enterprise-table">
                   <thead>
                     <tr>
-                      <th>Mã Voucher</th>
+                      <th style={{ width: '170px' }}>Mã Voucher</th>
                       <th>Mô Tả Ưu Đãi</th>
-                      <th>Mức Giảm Giá</th>
-                      <th>Lượt Sử Dụng</th>
-                      <th>Thời Gian Áp Dụng</th>
-                      <th>Trạng Thái</th>
-                      <th style={{ textAlign: 'center' }}>Thao Tác</th>
+                      <th style={{ width: '150px' }}>Mức Giảm Giá</th>
+                      <th style={{ width: '170px' }}>Lượt Sử Dụng</th>
+                      <th style={{ width: '180px' }}>Thời Gian Áp Dụng</th>
+                      <th style={{ width: '130px' }}>Trạng Thái</th>
+                      <th style={{ textAlign: 'center', width: '230px' }}>Thao Tác</th>
                     </tr>
                   </thead>
                   <tbody>
                     {isLoadingVouchers ? (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
-                          <RefreshCw size={24} className="spin" style={{ margin: '0 auto 0.5rem' }} />
-                          <div>Đang tải danh sách mã voucher...</div>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '3.5rem', color: '#94a3b8' }}>
+                          <RefreshCw size={26} className="spin" style={{ margin: '0 auto 0.6rem' }} />
+                          <div style={{ fontSize: '0.9rem' }}>Đang tải danh sách mã voucher...</div>
                         </td>
                       </tr>
                     ) : filteredVouchers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
-                          <Ticket size={32} style={{ opacity: 0.4, margin: '0 auto 0.5rem' }} />
-                          <div>
-                            {voucherSearch ? 'Không tìm thấy voucher phù hợp với từ khóa.' : 'Chưa có mã voucher nào. Bấm "Tạo Mã Voucher" để tạo ưu đãi đầu tiên!'}
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '3.5rem', color: '#94a3b8' }}>
+                          <Ticket size={36} style={{ opacity: 0.35, margin: '0 auto 0.75rem' }} />
+                          <div style={{ fontSize: '0.92rem', color: '#cbd5e1', marginBottom: '0.5rem' }}>
+                            {voucherSearch || voucherStatusFilter !== 'ALL'
+                              ? 'Không tìm thấy voucher phù hợp với bộ lọc hiện tại.'
+                              : 'Chưa có mã voucher nào trong hệ thống.'}
                           </div>
+                          {(voucherSearch || voucherStatusFilter !== 'ALL') ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setVoucherSearch('');
+                                setVoucherStatusFilter('ALL');
+                              }}
+                              className="btn-outline"
+                              style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}
+                            >
+                              Xóa bộ lọc
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleOpenCreateVoucher}
+                              className="btn-solid-primary"
+                              style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}
+                            >
+                              <Plus size={14} />
+                              <span>Tạo mã voucher đầu tiên</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ) : (
                       filteredVouchers.map(v => {
                         const isPercent = v.discountPercent && v.discountPercent > 0;
-                        const discountLabel = isPercent
-                          ? `Giảm ${v.discountPercent}%`
-                          : `Giảm ${(v.discountAmount || 0).toLocaleString('vi-VN')} đ`;
                         const isExhausted = v.usedCount >= v.maxUses;
+                        const percentUsed = v.maxUses > 0 ? (v.usedCount / v.maxUses) * 100 : 0;
 
                         return (
                           <tr key={v.id}>
-                            {/* Mã code */}
-                            <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '0.92rem', color: '#38bdf8' }}>
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(56, 189, 248, 0.1)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                            {/* Mã code kèm nút copy */}
+                            <td>
+                              <div className="voucher-code-badge">
                                 <Tag size={13} />
-                                {v.code}
+                                <span>{v.code}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(v.code);
+                                    showToast(`Đã sao chép mã "${v.code}" vào clipboard!`);
+                                  }}
+                                  className="voucher-copy-btn"
+                                  title="Sao chép mã"
+                                >
+                                  <Copy size={12} />
+                                </button>
                               </div>
                             </td>
 
                             {/* Mô tả */}
-                            <td style={{ maxWidth: '240px', color: '#cbd5e1' }}>
-                              {v.description || <span style={{ color: '#64748b' }}>Không có mô tả</span>}
+                            <td>
+                              <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.88rem', lineHeight: '1.4' }}>
+                                {v.description || <span style={{ color: '#64748b', fontStyle: 'italic' }}>Không có mô tả</span>}
+                              </div>
                             </td>
 
                             {/* Mức giảm */}
                             <td>
-                              <span
-                                className={`status-pill ${isPercent ? 'success' : 'info'}`}
-                                style={{ fontWeight: 700, padding: '0.25rem 0.6rem' }}
-                              >
-                                {discountLabel}
-                              </span>
+                              {isPercent ? (
+                                <span className="voucher-discount-badge percent">
+                                  ⚡ Giảm {v.discountPercent}%
+                                </span>
+                              ) : (
+                                <span className="voucher-discount-badge amount">
+                                  🏷️ -{(v.discountAmount || 0).toLocaleString('vi-VN')} đ
+                                </span>
+                              )}
                             </td>
 
-                            {/* Lượt dùng */}
+                            {/* Lượt dùng & Progress */}
                             <td>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                                <span style={{ fontWeight: 600, color: isExhausted ? 'var(--admin-danger)' : '#f1f5f9' }}>
-                                  {v.usedCount} / {v.maxUses} lượt
-                                </span>
-                                <div style={{ width: '90px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                                  <span style={{ fontWeight: 700, color: isExhausted ? '#ef4444' : '#f1f5f9' }}>
+                                    {v.usedCount} <span style={{ color: '#94a3b8', fontWeight: 400 }}>/ {v.maxUses}</span>
+                                  </span>
+                                  <span style={{ fontSize: '0.74rem', color: isExhausted ? '#ef4444' : '#94a3b8' }}>
+                                    {percentUsed.toFixed(0)}%
+                                  </span>
+                                </div>
+                                <div className="voucher-progress-track">
                                   <div
+                                    className="voucher-progress-fill"
                                     style={{
-                                      width: `${Math.min(100, (v.usedCount / v.maxUses) * 100)}%`,
-                                      height: '100%',
-                                      background: isExhausted ? 'var(--admin-danger)' : 'var(--admin-primary)'
+                                      width: `${Math.min(100, Math.max(percentUsed > 0 ? 5 : 0, percentUsed))}%`,
+                                      background: isExhausted
+                                        ? 'linear-gradient(90deg, #ef4444, #dc2626)'
+                                        : percentUsed > 75
+                                        ? 'linear-gradient(90deg, #f59e0b, #d97706)'
+                                        : 'linear-gradient(90deg, #38bdf8, #2563eb)'
                                     }}
                                   />
                                 </div>
@@ -2801,50 +2933,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                             </td>
 
                             {/* Thời gian */}
-                            <td style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                              <div>Từ: {v.startDate ? new Date(v.startDate).toLocaleDateString('vi-VN') : 'Không giới hạn'}</div>
-                              <div>Đến: {v.endDate ? new Date(v.endDate).toLocaleDateString('vi-VN') : 'Không giới hạn'}</div>
+                            <td style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                                <span style={{ color: '#94a3b8' }}>
+                                  Từ: <strong style={{ color: '#e2e8f0' }}>{v.startDate ? new Date(v.startDate).toLocaleDateString('vi-VN') : 'Hiện tại'}</strong>
+                                </span>
+                                <span style={{ color: '#94a3b8' }}>
+                                  Đến: <strong style={{ color: v.endDate ? '#e2e8f0' : '#38bdf8' }}>{v.endDate ? new Date(v.endDate).toLocaleDateString('vi-VN') : 'Vô thời hạn'}</strong>
+                                </span>
+                              </div>
                             </td>
 
                             {/* Trạng thái */}
                             <td>
                               {v.isActive ? (
-                                <span className="status-pill success" style={{ padding: '0.25rem 0.55rem' }}>
-                                  Đang bật
+                                <span className="voucher-status-pill active">
+                                  <span className="status-dot" />
+                                  <span>Đang bật</span>
                                 </span>
                               ) : (
-                                <span className="status-pill danger" style={{ padding: '0.25rem 0.55rem' }}>
-                                  Tạm dừng
+                                <span className="voucher-status-pill inactive">
+                                  <span className="status-dot" />
+                                  <span>Tạm dừng</span>
                                 </span>
                               )}
                             </td>
 
                             {/* Thao tác */}
-                            <td>
-                              <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                            <td style={{ textAlign: 'center' }}>
+                              <div className="voucher-actions">
                                 <button
+                                  type="button"
                                   onClick={() => handleToggleVoucher(v.id)}
-                                  className={v.isActive ? 'btn-outline' : 'btn-success'}
-                                  style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem' }}
-                                  title={v.isActive ? 'Tạm dừng voucher' : 'Kích hoạt voucher'}
+                                  className={`voucher-btn-action ${v.isActive ? 'btn-toggle-active' : 'btn-toggle-inactive'}`}
+                                  title={v.isActive ? 'Tạm dừng áp dụng voucher này' : 'Kích hoạt lại voucher này'}
                                 >
                                   {v.isActive ? <Lock size={13} /> : <Unlock size={13} />}
-                                  <span>{v.isActive ? 'Tạm dừng' : 'Bật'}</span>
+                                  <span>{v.isActive ? 'Tạm dừng' : 'Kích hoạt'}</span>
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => handleOpenEditVoucher(v)}
-                                  className="btn-outline"
-                                  style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem' }}
-                                  title="Chỉnh sửa voucher"
+                                  className="voucher-btn-action"
+                                  title="Chỉnh sửa thông tin voucher"
                                 >
                                   <Edit2 size={13} />
                                   <span>Sửa</span>
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => handleDeleteVoucher(v)}
-                                  className="btn-danger"
-                                  style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem' }}
-                                  title="Xóa voucher"
+                                  className="voucher-btn-action btn-delete"
+                                  title="Xóa hoàn toàn voucher này"
                                 >
                                   <Trash2 size={13} />
                                   <span>Xóa</span>
