@@ -24,9 +24,13 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     Optional<Notification> findByIdAndRecipientId(Long id, Long recipientId);
 
-    /** Chống thông báo trùng cho "thích video" (mỗi người chỉ một thông báo cho mỗi video). */
+    /** Chống thông báo trùng cho "thích / lưu / chia sẻ video" (mỗi người chỉ một thông báo cho mỗi video và loại). */
     boolean existsByRecipientIdAndActorIdAndTypeAndVideoId(
             Long recipientId, Long actorId, NotificationType type, Long videoId);
+
+    /** Chống thông báo trùng cho "thích / thả tim bình luận" (mỗi người chỉ một thông báo cho mỗi bình luận). */
+    boolean existsByRecipientIdAndActorIdAndTypeAndCommentId(
+            Long recipientId, Long actorId, NotificationType type, Long commentId);
 
     /** Chống thông báo trùng cho "theo dõi" (bấm theo dõi / bỏ theo dõi liên tục). */
     boolean existsByRecipientIdAndActorIdAndType(Long recipientId, Long actorId, NotificationType type);
