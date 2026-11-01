@@ -197,13 +197,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   // Filter types: 'month_year' (chọn tháng & năm) | 'range' (tùy chỉnh khoảng ngày)
   type ChartFilterMode = 'month_year' | 'range';
 
-  // Global Filter State (đồng bộ cho toàn bộ biểu đồ)
-  const [globalFilterMode, setGlobalFilterMode] = useState<ChartFilterMode>('month_year');
-  const [globalYear, setGlobalYear] = useState<number>(2026);
-  const [globalMonth, setGlobalMonth] = useState<number>(10);
-  const [globalStartDate, setGlobalStartDate] = useState<string>('2026-10-01');
-  const [globalEndDate, setGlobalEndDate] = useState<string>('2026-10-31');
-
   // Chart 1: Học viên đăng ký (Chỉ role USER, loại trừ Admin/Mod)
   const [userFilterMode, setUserFilterMode] = useState<ChartFilterMode>('month_year');
   const [userYear, setUserYear] = useState<number>(2026);
@@ -346,44 +339,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
       fetchRevTrend(revFilterMode, revYear, revMonth, revStartDate, revEndDate);
     }
   }, [isAdmin, activeTab, revFilterMode, revYear, revMonth, revStartDate, revEndDate]);
-
-  // Đồng bộ thời gian cho tất cả biểu đồ
-  const applyGlobalMonthYear = (m: number, y: number) => {
-    setGlobalFilterMode('month_year');
-    setGlobalMonth(m);
-    setGlobalYear(y);
-
-    setUserFilterMode('month_year');
-    setUserMonth(m);
-    setUserYear(y);
-
-    setTokenFilterMode('month_year');
-    setTokenMonth(m);
-    setTokenYear(y);
-
-    setRevFilterMode('month_year');
-    setRevMonth(m);
-    setRevYear(y);
-  };
-
-  const applyGlobalRange = (start: string, end: string) => {
-    if (!start || !end) return;
-    setGlobalFilterMode('range');
-    setGlobalStartDate(start);
-    setGlobalEndDate(end);
-
-    setUserFilterMode('range');
-    setUserStartDate(start);
-    setUserEndDate(end);
-
-    setTokenFilterMode('range');
-    setTokenStartDate(start);
-    setTokenEndDate(end);
-
-    setRevFilterMode('range');
-    setRevStartDate(start);
-    setRevEndDate(end);
-  };
 
   // Helper render thanh tóm tắt chỉ số đỉnh cao / trung bình / tổng cộng
   const renderStatsStrip = (
