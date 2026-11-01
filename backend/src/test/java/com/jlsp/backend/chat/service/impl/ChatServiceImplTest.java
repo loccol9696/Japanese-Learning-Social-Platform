@@ -126,7 +126,6 @@ class ChatServiceImplTest {
         when(conversationRepository.findDetailById(CONVERSATION_ID)).thenReturn(Optional.of(conversation));
         when(userRepository.findById(ME)).thenReturn(Optional.of(me));
         when(userRepository.findById(OTHER)).thenReturn(Optional.of(other));
-        when(followService.isMutual(ME, OTHER)).thenReturn(true);
         when(messageRepository.save(any(Message.class))).thenAnswer(call -> {
             Message saved = call.getArgument(0);
             saved.setId(100L);
@@ -256,6 +255,15 @@ class ChatServiceImplTest {
     }
 
     @Test
+    void peopleWhoDoNotFollowEachOtherCanStillMessage() {
+        // followService là mock nên isMutual luôn false: vẫn gửi được và hội thoại vẫn ghi được.
+        when(userRepository.getReferenceById(ME)).thenReturn(me);
+        when(participantRepository.updateLastReadMessageId(any(), any(), any())).thenReturn(1);
+        assertThat(service.sendMessage(ME, textRequest()).getId()).isEqualTo(100L);
+        assertThat(service.getConversation(ME, CONVERSATION_ID).getCanMessage()).isTrue();
+    }
+
+    @Test
     void blockedPairCannotMessage() {
         when(userBlockRepository.existsBetween(ME, OTHER)).thenReturn(true);
 
@@ -277,7 +285,6 @@ class ChatServiceImplTest {
     void blockedConversationCannotMessageAndShowsWhoBlocked() {
         UserBlock block = UserBlock.builder().id(new UserBlockId(ME, OTHER)).build();
         when(userBlockRepository.findBetween(eq(ME), any())).thenReturn(List.of(block));
-        when(followService.findMutualIdsAmong(eq(ME), any())).thenReturn(Set.of(OTHER));
 
         ConversationResponse mine = service.getConversation(ME, CONVERSATION_ID);
 
@@ -289,7 +296,6 @@ class ChatServiceImplTest {
     void personWhoWasBlockedDoesNotSeeTheBlockFlag() {
         UserBlock block = UserBlock.builder().id(new UserBlockId(OTHER, ME)).build();
         when(userBlockRepository.findBetween(eq(ME), any())).thenReturn(List.of(block));
-        when(followService.findMutualIdsAmong(eq(ME), any())).thenReturn(Set.of(OTHER));
 
         ConversationResponse mine = service.getConversation(ME, CONVERSATION_ID);
 
@@ -546,12 +552,11 @@ class ChatServiceImplTest {
         };
     }
 
-    /** Dựng đủ phần phụ thuộc để gửi được một tin nhắn tới bạn bè đang follow lẫn nhau. */
+    /** Dựng đủ phần phụ thuộc để gửi được một tin nhắn tới một người bạn. */
     private void givenMutualFriendAndWritableChat() {
         User friend = User.builder().id(FRIEND_ID).isActive(true).build();
         when(userRepository.findById(FRIEND_ID)).thenReturn(Optional.of(friend));
         when(userRepository.getReferenceById(ME)).thenReturn(me);
-        when(followService.isMutual(ME, FRIEND_ID)).thenReturn(true);
         when(conversationRepository.findByUserLowIdAndUserHighId(ME, FRIEND_ID)).thenReturn(Optional.of(conversation));
         when(conversationRepository.save(any(Conversation.class))).thenAnswer(inv -> inv.getArgument(0));
         when(participantRepository.updateLastReadMessageId(any(), any(), any())).thenReturn(1);
@@ -584,7 +589,6 @@ class ChatServiceImplTest {
         givenMutualFriendAndWritableChat();
         User other = User.builder().id(3L).isActive(true).build();
         when(userRepository.findById(3L)).thenReturn(Optional.of(other));
-        when(followService.isMutual(ME, 3L)).thenReturn(true);
         when(conversationRepository.findByUserLowIdAndUserHighId(ME, 3L)).thenReturn(Optional.of(conversation));
         when(videoRepository.findById(VIDEO_ID)).thenReturn(Optional.of(video(VideoModStatus.APPROVED)));
 
@@ -609,10 +613,10 @@ class ChatServiceImplTest {
     }
 
     @Test
-    void sharingFailsForAStrangerWithoutCountingOrNotifying() {
-        User stranger = User.builder().id(3L).isActive(true).build();
-        when(userRepository.findById(3L)).thenReturn(Optional.of(stranger));
-        when(followService.isMutual(ME, 3L)).thenReturn(false);
+    void sharingFailsForABlockedUserWithoutCountingOrNotifying() {
+        User blocked = User.builder().id(3L).isActive(true).build();
+        when(userRepository.findById(3L)).thenReturn(Optional.of(blocked));
+        when(userBlockRepository.existsBetween(ME, 3L)).thenReturn(true);
         when(videoRepository.findById(VIDEO_ID)).thenReturn(Optional.of(video(VideoModStatus.APPROVED)));
 
         assertThatThrownBy(() -> service.shareVideo(ME, VIDEO_ID, shareVideoTo(3L)))
@@ -664,11 +668,11 @@ class ChatServiceImplTest {
     }
 
     @Test
-    void recipientsMustFollowEachOtherAndNothingIsSentToAnyoneIfOneFails() {
+    void nothingIsSentToAnyoneIfOneRecipientIsBlocked() {
         givenMutualFriendAndWritableChat();
-        User stranger = User.builder().id(3L).isActive(true).build();
-        when(userRepository.findById(3L)).thenReturn(Optional.of(stranger));
-        when(followService.isMutual(ME, 3L)).thenReturn(false);
+        User blocked = User.builder().id(3L).isActive(true).build();
+        when(userRepository.findById(3L)).thenReturn(Optional.of(blocked));
+        when(userBlockRepository.existsBetween(ME, 3L)).thenReturn(true);
         when(flashcardSetRepository.findById(DECK_ID)).thenReturn(Optional.of(deck(true)));
 
         assertThatThrownBy(() -> service.shareDeck(ME, DECK_ID, shareTo(FRIEND_ID, 3L)))

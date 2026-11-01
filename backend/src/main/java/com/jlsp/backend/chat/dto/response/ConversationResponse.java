@@ -21,7 +21,7 @@ public class ConversationResponse {
     /** Người kia đã đọc tới tin nào (hiển thị "Đã xem"). */
     private Long otherLastReadMessageId;
 
-    /** Hai bên còn follow lẫn nhau và không ai chặn ai — false thì chỉ xem lại được lịch sử. */
+    /** Không ai chặn ai và cả hai tài khoản còn hoạt động — false thì chỉ xem lại được lịch sử. */
     private Boolean canMessage;
 
     /** Người đang xem đã chặn người kia (để hiện nút bỏ chặn). */
