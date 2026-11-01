@@ -8,9 +8,19 @@ import 'package:frontend/core/storage/token_storage.dart';
 import 'package:frontend/core/theme/app_motion.dart';
 import 'package:frontend/core/widgets/swipe_back_detector.dart';
 import 'package:frontend/features/explore/presentation/explore_screen.dart';
+import 'package:frontend/features/video/data/services/video_trash_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+String _jwt() {
+  String b64(Map<String, dynamic> map) =>
+      base64Url.encode(utf8.encode(jsonEncode(map))).replaceAll('=', '');
+  final exp =
+      DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/
+      1000;
+  return '${b64({'alg': 'none'})}.${b64({'exp': exp})}.sig';
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +31,7 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
     await TokenStorage.instance.clear();
+    await TokenStorage.instance.saveTokens(accessToken: _jwt(), refreshToken: 'rt');
     ApiClient.overrideForTesting(MockClient((request) async {
       final path = request.url.path;
       Object data = {};
@@ -143,6 +154,28 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(searchHint, findsOneWidget);
+  });
+
+  testWidgets('video đang xem bị xóa và hết kết quả thì đóng khung xem', (tester) async {
+    await openExplore(tester);
+    await openFirstVideo(tester);
+
+    await VideoTrashService().moveToTrash(1);
+    await tester.pumpAndSettle();
+
+    expect(feedBack, findsNothing);
+    expect(searchHint, findsOneWidget);
+    expect(find.text('Umayuru Thám tử lừng danh'), findsNothing);
+  });
+
+  testWidgets('video trong danh sách kết quả bị xóa từ màn khác thì biến mất', (tester) async {
+    await openExplore(tester);
+    expect(find.text('Umayuru Thám tử lừng danh'), findsOneWidget);
+
+    await VideoTrashService().moveToTrash(1);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Umayuru Thám tử lừng danh'), findsNothing);
   });
 
   group('hiệu ứng chuyển cảnh', () {
