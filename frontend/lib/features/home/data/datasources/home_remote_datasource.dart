@@ -104,7 +104,6 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
       json['grammarAnalysis'],
     );
     final likes = _toInt(json['likeCount']);
-    final views = _toInt(json['viewCount']);
 
     return VideoPost(
       id: id,
@@ -132,7 +131,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
           : json['description']?.toString() ?? '',
       likeCount: likes,
       commentCount: _toInt(json['commentCount']),
-      shareCount: views,
+      shareCount: _toInt(json['shareCount']),
       isLiked: json['isLiked'] == true,
       isSaved: json['isSaved'] == true,
       isFollowing: json['isFollowing'] == true,
