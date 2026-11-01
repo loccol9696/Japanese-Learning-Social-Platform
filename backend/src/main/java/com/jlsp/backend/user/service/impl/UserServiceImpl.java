@@ -200,7 +200,9 @@ public class UserServiceImpl implements UserService {
     public UserResponse toggleUserStatus(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException(404, "User not found with id: " + id));
-        user.setIsActive(!Boolean.TRUE.equals(user.getIsActive()));
+        boolean locking = Boolean.TRUE.equals(user.getIsActive());
+        user.setIsActive(!locking);
+        user.setLockedAt(locking ? java.time.LocalDateTime.now() : null);
         User saved = userRepository.save(user);
         if (!Boolean.TRUE.equals(saved.getIsActive())) {
             // Khoá tài khoản: đăng xuất ngay mọi thiết bị (access token còn lại tự hết hạn sau tối đa 30 phút).

@@ -4,11 +4,14 @@ import com.jlsp.backend.common.response.ApiResponse;
 import com.jlsp.backend.common.security.CurrentUser;
 import com.jlsp.backend.report.dto.CreateReportRequest;
 import com.jlsp.backend.report.dto.ReportResponse;
+import com.jlsp.backend.report.dto.ReportResultResponse;
 import com.jlsp.backend.report.service.ReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,5 +31,11 @@ public class ReportController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED.value(),
                         "Đã gửi báo cáo, cảm ơn bạn đã giúp cộng đồng an toàn hơn", response));
+    }
+
+    /** Kết quả báo cáo cho người đã báo cáo hoặc chủ nội dung đã nhận thông báo. */
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ReportResultResponse>> result(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getResult(CurrentUser.requireId(), id)));
     }
 }

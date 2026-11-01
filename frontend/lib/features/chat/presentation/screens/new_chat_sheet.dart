@@ -18,7 +18,7 @@ Future<Conversation?> showNewChatSheet(BuildContext context) {
   );
 }
 
-/// Chọn một người đang follow lẫn nhau để bắt đầu (hoặc mở lại) cuộc trò chuyện.
+/// Chọn một người bạn (follow lẫn nhau) để bắt đầu (hoặc mở lại) cuộc trò chuyện.
 class NewChatSheet extends StatefulWidget {
   const NewChatSheet({super.key, this.service});
 
@@ -191,8 +191,8 @@ class _NewChatSheetState extends State<NewChatSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Center(
           child: Text(
-            'Bạn chỉ có thể nhắn tin cho người đã follow lẫn nhau với bạn. '
-            'Hãy follow bạn bè và chờ họ follow lại nhé!',
+            'Chưa có bạn bè nào trong danh sách. '
+            'Bạn vẫn có thể nhắn tin cho bất kỳ ai bằng nút Nhắn tin trên hồ sơ của họ.',
             key: const ValueKey('new-chat-empty'),
             textAlign: TextAlign.center,
             style: TextStyle(color: AppPalette.textSecondary, height: 1.5, fontSize: 13),

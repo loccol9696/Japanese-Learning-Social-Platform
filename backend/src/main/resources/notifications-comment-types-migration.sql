@@ -1,7 +1,7 @@
 -- Thông báo "bình luận được thích" (COMMENT_LIKED), "video được lưu" (VIDEO_SAVED), "video được chia sẻ" (VIDEO_SHARED).
 -- Hibernate tạo CHECK liệt kê sẵn các giá trị enum và ddl-auto: update KHÔNG cập nhật lại; nếu còn ràng buộc này,
--- việc chèn loại mới bị từ chối và thông báo bị bỏ qua trong im lặng. NotificationSchemaUpdater cũng gỡ nó mỗi lần
--- khởi động; prod (validate) chạy tay file này một lần.
+-- việc chèn loại mới bị từ chối và thông báo bị bỏ qua trong im lặng. NotificationSchemaUpdater chạy cả hai lệnh của
+-- file này mỗi lần khởi động; chỉ cần chạy tay khi chưa khởi động lại được backend.
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
 
 -- Loại COMMENT_HEARTED (chủ video thả tim) đã bị bỏ khỏi enum. Nếu môi trường nào từng tạo thông báo loại này thì phải

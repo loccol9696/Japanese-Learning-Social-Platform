@@ -114,6 +114,7 @@ class ApiConstants {
   static String get topicsUrl => '$baseUrl/topics';
   static String get hashtagSuggestUrl => '$baseUrl/hashtags/suggest';
   static String get reportsUrl => '$baseUrl/reports';
+  static String reportResultUrl(int id) => '$reportsUrl/$id';
   static String get notificationsUrl => '$baseUrl/notifications';
 
   // Video & Moderation endpoints
@@ -131,7 +132,7 @@ class ApiConstants {
   static String permanentDeleteVideoUrl(int videoId) =>
       '$baseUrl/videos/$videoId/permanent';
 
-  // Follow endpoints (chỉ follow lẫn nhau mới nhắn tin được)
+  // Follow endpoints
   static String followUrl(int userId) => '$baseUrl/users/$userId/follow';
   static String userSearchUrl(String query, {int page = 0, int size = 20}) =>
       '$baseUrl/users/search?q=${Uri.encodeQueryComponent(query)}&page=$page&size=$size';

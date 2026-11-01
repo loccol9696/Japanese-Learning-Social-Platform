@@ -82,7 +82,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
   // Enforce role separation on tab changes
   useEffect(() => {
-    if (isAdmin && (activeTab === 'videos' || activeTab === 'reports')) {
+    if (isAdmin && activeTab === 'videos') {
       setActiveTab('analytics');
     }
     if (isModerator && (activeTab === 'users' || activeTab === 'subscriptions' || activeTab === 'pricing' || activeTab === 'analytics')) {
@@ -1081,14 +1081,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     }
   };
 
-  // Pending reports count for Moderator badge
+  // Pending reports count for the Reports tab badge
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
 
   useEffect(() => {
-    if (isModerator) {
-      getPendingReportCount().then(c => setPendingReportsCount(c)).catch(() => {});
-    }
-  }, [isModerator, activeTab]);
+    getPendingReportCount().then(c => setPendingReportsCount(c)).catch(() => {});
+  }, [activeTab]);
 
   return (
     <div className={`admin-viewport ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -1152,8 +1150,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </button>
           )}
 
-          {/* TAB: XỬ LÝ REPORT - CHỈ HIỆN VỚI MODERATOR (ĐÃ XÓA KHỎI ADMIN) */}
-          {isModerator && (
+          {/* TAB: XỬ LÝ REPORT - MODERATOR VÀ ADMIN (CHỈ ADMIN ĐƯỢC KHÓA TÀI KHOẢN) */}
+          {(isModerator || isAdmin) && (
             <button
               onClick={() => setActiveTab('reports')}
               className={`nav-tab-item ${activeTab === 'reports' ? 'active' : ''}`}
@@ -2145,6 +2143,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                       <th>Tên hiển thị</th>
                       <th>Email</th>
                       <th>Trạng thái</th>
+                      <th>Vi phạm</th>
                       <th>Ngày tạo</th>
                       <th style={{ textAlign: 'right' }}>Thao tác</th>
                     </tr>
@@ -2152,13 +2151,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                   <tbody>
                     {isLoadingUsers ? (
                       <tr>
-                        <td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                        <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                           Đang tải danh sách người dùng...
                         </td>
                       </tr>
                     ) : usersList.length === 0 ? (
                       <tr>
-                        <td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                        <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                           Không tìm thấy người dùng nào phù hợp.
                         </td>
                       </tr>
@@ -2180,6 +2179,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
                           <td>
                             <span className={`status-pill ${u.isActive ? 'success' : 'danger'}`}>
                               {u.isActive ? 'Hoạt động' : 'Đã khóa'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`status-pill ${(u.violationCount ?? 0) > 0 ? 'warning' : 'info'}`}>
+                              {u.violationCount ?? 0}
                             </span>
                           </td>
                           <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
@@ -2549,9 +2553,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </>
           )}
 
-          {/* ==================== TAB 5: XỬ LÝ REPORT (CHỈ DÀNH CHO ROLE MODERATOR) ==================== */}
-          {activeTab === 'reports' && isModerator && (
-            <ReportsManager isAdmin={false} showToast={showToast} />
+          {/* ==================== TAB 5: XỬ LÝ REPORT (MODERATOR VÀ ADMIN) ==================== */}
+          {activeTab === 'reports' && (isModerator || isAdmin) && (
+            <ReportsManager isAdmin={isAdmin} showToast={showToast} />
           )}
           {/* ==================== TAB 6: TRANG HỒ SƠ CÁ NHÂN (ADMIN & MODERATOR) ==================== */}
           {activeTab === 'profile' && (

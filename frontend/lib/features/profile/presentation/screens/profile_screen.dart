@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../subscription/screens/token_usage_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -12,6 +14,7 @@ import '../../../chat/presentation/screens/shared_video_screen.dart';
 import '../../../notification/notification_hub.dart';
 import '../../../notification/notification_sheet.dart';
 import '../../../follow/presentation/screens/follow_manage_screen.dart';
+import '../../../video/data/services/video_trash_service.dart';
 import '../../../video/domain/models/user_video_model.dart';
 import '../../../video/presentation/screens/moderation_queue_screen.dart';
 import '../../../video/presentation/screens/my_videos_status_screen.dart';
@@ -22,7 +25,9 @@ import '../../domain/models/user_profile_model.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../../../subscription/models/subscription_model.dart';
 import '../../../subscription/services/subscription_service.dart';
-import '../../../subscription/widgets/subscription_success_dialog.dart';
+import '../../../home/presentation/screens/home_screen.dart';
+import '../../../home/presentation/widgets/bottom_nav_dock.dart';
+import '../../../subscription/screens/subscription_success_screen.dart';
 import '../../../subscription/widgets/vietqr_payment_sheet.dart';
 import 'profile_update_screen.dart';
 import '../../../streak/streak_chip.dart';
@@ -46,6 +51,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static Color get _linkBlue => AppPalette.info;
 
   late final ProfileRepository _repository;
+  late final StreamSubscription<int> _trashedVideos;
   UserProfileModel _profile = const UserProfileModel();
   SubscriptionStatus? _membershipStatus;
   Streak _streak = const Streak();
@@ -66,6 +72,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         widget.repository ??
         ProfileRepositoryImpl(remoteDataSource: ProfileRemoteDataSourceImpl());
     AuthSession.instance.addListener(_onAuthChanged);
+    // Tải lại thay vì chỉ gỡ khỏi lưới: lượt thích trên hồ sơ cũng giảm theo video đã xóa.
+    _trashedVideos = VideoTrashService.trashedVideoIds.listen(
+      (_) => _loadProfile(),
+    );
     _checkRole();
     if (AuthSession.instance.isAuthenticated || widget.repository != null) {
       _loadProfile();
@@ -106,6 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    _trashedVideos.cancel();
     AuthSession.instance.removeListener(_onAuthChanged);
     super.dispose();
   }
@@ -953,15 +964,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (!mounted) return;
     if (paid == true) {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => SubscriptionSuccessDialog(
-          order: order,
-          plan: plan,
-          onDismiss: () {},
-        ),
-      );
+      final action = await showSubscriptionSuccess(context, order: order, plan: plan);
+      if (action == SubscriptionSuccessAction.startLearning) HomeScreen.tabRequest.value = BottomNavDock.homeIndex;
     }
     await _loadMembershipStatus();
   }

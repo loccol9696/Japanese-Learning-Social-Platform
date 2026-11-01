@@ -132,14 +132,28 @@ class GoogleLoginTest {
 
     @Test
     void inactiveAccountWithSameEmailIsNotLinkedOrLoggedIn() {
-        User banned = User.builder().id(9L).username("sakura99").email("sakura.test@gmail.com")
+        User pending = User.builder().id(9L).username("sakura99").email("sakura.test@gmail.com")
                 .passwordHash("hash").isActive(false).build();
+        when(verifier.verify("tok")).thenReturn(identity(true));
+        when(users.findByGoogleSub(anyString())).thenReturn(Optional.empty());
+        when(users.findByEmailIgnoreCase(anyString())).thenReturn(Optional.of(pending));
+
+        assertThatThrownBy(() -> service.loginWithGoogle("tok"))
+                .isInstanceOf(AppException.class).hasMessageContaining("kích hoạt");
+        assertThat(pending.getGoogleSub()).isNull();
+        verify(users, never()).save(any());
+    }
+
+    @Test
+    void lockedAccountWithSameEmailIsNotLinkedOrLoggedIn() {
+        User banned = User.builder().id(9L).username("sakura99").email("sakura.test@gmail.com")
+                .passwordHash("hash").isActive(false).lockedAt(java.time.LocalDateTime.now()).build();
         when(verifier.verify("tok")).thenReturn(identity(true));
         when(users.findByGoogleSub(anyString())).thenReturn(Optional.empty());
         when(users.findByEmailIgnoreCase(anyString())).thenReturn(Optional.of(banned));
 
         assertThatThrownBy(() -> service.loginWithGoogle("tok"))
-                .isInstanceOf(AppException.class).hasMessageContaining("khoá");
+                .isInstanceOf(AppException.class).extracting("status").isEqualTo(423);
         assertThat(banned.getGoogleSub()).isNull();
         verify(users, never()).save(any());
     }
@@ -152,6 +166,17 @@ class GoogleLoginTest {
         when(users.findByGoogleSub("sub-123")).thenReturn(Optional.of(locked));
 
         assertThatThrownBy(() -> service.loginWithGoogle("tok")).isInstanceOf(AppException.class);
+    }
+
+    @Test
+    void googleLoginReportsALockedAccountAsLocked() {
+        User locked = User.builder().id(5L).username("s").email("e@x.com").passwordHash("x").isActive(false)
+                .lockedAt(java.time.LocalDateTime.now()).googleSub("sub-123").build();
+        when(verifier.verify("tok")).thenReturn(identity(true));
+        when(users.findByGoogleSub("sub-123")).thenReturn(Optional.of(locked));
+
+        assertThatThrownBy(() -> service.loginWithGoogle("tok"))
+                .isInstanceOf(AppException.class).extracting("status").isEqualTo(423);
     }
 
     @Test

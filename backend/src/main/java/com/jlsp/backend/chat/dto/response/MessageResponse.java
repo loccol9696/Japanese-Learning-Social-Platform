@@ -25,6 +25,7 @@ public class MessageResponse {
     private String imageUrl;
     private ReplyPreviewResponse replyTo;
     private Boolean recalled;
+    private Boolean removedByModeration;
     private String clientMsgId;
     private LocalDateTime createdAt;
 }

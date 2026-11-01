@@ -84,6 +84,18 @@ public class User {
     @Builder.Default
     private Integer onboardingSkipCount = 0;
 
+    /**
+     * Thời điểm bị khóa, null nếu không bị khóa. Tài khoản chưa xác thực email cũng có isActive = false,
+     * cột này để phân biệt: tài khoản bị khóa không được kích hoạt lại bằng OTP.
+     */
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
+    /** Số lần bị kiểm duyệt viên nhắc nhở vì vi phạm. */
+    @Column(name = "violation_count", nullable = false, columnDefinition = "integer default 0 not null")
+    @Builder.Default
+    private Integer violationCount = 0;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

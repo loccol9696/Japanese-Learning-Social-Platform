@@ -93,7 +93,11 @@ void main() {
     late List<http.Request> requests;
 
     /// [signIn] đăng nhập AuthSession thật (qua MockClient) cho các luồng yêu cầu đăng nhập như báo cáo.
-    Future<void> openChat(WidgetTester tester, {bool signIn = false}) async {
+    Future<void> openChat(
+      WidgetTester tester, {
+      bool signIn = false,
+      List<Map<String, dynamic>> messages = const [],
+    }) async {
       FlutterSecureStorage.setMockInitialValues({});
       SharedPreferences.setMockInitialValues({});
       await TokenStorage.instance.clear();
@@ -119,7 +123,7 @@ void main() {
           );
         }
         final Object data = path.endsWith('/messages')
-            ? {'content': <dynamic>[], 'hasMore': false}
+            ? {'content': messages, 'hasMore': false}
             : path.endsWith('/chat/conversations/42') && request.method == 'GET'
                 ? _conversationJson
                 : <String, dynamic>{};
@@ -215,6 +219,58 @@ void main() {
       await chooseOption(tester, 'Báo cáo');
 
       expect(find.textContaining('Spam'), findsOneWidget);
+    });
+
+    Map<String, dynamic> message(int id, int senderId, String content) => {
+          'id': id,
+          'conversationId': 42,
+          'senderId': senderId,
+          'type': 'TEXT',
+          'content': content,
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+
+    testWidgets('nhấn giữ tin của người kia báo cáo được đúng tin đó', (tester) async {
+      await openChat(tester, signIn: true, messages: [message(88, 5, 'tin xấu')]);
+
+      await tester.longPress(find.text('tin xấu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Báo cáo tin nhắn'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Báo cáo tin nhắn này'), findsOneWidget);
+      await tester.tap(find.text('Quấy rối hoặc thù ghét'));
+      await tester.pump();
+      await tester.tap(find.text('Gửi báo cáo'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 5));
+
+      final report = requests.singleWhere((r) => r.url.path.endsWith('/reports'));
+      expect(jsonDecode(report.body), {
+        'targetType': 'MESSAGE',
+        'targetId': 88,
+        'reason': 'HARASSMENT',
+      });
+    });
+
+    testWidgets('tin bị kiểm duyệt gỡ hiện khác với tin tự thu hồi', (tester) async {
+      await openChat(tester, messages: [
+        {...message(90, 5, ''), 'recalled': true, 'removedByModeration': true},
+        {...message(91, 5, ''), 'recalled': true},
+      ]);
+
+      expect(find.text(kModeratedMessageText), findsOneWidget);
+      expect(find.text('Tin nhắn đã được thu hồi'), findsOneWidget);
+    });
+
+    testWidgets('tin của chính mình không có mục báo cáo', (tester) async {
+      await openChat(tester, signIn: true, messages: [message(89, 7, 'tin của tôi')]);
+
+      await tester.longPress(find.text('tin của tôi'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sao chép'), findsOneWidget);
+      expect(find.text('Báo cáo tin nhắn'), findsNothing);
     });
   });
 }

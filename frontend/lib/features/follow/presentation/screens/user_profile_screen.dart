@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_exception.dart';
@@ -9,6 +11,7 @@ import '../../../chat/presentation/screens/chat_detail_screen.dart';
 import '../../../chat/presentation/screens/shared_video_screen.dart';
 import '../../../chat/presentation/widgets/chat_avatar.dart';
 import '../../../profile/data/datasources/profile_remote_datasource.dart';
+import '../../../video/data/services/video_trash_service.dart';
 import '../../../video/domain/models/user_video_model.dart';
 import '../../data/follow_models.dart';
 import '../../data/follow_service.dart';
@@ -52,6 +55,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   late final ProfileRemoteDataSource _videoSource =
       widget.videoSource ?? ProfileRemoteDataSourceImpl();
   final _chat = ChatService();
+  late final StreamSubscription<int> _trashedVideos;
 
   PublicProfile? _profile;
   SubscriptionStatus? _membershipStatus;
@@ -65,7 +69,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _trashedVideos = VideoTrashService.trashedVideoIds.listen(_removeVideo);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _trashedVideos.cancel();
+    super.dispose();
+  }
+
+  void _removeVideo(int videoId) {
+    setState(() => _videos = _videos.where((v) => v.id != videoId).toList());
   }
 
   Future<void> _load() async {
@@ -527,7 +542,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  /// Nút theo dõi; thêm nút Nhắn tin khi hai bên đã follow lẫn nhau (mới được nhắn tin).
+  /// Nút theo dõi và nút Nhắn tin (ai cũng nhắn tin được, không cần follow nhau).
   Widget _buildActions(PublicProfile profile) {
     if (profile.isBlocked) {
       return Column(
@@ -556,12 +571,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         ],
       );
     }
-    final canMessage =
-        widget.showMessageButton && profile.isFollowing && profile.isFollowedBy;
     return Row(
       children: [
         Expanded(child: _buildFollowButton(profile)),
-        if (canMessage) ...[
+        if (widget.showMessageButton) ...[
           const SizedBox(width: 10),
           Expanded(child: _buildMessageButton(profile)),
         ],
