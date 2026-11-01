@@ -196,9 +196,7 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
               },
               onCommentTap: _openComments,
               // Màn này chỉ có một video nên xóa xong thì quay lại màn trước.
-              onDeleted: () {
-                if (mounted) Navigator.of(context).maybePop();
-              },
+              onDeleted: () => Navigator.of(context).maybePop(),
             )
           else if (_loading)
             const Center(child: CircularProgressIndicator())

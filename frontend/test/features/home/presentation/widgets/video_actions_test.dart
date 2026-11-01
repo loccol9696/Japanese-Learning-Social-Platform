@@ -10,6 +10,7 @@ import 'package:frontend/features/auth/data/auth_session.dart';
 import 'package:frontend/features/home/domain/models/video_post.dart';
 import 'package:frontend/features/home/presentation/widgets/video_actions_sheet.dart';
 import 'package:frontend/features/home/presentation/widgets/video_player_item.dart';
+import 'package:frontend/features/video/data/services/video_trash_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -327,17 +328,11 @@ void main() {
       expect(find.text('Xóa video'), findsNothing);
     });
 
-    testWidgets('màn chứa không gỡ được video thì không có mục xóa', (
-      tester,
-    ) async {
-      await pumpPlayer(tester, _post(creatorId: _me));
-      await openMenu(tester);
-
-      expect(find.text('Xóa video'), findsNothing);
-    });
-
     testWidgets('xác nhận thì gọi API xóa và báo màn chứa', (tester) async {
       var deleted = 0;
+      final trashed = <int>[];
+      final subscription = VideoTrashService.trashedVideoIds.listen(trashed.add);
+      addTearDown(subscription.cancel);
       await pumpPlayer(
         tester,
         _post(creatorId: _me),
@@ -348,6 +343,7 @@ void main() {
 
       expect(deletes().single.url.path, endsWith('/videos/12'));
       expect(deleted, 1);
+      expect(trashed, [12]);
       expect(find.text('Đã chuyển video vào thùng rác'), findsOneWidget);
       await waitForToast(tester);
     });
@@ -368,6 +364,9 @@ void main() {
 
     testWidgets('API lỗi thì báo lỗi và giữ nguyên video', (tester) async {
       var deleted = 0;
+      final trashed = <int>[];
+      final subscription = VideoTrashService.trashedVideoIds.listen(trashed.add);
+      addTearDown(subscription.cancel);
       server = (_) => http.Response(
         jsonEncode({'status': 403, 'message': 'Không có quyền'}),
         403,
@@ -382,6 +381,7 @@ void main() {
       await chooseDelete(tester, 'Xóa');
 
       expect(deleted, 0);
+      expect(trashed, isEmpty);
       expect(find.textContaining('Không thể xóa video'), findsOneWidget);
       await waitForToast(tester);
     });

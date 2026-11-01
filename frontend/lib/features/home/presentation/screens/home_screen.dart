@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -21,6 +22,7 @@ import '../widgets/comments_sheet.dart';
 import '../../../explore/presentation/explore_screen.dart';
 import '../../../flashcard/presentation/screens/deck_library_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
+import '../../../video/data/services/video_trash_service.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/auth/auth_guard.dart';
@@ -47,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   late final PageController _homeTabController;
   late final PageController _followingFeedPageController;
   late final PageController _forYouFeedPageController;
+  late final StreamSubscription<int> _trashedVideos;
 
   FeedTab _currentFeedTab = FeedTab.forYou;
   int _homeTabIndex = 1;
@@ -84,6 +87,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     _homeTabController = PageController(initialPage: 1);
     _followingFeedPageController = PageController();
     _forYouFeedPageController = PageController();
+    _trashedVideos = VideoTrashService.trashedVideoIds.listen(
+      (videoId) => _removePost('$videoId'),
+    );
     _checkRole();
     _loadFeed(FeedTab.forYou);
   }
@@ -152,6 +158,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   @override
   void dispose() {
     appRouteObserver.unsubscribe(this);
+    _trashedVideos.cancel();
     HomeScreen.tabRequest.removeListener(_onTabRequested);
     AuthSession.instance.removeListener(_onAuthChanged);
     _tabPageController.dispose();
@@ -595,7 +602,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             videoOwnerId: post.creatorId,
             initialCount: post.commentCount,
           ),
-          onDeleted: () => _removePost(post.id),
           allowAccountActions: AuthSession.instance.isAuthenticated,
           playbackAllowed: _feedPlaybackAllowed,
         );
@@ -701,7 +707,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   /// Gỡ video đã xóa khỏi cả hai feed. Video kế tiếp thế chỗ video bị gỡ; video
   /// cuối bị gỡ thì lùi về video liền trước.
   void _removePost(String postId) {
-    if (!mounted) return;
     int indexAfterRemoval(List<VideoPost> posts, int current) {
       final removed = posts.indexWhere((post) => post.id == postId);
       if (removed == -1) return current;

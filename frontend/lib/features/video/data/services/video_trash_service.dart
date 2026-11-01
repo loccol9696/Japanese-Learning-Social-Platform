@@ -1,9 +1,18 @@
+import 'dart:async';
+
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/models/user_video_model.dart';
 
 /// Thùng rác video: xóa mềm, khôi phục và xóa hẳn.
 class VideoTrashService {
+  static final StreamController<int> _trashedVideoIds =
+      StreamController<int>.broadcast();
+
+  /// Phát id mỗi video vừa vào thùng rác, để các màn đang giữ danh sách video
+  /// gỡ nó đi dù video được xóa từ màn nào.
+  static Stream<int> get trashedVideoIds => _trashedVideoIds.stream;
+
   final ApiClient _apiClient;
 
   VideoTrashService({ApiClient? apiClient})
@@ -11,6 +20,7 @@ class VideoTrashService {
 
   Future<void> moveToTrash(int videoId) async {
     await _apiClient.delete(ApiConstants.videoUrl(videoId));
+    _trashedVideoIds.add(videoId);
   }
 
   Future<List<UserVideoModel>> fetchTrash() async {

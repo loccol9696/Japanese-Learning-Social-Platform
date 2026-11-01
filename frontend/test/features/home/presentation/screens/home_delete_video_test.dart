@@ -11,6 +11,7 @@ import 'package:frontend/features/home/domain/models/video_post.dart';
 import 'package:frontend/features/home/domain/repositories/home_repository.dart';
 import 'package:frontend/features/home/presentation/screens/home_screen.dart';
 import 'package:frontend/features/home/presentation/widgets/video_player_item.dart';
+import 'package:frontend/features/video/data/services/video_trash_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -105,6 +106,18 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
+  /// Feed có animation lặp vô hạn nên không dùng pumpAndSettle để chờ trang dừng.
+  Future<void> settle(WidgetTester tester) async {
+    for (var frame = 0; frame < 60; frame++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+  }
+
+  Future<void> swipeToNext(WidgetTester tester) async {
+    await tester.drag(find.byType(VideoPlayerItem).first, const Offset(0, -700));
+    await settle(tester);
+  }
+
   VideoPlayerItem activeItem(WidgetTester tester) => tester
       .widgetList<VideoPlayerItem>(find.byType(VideoPlayerItem))
       .singleWhere((item) => item.isActive);
@@ -134,14 +147,38 @@ void main() {
 
   testWidgets('xóa video cuối thì lùi về video liền trước', (tester) async {
     await pumpHome(tester, [_post('1'), _post('2')]);
-    await tester.drag(find.byType(VideoPlayerItem).first, const Offset(0, -700));
-    // Feed có animation lặp vô hạn nên không dùng pumpAndSettle để chờ trang dừng.
-    for (var frame = 0; frame < 60; frame++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await swipeToNext(tester);
     expect(activeItem(tester).post.id, '2');
 
     await deleteActive(tester);
+
+    expect(activeItem(tester).post.id, '1');
+  });
+
+  testWidgets('video phía trước bị xóa từ màn khác thì vẫn đứng ở video đang xem', (
+    tester,
+  ) async {
+    await pumpHome(tester, [_post('1'), _post('2'), _post('3')]);
+    await swipeToNext(tester);
+    expect(activeItem(tester).post.id, '2');
+
+    await VideoTrashService().moveToTrash(1);
+    await settle(tester);
+
+    expect(activeItem(tester).post.id, '2');
+    expect(
+      tester.widgetList<VideoPlayerItem>(find.byType(VideoPlayerItem)).map((i) => i.post.id),
+      isNot(contains('1')),
+    );
+  });
+
+  testWidgets('video không có trong feed bị xóa thì feed giữ nguyên', (
+    tester,
+  ) async {
+    await pumpHome(tester, [_post('1'), _post('2')]);
+
+    await VideoTrashService().moveToTrash(99);
+    await settle(tester);
 
     expect(activeItem(tester).post.id, '1');
   });

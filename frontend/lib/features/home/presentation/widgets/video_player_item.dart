@@ -40,8 +40,8 @@ class VideoPlayerItem extends StatefulWidget {
   final ValueChanged<bool>? onCreatorFollowChanged;
   final VoidCallback? onCommentTap;
 
-  /// Báo khi chủ video vừa chuyển video vào thùng rác, để màn chứa gỡ video đi.
-  /// null = màn chứa không gỡ được video nên menu không hiện mục Xóa.
+  /// Báo khi chủ video vừa chuyển video này vào thùng rác. Màn có danh sách video
+  /// tự gỡ qua [VideoTrashService.trashedVideoIds]; màn chỉ có một video dùng để đóng.
   final VoidCallback? onDeleted;
   final bool allowAccountActions;
 
@@ -225,18 +225,13 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
   }
 
   bool get _canDelete {
-    if (widget.onDeleted == null || int.tryParse(widget.post.id) == null) {
-      return false;
-    }
+    if (int.tryParse(widget.post.id) == null) return false;
     final me = AuthSession.instance.user?.id;
     return me != null && me == widget.post.creatorId;
   }
 
-  /// Chuyển video vào thùng rác. Vẫn báo [VideoPlayerItem.onDeleted] nếu người
-  /// dùng đã vuốt sang video khác trong lúc chờ, vì video thật sự đã bị xóa.
   Future<void> _moveToTrash() async {
     if (!await confirmMoveToTrash(context) || !mounted) return;
-    final onDeleted = widget.onDeleted;
     try {
       await VideoTrashService().moveToTrash(int.parse(widget.post.id));
     } catch (error) {
@@ -249,7 +244,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
       'Đã chuyển video vào thùng rác',
       context: mounted ? context : null,
     );
-    onDeleted?.call();
+    if (mounted) widget.onDeleted?.call();
   }
 
   /// Menu nâng cao khi nhấn giữ trên video: tốc độ x2, trang người đăng, báo cáo, xóa.
