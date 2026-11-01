@@ -447,9 +447,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     controller: _homeTabController,
                     physics: const NeverScrollableScrollPhysics(),
                     onPageChanged: _onHomeTabPageChanged,
+                    // Giữ sống cả hai tab: nếu không, tab vừa rời đi bị hủy và vuốt quay lại sẽ về video đầu.
                     children: [
-                      _buildVideoFeed(FeedTab.following),
-                      _buildVideoFeed(FeedTab.forYou),
+                      _KeepAlivePage(child: _buildVideoFeed(FeedTab.following)),
+                      _KeepAlivePage(child: _buildVideoFeed(FeedTab.forYou)),
                     ],
                   ),
                 ),
@@ -548,10 +549,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         return VideoPlayerItem(
           key: ValueKey(post.id),
           post: post,
-          isActive: index ==
-              (tab == FeedTab.following
-                  ? _followingPostIndex
-                  : _forYouPostIndex),
+          // Tab đang ẩn vẫn còn sống nên video của nó phải tạm dừng.
+          isActive: tab == _currentFeedTab &&
+              index ==
+                  (tab == FeedTab.following
+                      ? _followingPostIndex
+                      : _forYouPostIndex),
           onLikeToggle: () => _handleLikeToggle(post),
           onSaveToggle: () => _handleSaveToggle(post),
           onFollowToggle: () => _handleFollowToggle(post),
