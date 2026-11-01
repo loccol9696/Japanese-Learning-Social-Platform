@@ -34,6 +34,7 @@ const TARGET_LABEL: Record<ReportTargetType, string> = {
   MESSAGE: 'Tin nhắn',
   TRANSLATION: 'Bản dịch',
   GRAMMAR: 'Ngữ pháp',
+  SCRIPT: 'Câu thoại (Script)',
 };
 
 const ACTION_LABEL: Record<ReportAction, string> = {
@@ -47,6 +48,7 @@ const ACTION_LABEL: Record<ReportAction, string> = {
   EDIT_GRAMMAR: 'Sửa mẫu ngữ pháp',
   REMOVE_GRAMMAR: 'Gỡ mẫu ngữ pháp này',
   LOCK_USER: 'Khóa tài khoản chủ nội dung',
+  EDIT_SCRIPT: 'Sửa lại câu thoại tiếng Nhật',
 };
 
 /** Hành động gỡ nội dung của từng loại đối tượng. */
@@ -68,6 +70,7 @@ const STATUS_TABS: { key: ReportStatus; label: string }[] = [
 const EDIT_ACTION: Partial<Record<ReportTargetType, ReportAction>> = {
   TRANSLATION: 'EDIT_TRANSLATION',
   GRAMMAR: 'EDIT_GRAMMAR',
+  SCRIPT: 'EDIT_SCRIPT',
 };
 
 /** Hành động khả dụng cho một báo cáo; khóa tài khoản chỉ Admin, nội dung đã đổi thì không sửa được. */
@@ -86,12 +89,13 @@ function actionsFor(report: ReportItem, isAdmin: boolean): ReportAction[] {
 function isCorrectionComplete(action: ReportAction, correction: ReportCorrection): boolean {
   if (action === 'EDIT_TRANSLATION') return !!correction.translation?.trim();
   if (action === 'EDIT_GRAMMAR') return !!correction.pattern?.trim() && !!correction.meaning?.trim();
+  if (action === 'EDIT_SCRIPT') return !!correction.scriptText?.trim();
   return true;
 }
 
 /** Bản dịch/ngữ pháp có thể bị chủ video sửa, không hẳn đã bị xóa. */
 function goneLabel(type: ReportTargetType): string {
-  return type === 'TRANSLATION' || type === 'GRAMMAR' ? 'Đã thay đổi' : 'Đã bị xóa';
+  return type === 'TRANSLATION' || type === 'GRAMMAR' || type === 'SCRIPT' ? 'Đã thay đổi' : 'Đã bị xóa';
 }
 
 export default function ReportsManager({ isAdmin, showToast: showToastProp }: ReportsManagerProps) {
@@ -143,7 +147,7 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
     setIsSubmitting(true);
     try {
       if (mode === 'resolve') {
-        const isEdit = action === 'EDIT_TRANSLATION' || action === 'EDIT_GRAMMAR';
+        const isEdit = action === 'EDIT_TRANSLATION' || action === 'EDIT_GRAMMAR' || action === 'EDIT_SCRIPT';
         await resolveReport(active.id, action, note, isEdit ? correction : undefined);
         showToast('Đã xử lý báo cáo');
       } else {
@@ -429,6 +433,25 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
                   />
                 </div>
               </>
+            )}
+
+            {action === 'EDIT_SCRIPT' && (
+              <div className="form-group-sharp">
+                <label className="form-label-sharp">
+                  Câu thoại tiếng Nhật đã sửa
+                </label>
+                <textarea
+                  className="form-input-sharp"
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="Nhập câu thoại tiếng Nhật chính xác..."
+                  value={correction.scriptText ?? ''}
+                  onChange={e => updateCorrection({ scriptText: e.target.value })}
+                />
+                <p style={{ color: 'var(--admin-text-dim)', fontSize: '0.75rem', marginTop: '0.3rem' }}>
+                  Lưu ý: Sau khi cập nhật, kết quả phân tích ngữ pháp cũ sẽ được xóa để AI phân tích lại.
+                </p>
+              </div>
             )}
 
             <div className="form-group-sharp">

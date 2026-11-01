@@ -19,6 +19,24 @@ Future<void> showTranslationReportSheet(
   subject: 'bản dịch này',
 );
 
+/// Báo cáo câu thoại tiếng Nhật của câu phụ đề [segmentIndex] trong video [videoId].
+Future<void> showScriptReportSheet(
+  BuildContext context, {
+  required int videoId,
+  required int segmentIndex,
+  String? originalSentence,
+  ReportService? service,
+}) => showReportSheet(
+  context,
+  target: ReportTarget.script,
+  targetId: videoId,
+  segmentIndex: segmentIndex,
+  subject: originalSentence != null && originalSentence.isNotEmpty
+      ? 'câu thoại "$originalSentence"'
+      : 'câu thoại này',
+  service: service,
+);
+
 /// Báo cáo mẫu ngữ pháp [grammarPattern] của câu phụ đề [segmentIndex] trong video [videoId].
 Future<void> showGrammarReportSheet(
   BuildContext context, {
@@ -97,6 +115,14 @@ class _ReportSheetState extends State<ReportSheet> {
   final _detailController = TextEditingController();
   ReportReason? _reason;
   bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.target == ReportTarget.script) {
+      _reason = ReportReason.inaccurate;
+    }
+  }
 
   @override
   void dispose() {
@@ -197,7 +223,9 @@ class _ReportSheetState extends State<ReportSheet> {
                         maxLines: 3,
                         style: TextStyle(color: AppPalette.textPrimary),
                         decoration: InputDecoration(
-                          hintText: 'Mô tả thêm (tuỳ chọn)',
+                          hintText: widget.target == ReportTarget.script
+                              ? 'Nhập đề xuất sửa câu thoại tiếng Nhật...'
+                              : 'Mô tả thêm (tuỳ chọn)',
                           hintStyle: TextStyle(color: AppPalette.textSecondary),
                           filled: true,
                           fillColor: AppPalette.background,
@@ -234,7 +262,9 @@ class _ReportSheetState extends State<ReportSheet> {
                               color: AppPalette.onAccent,
                             ),
                           )
-                        : const Text('Gửi báo cáo'),
+                        : Text(widget.target == ReportTarget.script
+                            ? 'Gửi đề xuất sửa cho Moderator'
+                            : 'Gửi báo cáo'),
                   ),
                 ),
               ),

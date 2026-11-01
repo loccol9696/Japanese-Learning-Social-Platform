@@ -45,6 +45,9 @@ class RubySubtitleWidget extends StatefulWidget {
   /// Báo cáo một mẫu ngữ pháp; null thì bảng ngữ pháp không có nút báo cáo.
   final ValueChanged<GrammarPointInfo>? onReportGrammar;
 
+  /// Báo cáo / đề xuất sửa câu thoại; null thì bảng tra từ không có nút báo cáo.
+  final VoidCallback? onReportScript;
+
   const RubySubtitleWidget({
     super.key,
     required this.rubySegments,
@@ -54,6 +57,7 @@ class RubySubtitleWidget extends StatefulWidget {
     this.grammarPoints = const [],
     this.onLookupActiveChanged,
     this.onReportGrammar,
+    this.onReportScript,
   });
 
   /// Phát tín hiệu để mọi bảng tra từ/ngữ pháp đang mở tự đóng (vd. khi rời tab Home).
@@ -215,6 +219,12 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
             token: segment.token!,
             sentence: sentence,
             onClose: _clearSelection,
+            onReport: widget.onReportScript == null
+                ? null
+                : () {
+                    _clearSelection();
+                    widget.onReportScript!();
+                  },
           );
 
     final overlay = Overlay.of(context, rootOverlay: true);

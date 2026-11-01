@@ -9,5 +9,7 @@ public enum ReportTargetType {
     /** Bản dịch của một câu phụ đề; targetId là video, targetKey là vị trí câu. */
     TRANSLATION,
     /** Một mẫu ngữ pháp của câu phụ đề; targetId là video, targetKey là "vị trí câu:mẫu". */
-    GRAMMAR
+    GRAMMAR,
+    /** Câu thoại tiếng Nhật (text gốc) bị AI tách sai; targetId là video, targetKey là vị trí câu. */
+    SCRIPT
 }

@@ -73,6 +73,9 @@ public class VideoServiceImpl implements VideoService {
     private final com.jlsp.backend.common.security.ratelimit.RateLimiter rateLimiter;
     private final com.jlsp.backend.report.repository.ReportRepository reportRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     /** Số chủ đề tối đa trên một video. */
     static final int MAX_TOPICS_PER_VIDEO = 3;
 
@@ -579,13 +582,16 @@ public class VideoServiceImpl implements VideoService {
         Video video = videoRepository.findById(videoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Video", "id", videoId));
 
-        // Chỉ chủ sở hữu hoặc admin mới có quyền nạp phụ đề
-        validateOwnership(video, currentUserId);
+        // Chủ sở hữu, admin hoặc moderator có quyền nạp/chỉnh sửa phụ đề
+        validateSubtitleEditAccess(video, currentUserId);
 
         video.setSubtitles(subtitlesJson);
         // Subtitles đổi -> kết quả phân tích cũ không còn đúng, xoá và phân tích lại
         video.setGrammarAnalysis(null);
         Video updated = videoRepository.save(video);
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new com.jlsp.backend.video.event.SubtitlesUpdatedEvent(updated.getId()));
+        }
 
         boolean isLiked = videoLikeRepository.existsByIdUserIdAndIdVideoId(currentUserId, videoId);
         boolean isSaved = videoSaveRepository.existsByIdUserIdAndIdVideoId(currentUserId, videoId);
@@ -786,6 +792,23 @@ public class VideoServiceImpl implements VideoService {
 
         if (!isOwner && !isAdmin) {
             throw new AppException(403, "Bạn không có quyền thao tác trên video này");
+        }
+    }
+
+    /**
+     * Kiểm tra quyền chỉnh sửa phụ đề / lời thoại:
+     * Chủ video, ADMIN hoặc MODERATOR đều có quyền chỉnh sửa.
+     */
+    private void validateSubtitleEditAccess(Video video, Long currentUserId) {
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUserId));
+
+        boolean isOwner = video.getUser().getId().equals(currentUserId);
+        boolean isAdmin = user.getRole() == UserRole.ADMIN;
+        boolean isModerator = user.getRole() == UserRole.MODERATOR;
+
+        if (!isOwner && !isAdmin && !isModerator) {
+            throw new AppException(403, "Bạn không có quyền thao tác trên phụ đề video này");
         }
     }
 

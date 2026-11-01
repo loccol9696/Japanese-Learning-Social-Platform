@@ -27,4 +27,7 @@ public class ReportCorrection {
 
     @Size(max = 2000, message = "Giải thích tối đa 2000 ký tự")
     private String explanation;
+
+    @Size(max = 2000, message = "Câu thoại tiếng Nhật tối đa 2000 ký tự")
+    private String scriptText;
 }

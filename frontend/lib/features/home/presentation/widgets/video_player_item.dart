@@ -270,6 +270,18 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     );
   }
 
+  /// Hàm báo cáo câu thoại của [cue]; null nếu không báo cáo được.
+  VoidCallback? _scriptReporter(SubtitleCue? cue) {
+    final segmentIndex = cue?.sourceIndex;
+    if (!_canReport || segmentIndex == null) return null;
+    return () => showScriptReportSheet(
+      context,
+      videoId: int.parse(widget.post.id),
+      segmentIndex: segmentIndex,
+      originalSentence: cue?.text,
+    );
+  }
+
   /// Menu nâng cao khi nhấn giữ trên video: tốc độ x2, trang người đăng, báo cáo, xóa.
   Future<void> _openVideoActions() async {
     RubySubtitleWidget.dismissLookups();
@@ -815,6 +827,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                             grammarPoints: activeCue?.grammarPoints ?? const [],
                             onLookupActiveChanged: _handleLookupActiveChanged,
                             onReportGrammar: _grammarReporter(activeCue),
+                            onReportScript: _scriptReporter(activeCue),
                           ),
                         ),
                       VideoInfoOverlay(
@@ -984,6 +997,7 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
                                     onLookupActiveChanged:
                                         _handleLookupActiveChanged,
                                     onReportGrammar: _grammarReporter(activeCue),
+                                    onReportScript: _scriptReporter(activeCue),
                                   ),
                                 ),
                               VideoInfoOverlay(

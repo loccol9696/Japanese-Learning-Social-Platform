@@ -444,6 +444,11 @@ class ReportServiceImplTest {
                 ReportCorrection.builder().translation(translation).build());
     }
 
+    private static ResolveReportRequest editScript(String scriptText) {
+        return new ResolveReportRequest(ReportAction.EDIT_SCRIPT, "sửa lại câu thoại tiếng Nhật",
+                ReportCorrection.builder().scriptText(scriptText).build());
+    }
+
     private static ResolveReportRequest editGrammar(String pattern, String meaning, String explanation) {
         return new ResolveReportRequest(ReportAction.EDIT_GRAMMAR, null, ReportCorrection.builder()
                 .pattern(pattern).meaning(meaning).explanation(explanation).build());
@@ -478,6 +483,23 @@ class ReportServiceImplTest {
                         + "Lý do: dịch hoặc giải thích sai. dịch lại cho đúng"));
         verify(notificationService, never()).notifyReportResult(any(), eq(NotificationType.CONTENT_REMOVED),
                 any(), any(), anyString());
+    }
+
+    @Test
+    void editingAScriptUpdatesSubtitlesAndNotifiesOwnerAndPublishesEvent() {
+        givenVideoHasASubtitleLine();
+        Report report = createdReport(lineRequest(ReportTargetType.SCRIPT, 0, null));
+
+        service.resolve(5L, ACTOR, false, editScript("  ご飯を食べる  "));
+
+        assertThat(SubtitleLines.find(video.getSubtitles(), 0).orElseThrow().text()).isEqualTo("ご飯を食べる");
+        assertThat(video.getGrammarAnalysis()).isNull();
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.RESOLVED);
+        assertThat(report.getAction()).isEqualTo(ReportAction.EDIT_SCRIPT);
+        verify(videoRepository).save(video);
+        verify(eventPublisher).publishEvent(any(com.jlsp.backend.video.event.SubtitlesUpdatedEvent.class));
+        verify(notificationService).notifyReportResult(eq(OWNER), eq(NotificationType.CONTENT_EDITED), eq(VIDEO_ID),
+                eq(5L), anyString());
     }
 
     @Test

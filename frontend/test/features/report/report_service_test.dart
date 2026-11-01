@@ -80,8 +80,28 @@ void main() {
     );
     expect(
       ReportTarget.values.map((t) => t.name.toUpperCase()),
-      ['VIDEO', 'COMMENT', 'USER', 'MESSAGE', 'TRANSLATION', 'GRAMMAR'],
+      ['VIDEO', 'COMMENT', 'USER', 'MESSAGE', 'TRANSLATION', 'GRAMMAR', 'SCRIPT'],
     );
+  });
+
+  test('báo cáo câu thoại script gửi kèm vị trí câu', () async {
+    useServer((_) => _json(201, {'status': 201, 'data': {}}));
+
+    await ReportService().submit(
+      target: ReportTarget.script,
+      targetId: 12,
+      reason: ReportReason.inaccurate,
+      segmentIndex: 2,
+      detail: 'Sửa thành: こんにちは',
+    );
+
+    expect(jsonDecode(requests.single.body), {
+      'targetType': 'SCRIPT',
+      'targetId': 12,
+      'reason': 'INACCURATE',
+      'segmentIndex': 2,
+      'detail': 'Sửa thành: こんにちは',
+    });
   });
 
   test('báo cáo ngữ pháp gửi kèm vị trí câu và mẫu ngữ pháp', () async {

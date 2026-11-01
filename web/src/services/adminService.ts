@@ -169,6 +169,23 @@ export async function updateVideoClassification(
   return resData.data;
 }
 
+/** Cập nhật phụ đề / lời thoại của video (dành cho Moderator/Admin khi duyệt hoặc chỉnh sửa). */
+export async function updateVideoSubtitles(
+  videoId: number,
+  subtitlesJson: string,
+): Promise<VideoModerationItem> {
+  const response = await authFetch(`/api/v1/videos/${videoId}/subtitles`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ subtitles: subtitlesJson }),
+  });
+  const resData: ApiResponse<VideoModerationItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể cập nhật phụ đề video');
+  }
+  return resData.data;
+}
+
 // ==================== USER MANAGEMENT (ADMIN) ====================
 
 export async function getAdminUsers(
@@ -564,7 +581,7 @@ export async function updateTopic(
 }
 
 // ==================== CONTENT REPORTS (MODERATOR ONLY) ====================
-export type ReportTargetType = 'VIDEO' | 'COMMENT' | 'USER' | 'MESSAGE' | 'TRANSLATION' | 'GRAMMAR';
+export type ReportTargetType = 'VIDEO' | 'COMMENT' | 'USER' | 'MESSAGE' | 'TRANSLATION' | 'GRAMMAR' | 'SCRIPT';
 export type ReportReason =
   | 'SPAM'
   | 'INAPPROPRIATE'
@@ -584,14 +601,16 @@ export type ReportAction =
   | 'REMOVE_TRANSLATION'
   | 'EDIT_GRAMMAR'
   | 'REMOVE_GRAMMAR'
-  | 'LOCK_USER';
+  | 'LOCK_USER'
+  | 'EDIT_SCRIPT';
 
-/** Nội dung bản dịch / mẫu ngữ pháp: backend trả về để điền sẵn, kiểm duyệt viên sửa rồi gửi lại. */
+/** Nội dung bản dịch / mẫu ngữ pháp / câu thoại: backend trả về để điền sẵn, kiểm duyệt viên sửa rồi gửi lại. */
 export interface ReportCorrection {
   translation?: string;
   pattern?: string;
   meaning?: string;
   explanation?: string;
+  scriptText?: string;
 }
 
 export interface ReportItem {

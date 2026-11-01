@@ -57,6 +57,17 @@ final class SubtitleLines {
         return withTranslation(subtitles, index, "");
     }
 
+    static String withScriptText(String subtitles, int index, String newText) {
+        JsonNode root = parse(subtitles);
+        if (cueAt(root, index) instanceof ObjectNode cue) {
+            cue.put("text", newText != null ? newText.trim() : "");
+            cue.remove("ruby");
+            cue.remove("tokens");
+            return root.toString();
+        }
+        return subtitles;
+    }
+
     static String withTranslation(String subtitles, int index, String translation) {
         JsonNode root = parse(subtitles);
         if (cueAt(root, index) instanceof ObjectNode cue) {
