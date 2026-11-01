@@ -55,7 +55,9 @@ void main() {
   /// Mặc định hỏi định nghĩa (M$n) và yêu cầu gõ thuật ngữ (T$n).
   Future<void> submit(WidgetTester tester, String text) async {
     await tester.enterText(find.byType(TextField), text);
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    // Ô nhập cho xuống dòng nên gửi bằng nút "Kiểm tra đáp án".
+    await tester.tap(find.text('Kiểm tra đáp án'));
     await tester.pump();
   }
 

@@ -456,7 +456,7 @@ class _FlashcardListeningScreenState extends State<FlashcardListeningScreen> {
             ),
           ),
           // Hiệu ứng lửa lớn khi đúng 5 câu liên tiếp
-          FireCelebration(trigger: _fireTrigger),
+          FireCelebration(trigger: _fireTrigger, streak: _streak.count),
         ],
       ),
     );

@@ -510,7 +510,6 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     final sharer = widget.sharedByName?.trim() ?? '';
     final author = widget.deck.authorName;
     final name = sharer.isNotEmpty ? sharer : author;
-    final avatarUrl = sharer.isNotEmpty ? widget.sharedByAvatarUrl : widget.deck.authorAvatarUrl;
     final label = sharer.isNotEmpty ? 'Chia sẻ bởi' : 'Tác giả';
     final style = TextStyle(color: AppPalette.textSecondary, fontSize: 13, fontWeight: FontWeight.w500);
 
@@ -520,8 +519,6 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
       children: [
         Row(
           children: [
-            _SharerAvatar(name: name, avatarUrl: avatarUrl),
-            const SizedBox(width: 8),
             Expanded(
               child: Text.rich(
                 TextSpan(
@@ -542,7 +539,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
         ),
         if (sharer.isNotEmpty && author.isNotEmpty && author != sharer)
           Padding(
-            padding: const EdgeInsets.only(top: 4, left: 30),
+            padding: const EdgeInsets.only(top: 4),
             child: Text('Tác giả: $author', style: style.copyWith(fontSize: 12)),
           ),
       ],
@@ -1221,28 +1218,3 @@ class _PreviewFlashcardState extends State<_PreviewFlashcard>
 }
 }
 
-/// Ảnh đại diện nhỏ của người chia sẻ; chưa có ảnh thì hiện chữ cái đầu của tên.
-class _SharerAvatar extends StatelessWidget {
-  final String name;
-  final String? avatarUrl;
-
-  const _SharerAvatar({required this.name, this.avatarUrl});
-
-  @override
-  Widget build(BuildContext context) {
-    final url = avatarUrl ?? '';
-    final initial = name.trim().isEmpty ? '?' : String.fromCharCode(name.trim().runes.first).toUpperCase();
-    return CircleAvatar(
-      radius: 11,
-      backgroundColor: AppPalette.surfaceHigh,
-      backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
-      onBackgroundImageError: url.isNotEmpty ? (_, _) {} : null,
-      child: url.isEmpty
-          ? Text(
-              initial,
-              style: TextStyle(color: AppPalette.textPrimary, fontSize: 11, fontWeight: FontWeight.w700),
-            )
-          : null,
-    );
-  }
-}
