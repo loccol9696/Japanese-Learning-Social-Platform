@@ -7,7 +7,9 @@ import '../models/subscription_model.dart';
 import '../models/token_usage_model.dart';
 import '../services/subscription_service.dart';
 import '../widgets/subscription_plan_sheet.dart';
-import '../widgets/subscription_success_dialog.dart';
+import '../../home/presentation/screens/home_screen.dart';
+import '../../home/presentation/widgets/bottom_nav_dock.dart';
+import 'subscription_success_screen.dart';
 import '../widgets/vietqr_payment_sheet.dart';
 
 /// Trang "Token AI" trong Cài đặt: còn bao nhiêu token hôm nay, đã dùng thế nào trong tuần / tháng và dùng cho
@@ -143,12 +145,15 @@ class _TokenUsageScreenState extends State<TokenUsageScreen> {
       );
       if (!mounted) return;
       if (paid == true) {
-        await showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => SubscriptionSuccessDialog(order: order, plan: plan, onDismiss: () {}),
-        );
-        if (mounted) await _load(refresh: true);
+        final action = await showSubscriptionSuccess(context, order: order, plan: plan);
+        if (!mounted) return;
+        if (action == null) {
+          await _load(refresh: true);
+          return;
+        }
+        // Cả hai nút đều rời trang Token AI; "Bắt đầu học" còn chuyển về tab Trang chủ.
+        Navigator.of(context).pop();
+        if (action == SubscriptionSuccessAction.startLearning) HomeScreen.tabRequest.value = BottomNavDock.homeIndex;
       }
     } on ApiException catch (error) {
       if (mounted) AppToast.showError(error.message, context: context);
@@ -335,7 +340,9 @@ class _TokenUsageScreenState extends State<TokenUsageScreen> {
           const SizedBox(height: 10),
           if (status.isVip)
             Text(
-              status.isLifetime ? 'Gói trọn đời' : 'Hết hạn ${status.formattedExpiryDate} · còn ${status.daysRemaining} ngày',
+              status.isLifetime
+                  ? 'Gói trọn đời'
+                  : 'Hết hạn ${status.formattedExpiryDate} · ${status.daysRemaining < 1 ? 'còn dưới 1 ngày' : 'còn ${status.daysRemaining} ngày'}',
               key: const ValueKey('token-plan-expiry'),
               style: TextStyle(color: AppPalette.textSecondary, fontSize: 12.5),
             )

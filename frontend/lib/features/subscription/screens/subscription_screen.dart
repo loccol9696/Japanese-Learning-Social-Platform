@@ -4,7 +4,9 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../models/subscription_model.dart';
 import '../services/subscription_service.dart';
-import '../widgets/subscription_success_dialog.dart';
+import '../../home/presentation/screens/home_screen.dart';
+import '../../home/presentation/widgets/bottom_nav_dock.dart';
+import 'subscription_success_screen.dart';
 import '../widgets/vietqr_payment_sheet.dart';
 import '../../../core/theme/app_palette.dart';
 
@@ -138,17 +140,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
     if (!mounted) return;
     if (paid == true) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogCtx) => SubscriptionSuccessDialog(
-          order: order,
-          plan: plan,
-          // Hộp thoại tự đóng trước khi gọi hàm này: đóng màn đăng ký gói và về trang cá nhân (trả về true để
-          // màn đó tải lại trạng thái).
-          onDismiss: () => Navigator.of(context).pop(true),
-        ),
-      );
+      final action = await showSubscriptionSuccess(context, order: order, plan: plan);
+      if (!mounted) return;
+      // Đóng màn đăng ký gói và về trang cá nhân (trả về true để màn đó tải lại trạng thái).
+      Navigator.of(context).pop(true);
+      if (action == SubscriptionSuccessAction.startLearning) HomeScreen.tabRequest.value = BottomNavDock.homeIndex;
     } else {
       _loadData();
     }

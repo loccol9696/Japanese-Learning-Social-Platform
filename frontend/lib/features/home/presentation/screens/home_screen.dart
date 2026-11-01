@@ -31,6 +31,10 @@ class HomeScreen extends StatefulWidget {
 
   const HomeScreen({super.key, this.repository});
 
+  /// Màn khác (đang nằm trên Trang chủ) yêu cầu chuyển sang một tab của thanh điều hướng, ví dụ sau khi thanh
+  /// toán xong. Trang chủ nhận yêu cầu rồi đặt lại về null.
+  static final ValueNotifier<int?> tabRequest = ValueNotifier<int?>(null);
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -70,6 +74,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   void initState() {
     super.initState();
     AuthSession.instance.addListener(_onAuthChanged);
+    HomeScreen.tabRequest.addListener(_onTabRequested);
     _repository =
         widget.repository ??
         HomeRepositoryImpl(remoteDataSource: HomeRemoteDataSourceImpl());
@@ -132,9 +137,20 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     }
   }
 
+  void _onTabRequested() {
+    final tab = HomeScreen.tabRequest.value;
+    if (tab == null) return;
+    HomeScreen.tabRequest.value = null;
+    // Chờ màn đang đóng xong rồi mới đổi tab, để không đổi trang khi cây widget đang dựng lại.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _selectTab(tab);
+    });
+  }
+
   @override
   void dispose() {
     appRouteObserver.unsubscribe(this);
+    HomeScreen.tabRequest.removeListener(_onTabRequested);
     AuthSession.instance.removeListener(_onAuthChanged);
     _tabPageController.dispose();
     _homeTabController.dispose();
