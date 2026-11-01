@@ -43,10 +43,14 @@ class SubscriptionService {
   }
 
   /// Tạo đơn mua gói (hoặc mở lại đơn đang chờ cho cùng gói). Chỉ gửi gói muốn mua; người mua do server lấy từ token.
-  Future<PaymentOrder> createOrder({required int planId}) async {
+  Future<PaymentOrder> createOrder({required int planId, String? promoCode}) async {
+    final body = <String, dynamic>{'planId': planId};
+    if (promoCode != null && promoCode.trim().isNotEmpty) {
+      body['promoCode'] = promoCode.trim().toUpperCase();
+    }
     final data = await ApiClient.instance.post(
       ApiConstants.paymentOrdersUrl,
-      body: {'planId': planId},
+      body: body,
     );
     if (data is! Map<String, dynamic>) {
       throw ApiException(statusCode: 500, message: 'Máy chủ trả về đơn thanh toán không hợp lệ.');

@@ -19,6 +19,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   static Color get _linkBlue => AppPalette.info;
 
   final SubscriptionService _service = SubscriptionService();
+  final TextEditingController _promoController = TextEditingController();
   List<SubscriptionPlan> _plans = [];
   SubscriptionStatus? _userStatus;
   bool _isLoading = true;
@@ -26,10 +27,74 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   int _selectedPlanIndex = 0; // Default to "Trọn đời" (first / best plan)
   bool _isCreatingOrder = false;
 
+  // Voucher / Promo code state
+  bool _isCheckingPromo = false;
+  String? _appliedPromoCode;
+  int? _discountPercent;
+  double? _discountAmount;
+  String? _promoSuccessMessage;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _promoController.dispose();
+    super.dispose();
+  }
+
+  double _calculatePayablePrice(double basePrice) {
+    if (_appliedPromoCode == null) return basePrice;
+    double discount = 0;
+    if (_discountPercent != null && _discountPercent! > 0) {
+      discount = (basePrice * _discountPercent!) / 100.0;
+    } else if (_discountAmount != null && _discountAmount! > 0) {
+      discount = _discountAmount!;
+    }
+    final finalPrice = basePrice - discount;
+    return finalPrice < 1000 ? 1000 : finalPrice;
+  }
+
+  Future<void> _applyPromoCode() async {
+    final code = _promoController.text.trim();
+    if (code.isEmpty) {
+      AppToast.showError('Vui lòng nhập mã khuyến mãi / voucher', context: context);
+      return;
+    }
+    final plan = _currentSelectedPlan;
+    setState(() => _isCheckingPromo = true);
+    try {
+      final res = await _service.verifyPromoCode(code, planId: plan?.id);
+      if (mounted) {
+        setState(() {
+          _appliedPromoCode = res['code']?.toString() ?? code.toUpperCase();
+          _discountPercent = (res['discountPercent'] as num?)?.toInt();
+          _discountAmount = (res['discountAmount'] as num?)?.toDouble();
+          _promoSuccessMessage = res['description']?.toString() ?? 'Đã áp dụng mã ưu đãi!';
+        });
+        AppToast.showSuccess('Áp dụng mã $_appliedPromoCode thành công!', context: context);
+      }
+    } on ApiException catch (e) {
+      if (mounted) AppToast.showError(e.message, context: context);
+    } catch (_) {
+      if (mounted) AppToast.showError('Mã ưu đãi không hợp lệ hoặc đã hết hạn', context: context);
+    } finally {
+      if (mounted) setState(() => _isCheckingPromo = false);
+    }
+  }
+
+  void _removePromoCode() {
+    setState(() {
+      _appliedPromoCode = null;
+      _discountPercent = null;
+      _discountAmount = null;
+      _promoSuccessMessage = null;
+      _promoController.clear();
+    });
+    AppToast.showSuccess('Đã hủy áp dụng mã ưu đãi', context: context);
   }
 
   Future<void> _loadData() async {
@@ -83,12 +148,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return 0;
   }
 
-  List<SubscriptionPlan> get _visiblePlans {
-    final ownedDuration = _currentOwnedDurationDays;
-    if (ownedDuration <= 0) return _plans;
-    // Ẩn hoàn toàn các gói thấp hơn gói người dùng đang sở hữu
-    return _plans.where((plan) => plan.durationDays >= ownedDuration).toList();
-  }
+  List<SubscriptionPlan> get _visiblePlans => _plans;
 
   SubscriptionPlan? get _currentSelectedPlan {
     final visible = _visiblePlans;
@@ -109,16 +169,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
     final plan = _currentSelectedPlan;
     if (plan == null) return;
-    if (_currentOwnedDurationDays > 0 && plan.durationDays <= _currentOwnedDurationDays) {
-      AppToast.showSuccess('Bạn đang sở hữu gói này. Vui lòng chọn gói cao hơn để nâng cấp!', context: context);
-      return;
-    }
 
     // Server tạo đơn (số tiền, mã chuyển khoản, QR); app chỉ hiển thị và chờ server nhận tiền.
     setState(() => _isCreatingOrder = true);
     PaymentOrder order;
     try {
-      order = await _service.createOrder(planId: plan.id);
+      order = await _service.createOrder(planId: plan.id, promoCode: _appliedPromoCode);
     } on ApiException catch (error) {
       if (mounted) AppToast.showError(error.message, context: context);
       return;
@@ -228,6 +284,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                 _buildPlanSelectionCards(),
                                 const SizedBox(height: 16),
 
+                                // Voucher / Promo Code input section
+                                _buildPromoCodeSection(),
+                                const SizedBox(height: 16),
+
                                 // Terms & Auto-renew disclaimer
                                 _buildDisclaimer(),
                                 const SizedBox(height: 24),
@@ -293,7 +353,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Widget _buildFeatureChecklist() {
     const features = [
-      'Tạo bộ thẻ không giới hạn',
+      '2.000 Token AI/ngày cho mọi gói Premium',
+      'Tạo bộ thẻ và Flashcard không giới hạn',
       'Học và ôn tập không quảng cáo',
       'Luyện nghe và tự luận không giới hạn lượt',
       'Đồng bộ trên mọi thiết bị',
@@ -380,7 +441,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 Text(
                   isLifetime
                       ? 'Gói Trọn Đời (Lifetime) • Toàn bộ đặc quyền mở khóa vĩnh viễn'
-                      : 'Tài khoản VIP (${_userStatus!.planName ?? 'Premium'}) • Còn ${_userStatus!.remainingDays} ngày',
+                      : 'Tài khoản VIP (${_userStatus!.planName ?? 'Premium'}) • Còn ${_userStatus!.remainingDays} ngày (Cộng dồn khi nạp thêm)',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
@@ -413,52 +474,38 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     required int index,
     required bool isSelected,
   }) {
-    final isLifetimePlan = plan.durationDays >= 3650;
-    final isYearlyPlan = plan.durationDays >= 360 && !isLifetimePlan;
-    final userHasLifetime = _isUserLifetimeVip;
+    final isYearlyPlan = plan.durationDays >= 360;
     final ownedDuration = _currentOwnedDurationDays;
-
-    final isPlanDisabled =
-        ownedDuration > 0 && plan.durationDays < ownedDuration;
-    final isAlreadyOwned =
-        (userHasLifetime && isLifetimePlan) ||
-        (ownedDuration > 0 && plan.durationDays == ownedDuration);
+    final isCurrentlyVip = _userStatus?.isVip ?? false;
+    final isCurrentPlan = ownedDuration > 0 && plan.durationDays == ownedDuration;
+    const isPlanDisabled = false;
 
     String subtitle = plan.durationLabel;
-    if (isAlreadyOwned) {
-      subtitle = isLifetimePlan
-          ? 'Đang sở hữu vĩnh viễn trên tài khoản này'
-          : 'Gói hiện tại của bạn đang hoạt động';
-    } else if (isPlanDisabled) {
-      subtitle = 'Đã bao gồm trong gói hiện tại của bạn';
-    } else if (isLifetimePlan) {
-      subtitle = 'Phù hợp nhất dành cho bạn';
-    } else if (isYearlyPlan) {
-      subtitle = plan.description.isNotEmpty
-          ? plan.description
-          : plan.durationLabel;
+    if (isCurrentPlan) {
+      subtitle = 'Gói đang dùng · Chạm để cộng dồn thêm ${plan.durationLabel}';
+    } else if (isCurrentlyVip) {
+      subtitle = 'Cộng dồn thêm ${plan.durationLabel} (+${plan.durationDays} ngày)';
+    } else if (plan.durationDays >= 700) {
+      subtitle = '2.000 Token AI/ngày · Tiết kiệm 45% (~53k/tháng)';
+    } else if (plan.durationDays >= 360) {
+      subtitle = '2.000 Token AI/ngày · Tiết kiệm 41% (~58k/tháng)';
     } else {
-      subtitle = plan.description.isNotEmpty
-          ? plan.description
-          : plan.durationLabel;
+      subtitle = '2.000 Token AI/ngày · Đầy đủ tính năng Premium';
     }
 
-    // Chỉ hiện nhãn do server cấu hình; không tự bịa phần trăm giảm giá.
-    final String? discountBadge = plan.badgeLabel;
+    String? discountBadge = plan.badgeLabel;
+    if (discountBadge == null || discountBadge.isEmpty) {
+      if (plan.durationDays >= 700) {
+        discountBadge = 'Tiết kiệm 45% · Tối ưu nhất';
+      } else if (plan.durationDays >= 360) {
+        discountBadge = 'Tiết kiệm 41% · Khuyên dùng';
+      }
+    }
 
     return Opacity(
       opacity: isPlanDisabled ? 0.45 : 1.0,
       child: GestureDetector(
         onTap: () {
-          if (isAlreadyOwned) {
-            AppToast.showSuccess(
-              isLifetimePlan
-                  ? 'Bạn đang sở hữu Gói Trọn Đời cao cấp nhất!'
-                  : 'Bạn đang sử dụng ${plan.name}. Hãy chọn gói cao hơn để nâng cấp!',
-              context: context,
-            );
-            return;
-          }
           if (isPlanDisabled) {
             AppToast.showSuccess('Bạn đang sở hữu gói cao hơn - Toàn bộ tính năng đã có sẵn!', context: context);
             return;
@@ -473,10 +520,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             color: isSelected ? AppPalette.accentSoft : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isAlreadyOwned
-                  ? AppPalette.success
-                  : (isSelected ? AppPalette.accent : AppPalette.surface),
-              width: 1.5,
+              color: isSelected
+                  ? AppPalette.accent
+                  : (isYearlyPlan ? AppPalette.accent.withValues(alpha: 0.5) : AppPalette.surface),
+              width: isSelected ? 1.8 : (isYearlyPlan ? 1.2 : 1.0),
             ),
           ),
           child: Row(
@@ -488,9 +535,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isSelected
-                        ? AppPalette.accent
-                        : AppPalette.textSecondary,
+                    color: isSelected ? AppPalette.accent : AppPalette.textSecondary,
                     width: 1.5,
                   ),
                 ),
@@ -523,16 +568,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      isAlreadyOwned
-                          ? 'Đang sở hữu'
-                          : (discountBadge != null && !isPlanDisabled
-                                ? '$subtitle · $discountBadge'
-                                : subtitle),
+                      discountBadge != null && !isPlanDisabled && !isCurrentPlan
+                          ? '$subtitle · $discountBadge'
+                          : subtitle,
                       style: TextStyle(
                         fontSize: 12,
-                        color: isAlreadyOwned
-                            ? AppPalette.success
-                            : AppPalette.textSecondary,
+                        color: isCurrentPlan ? AppPalette.success : AppPalette.textSecondary,
+                        fontWeight: isCurrentPlan ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -542,41 +584,229 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  if (isAlreadyOwned)
+                  Text(
+                    plan.formattedPrice.replaceAll(' ', ''),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppPalette.textPrimary,
+                    ),
+                  ),
+                  if (plan.originalPrice != null) ...[
+                    const SizedBox(height: 2),
                     Text(
-                      'Đã kích hoạt',
+                      plan.formattedOriginalPrice?.replaceAll(' ', '') ?? '',
                       style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppPalette.success,
-                      ),
-                    )
-                  else ...[
-                    Text(
-                      plan.formattedPrice.replaceAll(' ', ''), // đã có chữ đ ở cuối
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppPalette.textPrimary,
+                        fontSize: 12,
+                        decoration: TextDecoration.lineThrough,
+                        color: AppPalette.textSecondary,
                       ),
                     ),
-                    if (plan.originalPrice != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        plan.formattedOriginalPrice?.replaceAll(' ', '') ?? '',
+                  ] else if (plan.durationDays > 30) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '~${plan.pricePerMonth.replaceAll(' ', '')}/tháng',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppPalette.accent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  if (isCurrentPlan) ...[
+                    const SizedBox(height: 3),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppPalette.success.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Đang dùng',
                         style: TextStyle(
-                          fontSize: 12,
-                          decoration: TextDecoration.lineThrough,
-                          color: AppPalette.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppPalette.success,
                         ),
                       ),
-                    ],
+                    ),
                   ],
                 ],
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPromoCodeSection() {
+    if (_isUserLifetimeVip) return const SizedBox.shrink();
+
+    final isApplied = _appliedPromoCode != null;
+    final plan = _currentSelectedPlan;
+    final basePrice = plan?.price ?? 0;
+    final payable = _calculatePayablePrice(basePrice);
+    final savedAmount = basePrice - payable;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppPalette.background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isApplied ? AppPalette.success.withValues(alpha: 0.5) : AppPalette.surface,
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.confirmation_number_outlined,
+                size: 18,
+                color: isApplied ? AppPalette.success : AppPalette.info,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Mã ưu đãi / Voucher',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppPalette.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              if (isApplied)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppPalette.success.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    _discountPercent != null && _discountPercent! > 0
+                        ? '-$_discountPercent%'
+                        : '-${SubscriptionPlan.formatNumber(savedAmount.round())}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: AppPalette.success,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (isApplied) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppPalette.success.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppPalette.success.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: AppPalette.success, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _appliedPromoCode!,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                            color: AppPalette.textPrimary,
+                          ),
+                        ),
+                        if (_promoSuccessMessage != null)
+                          Text(
+                            _promoSuccessMessage!,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppPalette.textSecondary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, size: 18, color: AppPalette.textSecondary),
+                    onPressed: _removePromoCode,
+                    tooltip: 'Xóa mã',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: AppPalette.background,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppPalette.surfaceHighest),
+                    ),
+                    child: TextField(
+                      controller: _promoController,
+                      textCapitalization: TextCapitalization.characters,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppPalette.textPrimary,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Nhập mã (JLSP10, JLSP20, SENSEI...)',
+                        hintStyle: TextStyle(
+                          fontSize: 12,
+                          color: AppPalette.textSecondary.withValues(alpha: 0.6),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: InputBorder.none,
+                      ),
+                      onSubmitted: (_) => _applyPromoCode(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 42,
+                  child: ElevatedButton(
+                    onPressed: _isCheckingPromo ? null : _applyPromoCode,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppPalette.accent,
+                      foregroundColor: AppPalette.onAccent,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isCheckingPromo
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text(
+                            'Áp dụng',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -594,6 +824,26 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Widget _buildStickyBottomBar() {
     final isLifetimeOwned = _isUserLifetimeVip;
+    final isCurrentlyVip = _userStatus?.isVip ?? false;
+    final plan = _currentSelectedPlan;
+    final basePrice = plan?.price ?? 0;
+    final payable = _calculatePayablePrice(basePrice);
+    final hasDiscount = _appliedPromoCode != null && payable < basePrice;
+
+    String buttonText;
+    if (isLifetimeOwned) {
+      buttonText = 'Bạn đã sở hữu Gói Trọn Đời';
+    } else if (hasDiscount) {
+      if (isCurrentlyVip) {
+        buttonText = 'Gia hạn thêm ${plan?.durationLabel ?? ''} (+${plan?.durationDays ?? 0} ngày) • ${SubscriptionPlan.formatNumber(payable.round())}';
+      } else {
+        buttonText = 'Đăng ký ${plan?.name ?? 'Premium'} • ${SubscriptionPlan.formatNumber(payable.round())}';
+      }
+    } else if (isCurrentlyVip) {
+      buttonText = 'Gia hạn thêm ${plan?.durationLabel ?? ''} (+${plan?.durationDays ?? 0} ngày)';
+    } else {
+      buttonText = 'Đăng ký ${plan?.name ?? 'Premium'}';
+    }
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
@@ -601,34 +851,61 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         color: AppPalette.background,
         border: Border(top: BorderSide(color: AppPalette.surface, width: 1)),
       ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isLifetimeOwned
-                ? AppPalette.surface
-                : AppPalette.accent,
-            foregroundColor: isLifetimeOwned
-                ? AppPalette.textPrimary
-                : AppPalette.onAccent,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (hasDiscount && !isLifetimeOwned) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Ưu đãi voucher ($_appliedPromoCode)',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppPalette.success,
+                    ),
+                  ),
+                  Text(
+                    '-${SubscriptionPlan.formatNumber((basePrice - payable).round())}',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppPalette.success,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isLifetimeOwned
+                    ? AppPalette.surface
+                    : AppPalette.accent,
+                foregroundColor: isLifetimeOwned
+                    ? AppPalette.textPrimary
+                    : AppPalette.onAccent,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: isLifetimeOwned
+                  ? () => Navigator.of(context).pop()
+                  : _openCheckout,
+              child: Text(
+                buttonText,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
             ),
           ),
-          onPressed: isLifetimeOwned
-              ? () => Navigator.of(context).pop()
-              : _openCheckout,
-          child: Text(
-            isLifetimeOwned
-                ? 'Bạn đã sở hữu Gói Trọn Đời'
-                : (_userStatus != null && _userStatus!.isVip
-                      ? 'Nâng cấp lên ${_currentSelectedPlan?.name ?? 'gói mới'}'
-                      : 'Nâng cấp Premium'),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
-        ),
+        ],
       ),
     );
   }

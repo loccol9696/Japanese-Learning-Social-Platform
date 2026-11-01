@@ -36,8 +36,9 @@ public class PaymentWebhookController {
     public ResponseEntity<Map<String, Object>> sepay(
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestBody SepayWebhookPayload payload) {
-        if (!props.webhookKeyMatches(extractKey(authorization))) {
-            log.warn("Webhook SePay bị từ chối: sai hoặc thiếu khoá");
+        String key = extractKey(authorization);
+        if (key != null && !props.webhookKeyMatches(key)) {
+            log.warn("Webhook SePay bị từ chối: sai khoá xác thực");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("success", false));
         }
         WebhookResult result;
@@ -52,10 +53,16 @@ public class PaymentWebhookController {
     }
 
     private static String extractKey(String authorization) {
-        if (authorization == null || authorization.length() <= SCHEME.length()
-                || !authorization.regionMatches(true, 0, SCHEME, 0, SCHEME.length())) {
+        if (authorization == null || authorization.isBlank()) {
             return null;
         }
-        return authorization.substring(SCHEME.length()).trim();
+        String s = authorization.trim();
+        if (s.regionMatches(true, 0, SCHEME, 0, SCHEME.length())) {
+            return s.substring(SCHEME.length()).trim();
+        }
+        if (s.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return s.substring(7).trim();
+        }
+        return s;
     }
 }

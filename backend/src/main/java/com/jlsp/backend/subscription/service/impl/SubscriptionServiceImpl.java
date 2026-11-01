@@ -42,6 +42,54 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final UserRepository userRepository;
     private final PromoCodeRepository promoCodeRepository;
 
+    @jakarta.annotation.PostConstruct
+    public void initDefaultPromoCodes() {
+        try {
+            if (promoCodeRepository.count() == 0) {
+                LocalDateTime now = LocalDateTime.now();
+                LocalDateTime future = now.plusYears(5);
+                promoCodeRepository.saveAll(List.of(
+                        PromoCode.builder()
+                                .code("JLSP10")
+                                .description("Ưu đãi học viên mới - Giảm 10%")
+                                .discountPercent(10)
+                                .discountAmount(BigDecimal.ZERO)
+                                .maxUses(500)
+                                .usedCount(0)
+                                .startDate(now)
+                                .endDate(future)
+                                .isActive(true)
+                                .build(),
+                        PromoCode.builder()
+                                .code("JLSP20")
+                                .description("Ưu đãi đặc biệt JLSP - Giảm 20%")
+                                .discountPercent(20)
+                                .discountAmount(BigDecimal.ZERO)
+                                .maxUses(200)
+                                .usedCount(0)
+                                .startDate(now)
+                                .endDate(future)
+                                .isActive(true)
+                                .build(),
+                        PromoCode.builder()
+                                .code("SENSEI")
+                                .description("Ưu đãi dành riêng cho Sensei - Giảm 30%")
+                                .discountPercent(30)
+                                .discountAmount(BigDecimal.ZERO)
+                                .maxUses(100)
+                                .usedCount(0)
+                                .startDate(now)
+                                .endDate(future)
+                                .isActive(true)
+                                .build()
+                ));
+                log.info("Initialized default promo codes (JLSP10, JLSP20, SENSEI)");
+            }
+        } catch (Exception e) {
+            log.warn("Could not initialize default promo codes: {}", e.getMessage());
+        }
+    }
+
     @Override
     public List<SubscriptionPlanResponse> getAllActivePlans() {
         return planRepository.findByIsActiveTrueOrderByPriceAsc().stream()

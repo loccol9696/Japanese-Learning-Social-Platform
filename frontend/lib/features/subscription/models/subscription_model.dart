@@ -84,6 +84,8 @@ class SubscriptionPlan {
     return '$durationDays Ngày';
   }
 
+  static String formatNumber(int number) => _formatNumber(number);
+
   static String _formatNumber(int number) {
     final str = number.toString();
     final buffer = StringBuffer();
@@ -118,6 +120,8 @@ class PaymentOrder {
   final String bankName;
   final String accountNo;
   final String accountName;
+  final String? promoCode;
+  final double? discountAmount;
   final DateTime? expiresAt;
   final DateTime? createdAt;
   final DateTime? completedAt;
@@ -135,6 +139,8 @@ class PaymentOrder {
     this.bankName = '',
     this.accountNo = '',
     this.accountName = '',
+    this.promoCode,
+    this.discountAmount,
     this.expiresAt,
     this.createdAt,
     this.completedAt,
@@ -157,6 +163,8 @@ class PaymentOrder {
       bankName: json['bankName']?.toString() ?? '',
       accountNo: json['accountNo']?.toString() ?? '',
       accountName: json['accountName']?.toString() ?? '',
+      promoCode: json['promoCode']?.toString(),
+      discountAmount: (json['discountAmount'] as num?)?.toDouble(),
       expiresAt: date('expiresAt'),
       createdAt: date('createdAt'),
       completedAt: date('completedAt'),
@@ -289,6 +297,8 @@ class PromoCodeItem {
     final intAmount = discountAmount.round();
     return '-${_formatNumber(intAmount)}';
   }
+
+  static String formatNumber(int number) => _formatNumber(number);
 
   static String _formatNumber(int number) {
     final str = number.toString();

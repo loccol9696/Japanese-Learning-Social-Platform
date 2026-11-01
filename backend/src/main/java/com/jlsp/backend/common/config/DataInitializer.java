@@ -175,36 +175,36 @@ public class DataInitializer implements CommandLineRunner {
                 .code("PRO_MONTHLY")
                 .price(java.math.BigDecimal.valueOf(99000))
                 .durationDays(30)
-                .dailyTokenLimit(500)
-                .description("Gói luyện tập chuyên sâu hàng tháng với AI Shadowing")
-                .features("Trích xuất lời video không giới hạn, 500 token AI/ngày, Đầy đủ Flashcard N5-N1")
+                .dailyTokenLimit(2000)
+                .description("Linh hoạt trải nghiệm, 2.000 Token AI/ngày với đầy đủ tính năng Premium")
+                .features("2.000 token AI/ngày, Trích xuất lời video không giới hạn, Đầy đủ Flashcard N5-N1")
                 .isActive(true)
                 .build();
 
         com.jlsp.backend.subscription.entity.SubscriptionPlan proYear = com.jlsp.backend.subscription.entity.SubscriptionPlan.builder()
-                .name("JLSP Mastery (1 Năm)")
+                .name("JLSP Mastery (12 Tháng)")
                 .code("PRO_YEARLY")
-                .price(java.math.BigDecimal.valueOf(890000))
+                .price(java.math.BigDecimal.valueOf(699000))
                 .durationDays(365)
                 .dailyTokenLimit(2000)
-                .description("Tiết kiệm 25%, học tập toàn diện cùng cố vấn AI")
-                .features("Tất cả quyền lợi Pro, 2,000 token AI/ngày, Ưu tiên hỗ trợ giáo viên 1-1")
+                .description("Tiết kiệm 41%, 2.000 Token AI/ngày, học tập toàn diện cùng AI")
+                .features("Tất cả quyền lợi Premium, 2.000 token AI/ngày, Tiết kiệm 41% (~58k/tháng)")
                 .isActive(true)
                 .build();
 
-        com.jlsp.backend.subscription.entity.SubscriptionPlan specialVip = com.jlsp.backend.subscription.entity.SubscriptionPlan.builder()
-                .name("JLSP VIP Đặc Biệt (Lifetime Sensei)")
-                .code("VIP_SPECIAL")
-                .price(java.math.BigDecimal.valueOf(1990000))
-                .durationDays(3650)
-                .dailyTokenLimit(5000)
-                .description("Gói đặc quyền cao cấp nhất dành cho Sensei và học viên chuyên sâu")
-                .features("Không giới hạn trích xuất, 5,000 token AI/ngày, Huy hiệu VIP Hoàng Gia")
+        com.jlsp.backend.subscription.entity.SubscriptionPlan pro2Years = com.jlsp.backend.subscription.entity.SubscriptionPlan.builder()
+                .name("JLSP Mastery Plus (2 Năm)")
+                .code("PRO_2YEARS")
+                .price(java.math.BigDecimal.valueOf(1290000))
+                .durationDays(730)
+                .dailyTokenLimit(2000)
+                .description("Tiết kiệm tối đa 45%, 2.000 Token AI/ngày, cam kết đồng hành dài hạn")
+                .features("Tất cả quyền lợi Premium, 2.000 token AI/ngày, Tiết kiệm 45% (~53k/tháng), Huy hiệu Mastery Plus")
                 .isActive(true)
                 .build();
 
-        subscriptionPlanRepository.saveAll(List.of(freePlan, proMonth, proYear, specialVip));
-        log.info("Đã khởi tạo thành công 4 gói dịch vụ thành viên với cấu hình Token Limit!");
+        subscriptionPlanRepository.saveAll(List.of(freePlan, proMonth, proYear, pro2Years));
+        log.info("Đã khởi tạo thành công 3 gói VIP chuẩn (1 Tháng, 1 Năm, 2 Năm) và gói FREE!");
     }
 
     private void migrateDatabaseColumns() {
@@ -214,10 +214,13 @@ public class DataInitializer implements CommandLineRunner {
             // Cột cho bảng subscription_plans
             jdbcTemplate.execute("ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS code VARCHAR(50)");
             jdbcTemplate.execute("ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS daily_token_limit INTEGER DEFAULT 50");
-            jdbcTemplate.execute("UPDATE subscription_plans SET code = 'FREE' WHERE id = 1 AND code IS NULL");
-            jdbcTemplate.execute("UPDATE subscription_plans SET code = 'PRO_MONTHLY' WHERE id = 2 AND code IS NULL");
-            jdbcTemplate.execute("UPDATE subscription_plans SET code = 'PRO_YEARLY' WHERE id = 3 AND code IS NULL");
-            jdbcTemplate.execute("UPDATE subscription_plans SET code = 'VIP_SPECIAL' WHERE id = 4 AND code IS NULL");
+            // Cập nhật cấu hình 3 gói VIP chuẩn (1 Tháng: 99k, 1 Năm: 699k, 2 Năm: 1.290k) và mức token 2000 token/ngày
+            jdbcTemplate.execute("UPDATE subscription_plans SET daily_token_limit = 2000 WHERE code IN ('PRO_MONTHLY', 'PRO_YEARLY', 'PRO_2YEARS')");
+            jdbcTemplate.execute("UPDATE subscription_plans SET price = 1290000, duration_days = 730, daily_token_limit = 2000, name = 'JLSP Mastery Plus (2 Năm)', description = 'Tiết kiệm tối đa 45%, 2.000 Token AI/ngày, cam kết đồng hành dài hạn', features = 'Tất cả quyền lợi Premium, 2.000 token AI/ngày, Tiết kiệm 45% (~53k/tháng), Huy hiệu Mastery Plus', is_active = true WHERE code = 'PRO_2YEARS'");
+            jdbcTemplate.execute("UPDATE subscription_plans SET price = 699000, duration_days = 365, daily_token_limit = 2000, name = 'JLSP Mastery (12 Tháng)', description = 'Tiết kiệm 41%, 2.000 Token AI/ngày, học tập toàn diện cùng AI', features = 'Tất cả quyền lợi Premium, 2.000 token AI/ngày, Tiết kiệm 41% (~58k/tháng)', is_active = true WHERE code = 'PRO_YEARLY'");
+            jdbcTemplate.execute("UPDATE subscription_plans SET price = 99000, duration_days = 30, daily_token_limit = 2000, name = 'JLSP Pro (1 Tháng)', description = 'Linh hoạt trải nghiệm, 2.000 Token AI/ngày với đầy đủ tính năng Premium', features = '2.000 token AI/ngày, Trích xuất lời video không giới hạn, Đầy đủ Flashcard N5-N1', is_active = true WHERE code = 'PRO_MONTHLY'");
+            jdbcTemplate.execute("UPDATE subscription_plans SET is_active = false WHERE code IN ('VIP_SPECIAL', 'PRO_QUARTERLY', 'TEST_2K')");
+            jdbcTemplate.execute("UPDATE users SET subscription_plan_id = NULL, vip_expires_at = NULL WHERE id = 3");
 
             // Đảm bảo luôn tồn tại gói FREE trong database để Admin cấu hình Token limit cho học viên miễn phí
             Integer freeCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM subscription_plans WHERE code = 'FREE'", Integer.class);
