@@ -101,4 +101,28 @@ void main() {
 
     expect(find.text('Chưa có video nào'), findsOneWidget);
   });
+
+  testWidgets('sửa video đang chờ duyệt: đóng hộp thoại không dùng controller đã dispose', (tester) async {
+    await _pump(tester, [_video(1, 'Video chờ', 'PENDING')]);
+
+    await tester.tap(find.byTooltip('Tùy chọn'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sửa'));
+    // Tải chủ đề gọi mạng (thất bại trong test), chờ tới khi hộp thoại hiện ra.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+    await tester.pumpAndSettle();
+    expect(find.text('Sửa video'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Video chờ'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextFormField, 'Video chờ'), 'Tiêu đề mới');
+    await tester.tap(find.text('Huỷ'));
+    // Dừng giữa chừng animation đóng: hộp thoại vẫn trong cây widget và còn dùng controller.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Sửa video'), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sửa video'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
