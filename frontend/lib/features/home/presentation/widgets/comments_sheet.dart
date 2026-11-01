@@ -16,6 +16,7 @@ import '../../data/services/comment_service.dart';
 import 'comment_like_button.dart';
 import 'comment_options_sheet.dart';
 import 'comment_sort_bar.dart';
+import 'ruby_subtitle_widget.dart';
 
 Future<void> showCommentsSheet(
   BuildContext context, {
@@ -24,6 +25,10 @@ Future<void> showCommentsSheet(
   int? videoOwnerId,
   int? highlightCommentId,
 }) {
+  // Popup tra từ/flashcard dùng OverlayEntry nên phải đóng trước khi mở
+  // bottom sheet, nếu không nó sẽ tiếp tục nổi phía trên phần bình luận.
+  RubySubtitleWidget.dismissLookups();
+  FocusManager.instance.primaryFocus?.unfocus();
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,

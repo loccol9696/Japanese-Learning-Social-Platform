@@ -708,7 +708,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
 
                 // 6. Video Progress Scrubber Bar
                 Positioned(
-                  bottom: navBarHeight + 4.0,
+                  // Mép dưới của line trùng đúng mép trên menu điều hướng.
+                  bottom: navBarHeight,
                   left: 0,
                   right: 0,
                   child: SizedBox(

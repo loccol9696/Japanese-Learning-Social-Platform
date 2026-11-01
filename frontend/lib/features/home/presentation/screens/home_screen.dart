@@ -191,6 +191,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Future<void> _onFeedTabChanged(FeedTab tab) async {
+    RubySubtitleWidget.dismissLookups();
+    FocusManager.instance.primaryFocus?.unfocus();
     if (tab == FeedTab.following && !AuthSession.instance.isAuthenticated) {
       await requireAuthentication(context);
       return;
@@ -206,6 +208,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Future<void> _onHomeTabPageChanged(int index) async {
+    // onPageChanged cũng được gọi khi chuyển trang bằng thao tác vuốt; đóng
+    // Overlay tra từ để nó không tiếp tục nổi trên feed vừa chuyển tới.
+    RubySubtitleWidget.dismissLookups();
+    FocusManager.instance.primaryFocus?.unfocus();
     _homeTabIndex = index;
     final tab = index == 0 ? FeedTab.following : FeedTab.forYou;
     if (tab == FeedTab.following && !AuthSession.instance.isAuthenticated) {
