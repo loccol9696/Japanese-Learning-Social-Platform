@@ -1,5 +1,5 @@
-# Reverse proxy cho dev/demo qua ngrok: gộp REST (Spring, 8080) và Socket.IO (9092) vào MỘT cổng
-# để một tunnel ngrok phục vụ được cả hai.
+# Reverse proxy cho dev/demo qua ngrok: gộp REST (Spring, 8080), Socket.IO (9092)
+# và Web Frontend (Vite, 5173) vào MỘT cổng để một tunnel ngrok phục vụ được tất cả.
 #
 #   caddy run --config tools/dev-proxy/Caddyfile
 #   ngrok http 8000 --domain=delmar-posthumeral-acrophonically.ngrok-free.dev
@@ -11,13 +11,26 @@
 }
 
 :8000 {
-	# Socket.IO (netty-socketio). Caddy tự xử lý WebSocket upgrade, không buffer.
+	# 1. Socket.IO (netty-socketio). Caddy tự xử lý WebSocket upgrade, không buffer.
 	handle /socket.io/* {
 		reverse_proxy localhost:9092
 	}
 
-	# Mọi thứ còn lại là REST API.
-	handle {
+	# 2. REST API & Swagger UI (Spring Boot)
+	handle /api/* {
 		reverse_proxy localhost:8080
+	}
+
+	handle /swagger-ui/* {
+		reverse_proxy localhost:8080
+	}
+
+	handle /v3/api-docs/* {
+		reverse_proxy localhost:8080
+	}
+
+	# 3. Web Frontend (React / Vite)
+	handle {
+		reverse_proxy localhost:5173
 	}
 }

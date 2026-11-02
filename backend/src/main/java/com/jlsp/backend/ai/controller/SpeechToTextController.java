@@ -145,12 +145,13 @@ public class SpeechToTextController {
         }
 
         if (status.startsWith("FAILED")) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(TranscriptionStatusResponse.builder()
-                            .taskId(taskId)
-                            .status("FAILED")
-                            .errorMessage(status.replace("FAILED: ", ""))
-                            .build());
+            String errorMsg = status.replace("FAILED: ", "");
+            return ResponseEntity.ok(TranscriptionStatusResponse.builder()
+                    .taskId(taskId)
+                    .status("FAILED")
+                    .errorMessage(errorMsg)
+                    .message(errorMsg)
+                    .build());
         }
 
         if ("COMPLETED".equals(status)) {

@@ -17,6 +17,7 @@ public class TranscriptionStatusResponse {
     private String taskId;
     private String status; // "PROCESSING", "COMPLETED", "FAILED", "NOT_FOUND"
     private String errorMessage; // Chỉ xuất hiện khi status = FAILED
+    private String message;
     private Integer totalSegments; // Tổng số câu/phân đoạn
     private List<ScriptSegment> segments; // Danh sách kết quả khi status = COMPLETED
 }

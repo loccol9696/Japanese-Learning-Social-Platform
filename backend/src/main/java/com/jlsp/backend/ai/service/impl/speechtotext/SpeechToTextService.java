@@ -71,11 +71,34 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
         }
     }
 
+    private static final java.util.regex.Pattern JAPANESE_CHAR_PATTERN =
+            java.util.regex.Pattern.compile("[\\u3040-\\u309F\\u30A0-\\u30FF\\u4E00-\\u9FAF\\uFF65-\\uFF9F]");
+
+    private boolean containsJapanese(List<ScriptSegment> segments) {
+        if (segments == null || segments.isEmpty()) {
+            return false;
+        }
+        for (ScriptSegment seg : segments) {
+            if (seg.getText() != null && JAPANESE_CHAR_PATTERN.matcher(seg.getText()).find()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Async
     public void processAudioAsync(String taskId, MultipartFile file) {
         try {
             taskStatusMap.put(taskId, "PROCESSING");
             List<ScriptSegment> segments = transcribeAudioWithTimestamps(file);
+            if (segments == null || segments.isEmpty()) {
+                taskStatusMap.put(taskId, "FAILED: Video không có âm thanh hoặc không nhận diện được giọng nói tiếng Nhật.");
+                return;
+            }
+            if (!containsJapanese(segments)) {
+                taskStatusMap.put(taskId, "FAILED: Nội dung âm thanh không phải tiếng Nhật hoặc không chứa ký tự tiếng Nhật.");
+                return;
+            }
             taskResultMap.put(taskId, segments);
             taskStatusMap.put(taskId, "COMPLETED");
         } catch (Exception e) {
@@ -90,6 +113,14 @@ public class SpeechToTextService implements SpeechToTextServiceIntf {
         try {
             taskStatusMap.put(taskId, "PROCESSING");
             List<ScriptSegment> segments = transcribeAudioWithTimestamps(fileBytes);
+            if (segments == null || segments.isEmpty()) {
+                taskStatusMap.put(taskId, "FAILED: Video không có âm thanh hoặc không nhận diện được giọng nói tiếng Nhật.");
+                return;
+            }
+            if (!containsJapanese(segments)) {
+                taskStatusMap.put(taskId, "FAILED: Nội dung âm thanh không phải tiếng Nhật hoặc không chứa ký tự tiếng Nhật.");
+                return;
+            }
             taskResultMap.put(taskId, segments);
             taskStatusMap.put(taskId, "COMPLETED");
         } catch (Exception e) {
