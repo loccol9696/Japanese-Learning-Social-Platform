@@ -20,12 +20,14 @@ class WordLookupCard extends StatefulWidget {
   /// Câu chứa từ này, lưu làm ví dụ khi thêm vào Flashcard.
   final String sentence;
   final VoidCallback onClose;
+  final VoidCallback? onReport;
 
   const WordLookupCard({
     super.key,
     required this.token,
     required this.sentence,
     required this.onClose,
+    this.onReport,
   });
 
   @override
@@ -390,49 +392,79 @@ class _WordLookupCardState extends State<WordLookupCard> {
   Widget _buildSaveButton(WordLookup word) {
     final isSaved = (_savedDecks[word.term] ?? const {}).isNotEmpty;
 
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isSaved ? AppPalette.border : _accent,
-          disabledBackgroundColor: isSaved
-              ? AppPalette.border
-              : _accent.withValues(alpha: 0.6),
-          elevation: 0,
-          minimumSize: const Size(0, 38),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
-        // Đã lưu vẫn bấm được để lưu thêm vào bộ khác.
-        onPressed: _isSaving ? null : () => _chooseAndSave(word),
-        icon: _isSaving
-            ? SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppPalette.textPrimary,
-                ),
-              )
-            : Icon(
-                isSaved ? Icons.check_rounded : Icons.add_rounded,
-                size: 17,
-                color: isSaved
-                    ? AppPalette.textSecondary
-                    : AppPalette.textPrimary,
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isSaved ? AppPalette.border : _accent,
+              disabledBackgroundColor: isSaved
+                  ? AppPalette.border
+                  : _accent.withValues(alpha: 0.6),
+              elevation: 0,
+              minimumSize: const Size(0, 38),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
-        label: Text(
-          isSaved ? 'Đã lưu · Lưu vào bộ khác' : 'Lưu vào Flashcard',
-          style: TextStyle(
-            color: isSaved ? AppPalette.textSecondary : AppPalette.textPrimary,
-            fontWeight: FontWeight.w600,
-            fontSize: 13.5,
+            ),
+            // Đã lưu vẫn bấm được để lưu thêm vào bộ khác.
+            onPressed: _isSaving ? null : () => _chooseAndSave(word),
+            icon: _isSaving
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppPalette.textPrimary,
+                    ),
+                  )
+                : Icon(
+                    isSaved ? Icons.check_rounded : Icons.add_rounded,
+                    size: 17,
+                    color: isSaved
+                        ? AppPalette.textSecondary
+                        : AppPalette.textPrimary,
+                  ),
+            label: Text(
+              isSaved ? 'Đã lưu · Lưu vào bộ khác' : 'Thêm vào Flashcard',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isSaved ? AppPalette.textSecondary : AppPalette.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
           ),
         ),
-      ),
+        if (widget.onReport != null) ...[
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            key: const ValueKey('word-lookup-report-button'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppPalette.textSecondary,
+              side: BorderSide(color: AppPalette.border),
+              minimumSize: const Size(0, 38),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            onPressed: widget.onReport,
+            icon: const Icon(Icons.flag_outlined, size: 16),
+            label: const Text(
+              'Report',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

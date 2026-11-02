@@ -42,6 +42,12 @@ class RubySubtitleWidget extends StatefulWidget {
   /// Báo cho trình phát biết đang tra từ / ngữ pháp (để tạm dừng video).
   final ValueChanged<bool>? onLookupActiveChanged;
 
+  /// Báo cáo một mẫu ngữ pháp; null thì bảng ngữ pháp không có nút báo cáo.
+  final ValueChanged<GrammarPointInfo>? onReportGrammar;
+
+  /// Báo cáo / đề xuất sửa câu thoại; null thì bảng tra từ không có nút báo cáo.
+  final VoidCallback? onReportScript;
+
   const RubySubtitleWidget({
     super.key,
     required this.rubySegments,
@@ -50,6 +56,8 @@ class RubySubtitleWidget extends StatefulWidget {
     this.sentence,
     this.grammarPoints = const [],
     this.onLookupActiveChanged,
+    this.onReportGrammar,
+    this.onReportScript,
   });
 
   /// Phát tín hiệu để mọi bảng tra từ/ngữ pháp đang mở tự đóng (vd. khi rời tab Home).
@@ -192,18 +200,31 @@ class _RubySubtitleWidgetState extends State<RubySubtitleWidget> {
     final bottom = screenSize.height - anchor.dy + _subtitleGap;
 
     final sentence = _effectiveSentence;
+    final onReportGrammar = widget.onReportGrammar;
     final Widget card = segment.isGrammar
         ? GrammarLookupCard(
             key: ValueKey('grammar-${segment.grammar!.pattern}-${segment.text}'),
             grammar: segment.grammar!,
             sentence: sentence,
             onClose: _clearSelection,
+            onReport: onReportGrammar == null
+                ? null
+                : () {
+                    _clearSelection();
+                    onReportGrammar(segment.grammar!);
+                  },
           )
         : WordLookupCard(
             key: ValueKey('vocab-${segment.token!.baseForm}'),
             token: segment.token!,
             sentence: sentence,
             onClose: _clearSelection,
+            onReport: widget.onReportScript == null
+                ? null
+                : () {
+                    _clearSelection();
+                    widget.onReportScript!();
+                  },
           );
 
     final overlay = Overlay.of(context, rootOverlay: true);

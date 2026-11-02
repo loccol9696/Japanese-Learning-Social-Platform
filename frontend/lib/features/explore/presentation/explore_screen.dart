@@ -9,6 +9,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../follow/presentation/widgets/user_search_results.dart';
 import '../../profile/domain/models/topic_model.dart';
 import '../../topic/topic_service.dart';
+import '../../video/data/services/video_trash_service.dart';
 import '../data/explore_service.dart';
 import '../data/explore_video.dart';
 import '../../home/presentation/widgets/video_player_item.dart';
@@ -47,6 +48,7 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   Timer? _searchDebounce;
+  late final StreamSubscription<int> _trashedVideos;
 
   /// Đang ở tab tìm người dùng thay vì video.
   bool _showUsers = false;
@@ -87,6 +89,7 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
       _searchController.text = initialSearch;
     }
     if (widget.initialTopicId != null) _topicIds.add(widget.initialTopicId!);
+    _trashedVideos = VideoTrashService.trashedVideoIds.listen(_removeVideo);
     _loadFirstPage();
     _loadTopics();
   }
@@ -113,6 +116,7 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _trashedVideos.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     _feedAnim.dispose();
@@ -296,6 +300,12 @@ class _ExploreScreenState extends State<ExploreScreen> with SingleTickerProvider
     });
     // Huỷ sau khi khung hình đã gỡ PageView ra khỏi cây.
     WidgetsBinding.instance.addPostFrameCallback((_) => controller?.dispose());
+  }
+
+  /// Gỡ video đã xóa khỏi kết quả; không còn video nào thì đóng khung xem.
+  void _removeVideo(int videoId) {
+    setState(() => _videos.removeWhere((v) => v.id == videoId));
+    if (_videos.isEmpty) _closeVideoFeed();
   }
 
   /// Vuốt quay lại: khung video trượt theo ngón tay.

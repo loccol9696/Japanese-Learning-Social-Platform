@@ -1,6 +1,8 @@
 package com.jlsp.backend.common.security.token;
 
 import com.jlsp.backend.common.exception.AppException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -12,7 +14,9 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Refresh token dạng chuỗi ngẫu nhiên (không phải JWT), lưu trong Redis dưới dạng
@@ -27,6 +31,7 @@ import java.util.Set;
 @Service
 public class RefreshTokenService {
 
+    private static final Logger log = LoggerFactory.getLogger(RefreshTokenService.class);
     private static final String TOKEN_PREFIX = "auth:rt:";
     private static final String USER_PREFIX = "auth:rt:user:";
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -34,6 +39,7 @@ public class RefreshTokenService {
     private final StringRedisTemplate redis;
     private final Duration refreshTokenTtl;
     private final AccessTokenDenylist accessTokenDenylist;
+    private final Map<String, String> inMemoryTokens = new ConcurrentHashMap<>();
 
     public RefreshTokenService(StringRedisTemplate redis,
                                @Value("${jwt.refresh-token-ttl:P14D}") Duration refreshTokenTtl,
@@ -53,10 +59,15 @@ public class RefreshTokenService {
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         String hash = hash(token);
 
-        redis.opsForValue().set(TOKEN_PREFIX + hash, String.valueOf(userId), refreshTokenTtl);
-        String userKey = USER_PREFIX + userId;
-        redis.opsForSet().add(userKey, hash);
-        redis.expire(userKey, refreshTokenTtl);
+        try {
+            redis.opsForValue().set(TOKEN_PREFIX + hash, String.valueOf(userId), refreshTokenTtl);
+            String userKey = USER_PREFIX + userId;
+            redis.opsForSet().add(userKey, hash);
+            redis.expire(userKey, refreshTokenTtl);
+        } catch (RuntimeException e) {
+            log.warn("Redis không khả dụng khi cấp refresh token, chuyển sang in-memory fallback: {}", e.getMessage());
+            inMemoryTokens.put(TOKEN_PREFIX + hash, String.valueOf(userId));
+        }
         return token;
     }
 
@@ -69,11 +80,22 @@ public class RefreshTokenService {
             throw invalid();
         }
         String hash = hash(token);
-        String userId = redis.opsForValue().getAndDelete(TOKEN_PREFIX + hash);
+        String userId = null;
+        try {
+            userId = redis.opsForValue().getAndDelete(TOKEN_PREFIX + hash);
+            if (userId != null) {
+                redis.opsForSet().remove(USER_PREFIX + userId, hash);
+            }
+        } catch (RuntimeException e) {
+            log.warn("Redis không khả dụng khi consume refresh token, tra cứu in-memory fallback: {}", e.getMessage());
+            userId = inMemoryTokens.remove(TOKEN_PREFIX + hash);
+        }
+        if (userId == null) {
+            userId = inMemoryTokens.remove(TOKEN_PREFIX + hash);
+        }
         if (userId == null) {
             throw invalid();
         }
-        redis.opsForSet().remove(USER_PREFIX + userId, hash);
         try {
             return Long.valueOf(userId);
         } catch (NumberFormatException e) {
@@ -86,9 +108,13 @@ public class RefreshTokenService {
             return;
         }
         String hash = hash(token);
-        String userId = redis.opsForValue().getAndDelete(TOKEN_PREFIX + hash);
-        if (userId != null) {
-            redis.opsForSet().remove(USER_PREFIX + userId, hash);
+        try {
+            String userId = redis.opsForValue().getAndDelete(TOKEN_PREFIX + hash);
+            if (userId != null) {
+                redis.opsForSet().remove(USER_PREFIX + userId, hash);
+            }
+        } catch (RuntimeException e) {
+            inMemoryTokens.remove(TOKEN_PREFIX + hash);
         }
     }
 
@@ -98,15 +124,19 @@ public class RefreshTokenService {
      * còn dùng được tới khi access token hết hạn.
      */
     public void revokeAll(Long userId) {
-        accessTokenDenylist.revokeUserTokens(userId);
-        String userKey = USER_PREFIX + userId;
-        Set<String> hashes = redis.opsForSet().members(userKey);
-        if (hashes != null) {
-            for (String hash : hashes) {
-                redis.delete(TOKEN_PREFIX + hash);
+        try {
+            accessTokenDenylist.revokeUserTokens(userId);
+            String userKey = USER_PREFIX + userId;
+            Set<String> hashes = redis.opsForSet().members(userKey);
+            if (hashes != null) {
+                for (String hash : hashes) {
+                    redis.delete(TOKEN_PREFIX + hash);
+                }
             }
+            redis.delete(userKey);
+        } catch (RuntimeException e) {
+            log.warn("Redis không khả dụng khi revokeAll: {}", e.getMessage());
         }
-        redis.delete(userKey);
     }
 
     private static AppException invalid() {

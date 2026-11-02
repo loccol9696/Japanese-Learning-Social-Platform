@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../subscription/screens/token_usage_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -12,6 +14,7 @@ import '../../../chat/presentation/screens/shared_video_screen.dart';
 import '../../../notification/notification_hub.dart';
 import '../../../notification/notification_sheet.dart';
 import '../../../follow/presentation/screens/follow_manage_screen.dart';
+import '../../../video/data/services/video_trash_service.dart';
 import '../../../video/domain/models/user_video_model.dart';
 import '../../../video/presentation/screens/moderation_queue_screen.dart';
 import '../../../video/presentation/screens/my_videos_status_screen.dart';
@@ -22,6 +25,7 @@ import '../../domain/models/user_profile_model.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../../../subscription/models/subscription_model.dart';
 import '../../../subscription/services/subscription_service.dart';
+import '../../../subscription/screens/admin_membership_manage_screen.dart';
 import '../../../home/presentation/screens/home_screen.dart';
 import '../../../home/presentation/widgets/bottom_nav_dock.dart';
 import '../../../subscription/screens/subscription_success_screen.dart';
@@ -48,6 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static Color get _linkBlue => AppPalette.info;
 
   late final ProfileRepository _repository;
+  late final StreamSubscription<int> _trashedVideos;
   UserProfileModel _profile = const UserProfileModel();
   SubscriptionStatus? _membershipStatus;
   Streak _streak = const Streak();
@@ -68,6 +73,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         widget.repository ??
         ProfileRepositoryImpl(remoteDataSource: ProfileRemoteDataSourceImpl());
     AuthSession.instance.addListener(_onAuthChanged);
+    // Tải lại thay vì chỉ gỡ khỏi lưới: lượt thích trên hồ sơ cũng giảm theo video đã xóa.
+    _trashedVideos = VideoTrashService.trashedVideoIds.listen(
+      (_) => _loadProfile(),
+    );
     _checkRole();
     if (AuthSession.instance.isAuthenticated || widget.repository != null) {
       _loadProfile();
@@ -108,6 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    _trashedVideos.cancel();
     AuthSession.instance.removeListener(_onAuthChanged);
     super.dispose();
   }
@@ -256,6 +266,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSettingsSheet(BuildContext sheetContext) {
     final rows = <_SettingsRowData>[
+      _SettingsRowData(
+        icon: Icons.card_membership_rounded,
+        title: 'Gói hội viên',
+        value: _profile.role.toUpperCase() == 'ADMIN'
+            ? 'Cấu hình & Tạo mã ưu đãi >'
+            : (_isPremium
+                ? (_membershipStatus?.planName ?? 'Đang kích hoạt')
+                : 'Nâng cấp ngay'),
+        onTap: () {
+          Navigator.of(sheetContext).pop();
+          if (_profile.role.toUpperCase() == 'ADMIN') {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => AdminMembershipManageScreen()),
+            );
+          } else {
+            _openSubscription();
+          }
+        },
+      ),
       _SettingsRowData(
         icon: Icons.cloud_upload_outlined,
         title: 'Quản lý đăng tải',
@@ -754,23 +783,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              '$username$levelText',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: AppPalette.textSecondary,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildPlanTag(),
-                        ],
+                      Text(
+                        '$username$levelText',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppPalette.textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: _buildPlanTag(),
                       ),
                     ],
                   ),
@@ -878,35 +904,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  String _getPlanBadgeLabel() {
+    final status = _membershipStatus;
+    if (status != null && status.isVip) {
+      final name = status.planName ?? 'VIP';
+      if (status.isLifetime) {
+        return '$name • Vĩnh viễn';
+      }
+      final days = status.remainingDays;
+      if (days > 0) {
+        return '$name • Còn $days ngày';
+      }
+      return name;
+    }
+    if (_profile.isVip) {
+      final name = _profile.subscriptionPlanName ?? 'VIP';
+      return name;
+    }
+    return 'FREE';
+  }
+
   /// Tag gói cạnh tên: vàng cho Premium, xanh cho Free.
   /// Ưu tiên trạng thái gói tải từ subscription; nếu chưa tải được thì dựa vào hồ sơ.
   Widget _buildPlanTag() {
     final isPremium = _isPremium;
     final color = isPremium ? AppPalette.gold : AppPalette.info;
+    final label = _getPlanBadgeLabel();
 
     return GestureDetector(
       onTap: _showPlanSheet,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        constraints: const BoxConstraints(maxWidth: 260),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withValues(alpha: 0.6)),
+          color: color.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.7), width: 1.2),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isPremium) ...[
-              Icon(Icons.workspace_premium_rounded, size: 12, color: color),
-              const SizedBox(width: 3),
-            ],
-            Text(
-              isPremium ? 'PREMIUM' : 'FREE',
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
+            Icon(
+              isPremium
+                  ? Icons.military_tech_rounded
+                  : Icons.person_outline_rounded,
+              size: 14,
+              color: color,
+            ),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
               ),
             ),
           ],
@@ -967,17 +1024,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => _ProfilePlanSheet(
-        initiallyPremium: _isPremium,
-        onUpgrade: (plan) {
-          final sheetRoute = ModalRoute.of(sheetContext);
-          _openPlanCheckout(
-            plan,
-            beforeOpen: () {
-              if (sheetRoute != null) {
-                Navigator.of(sheetContext).removeRoute(sheetRoute);
-              }
-            },
-          );
+        membershipStatus: _membershipStatus,
+        onViewDetails: () {
+          Navigator.of(sheetContext).pop();
+          _openSubscription();
         },
       ),
     );
@@ -1505,58 +1555,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _ProfilePlanSheet extends StatefulWidget {
-  final bool initiallyPremium;
-  final ValueChanged<SubscriptionPlan> onUpgrade;
+class _ProfilePlanSheet extends StatelessWidget {
+  final SubscriptionStatus? membershipStatus;
+  final VoidCallback onViewDetails;
 
   const _ProfilePlanSheet({
-    required this.initiallyPremium,
-    required this.onUpgrade,
+    this.membershipStatus,
+    required this.onViewDetails,
   });
 
-  @override
-  State<_ProfilePlanSheet> createState() => _ProfilePlanSheetState();
-}
-
-class _ProfilePlanSheetState extends State<_ProfilePlanSheet> {
-  late bool _showPremium;
-  late final Future<List<SubscriptionPlan>> _plansFuture = _loadPlans();
-  List<SubscriptionPlan> _availablePlans = const [];
-  int _selectedPlan = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _showPremium = widget.initiallyPremium;
-  }
-
-  Future<List<SubscriptionPlan>> _loadPlans() async {
-    final plans = await SubscriptionService.instance.getPlans();
-    plans.sort((a, b) => b.durationDays.compareTo(a.durationDays));
-    _availablePlans = plans;
-    return plans;
-  }
-
-  void _upgrade() {
-    if (_availablePlans.isEmpty) {
-      AppToast.showError(
-        'Hiện chưa có gói Premium khả dụng.',
-        context: context,
-      );
-      return;
-    }
-    final index = _selectedPlan < _availablePlans.length ? _selectedPlan : 0;
-    widget.onUpgrade(_availablePlans[index]);
-  }
-
-  static const _freeFeatures = <String>[
-    'Hạn mức 50 token AI mỗi ngày',
-    'Xem video bài học cơ bản',
-    'Flashcard từ vựng N5',
-  ];
-
-  static const _premiumFeatures = <String>[
-    'Tạo bộ thẻ không giới hạn',
+  static const _features = <String>[
+    '2.000 Token AI/ngày cho mọi gói Premium',
+    'Tạo bộ thẻ và Flashcard không giới hạn',
     'Học và ôn tập không quảng cáo',
     'Luyện nghe, tự luận không giới hạn',
     'Đồng bộ trên mọi thiết bị',
@@ -1564,58 +1574,55 @@ class _ProfilePlanSheetState extends State<_ProfilePlanSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final availableHeight = MediaQuery.sizeOf(context).height * 0.94;
-    const preferredHeight = 620.0;
-    final sheetHeight = availableHeight > preferredHeight
-        ? preferredHeight
-        : availableHeight;
     return Material(
       color: AppPalette.navBar,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          width: double.infinity,
-          height: sheetHeight,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 16),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               _buildHandle(),
-              _buildHeader(),
-              _buildTabs(),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-                  child: _showPremium
-                      ? _buildPremiumContent()
-                      : _buildFreeContent(),
+              _buildHeader(context),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+                child: _buildCurrentPlanBanner(),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: _features.map(_buildFeatureRow).toList(),
                 ),
               ),
-              if (_showPremium)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: FilledButton(
-                      onPressed: _upgrade,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppPalette.accent,
-                        foregroundColor: AppPalette.onAccent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: onViewDetails,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppPalette.accent,
+                      foregroundColor: AppPalette.onAccent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Text(
-                        'Nâng cấp Premium',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
+                    ),
+                    child: const Text(
+                      'Chi tiết gói Premium',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
                 ),
+              ),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -1637,9 +1644,9 @@ class _ProfilePlanSheetState extends State<_ProfilePlanSheet> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 12, 8),
+      padding: const EdgeInsets.fromLTRB(20, 0, 12, 4),
       child: Row(
         children: [
           Expanded(
@@ -1661,95 +1668,176 @@ class _ProfilePlanSheetState extends State<_ProfilePlanSheet> {
     );
   }
 
-  Widget _buildTabs() {
+  Widget _buildCurrentPlanBanner() {
+    final status = membershipStatus;
+    final isVip = status?.isVip ?? false;
+
+    if (isVip) {
+      final planName = status?.planName ?? 'Gói VIP';
+      final days = status?.remainingDays ?? 0;
+      final expiryDesc = (status?.isLifetime ?? false)
+          ? 'Thời hạn: Vĩnh viễn (Trọn đời)'
+          : (days > 0 ? 'Còn $days ngày sử dụng · Cộng dồn khi nạp thêm' : 'Đã hết hạn');
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppPalette.gold.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppPalette.gold.withValues(alpha: 0.45)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: AppPalette.gold.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.workspace_premium_rounded,
+                  color: AppPalette.gold, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'GÓI ĐANG HOẠT ĐỘNG',
+                        style: TextStyle(
+                          color: AppPalette.gold,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppPalette.success.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'ĐANG BẬT',
+                          style: TextStyle(
+                            color: AppPalette.success,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    planName,
+                    style: TextStyle(
+                      color: AppPalette.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    expiryDesc,
+                    style: TextStyle(
+                      color: AppPalette.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
-      height: 50,
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppPalette.background,
+        color: AppPalette.surfaceHighest.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppPalette.border.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
-          _planTab('Miễn phí', !_showPremium),
-          _planTab('Premium', _showPremium),
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: AppPalette.info.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.person_outline_rounded,
+                color: AppPalette.info, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'GÓI HIỆN TẠI',
+                      style: TextStyle(
+                        color: AppPalette.textSecondary,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppPalette.surfaceHighest,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'MIỄN PHÍ',
+                        style: TextStyle(
+                          color: AppPalette.textSecondary,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Gói Cơ Bản (Miễn phí)',
+                  style: TextStyle(
+                    color: AppPalette.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  'Nâng cấp lên Premium để mở khóa không giới hạn',
+                  style: TextStyle(
+                    color: AppPalette.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _planTab(String label, bool selected) {
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () => setState(() => _showPremium = label == 'Premium'),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? AppPalette.surfaceHighest : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected
-                  ? AppPalette.textPrimary
-                  : AppPalette.textSecondary,
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFreeContent() {
-    return Column(
-      children: [
-        ..._freeFeatures.map(_featureRow),
-      ],
-    );
-  }
-
-  Widget _buildPremiumContent() {
-    return Column(
-      children: [
-        ..._premiumFeatures.map(_featureRow),
-        const SizedBox(height: 8),
-        FutureBuilder<List<SubscriptionPlan>>(
-          future: _plansFuture,
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(strokeWidth: 2),
-              );
-            }
-            final plans = snapshot.data!;
-            if (plans.isEmpty) {
-              return Text(
-                'Chưa có gói Premium khả dụng.',
-                style: TextStyle(color: AppPalette.textSecondary),
-              );
-            }
-            if (_selectedPlan >= plans.length) _selectedPlan = 0;
-            return Column(
-              children: [
-                for (var i = 0; i < plans.length; i++)
-                  _planOption(plans[i], i, i == _selectedPlan),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _featureRow(String feature) {
+  Widget _buildFeatureRow(String feature) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(
         children: [
           Icon(Icons.check_rounded, color: AppPalette.info, size: 20),
@@ -1759,78 +1847,12 @@ class _ProfilePlanSheetState extends State<_ProfilePlanSheet> {
               feature,
               style: TextStyle(
                 color: AppPalette.textPrimary,
-                fontSize: 15.5,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _planOption(SubscriptionPlan plan, int index, bool selected) {
-    final discount = plan.discountPercent;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(15),
-        onTap: () => setState(() => _selectedPlan = index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppPalette.accent.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: selected ? AppPalette.accent : AppPalette.border,
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                selected
-                    ? Icons.radio_button_checked_rounded
-                    : Icons.radio_button_off_rounded,
-                color: selected ? AppPalette.accent : AppPalette.textSecondary,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      plan.durationLabel.toLowerCase(),
-                      style: TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (discount != null && discount > 0)
-                      Text(
-                        'Tiết kiệm $discount%',
-                        style: TextStyle(
-                          color: AppPalette.info,
-                          fontSize: 12,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Text(
-                plan.formattedPrice.replaceAll(' ', ''),
-                style: TextStyle(
-                  color: AppPalette.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

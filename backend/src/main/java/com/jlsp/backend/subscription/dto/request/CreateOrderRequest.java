@@ -12,4 +12,6 @@ public class CreateOrderRequest {
     private Long planId;
 
     private String planCode;
+
+    private String promoCode;
 }

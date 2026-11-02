@@ -27,5 +27,6 @@ public class NotificationResponse {
     private Long videoId;
     private String videoTitle;
     private Long commentId;
+    private Long reportId;
     private String message;
 }

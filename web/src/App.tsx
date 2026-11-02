@@ -3,7 +3,7 @@ import { LoginForm } from './components/LoginForm';
 import { DashboardView } from './components/DashboardView';
 import { AdminDashboard } from './components/AdminDashboard';
 import type { UserProfile } from './types/auth';
-import { SESSION_EXPIRED_EVENT, clearSession, getToken, isTokenExpired, saveSession } from './services/session';
+import { SESSION_EXPIRED_EVENT, clearSession, getToken, saveSession } from './services/session';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);

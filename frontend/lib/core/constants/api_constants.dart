@@ -114,6 +114,7 @@ class ApiConstants {
   static String get topicsUrl => '$baseUrl/topics';
   static String get hashtagSuggestUrl => '$baseUrl/hashtags/suggest';
   static String get reportsUrl => '$baseUrl/reports';
+  static String reportResultUrl(int id) => '$reportsUrl/$id';
   static String get notificationsUrl => '$baseUrl/notifications';
 
   // Video & Moderation endpoints

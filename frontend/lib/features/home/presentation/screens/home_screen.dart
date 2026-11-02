@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../widgets/ruby_subtitle_widget.dart';
@@ -19,6 +22,7 @@ import '../widgets/comments_sheet.dart';
 import '../../../explore/presentation/explore_screen.dart';
 import '../../../flashcard/presentation/screens/deck_library_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
+import '../../../video/data/services/video_trash_service.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../../core/auth/auth_guard.dart';
@@ -45,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   late final PageController _homeTabController;
   late final PageController _followingFeedPageController;
   late final PageController _forYouFeedPageController;
+  late final StreamSubscription<int> _trashedVideos;
 
   FeedTab _currentFeedTab = FeedTab.forYou;
   int _homeTabIndex = 1;
@@ -82,6 +87,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     _homeTabController = PageController(initialPage: 1);
     _followingFeedPageController = PageController();
     _forYouFeedPageController = PageController();
+    _trashedVideos = VideoTrashService.trashedVideoIds.listen(
+      (videoId) => _removePost('$videoId'),
+    );
     _checkRole();
     _loadFeed(FeedTab.forYou);
   }
@@ -150,6 +158,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   @override
   void dispose() {
     appRouteObserver.unsubscribe(this);
+    _trashedVideos.cancel();
     HomeScreen.tabRequest.removeListener(_onTabRequested);
     AuthSession.instance.removeListener(_onAuthChanged);
     _tabPageController.dispose();
@@ -692,6 +701,36 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           : post;
       _followingPosts = _followingPosts.map(update).toList();
       _forYouPosts = _forYouPosts.map(update).toList();
+    });
+  }
+
+  /// Gỡ video đã xóa khỏi cả hai feed. Video kế tiếp thế chỗ video bị gỡ; video
+  /// cuối bị gỡ thì lùi về video liền trước.
+  void _removePost(String postId) {
+    int indexAfterRemoval(List<VideoPost> posts, int current) {
+      final removed = posts.indexWhere((post) => post.id == postId);
+      if (removed == -1) return current;
+      final index = removed < current ? current - 1 : current;
+      return index < posts.length - 1 ? index : math.max(posts.length - 2, 0);
+    }
+
+    final followingIndex = indexAfterRemoval(_followingPosts, _followingPostIndex);
+    final forYouIndex = indexAfterRemoval(_forYouPosts, _forYouPostIndex);
+    setState(() {
+      _followingPosts = _followingPosts.where((p) => p.id != postId).toList();
+      _forYouPosts = _forYouPosts.where((p) => p.id != postId).toList();
+      _followingPostIndex = followingIndex;
+      _forYouPostIndex = forYouIndex;
+    });
+    // PageController giữ trang cũ, phải kéo theo chỉ số mới sau khi danh sách đổi.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_followingFeedPageController.hasClients) {
+        _followingFeedPageController.jumpToPage(followingIndex);
+      }
+      if (_forYouFeedPageController.hasClients) {
+        _forYouFeedPageController.jumpToPage(forYouIndex);
+      }
     });
   }
 
