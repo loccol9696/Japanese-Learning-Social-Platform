@@ -846,13 +846,18 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   }
 
   void _addManualSubtitle() {
+    final lastEnd = _subtitles.isNotEmpty ? _subtitles.last.end : '00:00';
+    final nextStart = lastEnd.isNotEmpty ? lastEnd : '00:00';
+    final startSec = _parseTimeToSeconds(nextStart);
+    final maxSec = widget.duration > 0 ? widget.duration.toDouble() : 300.0;
+    final endSec = (startSec + 5.0).clamp(0.0, maxSec);
     setState(() {
       _isManualSubtitleMode = true;
       _sttErrorMessage = null;
       _subtitles.add(
         _SubtitleDraft(
-          start: '00:00',
-          end: _formatTimestamp(widget.duration.clamp(1, 5).toDouble()),
+          start: nextStart,
+          end: _formatTimestamp(endSec > startSec ? endSec : startSec + 3),
         ),
       );
     });
@@ -1733,6 +1738,20 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             ],
           ),
           if (subtitle.editing) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _timeInput(subtitle.startController, 'Bắt đầu (mm:ss)'),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _timeInput(subtitle.endController, 'Kết thúc (mm:ss)'),
+                  ),
+                ],
+              ),
+            ),
             _subtitleInput(subtitle.japanese, 'Tiếng Nhật'),
             _subtitleInput(subtitle.translation, 'Bản dịch'),
             Align(
@@ -1818,6 +1837,24 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _timeInput(TextEditingController controller, String label) {
+    return TextField(
+      controller: controller,
+      onChanged: (_) => setState(() {}),
+      style: TextStyle(color: AppPalette.textPrimary, fontSize: 13),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: AppPalette.textSecondary, fontSize: 12),
+        prefixIcon: Icon(Icons.access_time, size: 15, color: AppPalette.textSecondary),
+        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        isDense: true,
+        filled: true,
+        fillColor: AppPalette.background,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       ),
     );
   }
@@ -1914,26 +1951,36 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
 }
 
 class _SubtitleDraft {
-  final String start;
-  final String end;
+  final startController = TextEditingController();
+  final endController = TextEditingController();
   final japanese = TextEditingController();
   final translation = TextEditingController();
   bool editing;
   List<_GrammarDraft> grammarPoints;
 
+  String get start => startController.text.trim();
+  set start(String val) => startController.text = val;
+
+  String get end => endController.text.trim();
+  set end(String val) => endController.text = val;
+
   _SubtitleDraft({
-    required this.start,
-    required this.end,
+    required String start,
+    required String end,
     String japaneseText = '',
     String translationText = '',
     this.editing = true,
     List<_GrammarDraft>? grammarPoints,
   }) : grammarPoints = grammarPoints ?? [] {
+    startController.text = start;
+    endController.text = end;
     japanese.text = japaneseText;
     translation.text = translationText;
   }
 
   void dispose() {
+    startController.dispose();
+    endController.dispose();
     japanese.dispose();
     translation.dispose();
   }
