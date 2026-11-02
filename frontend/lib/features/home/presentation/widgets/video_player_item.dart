@@ -13,6 +13,7 @@ import '../../../explore/presentation/explore_screen.dart';
 import '../../../chat/presentation/widgets/share_video_sheet.dart';
 import '../../../follow/presentation/screens/user_profile_screen.dart';
 import '../../../profile/domain/models/topic_model.dart';
+import '../../data/video_view_tracker.dart';
 import '../../../report/report_service.dart';
 import '../../../report/report_sheet.dart';
 import '../../../video/data/services/video_trash_service.dart';
@@ -477,6 +478,8 @@ class _VideoPlayerItemState extends State<VideoPlayerItem>
     _isMutedForWebAutoplay = !withSound;
     await controller.setVolume(withSound ? 1 : 0);
     await controller.play();
+    // Video thật sự phát cho người xem (không phải bản tải sẵn ở nền) thì tính một lượt xem.
+    VideoViewTracker.record(widget.post.id);
   }
 
   @override
