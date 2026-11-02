@@ -324,6 +324,22 @@ public class ChatServiceImpl implements ChatService {
             throw new AppException(400, "Tin nhắn đã quá 24 giờ nên không thể thu hồi");
         }
 
+        return clearAndBroadcast(message, userId, conversation.getOtherUser(userId).getId());
+    }
+
+    @Override
+    @Transactional
+    public void removeMessageByModeration(Long messageId) {
+        Message message = requireMessage(messageId);
+        if (message.getRecalledAt() != null) {
+            return;
+        }
+        Long senderId = message.getSender().getId();
+        message.setRemovedByModeration(true);
+        clearAndBroadcast(message, senderId, message.getConversation().getOtherUser(senderId).getId());
+    }
+
+    private MessageResponse clearAndBroadcast(Message message, Long senderId, Long recipientId) {
         message.setRecalledAt(LocalDateTime.now());
         message.setContent(null);
         message.setVideoId(null);
@@ -333,8 +349,7 @@ public class ChatServiceImpl implements ChatService {
         messageRepository.save(message);
 
         MessageResponse response = chatMapper.toMessageResponse(message, Map.of());
-        eventPublisher.publishEvent(new MessageRecalledEvent(response, userId,
-                conversation.getOtherUser(userId).getId()));
+        eventPublisher.publishEvent(new MessageRecalledEvent(response, senderId, recipientId));
         return response;
     }
 

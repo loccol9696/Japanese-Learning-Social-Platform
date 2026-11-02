@@ -18,4 +18,5 @@ public class ReplyPreviewResponse {
     private MessageType type;
     private String content;
     private Boolean recalled;
+    private Boolean removedByModeration;
 }

@@ -162,7 +162,7 @@ class MessageBubble extends StatelessWidget {
   Widget _buildContent() {
     if (message.recalled) {
       return Text(
-        'Tin nhắn đã được thu hồi',
+        message.removedByModeration ? kModeratedMessageText : 'Tin nhắn đã được thu hồi',
         style: TextStyle(
           color: AppPalette.textSecondary,
           fontSize: 14,

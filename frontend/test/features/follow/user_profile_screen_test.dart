@@ -8,6 +8,7 @@ import 'package:frontend/core/storage/token_storage.dart';
 import 'package:frontend/features/chat/presentation/screens/chat_detail_screen.dart';
 import 'package:frontend/features/follow/presentation/screens/user_profile_screen.dart';
 import 'package:frontend/features/profile/data/datasources/profile_remote_datasource.dart';
+import 'package:frontend/features/video/data/services/video_trash_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,6 +36,7 @@ void main() {
   late Map<String, dynamic> profile;
   late List<bool> followChanges;
   late ProfileRemoteDataSource videoSource;
+  late List<Map<String, dynamic>> videos;
 
   Map<String, dynamic> profileJson({
     required bool isFollowing,
@@ -62,6 +64,7 @@ void main() {
     );
     requests = [];
     followChanges = [];
+    videos = [];
     profile = profileJson(isFollowing: false, isFollowedBy: false);
 
     final client = MockClient((request) async {
@@ -71,7 +74,7 @@ void main() {
       if (path == '/api/v1/users/7/public-profile') {
         data = profile;
       } else if (path == '/api/v1/users/7/videos') {
-        data = {'content': []};
+        data = {'content': videos};
       } else if (path == '/api/v1/users/7/follow') {
         profile['isFollowing'] = request.method == 'POST';
       } else if (path == '/api/v1/chat/conversations' &&
@@ -109,6 +112,23 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('video vào thùng rác thì biến mất khỏi trang mà không tải lại', (
+    tester,
+  ) async {
+    videos = [
+      {'id': 41, 'status': 'PUBLIC', 'modStatus': 'APPROVED'},
+    ];
+    await pumpScreen(tester);
+    expect(find.text('Chưa có video nào'), findsNothing);
+    requests.clear();
+
+    await VideoTrashService().moveToTrash(41);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Chưa có video nào'), findsOneWidget);
+    expect(requests.where((r) => r.method == 'GET'), isEmpty);
+  });
 
   testWidgets('chưa theo dõi: bấm Theo dõi gọi API, đổi nút và báo lại cho màn mở nó', (
     tester,

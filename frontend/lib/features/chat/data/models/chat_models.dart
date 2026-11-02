@@ -110,6 +110,9 @@ MessageType _parseType(dynamic value) => switch (value) {
   _ => MessageType.text,
 };
 
+/// Dòng hiển thị thay cho tin bị kiểm duyệt viên gỡ.
+const String kModeratedMessageText = 'Tin nhắn đã bị gỡ do vi phạm tiêu chuẩn cộng đồng';
+
 /// Trích dẫn của tin được trả lời.
 class MessageReply {
   final int id;
@@ -117,6 +120,7 @@ class MessageReply {
   final MessageType type;
   final String content;
   final bool recalled;
+  final bool removedByModeration;
 
   const MessageReply({
     required this.id,
@@ -124,6 +128,7 @@ class MessageReply {
     required this.type,
     required this.content,
     this.recalled = false,
+    this.removedByModeration = false,
   });
 
   factory MessageReply.fromJson(Map<String, dynamic> json) => MessageReply(
@@ -132,6 +137,7 @@ class MessageReply {
     type: _parseType(json['type']),
     content: json['content']?.toString() ?? '',
     recalled: json['recalled'] == true,
+    removedByModeration: json['removedByModeration'] == true,
   );
 
   factory MessageReply.of(ChatMessage message) => MessageReply(
@@ -140,10 +146,12 @@ class MessageReply {
     type: message.type,
     content: message.content,
     recalled: message.recalled,
+    removedByModeration: message.removedByModeration,
   );
 
   /// Dòng tóm tắt hiển thị trong trích dẫn.
   String get preview {
+    if (removedByModeration) return kModeratedMessageText;
     if (recalled) return 'Tin nhắn đã được thu hồi';
     if (content.isNotEmpty) return content;
     return switch (type) {
@@ -176,6 +184,9 @@ class ChatMessage {
 
   /// Người gửi đã thu hồi: nội dung, video và ảnh không còn.
   final bool recalled;
+
+  /// Kiểm duyệt viên gỡ tin vi phạm; [recalled] cũng là true vì nội dung đã bị xoá như khi thu hồi.
+  final bool removedByModeration;
   final String clientMsgId;
   final DateTime createdAt;
   final MessageStatus status;
@@ -195,6 +206,7 @@ class ChatMessage {
     this.localImage,
     this.replyTo,
     this.recalled = false,
+    this.removedByModeration = false,
     this.status = MessageStatus.sent,
   });
 
@@ -216,6 +228,7 @@ class ChatMessage {
     localImage: localImage,
     replyTo: replyTo ?? this.replyTo,
     recalled: recalled,
+    removedByModeration: removedByModeration,
     clientMsgId: clientMsgId,
     createdAt: createdAt,
     status: status ?? this.status,
@@ -239,6 +252,7 @@ class ChatMessage {
           ? MessageReply.fromJson(replyTo)
           : null,
       recalled: json['recalled'] == true,
+      removedByModeration: json['removedByModeration'] == true,
       clientMsgId: json['clientMsgId']?.toString() ?? '',
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
@@ -288,6 +302,7 @@ class ChatMessage {
   /// Gợi ý ngắn gọn cho danh sách hội thoại.
   String previewFor(int myId) {
     final prefix = senderId == myId ? 'Bạn: ' : '';
+    if (removedByModeration) return '${prefix}Tin nhắn đã bị gỡ';
     if (recalled) return '${prefix}Tin nhắn đã thu hồi';
     if (type == MessageType.image) return '$prefix📷 Ảnh';
     if (type == MessageType.videoShare) {

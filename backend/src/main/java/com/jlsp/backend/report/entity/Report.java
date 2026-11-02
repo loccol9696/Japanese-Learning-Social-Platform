@@ -3,11 +3,12 @@ package com.jlsp.backend.report.entity;
 import com.jlsp.backend.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 
 /**
- * Báo cáo vi phạm của người dùng về một video, bình luận hoặc tài khoản.
+ * Báo cáo vi phạm của người dùng về một video, bình luận, tài khoản, tin nhắn, bản dịch hoặc mẫu ngữ pháp.
  * Đối tượng bị báo cáo được tham chiếu bằng (targetType, targetId), không có khóa ngoại,
  * để báo cáo vẫn còn dù nội dung đã bị xóa.
  */
@@ -37,6 +38,23 @@ public class Report {
 
     @Column(name = "target_id", nullable = false)
     private Long targetId;
+
+    /**
+     * Phần bị báo cáo bên trong đối tượng: "12" là câu phụ đề 12, "12:〜ている" là mẫu ngữ pháp của
+     * câu đó. Rỗng khi báo cáo cả đối tượng.
+     */
+    @Column(name = "target_key", nullable = false)
+    @ColumnDefault("''")
+    @Builder.Default
+    private String targetKey = "";
+
+    /** Nguyên văn nội dung lúc báo cáo, để còn bằng chứng khi nội dung bị sửa hoặc thu hồi sau đó. */
+    @Column(name = "target_snapshot", columnDefinition = "TEXT")
+    private String targetSnapshot;
+
+    /** Ảnh của tin nhắn lúc báo cáo. */
+    @Column(name = "snapshot_image_url", length = 500)
+    private String snapshotImageUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)

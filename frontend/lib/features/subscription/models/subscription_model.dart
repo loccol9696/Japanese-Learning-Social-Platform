@@ -84,6 +84,8 @@ class SubscriptionPlan {
     return '$durationDays Ngày';
   }
 
+  static String formatNumber(int number) => _formatNumber(number);
+
   static String _formatNumber(int number) {
     final str = number.toString();
     final buffer = StringBuffer();
@@ -118,6 +120,8 @@ class PaymentOrder {
   final String bankName;
   final String accountNo;
   final String accountName;
+  final String? promoCode;
+  final double? discountAmount;
   final DateTime? expiresAt;
   final DateTime? createdAt;
   final DateTime? completedAt;
@@ -135,6 +139,8 @@ class PaymentOrder {
     this.bankName = '',
     this.accountNo = '',
     this.accountName = '',
+    this.promoCode,
+    this.discountAmount,
     this.expiresAt,
     this.createdAt,
     this.completedAt,
@@ -157,6 +163,8 @@ class PaymentOrder {
       bankName: json['bankName']?.toString() ?? '',
       accountNo: json['accountNo']?.toString() ?? '',
       accountName: json['accountName']?.toString() ?? '',
+      promoCode: json['promoCode']?.toString(),
+      discountAmount: (json['discountAmount'] as num?)?.toDouble(),
       expiresAt: date('expiresAt'),
       createdAt: date('createdAt'),
       completedAt: date('completedAt'),
@@ -233,4 +241,76 @@ class SubscriptionStatus {
   }
 
   int get daysRemaining => remainingDays;
+}
+
+
+class PromoCodeItem {
+  final int id;
+  final String code;
+  final String? description;
+  final int discountPercent;
+  final double discountAmount;
+  final int maxUses;
+  final int usedCount;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final bool isActive;
+  final String status;
+
+  const PromoCodeItem({
+    required this.id,
+    required this.code,
+    this.description,
+    this.discountPercent = 0,
+    this.discountAmount = 0.0,
+    this.maxUses = 100,
+    this.usedCount = 0,
+    this.startDate,
+    this.endDate,
+    this.isActive = true,
+    this.status = 'ACTIVE',
+  });
+
+  factory PromoCodeItem.fromJson(Map<String, dynamic> json) {
+    return PromoCodeItem(
+      id: json['id'] as int? ?? 0,
+      code: json['code'] as String? ?? '',
+      description: json['description'] as String?,
+      discountPercent: (json['discountPercent'] as num?)?.toInt() ?? 0,
+      discountAmount: (json['discountAmount'] as num?)?.toDouble() ?? 0.0,
+      maxUses: (json['maxUses'] as num?)?.toInt() ?? 100,
+      usedCount: (json['usedCount'] as num?)?.toInt() ?? 0,
+      startDate: json['startDate'] != null ? DateTime.tryParse(json['startDate']) : null,
+      endDate: json['endDate'] != null ? DateTime.tryParse(json['endDate']) : null,
+      isActive: json['isActive'] as bool? ?? true,
+      status: json['status'] as String? ?? 'ACTIVE',
+    );
+  }
+
+  bool get isExpired => endDate != null && DateTime.now().isAfter(endDate!);
+  bool get isExhausted => maxUses > 0 && usedCount >= maxUses;
+
+  String get discountLabel {
+    if (discountPercent > 0) {
+      return 'Giảm ${discountPercent}%';
+    }
+    final intAmount = discountAmount.round();
+    return '-${_formatNumber(intAmount)}';
+  }
+
+  static String formatNumber(int number) => _formatNumber(number);
+
+  static String _formatNumber(int number) {
+    final str = number.toString();
+    final buffer = StringBuffer();
+    int count = 0;
+    for (int i = str.length - 1; i >= 0; i--) {
+      buffer.write(str[i]);
+      count++;
+      if (count % 3 == 0 && i != 0) {
+        buffer.write('.');
+      }
+    }
+    return '${buffer.toString().split('').reversed.join('')} đ';
+  }
 }

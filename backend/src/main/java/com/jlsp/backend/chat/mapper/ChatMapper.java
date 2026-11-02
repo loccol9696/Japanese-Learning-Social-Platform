@@ -64,6 +64,7 @@ public class ChatMapper {
                 .imageUrl(message.getImageUrl())
                 .replyTo(toReplyPreview(message.getReplyTo()))
                 .recalled(message.getRecalledAt() != null)
+                .removedByModeration(message.getRemovedByModeration())
                 .clientMsgId(message.getClientMsgId())
                 .createdAt(message.getCreatedAt())
                 .build();
@@ -82,6 +83,7 @@ public class ChatMapper {
                         ? content.substring(0, MAX_REPLY_PREVIEW_LENGTH)
                         : content)
                 .recalled(reply.getRecalledAt() != null)
+                .removedByModeration(reply.getRemovedByModeration())
                 .build();
     }
 

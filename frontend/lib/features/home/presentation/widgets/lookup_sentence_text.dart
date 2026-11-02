@@ -17,12 +17,20 @@ class LookupSentenceText extends StatefulWidget {
   /// Báo cho nơi dùng biết đang tra từ / ngữ pháp (để tạm dừng video).
   final ValueChanged<bool>? onLookupActiveChanged;
 
+  /// Báo cáo một mẫu ngữ pháp; null thì bảng ngữ pháp không có nút báo cáo.
+  final ValueChanged<GrammarPointInfo>? onReportGrammar;
+
+  /// Báo cáo / đề xuất sửa câu thoại; null thì bảng tra từ không có nút báo cáo.
+  final VoidCallback? onReportScript;
+
   const LookupSentenceText({
     super.key,
     required this.sentence,
     required this.style,
     this.grammarPoints = const [],
     this.onLookupActiveChanged,
+    this.onReportGrammar,
+    this.onReportScript,
   });
 
   @override
@@ -154,18 +162,31 @@ class _LookupSentenceTextState extends State<LookupSentenceText> {
               .clamp(0.0, _maxCardHeight)
               .toDouble();
 
+    final onReportGrammar = widget.onReportGrammar;
     final Widget card = segment.isGrammar
         ? GrammarLookupCard(
             key: ValueKey('grammar-${segment.grammar!.pattern}-${segment.text}'),
             grammar: segment.grammar!,
             sentence: widget.sentence,
             onClose: _clearSelection,
+            onReport: onReportGrammar == null
+                ? null
+                : () {
+                    _clearSelection();
+                    onReportGrammar(segment.grammar!);
+                  },
           )
         : WordLookupCard(
             key: ValueKey('vocab-${segment.token!.baseForm}'),
             token: segment.token!,
             sentence: widget.sentence,
             onClose: _clearSelection,
+            onReport: widget.onReportScript == null
+                ? null
+                : () {
+                    _clearSelection();
+                    widget.onReportScript!();
+                  },
           );
 
     _overlay = OverlayEntry(

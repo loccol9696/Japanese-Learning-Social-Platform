@@ -122,6 +122,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_ENDPOINTS).permitAll()
                 // Webhook ngân hàng (SePay): không có JWT; tự xác thực bằng header Authorization: Apikey trong controller.
                 .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook/sepay").permitAll()
+                .requestMatchers("/api/v1/payments/verify-promo", "/api/v1/payments/check-promo").permitAll()
 
                 // Xử lý báo cáo: Admin và Moderator (phải đứng trước rule /admin/** chỉ cho ADMIN)
                 .requestMatchers("/api/v1/admin/reports/**").hasAnyRole("ADMIN", "MODERATOR")

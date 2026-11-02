@@ -59,6 +59,7 @@ export interface AdminUserItem {
   displayName?: string;
   role: UserRole;
   isActive: boolean;
+  violationCount?: number;
   avatarUrl?: string;
   createdAt: string;
   updatedAt?: string;
@@ -164,6 +165,23 @@ export async function updateVideoClassification(
   const resData: ApiResponse<VideoModerationItem> = await readJson(response);
   if (!response.ok) {
     throw new Error(resData.message || 'Không thể cập nhật phân loại video');
+  }
+  return resData.data;
+}
+
+/** Cập nhật phụ đề / lời thoại của video (dành cho Moderator/Admin khi duyệt hoặc chỉnh sửa). */
+export async function updateVideoSubtitles(
+  videoId: number,
+  subtitlesJson: string,
+): Promise<VideoModerationItem> {
+  const response = await authFetch(`/api/v1/videos/${videoId}/subtitles`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ subtitles: subtitlesJson }),
+  });
+  const resData: ApiResponse<VideoModerationItem> = await readJson(response);
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể cập nhật phụ đề video');
   }
   return resData.data;
 }
@@ -563,16 +581,37 @@ export async function updateTopic(
 }
 
 // ==================== CONTENT REPORTS (MODERATOR ONLY) ====================
-export type ReportTargetType = 'VIDEO' | 'COMMENT' | 'USER';
+export type ReportTargetType = 'VIDEO' | 'COMMENT' | 'USER' | 'MESSAGE' | 'TRANSLATION' | 'GRAMMAR' | 'SCRIPT';
 export type ReportReason =
   | 'SPAM'
   | 'INAPPROPRIATE'
   | 'HARASSMENT'
   | 'MISINFORMATION'
   | 'COPYRIGHT'
+  | 'INACCURATE'
   | 'OTHER';
 export type ReportStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED';
-export type ReportAction = 'NONE' | 'HIDE_VIDEO' | 'DELETE_COMMENT' | 'LOCK_USER';
+export type ReportAction =
+  | 'NONE'
+  | 'WARN_USER'
+  | 'HIDE_VIDEO'
+  | 'DELETE_COMMENT'
+  | 'HIDE_MESSAGE'
+  | 'EDIT_TRANSLATION'
+  | 'REMOVE_TRANSLATION'
+  | 'EDIT_GRAMMAR'
+  | 'REMOVE_GRAMMAR'
+  | 'LOCK_USER'
+  | 'EDIT_SCRIPT';
+
+/** Nội dung bản dịch / mẫu ngữ pháp / câu thoại: backend trả về để điền sẵn, kiểm duyệt viên sửa rồi gửi lại. */
+export interface ReportCorrection {
+  translation?: string;
+  pattern?: string;
+  meaning?: string;
+  explanation?: string;
+  scriptText?: string;
+}
 
 export interface ReportItem {
   id: number;
@@ -590,9 +629,14 @@ export interface ReportItem {
   reporterUsername: string;
   targetExists: boolean;
   targetSummary?: string;
+  targetSnapshot?: string;
+  targetImageUrl?: string;
+  targetContent?: ReportCorrection;
   targetOwnerId?: number;
   targetOwnerUsername?: string;
+  targetOwnerViolationCount?: number;
   targetVideoId?: number;
+  targetVideoUrl?: string;
   pendingCountForTarget?: number;
 }
 
@@ -614,11 +658,16 @@ export async function getReports(
   return resData.data;
 }
 
-export async function resolveReport(id: number, action: ReportAction, note: string): Promise<ReportItem> {
+export async function resolveReport(
+  id: number,
+  action: ReportAction,
+  note: string,
+  correction?: ReportCorrection
+): Promise<ReportItem> {
   const response = await fetch(`/api/v1/admin/reports/${id}/resolve`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ action, note: note.trim() || undefined }),
+    body: JSON.stringify({ action, note: note.trim() || undefined, correction }),
   });
   const resData: ApiResponse<ReportItem> = await response.json();
   if (!response.ok) {
@@ -652,5 +701,94 @@ export async function getPendingReportCount(): Promise<number> {
     return resData.data.totalElements || 0;
   } catch {
     return 0;
+  }
+}
+
+export interface PromoCodeItem {
+  id: number;
+  code: string;
+  description?: string;
+  discountPercent?: number;
+  discountAmount?: number;
+  minOrderAmount?: number;
+  maxUses: number;
+  usedCount: number;
+  startDate?: string;
+  endDate?: string;
+  isActive: boolean;
+  status: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'EXHAUSTED' | 'DISABLED';
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface PromoCodePayload {
+  code: string;
+  description?: string;
+  discountPercent?: number;
+  discountAmount?: number;
+  minOrderAmount?: number;
+  maxUses?: number;
+  startDate?: string;
+  endDate?: string;
+  isActive?: boolean;
+}
+
+export async function getAdminPromoCodes(): Promise<PromoCodeItem[]> {
+  const response = await fetch('/api/v1/admin/promo-codes', {
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<PromoCodeItem[]> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tải danh sách mã khuyến mãi');
+  }
+  return resData.data;
+}
+
+export async function createAdminPromoCode(payload: PromoCodePayload): Promise<PromoCodeItem> {
+  const response = await fetch('/api/v1/admin/promo-codes', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<PromoCodeItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể tạo mã khuyến mãi');
+  }
+  return resData.data;
+}
+
+export async function updateAdminPromoCode(id: number, payload: PromoCodePayload): Promise<PromoCodeItem> {
+  const response = await fetch(`/api/v1/admin/promo-codes/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const resData: ApiResponse<PromoCodeItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể cập nhật mã khuyến mãi');
+  }
+  return resData.data;
+}
+
+export async function toggleAdminPromoCode(id: number): Promise<PromoCodeItem> {
+  const response = await fetch(`/api/v1/admin/promo-codes/${id}/toggle`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<PromoCodeItem> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể thay đổi trạng thái mã khuyến mãi');
+  }
+  return resData.data;
+}
+
+export async function deleteAdminPromoCode(id: number): Promise<void> {
+  const response = await fetch(`/api/v1/admin/promo-codes/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  const resData: ApiResponse<void> = await response.json();
+  if (!response.ok) {
+    throw new Error(resData.message || 'Không thể xóa mã khuyến mãi');
   }
 }

@@ -14,5 +14,9 @@ public enum NotificationType {
     VIDEO_APPROVED,
     VIDEO_REJECTED,
     REPORT_UPDATE,
-    CONTENT_REMOVED
+    CONTENT_REMOVED,
+    /** Kiểm duyệt viên sửa lại bản dịch hoặc ngữ pháp trong video của bạn. */
+    CONTENT_EDITED,
+    /** Kiểm duyệt viên nhắc nhở bạn về một vi phạm, kèm lý do. */
+    VIOLATION_WARNING
 }

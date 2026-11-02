@@ -18,6 +18,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 /**
  * API thanh toán của người dùng. Mọi endpoint cần đăng nhập và chỉ làm việc với đơn của chính người gọi: danh tính
  * lấy từ access token, không nhận userId từ body, header hay tham số.
@@ -65,5 +67,33 @@ public class PaymentController {
     @GetMapping({"/my-quota", "/token-quota"})
     public ResponseEntity<ApiResponse<TokenQuotaResponse>> getTokenQuota() {
         return ResponseEntity.ok(ApiResponse.success(subscriptionService.checkTokenQuota(CurrentUser.requireId())));
+    }
+
+    // ==================== VOUCHER / PROMO CODE VERIFICATION ====================
+
+    @GetMapping({"/verify-promo", "/check-promo"})
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyPromoCodeGet(
+            @RequestParam("code") String code,
+            @RequestParam(value = "planId", required = false) Long planId) {
+        Map<String, Object> result = subscriptionService.verifyPromoCode(code, planId);
+        return ResponseEntity.ok(ApiResponse.success(200, "Áp dụng mã khuyến mãi thành công!", result));
+    }
+
+    @PostMapping({"/verify-promo", "/check-promo"})
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyPromoCodePost(
+            @RequestBody(required = false) Map<String, Object> body,
+            @RequestParam(value = "code", required = false) String paramCode,
+            @RequestParam(value = "planId", required = false) Long planId) {
+        String code = paramCode;
+        if ((code == null || code.isBlank()) && body != null) {
+            code = String.valueOf(body.getOrDefault("code", ""));
+            if (planId == null && body.containsKey("planId")) {
+                try {
+                    planId = Long.valueOf(body.get("planId").toString());
+                } catch (Exception ignored) {}
+            }
+        }
+        Map<String, Object> result = subscriptionService.verifyPromoCode(code, planId);
+        return ResponseEntity.ok(ApiResponse.success(200, "Áp dụng mã khuyến mãi thành công!", result));
     }
 }

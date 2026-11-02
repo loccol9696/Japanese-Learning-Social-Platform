@@ -6,6 +6,7 @@ import {
   resolveReport,
   type PageResponse,
   type ReportAction,
+  type ReportCorrection,
   type ReportItem,
   type ReportStatus,
   type ReportTargetType,
@@ -22,6 +23,7 @@ const REASON_LABEL: Record<string, string> = {
   HARASSMENT: 'Quấy rối / thù ghét',
   MISINFORMATION: 'Thông tin sai lệch',
   COPYRIGHT: 'Vi phạm bản quyền',
+  INACCURATE: 'Dịch / giải thích sai',
   OTHER: 'Lý do khác',
 };
 
@@ -29,13 +31,33 @@ const TARGET_LABEL: Record<ReportTargetType, string> = {
   VIDEO: 'Video',
   COMMENT: 'Bình luận',
   USER: 'Người dùng',
+  MESSAGE: 'Tin nhắn',
+  TRANSLATION: 'Bản dịch',
+  GRAMMAR: 'Ngữ pháp',
+  SCRIPT: 'Câu thoại (Script)',
 };
 
 const ACTION_LABEL: Record<ReportAction, string> = {
-  NONE: 'Đã nhắc nhở / không cần hành động',
+  NONE: 'Không cần hành động',
+  WARN_USER: 'Nhắc nhở (gửi lý do vi phạm, +1 lần vi phạm)',
   HIDE_VIDEO: 'Ẩn video (từ chối khỏi feed)',
   DELETE_COMMENT: 'Xóa bình luận',
+  HIDE_MESSAGE: 'Gỡ tin nhắn',
+  EDIT_TRANSLATION: 'Sửa bản dịch',
+  REMOVE_TRANSLATION: 'Gỡ bản dịch của câu này',
+  EDIT_GRAMMAR: 'Sửa mẫu ngữ pháp',
+  REMOVE_GRAMMAR: 'Gỡ mẫu ngữ pháp này',
   LOCK_USER: 'Khóa tài khoản chủ nội dung',
+  EDIT_SCRIPT: 'Sửa lại câu thoại tiếng Nhật',
+};
+
+/** Hành động gỡ nội dung của từng loại đối tượng. */
+const REMOVAL_ACTION: Partial<Record<ReportTargetType, ReportAction>> = {
+  VIDEO: 'HIDE_VIDEO',
+  COMMENT: 'DELETE_COMMENT',
+  MESSAGE: 'HIDE_MESSAGE',
+  TRANSLATION: 'REMOVE_TRANSLATION',
+  GRAMMAR: 'REMOVE_GRAMMAR',
 };
 
 const STATUS_TABS: { key: ReportStatus; label: string }[] = [
@@ -44,13 +66,36 @@ const STATUS_TABS: { key: ReportStatus; label: string }[] = [
   { key: 'DISMISSED', label: 'Đã bác bỏ' },
 ];
 
-/** Hành động khả dụng cho từng loại đối tượng; khóa tài khoản chỉ Admin. */
-function actionsFor(type: ReportTargetType, isAdmin: boolean): ReportAction[] {
-  const actions: ReportAction[] = ['NONE'];
-  if (type === 'VIDEO') actions.push('HIDE_VIDEO');
-  if (type === 'COMMENT') actions.push('DELETE_COMMENT');
-  if (isAdmin) actions.push('LOCK_USER');
-  return actions;
+/** Hành động sửa nội dung của từng loại đối tượng. */
+const EDIT_ACTION: Partial<Record<ReportTargetType, ReportAction>> = {
+  TRANSLATION: 'EDIT_TRANSLATION',
+  GRAMMAR: 'EDIT_GRAMMAR',
+  SCRIPT: 'EDIT_SCRIPT',
+};
+
+/** Hành động khả dụng cho một báo cáo; khóa tài khoản chỉ Admin, nội dung đã đổi thì không sửa được. */
+function actionsFor(report: ReportItem, isAdmin: boolean): ReportAction[] {
+  const actions: ReportAction[] = [];
+  if (report.targetOwnerId != null) actions.push('WARN_USER');
+  const edit = EDIT_ACTION[report.targetType];
+  if (edit && report.targetExists) actions.push(edit);
+  const removal = REMOVAL_ACTION[report.targetType];
+  if (removal) actions.push(removal);
+  if (isAdmin && report.targetOwnerId != null) actions.push('LOCK_USER');
+  return actions.length > 0 ? actions : ['NONE'];
+}
+
+/** Đủ thông tin để xác nhận chưa: sửa thì phải nhập các trường bắt buộc. */
+function isCorrectionComplete(action: ReportAction, correction: ReportCorrection): boolean {
+  if (action === 'EDIT_TRANSLATION') return !!correction.translation?.trim();
+  if (action === 'EDIT_GRAMMAR') return !!correction.pattern?.trim() && !!correction.meaning?.trim();
+  if (action === 'EDIT_SCRIPT') return !!correction.scriptText?.trim();
+  return true;
+}
+
+/** Bản dịch/ngữ pháp có thể bị chủ video sửa, không hẳn đã bị xóa. */
+function goneLabel(type: ReportTargetType): string {
+  return type === 'TRANSLATION' || type === 'GRAMMAR' || type === 'SCRIPT' ? 'Đã thay đổi' : 'Đã bị xóa';
 }
 
 export default function ReportsManager({ isAdmin, showToast: showToastProp }: ReportsManagerProps) {
@@ -70,6 +115,7 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
   const [active, setActive] = useState<ReportItem | null>(null);
   const [action, setAction] = useState<ReportAction>('NONE');
   const [note, setNote] = useState('');
+  const [correction, setCorrection] = useState<ReportCorrection>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const load = useCallback(async () => {
@@ -89,16 +135,20 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
 
   const openDialog = (report: ReportItem) => {
     setActive(report);
-    setAction('NONE');
+    setAction(actionsFor(report, isAdmin)[0]);
     setNote('');
+    setCorrection(report.targetContent ?? {});
   };
+
+  const updateCorrection = (patch: ReportCorrection) => setCorrection(current => ({ ...current, ...patch }));
 
   const submit = async (mode: 'resolve' | 'dismiss') => {
     if (!active) return;
     setIsSubmitting(true);
     try {
       if (mode === 'resolve') {
-        await resolveReport(active.id, action, note);
+        const isEdit = action === 'EDIT_TRANSLATION' || action === 'EDIT_GRAMMAR' || action === 'EDIT_SCRIPT';
+        await resolveReport(active.id, action, note, isEdit ? correction : undefined);
         showToast('Đã xử lý báo cáo');
       } else {
         await dismissReport(active.id, note);
@@ -143,6 +193,9 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
           <option value="VIDEO">Video</option>
           <option value="COMMENT">Bình luận</option>
           <option value="USER">Người dùng</option>
+          <option value="MESSAGE">Tin nhắn</option>
+          <option value="TRANSLATION">Bản dịch</option>
+          <option value="GRAMMAR">Ngữ pháp</option>
         </select>
       </div>
 
@@ -179,7 +232,7 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
                       {TARGET_LABEL[r.targetType]} #{r.targetId}
                       {!r.targetExists && (
                         <span className="status-pill danger" style={{ marginLeft: '0.5rem' }}>
-                          Đã bị xóa
+                          {goneLabel(r.targetType)}
                         </span>
                       )}
                     </div>
@@ -267,6 +320,8 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
               border: '1px solid var(--admin-border)',
               padding: '1.5rem',
               width: 'min(520px, 92vw)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
             }}
             onClick={e => e.stopPropagation()}
           >
@@ -279,9 +334,54 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
                 : 'Kết quả áp dụng cho báo cáo này.'}
             </p>
 
+            {active.targetOwnerUsername && (
+              <p style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
+                Chủ nội dung: @{active.targetOwnerUsername} • {active.targetOwnerViolationCount ?? 0} lần vi phạm
+              </p>
+            )}
+
+            {active.targetVideoUrl && (
+              <video
+                src={active.targetVideoUrl}
+                controls
+                preload="metadata"
+                style={{ width: '100%', maxHeight: '240px', background: '#000', marginBottom: '0.75rem' }}
+              />
+            )}
+
+            {(active.targetSnapshot || active.targetImageUrl) && (
+              <div className="form-group-sharp">
+                <label className="form-label-sharp">
+                  Nội dung bị báo cáo{active.targetExists ? '' : ` (${goneLabel(active.targetType).toLowerCase()})`}
+                </label>
+                {active.targetSnapshot && (
+                  <div
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      maxHeight: '160px',
+                      overflowY: 'auto',
+                      fontSize: '0.85rem',
+                      padding: '0.5rem',
+                      border: '1px solid var(--admin-border)',
+                    }}
+                  >
+                    {active.targetSnapshot}
+                  </div>
+                )}
+                {active.targetImageUrl && (
+                  <img
+                    src={active.targetImageUrl}
+                    alt="Ảnh trong tin nhắn bị báo cáo"
+                    style={{ maxWidth: '100%', maxHeight: '240px', marginTop: '0.5rem' }}
+                  />
+                )}
+              </div>
+            )}
+
             <div className="form-group-sharp">
               <label className="form-label-sharp">Hành động</label>
-              {actionsFor(active.targetType, isAdmin).map(a => (
+              {actionsFor(active, isAdmin).map(a => (
                 <label key={a} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', margin: '0.35rem 0' }}>
                   <input type="radio" name="report-action" checked={action === a} onChange={() => setAction(a)} />
                   <span>{ACTION_LABEL[a]}</span>
@@ -289,8 +389,75 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
               ))}
             </div>
 
+            {action === 'EDIT_TRANSLATION' && (
+              <div className="form-group-sharp">
+                <label className="form-label-sharp">Bản dịch đã sửa</label>
+                <textarea
+                  className="form-input-sharp"
+                  rows={3}
+                  maxLength={1000}
+                  value={correction.translation ?? ''}
+                  onChange={e => updateCorrection({ translation: e.target.value })}
+                />
+              </div>
+            )}
+
+            {action === 'EDIT_GRAMMAR' && (
+              <>
+                <div className="form-group-sharp">
+                  <label className="form-label-sharp">Mẫu ngữ pháp</label>
+                  <input
+                    className="form-input-sharp"
+                    maxLength={200}
+                    value={correction.pattern ?? ''}
+                    onChange={e => updateCorrection({ pattern: e.target.value })}
+                  />
+                </div>
+                <div className="form-group-sharp">
+                  <label className="form-label-sharp">Ý nghĩa</label>
+                  <input
+                    className="form-input-sharp"
+                    maxLength={500}
+                    value={correction.meaning ?? ''}
+                    onChange={e => updateCorrection({ meaning: e.target.value })}
+                  />
+                </div>
+                <div className="form-group-sharp">
+                  <label className="form-label-sharp">Giải thích</label>
+                  <textarea
+                    className="form-input-sharp"
+                    rows={3}
+                    maxLength={2000}
+                    value={correction.explanation ?? ''}
+                    onChange={e => updateCorrection({ explanation: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
+
+            {action === 'EDIT_SCRIPT' && (
+              <div className="form-group-sharp">
+                <label className="form-label-sharp">
+                  Câu thoại tiếng Nhật đã sửa
+                </label>
+                <textarea
+                  className="form-input-sharp"
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="Nhập câu thoại tiếng Nhật chính xác..."
+                  value={correction.scriptText ?? ''}
+                  onChange={e => updateCorrection({ scriptText: e.target.value })}
+                />
+                <p style={{ color: 'var(--admin-text-dim)', fontSize: '0.75rem', marginTop: '0.3rem' }}>
+                  Lưu ý: Sau khi cập nhật, kết quả phân tích ngữ pháp cũ sẽ được xóa để AI phân tích lại.
+                </p>
+              </div>
+            )}
+
             <div className="form-group-sharp">
-              <label className="form-label-sharp">Ghi chú (tuỳ chọn)</label>
+              <label className="form-label-sharp">
+                Ghi chú (tuỳ chọn): gửi chủ nội dung khi xử lý, gửi người báo cáo khi bác bỏ
+              </label>
               <textarea
                 className="form-input-sharp"
                 rows={3}
@@ -308,7 +475,11 @@ export default function ReportsManager({ isAdmin, showToast: showToastProp }: Re
                 <XCircle size={14} />
                 <span>Bác bỏ</span>
               </button>
-              <button className="btn-success" disabled={isSubmitting} onClick={() => submit('resolve')}>
+              <button
+                className="btn-success"
+                disabled={isSubmitting || !isCorrectionComplete(action, correction)}
+                onClick={() => submit('resolve')}
+              >
                 <CheckCircle2 size={14} />
                 <span>Xác nhận xử lý</span>
               </button>

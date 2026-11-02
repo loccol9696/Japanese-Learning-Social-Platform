@@ -31,6 +31,9 @@ class GrammarPointInfo {
     required this.explanation,
   });
 
+  /// Tên gửi lên khi báo cáo; backend tìm lại mẫu theo pattern, không có thì theo matchedText.
+  String get reportKey => pattern.isNotEmpty ? pattern : matchedText;
+
   factory GrammarPointInfo.fromJson(Map<String, dynamic> json) {
     return GrammarPointInfo(
       pattern: json['pattern']?.toString() ?? '',
@@ -57,12 +60,17 @@ class SubtitleCue {
   final String translation;
   final List<GrammarPointInfo> grammarPoints;
 
+  /// Vị trí câu trong JSON phụ đề của backend. Khác vị trí trong danh sách cue vì câu lỗi bị bỏ qua
+  /// khi đọc; null thì không báo cáo được.
+  final int? sourceIndex;
+
   const SubtitleCue({
     required this.start,
     required this.end,
     required this.text,
     required this.translation,
     this.grammarPoints = const [],
+    this.sourceIndex,
   });
 
   bool contains(Duration position) {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/features/home/domain/models/ruby_segment.dart';
 import 'package:frontend/features/home/presentation/screens/video_script_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('scriptVideoHeight', () {
@@ -41,5 +43,48 @@ void main() {
     expect(find.text('Kịch bản'), findsOneWidget);
     expect(find.byIcon(Icons.chevron_left_rounded), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsNothing);
+  });
+
+  group('nút báo cáo bản dịch', () {
+    const translated = SubtitleCue(
+      start: Duration.zero,
+      end: Duration(seconds: 1),
+      text: 'こんにちは',
+      translation: 'Xin chào',
+      sourceIndex: 4,
+    );
+    const untranslated = SubtitleCue(
+      start: Duration(seconds: 1),
+      end: Duration(seconds: 2),
+      text: 'さようなら',
+      translation: '',
+      sourceIndex: 5,
+    );
+
+    Future<void> pump(WidgetTester tester, {required bool canReport}) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.pumpWidget(MaterialApp(
+        home: VideoScriptScreen(
+          cues: const [translated, untranslated],
+          controller: null,
+          videoId: '12',
+          canReport: canReport,
+        ),
+      ));
+      await tester.pump();
+    }
+
+    testWidgets('chỉ câu có bản dịch mới có nút', (tester) async {
+      await pump(tester, canReport: true);
+
+      expect(find.byKey(const ValueKey('report-translation-0')), findsOneWidget);
+      expect(find.byKey(const ValueKey('report-translation-1')), findsNothing);
+    });
+
+    testWidgets('video của chính mình không có nút', (tester) async {
+      await pump(tester, canReport: false);
+
+      expect(find.byKey(const ValueKey('report-translation-0')), findsNothing);
+    });
   });
 }

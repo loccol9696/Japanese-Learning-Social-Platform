@@ -2,29 +2,37 @@ package com.jlsp.backend.subscription.service.impl;
 
 import com.jlsp.backend.common.exception.AppException;
 import com.jlsp.backend.common.exception.ResourceNotFoundException;
+import com.jlsp.backend.subscription.dto.request.PromoCodeRequest;
 import com.jlsp.backend.subscription.dto.request.SubscriptionPlanRequest;
+import com.jlsp.backend.subscription.dto.response.PromoCodeResponse;
 import com.jlsp.backend.subscription.dto.response.SubscriptionPlanResponse;
 import com.jlsp.backend.subscription.dto.response.SubscriptionStatusResponse;
 import com.jlsp.backend.subscription.dto.response.TokenQuotaResponse;
-import com.jlsp.backend.subscription.entity.SubscriptionPlan;
 import com.jlsp.backend.subscription.dto.response.TokenUsageResponse;
+import com.jlsp.backend.subscription.entity.PromoCode;
+import com.jlsp.backend.subscription.entity.SubscriptionPlan;
 import com.jlsp.backend.subscription.entity.TokenFeature;
 import com.jlsp.backend.subscription.entity.TokenUsageEvent;
-import com.jlsp.backend.subscription.repository.TokenUsageEventRepository;
 import com.jlsp.backend.subscription.entity.UserDailyTokenUsage;
+import com.jlsp.backend.subscription.repository.PromoCodeRepository;
 import com.jlsp.backend.subscription.repository.SubscriptionPlanRepository;
+import com.jlsp.backend.subscription.repository.TokenUsageEventRepository;
 import com.jlsp.backend.subscription.repository.UserDailyTokenUsageRepository;
 import com.jlsp.backend.subscription.service.SubscriptionService;
 import com.jlsp.backend.user.entity.User;
+import com.jlsp.backend.user.entity.UserRole;
 import com.jlsp.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,7 +44,56 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final SubscriptionPlanRepository planRepository;
     private final UserDailyTokenUsageRepository tokenUsageRepository;
     private final UserRepository userRepository;
+    private final PromoCodeRepository promoCodeRepository;
     private final TokenUsageEventRepository tokenUsageEventRepository;
+
+    @jakarta.annotation.PostConstruct
+    public void initDefaultPromoCodes() {
+        try {
+            if (promoCodeRepository.count() == 0) {
+                LocalDateTime now = LocalDateTime.now();
+                LocalDateTime future = now.plusYears(5);
+                promoCodeRepository.saveAll(List.of(
+                        PromoCode.builder()
+                                .code("JLSP10")
+                                .description("Ưu đãi học viên mới - Giảm 10%")
+                                .discountPercent(10)
+                                .discountAmount(BigDecimal.ZERO)
+                                .maxUses(500)
+                                .usedCount(0)
+                                .startDate(now)
+                                .endDate(future)
+                                .isActive(true)
+                                .build(),
+                        PromoCode.builder()
+                                .code("JLSP20")
+                                .description("Ưu đãi đặc biệt JLSP - Giảm 20%")
+                                .discountPercent(20)
+                                .discountAmount(BigDecimal.ZERO)
+                                .maxUses(200)
+                                .usedCount(0)
+                                .startDate(now)
+                                .endDate(future)
+                                .isActive(true)
+                                .build(),
+                        PromoCode.builder()
+                                .code("SENSEI")
+                                .description("Ưu đãi dành riêng cho Sensei - Giảm 30%")
+                                .discountPercent(30)
+                                .discountAmount(BigDecimal.ZERO)
+                                .maxUses(100)
+                                .usedCount(0)
+                                .startDate(now)
+                                .endDate(future)
+                                .isActive(true)
+                                .build()
+                ));
+                log.info("Initialized default promo codes (JLSP10, JLSP20, SENSEI)");
+            }
+        } catch (Exception e) {
+            log.warn("Could not initialize default promo codes: {}", e.getMessage());
+        }
+    }
 
     @Override
     public List<SubscriptionPlanResponse> getAllActivePlans() {
@@ -129,6 +186,17 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     public TokenQuotaResponse checkTokenQuota(Long userId) {
         User user = userRepository.findById(userId).orElse(null);
 
+        // Admin luôn có đặc quyền tối cao vô hạn token
+        if (user != null && user.getRole() == UserRole.ADMIN) {
+            return TokenQuotaResponse.builder()
+                    .userId(userId)
+                    .planName("Đặc quyền Quản trị viên (Admin)")
+                    .dailyTokenLimit(999999)
+                    .tokensUsedToday(0)
+                    .tokensRemainingToday(999999)
+                    .build();
+        }
+
         // Truy vấn động gói FREE từ database làm chuẩn
         SubscriptionPlan freePlan = planRepository.findByCode("FREE").orElse(null);
         int freeLimit = (freePlan != null && freePlan.getDailyTokenLimit() != null)
@@ -171,6 +239,22 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Override
     public SubscriptionStatusResponse getMySubscription(Long userId) {
         User user = userRepository.findById(userId).orElse(null);
+
+        if (user != null && user.getRole() == UserRole.ADMIN) {
+            return SubscriptionStatusResponse.builder()
+                    .vip(true)
+                    .planId(999L)
+                    .planCode("ADMIN_UNLIMITED")
+                    .planName("Đặc quyền Quản trị viên (Admin)")
+                    .expiresAt(null)
+                    .lifetime(true)
+                    .remainingDays(9999)
+                    .dailyTokenLimit(999999)
+                    .tokensUsedToday(0)
+                    .tokensRemainingToday(999999)
+                    .build();
+        }
+
         TokenQuotaResponse quota = checkTokenQuota(userId);
 
         LocalDateTime now = LocalDateTime.now();
@@ -203,6 +287,12 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     public void validateAndDeductTokens(Long userId, int tokensRequired, TokenFeature feature) {
         java.util.Objects.requireNonNull(feature, "feature");
         User user = userRepository.findById(userId).orElse(null);
+
+        // Admin luôn có quyền vô hạn token
+        if (user != null && user.getRole() == UserRole.ADMIN) {
+            log.info("User ID {} is ADMIN. Unlimited tokens granted, skipping deduction quota check.", userId);
+            return;
+        }
 
         // Truy vấn động gói FREE từ database làm chuẩn
         SubscriptionPlan freePlan = planRepository.findByCode("FREE").orElse(null);
@@ -252,6 +342,119 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         }
     }
 
+    // ==================== PROMO CODE / VOUCHER ====================
+
+    @Override
+    public List<PromoCodeResponse> getAllPromoCodes() {
+        return promoCodeRepository.findAllByOrderByCreatedAtDesc().stream()
+                .map(this::toPromoCodeResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public PromoCodeResponse createPromoCode(PromoCodeRequest request) {
+        String code = request.getCode() != null ? request.getCode().trim().toUpperCase() : "";
+        if (code.isEmpty()) {
+            throw new AppException(400, "Mã khuyến mãi không được để trống");
+        }
+        if (promoCodeRepository.existsByCodeIgnoreCase(code)) {
+            throw new AppException(400, "Mã khuyến mãi '" + code + "' đã tồn tại trong hệ thống");
+        }
+
+        PromoCode promo = PromoCode.builder()
+                .code(code)
+                .description(request.getDescription())
+                .discountPercent(request.getDiscountPercent() != null ? request.getDiscountPercent() : 0)
+                .discountAmount(request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO)
+                .minOrderAmount(request.getMinOrderAmount() != null ? request.getMinOrderAmount() : BigDecimal.ZERO)
+                .maxUses(request.getMaxUses() != null ? request.getMaxUses() : 100)
+                .usedCount(0)
+                .startDate(request.getStartDate() != null ? request.getStartDate() : LocalDateTime.now())
+                .endDate(request.getEndDate())
+                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .build();
+
+        PromoCode saved = promoCodeRepository.save(promo);
+        log.info("Admin created new promo code: {}", saved.getCode());
+        return toPromoCodeResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public PromoCodeResponse updatePromoCode(Long id, PromoCodeRequest request) {
+        PromoCode promo = promoCodeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("PromoCode", "id", id));
+
+        if (request.getDescription() != null) promo.setDescription(request.getDescription());
+        if (request.getDiscountPercent() != null) promo.setDiscountPercent(request.getDiscountPercent());
+        if (request.getDiscountAmount() != null) promo.setDiscountAmount(request.getDiscountAmount());
+        if (request.getMinOrderAmount() != null) promo.setMinOrderAmount(request.getMinOrderAmount());
+        if (request.getMaxUses() != null) promo.setMaxUses(request.getMaxUses());
+        if (request.getStartDate() != null) promo.setStartDate(request.getStartDate());
+        if (request.getEndDate() != null) promo.setEndDate(request.getEndDate());
+        if (request.getIsActive() != null) promo.setIsActive(request.getIsActive());
+
+        PromoCode updated = promoCodeRepository.save(promo);
+        return toPromoCodeResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public PromoCodeResponse togglePromoCodeStatus(Long id) {
+        PromoCode promo = promoCodeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("PromoCode", "id", id));
+        promo.setIsActive(!Boolean.TRUE.equals(promo.getIsActive()));
+        PromoCode updated = promoCodeRepository.save(promo);
+        return toPromoCodeResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public void deletePromoCode(Long id) {
+        PromoCode promo = promoCodeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("PromoCode", "id", id));
+        promoCodeRepository.delete(promo);
+    }
+
+    @Override
+    public Map<String, Object> verifyPromoCode(String rawCode, Long planId) {
+        if (rawCode == null || rawCode.trim().isEmpty()) {
+            throw new AppException(400, "Vui lòng nhập mã khuyến mãi");
+        }
+        String code = rawCode.trim().toUpperCase();
+        Map<String, Object> res = new HashMap<>();
+        res.put("code", code);
+
+        PromoCode promo = promoCodeRepository.findByCodeIgnoreCase(code).orElse(null);
+        if (promo != null) {
+            if (!Boolean.TRUE.equals(promo.getIsActive())) {
+                throw new AppException(400, "Mã khuyến mãi '" + code + "' hiện đang tạm khóa hoặc đã bị vô hiệu hóa.");
+            }
+            LocalDateTime now = LocalDateTime.now();
+            if (promo.getStartDate() != null && now.isBefore(promo.getStartDate())) {
+                throw new AppException(400, "Mã khuyến mãi '" + code + "' chưa đến thời gian áp dụng.");
+            }
+            if (promo.getEndDate() != null && now.isAfter(promo.getEndDate())) {
+                throw new AppException(400, "Mã khuyến mãi '" + code + "' đã hết hạn sử dụng.");
+            }
+            if (promo.getMaxUses() != null && promo.getUsedCount() != null && promo.getUsedCount() >= promo.getMaxUses()) {
+                throw new AppException(400, "Mã khuyến mãi '" + code + "' đã đạt giới hạn số lượt sử dụng.");
+            }
+
+            int percent = promo.getDiscountPercent() != null ? promo.getDiscountPercent() : 0;
+            BigDecimal amount = promo.getDiscountAmount() != null ? promo.getDiscountAmount() : BigDecimal.ZERO;
+
+            res.put("valid", true);
+            res.put("discountPercent", percent);
+            res.put("discountAmount", amount);
+            res.put("description", promo.getDescription() != null ? promo.getDescription() : "Giảm giá đặc biệt");
+            return res;
+        }
+
+        throw new AppException(400, "Mã khuyến mãi '" + code + "' không tồn tại trong hệ thống.");
+    }
+
     @Override
     @Transactional(readOnly = true)
     public TokenUsageResponse getTokenUsage(Long userId, String range) {
@@ -295,6 +498,24 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 .totalTokens(days.stream().mapToInt(TokenUsageResponse.DayUsage::getTokens).sum())
                 .days(days)
                 .features(features)
+                .build();
+    }
+
+    private PromoCodeResponse toPromoCodeResponse(PromoCode p) {
+        return PromoCodeResponse.builder()
+                .id(p.getId())
+                .code(p.getCode())
+                .description(p.getDescription())
+                .discountPercent(p.getDiscountPercent())
+                .discountAmount(p.getDiscountAmount())
+                .minOrderAmount(p.getMinOrderAmount())
+                .maxUses(p.getMaxUses())
+                .usedCount(p.getUsedCount())
+                .startDate(p.getStartDate())
+                .endDate(p.getEndDate())
+                .isActive(p.getIsActive())
+                .createdAt(p.getCreatedAt())
+                .updatedAt(p.getUpdatedAt())
                 .build();
     }
 

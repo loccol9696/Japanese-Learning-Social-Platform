@@ -40,8 +40,9 @@ public class AuthServiceImpl implements AuthService {
 
     /** Cùng một thông báo cho "không có tài khoản" và "sai mật khẩu" để không lộ email nào đã đăng ký. */
     static final String INVALID_CREDENTIALS = "Email hoặc mật khẩu không chính xác";
-    static final String INACTIVE_ACCOUNT =
-            "Tài khoản chưa được kích hoạt hoặc đã bị khoá. Vui lòng xác thực email bằng mã OTP";
+    static final String INACTIVE_ACCOUNT = "Tài khoản chưa được kích hoạt. Vui lòng xác thực email bằng mã OTP";
+    static final String LOCKED_ACCOUNT = "Tài khoản của bạn đã bị khóa do vi phạm tiêu chuẩn cộng đồng";
+    private static final String ALREADY_ACTIVATED = "Tài khoản đã được kích hoạt, vui lòng đăng nhập";
     private static final String INVALID_OTP = "Mã OTP không đúng hoặc đã hết hạn. Vui lòng yêu cầu mã mới";
 
     private final UserRepository userRepository;
@@ -135,9 +136,7 @@ public class AuthServiceImpl implements AuthService {
         loginAttemptService.reset(identifier);
 
         User user = found.get();
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
-            throw new AppException(403, INACTIVE_ACCOUNT);
-        }
+        requireActive(user);
         return issueTokens(user);
     }
 
@@ -152,18 +151,16 @@ public class AuthServiceImpl implements AuthService {
         // 1. Đã từng đăng nhập bằng Google: tìm theo mã Google (bền hơn email).
         Optional<User> bySub = userRepository.findByGoogleSub(identity.sub());
         if (bySub.isPresent()) {
-            return issueTokensIfActive(bySub.get());
+            requireActive(bySub.get());
+            return issueTokens(bySub.get());
         }
 
         // 2. Email đã có tài khoản: liên kết với Google (Google đã xác minh email này).
         Optional<User> byEmail = userRepository.findByEmailIgnoreCase(email);
         if (byEmail.isPresent()) {
             User existing = byEmail.get();
-            // Tài khoản chưa kích hoạt có thể là chưa xác thực OTP hoặc bị admin khoá: không phân biệt
-            // được nên không liên kết, tránh vượt qua việc khoá tài khoản.
-            if (!Boolean.TRUE.equals(existing.getIsActive())) {
-                throw new AppException(403, INACTIVE_ACCOUNT);
-            }
+            // Tài khoản bị khóa hoặc chưa xác thực OTP thì không liên kết.
+            requireActive(existing);
             existing.setGoogleSub(identity.sub());
             if (existing.getAvatarUrl() == null || existing.getAvatarUrl().isBlank()) {
                 existing.setAvatarUrl(trimTo(identity.pictureUrl(), 500));
@@ -193,11 +190,22 @@ public class AuthServiceImpl implements AuthService {
         return issueTokens(created);
     }
 
-    private AuthResponse issueTokensIfActive(User user) {
+    /** 423 là bị khóa, 403 là chưa xác thực email: client chỉ mở màn nhập OTP cho trường hợp 403. */
+    private static void requireActive(User user) {
+        if (user.getLockedAt() != null) {
+            throw new AppException(423, LOCKED_ACCOUNT);
+        }
         if (!Boolean.TRUE.equals(user.getIsActive())) {
             throw new AppException(403, INACTIVE_ACCOUNT);
         }
-        return issueTokens(user);
+    }
+
+    /**
+     * OTP kích hoạt chỉ dành cho tài khoản chưa xác thực. Tài khoản bị khóa nhận cùng câu trả lời với tài
+     * khoản đã kích hoạt: OTP không mở được khóa, và người chỉ biết email không dò ra được ai đang bị khóa.
+     */
+    private static boolean cannotUseActivationOtp(User user) {
+        return Boolean.TRUE.equals(user.getIsActive()) || user.getLockedAt() != null;
     }
 
     /** Tên đăng nhập từ phần trước dấu @ của email; thêm số ngẫu nhiên nếu trùng. */
@@ -238,9 +246,7 @@ public class AuthServiceImpl implements AuthService {
         Long userId = refreshTokenService.consume(refreshToken);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(401, "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại"));
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
-            throw new AppException(403, INACTIVE_ACCOUNT);
-        }
+        requireActive(user);
         return issueTokens(user);
     }
 
@@ -256,8 +262,8 @@ public class AuthServiceImpl implements AuthService {
         String email = normalizeEmail(request.getEmail());
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new AppException(400, INVALID_OTP));
-        if (Boolean.TRUE.equals(user.getIsActive())) {
-            throw new AppException(409, "Tài khoản đã được kích hoạt, vui lòng đăng nhập");
+        if (cannotUseActivationOtp(user)) {
+            throw new AppException(409, ALREADY_ACTIVATED);
         }
 
         otpService.verify(OtpPurpose.VERIFY_EMAIL, email, request.getOtp());
@@ -272,8 +278,8 @@ public class AuthServiceImpl implements AuthService {
         String email = normalizeEmail(request.getEmail());
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new AppException(404, "Không tìm thấy tài khoản với email này"));
-        if (Boolean.TRUE.equals(user.getIsActive())) {
-            throw new AppException(409, "Tài khoản đã được kích hoạt, vui lòng đăng nhập");
+        if (cannotUseActivationOtp(user)) {
+            throw new AppException(409, ALREADY_ACTIVATED);
         }
         if (!sendOtp(OtpPurpose.VERIFY_EMAIL, email)) {
             throw new AppException(503, "Không gửi được email lúc này. Vui lòng thử lại sau");

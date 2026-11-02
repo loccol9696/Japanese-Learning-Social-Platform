@@ -218,11 +218,15 @@ class GrammarLookupCard extends StatelessWidget {
   final String sentence;
   final VoidCallback onClose;
 
+  /// Mở bảng báo cáo mẫu ngữ pháp; null thì ẩn nút báo cáo.
+  final VoidCallback? onReport;
+
   const GrammarLookupCard({
     super.key,
     required this.grammar,
     required this.sentence,
     required this.onClose,
+    this.onReport,
   });
 
   static const double _cardWidth = 288.0;
@@ -442,6 +446,35 @@ class GrammarLookupCard extends StatelessWidget {
               ),
             ),
           ],
+          if (onReport != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: InkWell(
+                onTap: onReport,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 8, 6, 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.flag_outlined,
+                        size: 15,
+                        color: AppPalette.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Báo cáo',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppPalette.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

@@ -229,7 +229,8 @@ class ApiClient {
       }
       return null;
     }
-    if (response.statusCode == 401 || response.statusCode == 403) {
+    // 423: tài khoản vừa bị khóa.
+    if (response.statusCode == 401 || response.statusCode == 403 || response.statusCode == 423) {
       await _expireSession();
     }
     return null;

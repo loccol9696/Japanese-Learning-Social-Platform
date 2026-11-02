@@ -195,6 +195,8 @@ class _SharedVideoScreenState extends State<SharedVideoScreen> {
                 if (mounted) _update((p) => p.copyWith(isFollowing: following));
               },
               onCommentTap: _openComments,
+              // Màn này chỉ có một video nên xóa xong thì quay lại màn trước.
+              onDeleted: () => Navigator.of(context).maybePop(),
             )
           else if (_loading)
             const Center(child: CircularProgressIndicator())

@@ -16,8 +16,8 @@ import java.util.List;
 
 public interface ReportRepository extends JpaRepository<Report, Long> {
 
-    boolean existsByReporterIdAndTargetTypeAndTargetIdAndStatus(
-            Long reporterId, ReportTargetType targetType, Long targetId, ReportStatus status);
+    boolean existsByReporterIdAndTargetTypeAndTargetIdAndTargetKeyAndStatus(
+            Long reporterId, ReportTargetType targetType, Long targetId, String targetKey, ReportStatus status);
 
     @EntityGraph(attributePaths = "reporter")
     Page<Report> findByStatus(ReportStatus status, Pageable pageable);
@@ -25,10 +25,11 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     @EntityGraph(attributePaths = "reporter")
     Page<Report> findByStatusAndTargetType(ReportStatus status, ReportTargetType targetType, Pageable pageable);
 
-    List<Report> findByTargetTypeAndTargetIdAndStatus(
-            ReportTargetType targetType, Long targetId, ReportStatus status);
+    List<Report> findByTargetTypeAndTargetIdAndTargetKeyAndStatus(
+            ReportTargetType targetType, Long targetId, String targetKey, ReportStatus status);
 
-    long countByTargetTypeAndTargetIdAndStatus(ReportTargetType targetType, Long targetId, ReportStatus status);
+    long countByTargetTypeAndTargetIdAndTargetKeyAndStatus(
+            ReportTargetType targetType, Long targetId, String targetKey, ReportStatus status);
 
     long countByStatus(ReportStatus status);
 

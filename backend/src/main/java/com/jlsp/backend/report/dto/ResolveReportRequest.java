@@ -1,6 +1,7 @@
 package com.jlsp.backend.report.dto;
 
 import com.jlsp.backend.report.entity.ReportAction;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -17,4 +18,8 @@ public class ResolveReportRequest {
 
     @Size(max = 500, message = "Ghi chú tối đa 500 ký tự")
     private String note;
+
+    /** Nội dung đã sửa; bắt buộc với EDIT_TRANSLATION và EDIT_GRAMMAR. */
+    @Valid
+    private ReportCorrection correction;
 }

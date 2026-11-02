@@ -76,12 +76,67 @@ void main() {
   test('mã lý do khớp enum của backend', () {
     expect(
       ReportReason.values.map((r) => r.code),
-      ['SPAM', 'INAPPROPRIATE', 'HARASSMENT', 'MISINFORMATION', 'COPYRIGHT', 'OTHER'],
+      ['SPAM', 'INAPPROPRIATE', 'HARASSMENT', 'MISINFORMATION', 'COPYRIGHT', 'INACCURATE', 'OTHER'],
     );
     expect(
       ReportTarget.values.map((t) => t.name.toUpperCase()),
-      ['VIDEO', 'COMMENT', 'USER'],
+      ['VIDEO', 'COMMENT', 'USER', 'MESSAGE', 'TRANSLATION', 'GRAMMAR', 'SCRIPT'],
     );
+  });
+
+  test('báo cáo câu thoại script gửi kèm vị trí câu', () async {
+    useServer((_) => _json(201, {'status': 201, 'data': {}}));
+
+    await ReportService().submit(
+      target: ReportTarget.script,
+      targetId: 12,
+      reason: ReportReason.inaccurate,
+      segmentIndex: 2,
+      detail: 'Sửa thành: こんにちは',
+    );
+
+    expect(jsonDecode(requests.single.body), {
+      'targetType': 'SCRIPT',
+      'targetId': 12,
+      'reason': 'INACCURATE',
+      'segmentIndex': 2,
+      'detail': 'Sửa thành: こんにちは',
+    });
+  });
+
+  test('báo cáo ngữ pháp gửi kèm vị trí câu và mẫu ngữ pháp', () async {
+    useServer((_) => _json(201, {'status': 201, 'data': {}}));
+
+    await ReportService().submit(
+      target: ReportTarget.grammar,
+      targetId: 9,
+      reason: ReportReason.inaccurate,
+      segmentIndex: 0,
+      grammarPattern: '〜ている',
+    );
+
+    expect(jsonDecode(requests.single.body), {
+      'targetType': 'GRAMMAR',
+      'targetId': 9,
+      'reason': 'INACCURATE',
+      'segmentIndex': 0,
+      'grammarPattern': '〜ている',
+    });
+  });
+
+  test('đọc kết quả báo cáo từ đúng địa chỉ', () async {
+    useServer((_) => _json(200, {
+          'status': 200,
+          'data': {'status': 'DISMISSED', 'outcome': 'Không phát hiện vi phạm', 'targetType': 'VIDEO'},
+        }));
+
+    final result = await ReportService().fetchResult(30);
+
+    expect(requests.single.method, 'GET');
+    expect(requests.single.url.toString(), ApiConstants.reportResultUrl(30));
+    expect(result.status, ReportResultStatus.dismissed);
+    expect(result.outcome, 'Không phát hiện vi phạm');
+    expect(result.targetLabel, 'Video');
   });
 
   test('ném ApiException với thông điệp của server khi báo cáo trùng', () async {
