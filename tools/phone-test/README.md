@@ -42,7 +42,18 @@
 
 - Máy tính phải bật, backend và ngrok phải chạy suốt lúc test. Điện thoại chỉ cần có Internet, không cần cùng Wi-Fi.
 - **Đăng nhập Google** trên Android cần tạo thêm OAuth client loại *Android* trong Google Cloud (package
-  `com.example.frontend`, kèm SHA-1 của khoá ký APK). Chưa làm thì dùng đăng nhập bằng email.
+  `com.example.frontend`, kèm SHA-1 của khoá ký APK). Lỗi dạng `28444`, `clientConfigurationError`
+  hoặc tự quay về sau khi chọn tài khoản thường là do thiếu/sai client này. Với script build hiện tại,
+  APK release vẫn dùng debug keystore; lấy SHA-1 bằng:
+
+  ```powershell
+  cd frontend\android
+  .\gradlew.bat signingReport
+  ```
+
+  Trong Google Cloud, tạo OAuth client **Android** với package đúng như trên và SHA-1 ở mục
+  `Variant: release`. Sau đó build/cài lại APK. Nếu dùng keystore phát hành riêng, phải đăng ký
+  SHA-1 của keystore đó thay cho debug SHA-1.
 - APK ký bằng khoá debug, chỉ để test, không dùng để phát hành.
 - `start-tunnel.ps1` tự chọn `--url` (ngrok từ 3.16) hoặc `--domain` (bản cũ hơn, ví dụ 3.3.x do winget cài). Muốn bản mới thì chạy `ngrok update`.
 - Gửi email OTP vẫn dùng Gmail theo `MAIL_USERNAME` / `MAIL_PASSWORD` trong `backend\.env`.

@@ -301,6 +301,30 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Future<void> _onNavTabSelected(int index) async {
+    // Nhấn lại vào tab Trang chủ khi đang ở Trang chủ -> cuộn lên đầu và làm mới video
+    if (index == 0 && _currentNavIndex == 0) {
+      RubySubtitleWidget.dismissLookups();
+      final feedController = _currentFeedTab == FeedTab.forYou
+          ? _forYouFeedPageController
+          : _followingFeedPageController;
+      if (feedController.hasClients) {
+        final currentPost = feedController.page?.round() ?? 0;
+        if (currentPost > 0) {
+          if (currentPost > 2) {
+            feedController.jumpToPage(0);
+          } else {
+            feedController.animateToPage(
+              0,
+              duration: AppMotion.page,
+              curve: AppMotion.pageCurve,
+            );
+          }
+        }
+      }
+      await _loadFeed(_currentFeedTab);
+      return;
+    }
+
     // Mọi tab trừ Trang chủ đều cần đăng nhập.
     if (index >= 1) {
       final authenticated = await _requestAuthenticationAndGetResult();

@@ -85,6 +85,20 @@ public class VideoServiceImpl implements VideoService {
     /** Một người xem chỉ được tính một lượt xem cho mỗi video trong khoảng này. */
     static final java.time.Duration VIEW_DEDUP_WINDOW = java.time.Duration.ofMinutes(30);
 
+    private static final java.util.regex.Pattern JAPANESE_CHAR_PATTERN =
+            java.util.regex.Pattern.compile("[\\u3040-\\u309F\\u30A0-\\u30FF\\u4E00-\\u9FAF\\uFF65-\\uFF9F]");
+
+    private void validateJapaneseSubtitles(String subtitles, VideoStatus status) {
+        if (status == VideoStatus.DRAFT) {
+            return;
+        }
+        if (subtitles != null && !subtitles.isBlank()) {
+            if (!JAPANESE_CHAR_PATTERN.matcher(subtitles).find()) {
+                throw new AppException(400, "Phụ đề bài học phải chứa ký tự tiếng Nhật (Hiragana, Katakana hoặc Kanji)");
+            }
+        }
+    }
+
     /**
      * Đăng tải bài học video mới.
      * Khởi tạo các số liệu thống kê ban đầu (0 view, 0 like, 0 save).
@@ -93,6 +107,7 @@ public class VideoServiceImpl implements VideoService {
     @Transactional
     public VideoDetailResponse createVideo(Long currentUserId, CreateVideoRequest request) {
         log.info("Bắt đầu tạo video mới bởi user ID: {}", currentUserId);
+        validateJapaneseSubtitles(request.getSubtitles(), request.getStatus());
 
         // 1. Tìm thông tin Creator
         User creator = userRepository.findById(currentUserId)
@@ -182,6 +197,7 @@ public class VideoServiceImpl implements VideoService {
         }
         boolean subtitlesChanged = false;
         if (request.getSubtitles() != null) {
+            validateJapaneseSubtitles(request.getSubtitles(), request.getStatus() != null ? request.getStatus() : video.getStatus());
             String trimmedSub = request.getSubtitles().trim();
             String normalizedSub = trimmedSub.isEmpty() ? null : trimmedSub;
             subtitlesChanged = !java.util.Objects.equals(normalizedSub, video.getSubtitles());
@@ -584,6 +600,7 @@ public class VideoServiceImpl implements VideoService {
 
         // Chủ sở hữu, admin hoặc moderator có quyền nạp/chỉnh sửa phụ đề
         validateSubtitleEditAccess(video, currentUserId);
+        validateJapaneseSubtitles(subtitlesJson, video.getStatus());
 
         video.setSubtitles(subtitlesJson);
         // Subtitles đổi -> kết quả phân tích cũ không còn đúng, xoá và phân tích lại

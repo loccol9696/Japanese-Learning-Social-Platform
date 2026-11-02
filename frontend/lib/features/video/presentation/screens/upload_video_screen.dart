@@ -480,6 +480,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
     const notes = [
       'Độ dài tối ưu dưới 60 giây giúp ghi nhớ ngắt quãng (SRS) hiệu quả hơn.',
       'Phụ đề và Furigana được tạo tự động sau khi tải lên.',
+      'Video bài học cần có lời thoại hoặc phụ đề tiếng Nhật (Hiragana, Katakana, Kanji).',
       'Tuân thủ bản quyền và tiêu chuẩn cộng đồng.',
     ];
 
@@ -655,7 +656,11 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   bool _isManualSubtitleMode = false;
   bool _isAnalyzingGrammar = false;
   bool _allowPop = false;
+  String? _sttErrorMessage;
   String? _lastAnalyzedSignature;
+
+  static final _japaneseCharPattern =
+      RegExp(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uFF65-\uFF9F]');
 
   String _currentJapaneseSignature() => _subtitles
       .map((s) => s.japanese.text.trim())
@@ -774,7 +779,10 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
 
   Future<void> _loadAiSubtitles(String taskId) async {
     if (mounted) {
-      setState(() => _isTranscribing = true);
+      setState(() {
+        _isTranscribing = true;
+        _sttErrorMessage = null;
+      });
     }
 
     try {
@@ -812,6 +820,7 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
                 _lastAnalyzedSignature = null;
                 _isTranscribing = false;
                 _isManualSubtitleMode = false;
+                _sttErrorMessage = null;
               });
               _showMessage('Đã tạo phụ đề thành công (${drafts.length} đoạn)!');
             }
@@ -826,19 +835,29 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
       throw Exception('AI xử lý quá lâu, bạn có thể nhập phụ đề thủ công.');
     } catch (error) {
       if (mounted) {
-        setState(() => _isTranscribing = false);
-        _showMessage(error.toString().replaceFirst('Exception: ', ''));
+        final errText = error.toString().replaceFirst('Exception: ', '');
+        setState(() {
+          _isTranscribing = false;
+          _sttErrorMessage = errText;
+        });
+        _showMessage(errText);
       }
     }
   }
 
   void _addManualSubtitle() {
+    final lastEnd = _subtitles.isNotEmpty ? _subtitles.last.end : '00:00';
+    final nextStart = lastEnd.isNotEmpty ? lastEnd : '00:00';
+    final startSec = _parseTimeToSeconds(nextStart);
+    final maxSec = widget.duration > 0 ? widget.duration.toDouble() : 300.0;
+    final endSec = (startSec + 5.0).clamp(0.0, maxSec);
     setState(() {
       _isManualSubtitleMode = true;
+      _sttErrorMessage = null;
       _subtitles.add(
         _SubtitleDraft(
-          start: '00:00',
-          end: _formatTimestamp(widget.duration.clamp(1, 5).toDouble()),
+          start: nextStart,
+          end: _formatTimestamp(endSec > startSec ? endSec : startSec + 3),
         ),
       );
     });
@@ -846,7 +865,10 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
 
   Future<void> _startAiSubtitleGeneration() async {
     var taskId = widget.aiTaskId;
-    setState(() => _isManualSubtitleMode = false);
+    setState(() {
+      _isManualSubtitleMode = false;
+      _sttErrorMessage = null;
+    });
     if (taskId == null || taskId.isEmpty) {
       if (widget.videoUrl.isEmpty) {
         _showMessage('Video chưa có tác vụ AI để tạo phụ đề.');
@@ -865,13 +887,22 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
         taskId = map?['taskId']?.toString();
       } catch (e) {
         if (mounted) {
-          setState(() => _isTranscribing = false);
-          _showMessage(e.toString().replaceFirst('Exception: ', ''));
+          final errText = e.toString().replaceFirst('Exception: ', '');
+          setState(() {
+            _isTranscribing = false;
+            _sttErrorMessage = errText;
+          });
+          _showMessage(errText);
         }
         return;
       }
       if (taskId == null || taskId.isEmpty) {
-        if (mounted) setState(() => _isTranscribing = false);
+        if (mounted) {
+          setState(() {
+            _isTranscribing = false;
+            _sttErrorMessage = 'Không thể khởi động AI tạo phụ đề.';
+          });
+        }
         _showMessage('Không thể khởi động AI tạo phụ đề.');
         return;
       }
@@ -1036,6 +1067,17 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             : 'AI đang tạo phụ đề, vui lòng đợi xong rồi thực hiện.',
       );
       return;
+    }
+
+    if (!asDraft && _subtitles.isNotEmpty) {
+      final allJapaneseText = _subtitles
+          .map((s) => s.japanese.text.trim())
+          .where((t) => t.isNotEmpty)
+          .join('');
+      if (allJapaneseText.isNotEmpty && !_japaneseCharPattern.hasMatch(allJapaneseText)) {
+        _showMessage('Phụ đề bài học phải chứa ký tự tiếng Nhật (Hiragana, Katakana hoặc Kanji).');
+        return;
+      }
     }
 
     setState(() => _isSubmitting = true);
@@ -1271,6 +1313,8 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             _buildSubtitleModeSelector(),
             const SizedBox(height: 12),
           ],
+          if (_sttErrorMessage != null && !_isTranscribing)
+            _buildSttErrorBanner(),
           if (_isTranscribing || _isAnalyzingGrammar)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -1488,6 +1532,79 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
   /// Chủ đề đang hiển thị cộng chủ đề bản nháp đã gắn, để người đăng bỏ được cả chủ đề admin vừa ẩn.
   List<TopicModel> get _selectableTopics => {..._topics, ..._attachedTopics}.toList();
 
+  Widget _buildSttErrorBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppPalette.errorContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppPalette.error.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.error_outline_rounded, color: AppPalette.error, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Không thể tạo phụ đề bằng AI',
+                      style: TextStyle(
+                        color: AppPalette.error,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _sttErrorMessage ?? '',
+                      style: TextStyle(
+                        color: AppPalette.textPrimary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: _startAiSubtitleGeneration,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Thử lại', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  foregroundColor: AppPalette.error,
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.tonalIcon(
+                onPressed: _addManualSubtitle,
+                icon: const Icon(Icons.edit_note_rounded, size: 16),
+                label: const Text('Tự nhập phụ đề', style: TextStyle(fontSize: 12)),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSubtitleModeSelector() {
     final aiAvailable = (widget.aiTaskId?.isNotEmpty == true) || widget.videoUrl.isNotEmpty;
     return Container(
@@ -1621,6 +1738,20 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             ],
           ),
           if (subtitle.editing) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _timeInput(subtitle.startController, 'Bắt đầu (mm:ss)'),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _timeInput(subtitle.endController, 'Kết thúc (mm:ss)'),
+                  ),
+                ],
+              ),
+            ),
             _subtitleInput(subtitle.japanese, 'Tiếng Nhật'),
             _subtitleInput(subtitle.translation, 'Bản dịch'),
             Align(
@@ -1706,6 +1837,24 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _timeInput(TextEditingController controller, String label) {
+    return TextField(
+      controller: controller,
+      onChanged: (_) => setState(() {}),
+      style: TextStyle(color: AppPalette.textPrimary, fontSize: 13),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: AppPalette.textSecondary, fontSize: 12),
+        prefixIcon: Icon(Icons.access_time, size: 15, color: AppPalette.textSecondary),
+        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        isDense: true,
+        filled: true,
+        fillColor: AppPalette.background,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       ),
     );
   }
@@ -1802,26 +1951,36 @@ class _PublishVideoScreenState extends State<PublishVideoScreen> {
 }
 
 class _SubtitleDraft {
-  final String start;
-  final String end;
+  final startController = TextEditingController();
+  final endController = TextEditingController();
   final japanese = TextEditingController();
   final translation = TextEditingController();
   bool editing;
   List<_GrammarDraft> grammarPoints;
 
+  String get start => startController.text.trim();
+  set start(String val) => startController.text = val;
+
+  String get end => endController.text.trim();
+  set end(String val) => endController.text = val;
+
   _SubtitleDraft({
-    required this.start,
-    required this.end,
+    required String start,
+    required String end,
     String japaneseText = '',
     String translationText = '',
     this.editing = true,
     List<_GrammarDraft>? grammarPoints,
   }) : grammarPoints = grammarPoints ?? [] {
+    startController.text = start;
+    endController.text = end;
     japanese.text = japaneseText;
     translation.text = translationText;
   }
 
   void dispose() {
+    startController.dispose();
+    endController.dispose();
     japanese.dispose();
     translation.dispose();
   }
